@@ -1,0 +1,17 @@
+[project]
+name = "futsal"
+version = "0.0.1"
+description = "Asistente agéntico sobre competiciones deportivas (monolito modular)"
+requires-python = ">=3.12"
+dependencies = []
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
