@@ -35,6 +35,12 @@ Activos hoy: httpx, pydantic (+ Postgres en Compose, sin uso aún).
   El original se guarda en `status_raw`.
 - Se excluye el nombre del árbitro (dato personal innecesario).
 
+## Objetivo vigente (confirmado)
+temporada=22, competicion=26738243, grupo=26738245, tipojuego=3, jornada inicial=2.
+Definido en `src/futsal/config/targets.py` (valores por defecto de la CLI).
+Referencia histórica: ninguna distinta registrada en el repo; el "26" inicial era
+un error por la jornada (la correcta es 2).
+
 ## Fase completada
 Fase 1: corte vertical RFFM jornada 2 (grupo 2, 1ª Autonómica Aficionado FS 2026-27):
 descarga → snapshot → parser → modelo normalizado → JSON. 7 partidos, todos finalizados.

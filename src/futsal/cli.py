@@ -4,17 +4,17 @@ import argparse
 import re
 from pathlib import Path
 
+from futsal.config.targets import RFFM_INITIAL_ROUND, RFFM_TARGET
 from futsal.ingestion.rffm.client import read_or_fetch, round_url
 from futsal.ingestion.rffm.export import write_json
 from futsal.ingestion.rffm.parser import RffmParseError, parse_round
 
-DEFAULTS = {"season": "22", "competition": "26738243", "group": "26738245", "game_type": "3"}
 SNAPSHOT_DIR = Path("data/raw/rffm")
 
 
 def _common(p: argparse.ArgumentParser) -> None:
-    p.add_argument("--round", type=int, required=True)
-    for key, value in DEFAULTS.items():
+    p.add_argument("--round", type=int, default=RFFM_INITIAL_ROUND)
+    for key, value in RFFM_TARGET.items():
         p.add_argument(f"--{key.replace('_', '-')}", default=value)
     p.add_argument("--refresh", action="store_true", help="forzar nueva descarga")
     p.add_argument("--snapshot-dir", type=Path, default=SNAPSHOT_DIR)
