@@ -41,24 +41,28 @@ Definido en `src/futsal/config/targets.py` (valores por defecto de la CLI).
 Referencia histórica: ninguna distinta registrada en el repo; el "26" inicial era
 un error por la jornada (la correcta es 2).
 
-## Fase completada
-Fase 1: corte vertical RFFM jornada 2 (grupo 2, 1ª Autonómica Aficionado FS 2026-27):
-descarga → snapshot → parser → modelo normalizado → JSON. 7 partidos, todos finalizados.
-Campos encontrados: ids de partido/equipos/campo, nombres, marcadores, fecha, hora, campo, estado.
+## Fases completadas
+Fase 1: corte vertical RFFM jornada 2 (7 partidos finalizados).
+Fase 2: descarga de las 26 jornadas (`src/futsal/ingestion/rffm/league.py`, `PoliteFetcher` en
+`client.py`): 182 partidos (13 finalizados, 169 programados), 0 duplicados, 0 incidencias,
+26 peticiones reales; segunda ejecución 100% caché. Jornadas descubiertas en
+`pageProps.rounds.jornadas`; ID técnico (`codjornada`) separado de la etiqueta visible.
+Salidas en `data/rffm/` (ignorado); resumen versionado en `examples/league-summary.example.json`.
 
 ## Comandos esenciales
 - `pip install -e '.[dev]'`
 - `python3 -m futsal.cli inspect-rffm --round 2`
 - `python3 -m futsal.cli scrape-round --round 2 --output data/round-2.json` (`--refresh` redescarga)
+- `python3 -m futsal.cli list-rounds` / `scrape-league [--resume|--refresh|--max-rounds N]`
 - `python3 -m pytest -q`, `ruff check .`, `python3 -m mypy`
 - `docker compose config -q`
 
 ## Limitaciones conocidas
 - La página no da URL de acta ni de comparador: `match_report_url`/`comparison_url` = null.
-- Solo se observó el estado `1`; códigos de aplazado/suspendido/anulado sin verificar.
-- Sin persistencia, API, MCP, KB ni agente. Una sola jornada por ejecución.
+- Estado `postponed/suspended/cancelled` sin observar aún; la jornada 1 tiene un partido con `estado=0`.
+- Sin persistencia, API, MCP, KB ni agente. Ningún enlace de acta visitado.
 - La CLI real es `python -m futsal.cli` (el paquete es `futsal`, no `src`).
 
 ## Próxima fase (recomendada)
-Fase 2: abrir una acta (`appweb.rffm.es`, dominio aún no autorizado) para obtener URL de acta
-y detalle, o recorrer todas las jornadas con snapshots y pausa entre peticiones.
+Fase 3: persistencia en PostgreSQL de `league.json`, o acceso controlado a actas (`appweb.rffm.es`,
+dominio aún no autorizado).

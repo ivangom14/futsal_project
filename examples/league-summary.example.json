@@ -1,0 +1,179 @@
+{
+  "duplicate_match_ids": [],
+  "failed_rounds": {},
+  "finished_at": "2026-10-04T21:49:05.089712+00:00",
+  "http_requests": 24,
+  "matches_cancelled": 0,
+  "matches_finished": 13,
+  "matches_postponed": 0,
+  "matches_scheduled": 169,
+  "matches_suspended": 0,
+  "matches_total": 182,
+  "matches_unknown": 0,
+  "quality_issues": [],
+  "rounds": [
+    {
+      "external_round_id": "1",
+      "matches": 7,
+      "scheduled_date": "2026-09-26",
+      "visible_round_label": "1"
+    },
+    {
+      "external_round_id": "2",
+      "matches": 7,
+      "scheduled_date": "2026-10-03",
+      "visible_round_label": "2"
+    },
+    {
+      "external_round_id": "3",
+      "matches": 7,
+      "scheduled_date": "2026-10-10",
+      "visible_round_label": "3"
+    },
+    {
+      "external_round_id": "4",
+      "matches": 7,
+      "scheduled_date": "2026-10-17",
+      "visible_round_label": "4"
+    },
+    {
+      "external_round_id": "5",
+      "matches": 7,
+      "scheduled_date": "2026-10-24",
+      "visible_round_label": "5"
+    },
+    {
+      "external_round_id": "6",
+      "matches": 7,
+      "scheduled_date": "2026-10-31",
+      "visible_round_label": "6"
+    },
+    {
+      "external_round_id": "7",
+      "matches": 7,
+      "scheduled_date": "2026-11-07",
+      "visible_round_label": "7"
+    },
+    {
+      "external_round_id": "8",
+      "matches": 7,
+      "scheduled_date": "2026-11-14",
+      "visible_round_label": "8"
+    },
+    {
+      "external_round_id": "9",
+      "matches": 7,
+      "scheduled_date": "2026-11-21",
+      "visible_round_label": "9"
+    },
+    {
+      "external_round_id": "10",
+      "matches": 7,
+      "scheduled_date": "2026-11-28",
+      "visible_round_label": "10"
+    },
+    {
+      "external_round_id": "11",
+      "matches": 7,
+      "scheduled_date": "2026-12-12",
+      "visible_round_label": "11"
+    },
+    {
+      "external_round_id": "12",
+      "matches": 7,
+      "scheduled_date": "2026-12-19",
+      "visible_round_label": "12"
+    },
+    {
+      "external_round_id": "13",
+      "matches": 7,
+      "scheduled_date": "2027-01-09",
+      "visible_round_label": "13"
+    },
+    {
+      "external_round_id": "14",
+      "matches": 7,
+      "scheduled_date": "2027-01-16",
+      "visible_round_label": "14"
+    },
+    {
+      "external_round_id": "15",
+      "matches": 7,
+      "scheduled_date": "2027-01-23",
+      "visible_round_label": "15"
+    },
+    {
+      "external_round_id": "16",
+      "matches": 7,
+      "scheduled_date": "2027-01-30",
+      "visible_round_label": "16"
+    },
+    {
+      "external_round_id": "17",
+      "matches": 7,
+      "scheduled_date": "2027-02-06",
+      "visible_round_label": "17"
+    },
+    {
+      "external_round_id": "18",
+      "matches": 7,
+      "scheduled_date": "2027-02-13",
+      "visible_round_label": "18"
+    },
+    {
+      "external_round_id": "19",
+      "matches": 7,
+      "scheduled_date": "2027-02-20",
+      "visible_round_label": "19"
+    },
+    {
+      "external_round_id": "20",
+      "matches": 7,
+      "scheduled_date": "2027-02-27",
+      "visible_round_label": "20"
+    },
+    {
+      "external_round_id": "21",
+      "matches": 7,
+      "scheduled_date": "2027-03-06",
+      "visible_round_label": "21"
+    },
+    {
+      "external_round_id": "22",
+      "matches": 7,
+      "scheduled_date": "2027-04-03",
+      "visible_round_label": "22"
+    },
+    {
+      "external_round_id": "23",
+      "matches": 7,
+      "scheduled_date": "2027-04-10",
+      "visible_round_label": "23"
+    },
+    {
+      "external_round_id": "24",
+      "matches": 7,
+      "scheduled_date": "2027-04-17",
+      "visible_round_label": "24"
+    },
+    {
+      "external_round_id": "25",
+      "matches": 7,
+      "scheduled_date": "2027-04-24",
+      "visible_round_label": "25"
+    },
+    {
+      "external_round_id": "26",
+      "matches": 7,
+      "scheduled_date": "2027-05-15",
+      "visible_round_label": "26"
+    }
+  ],
+  "rounds_discovered": 26,
+  "rounds_downloaded": 24,
+  "rounds_failed": 0,
+  "rounds_from_cache": 2,
+  "rounds_selected": 26,
+  "run_notes": "Valores de la ejecución completa (--resume): 24 descargas tras 2 jornadas previas del control --max-rounds 2 (26 peticiones reales en total). Una tercera ejecución sin --refresh hizo 0 peticiones y 26 jornadas desde caché.",
+  "started_at": "2026-10-04T21:49:04.808519+00:00"
+}
