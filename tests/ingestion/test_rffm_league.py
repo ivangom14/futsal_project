@@ -197,3 +197,24 @@ def test_cli_list_rounds_uses_cache(tmp_path: Path, capsys: pytest.CaptureFixtur
     (tmp_path / "rounds" / "2.html").write_text(pages()["10"], encoding="utf-8")
     assert main(["list-rounds", "--output", str(tmp_path)]) == 0
     assert "4 jornadas" in capsys.readouterr().out
+
+
+def test_delay_applies_between_real_requests_only(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    html = pages()
+
+    def fake_fetch(url: str, timeout: float = 30.0) -> str:
+        return str(html[url.split("jornada=")[1].split("&")[0]])
+
+    monkeypatch.setattr(client, "fetch_html", fake_fetch)
+    sleeps: list[float] = []
+    fetcher = PoliteFetcher(delay=2.0, sleep=sleeps.append)
+    s = scrape_league(T, tmp_path, fetcher, "20", now=lambda: NOW, requests_made=lambda: fetcher.requests)
+    # N peticiones reales -> N-1 pausas de `delay`; sin esperas reales (sleep simulado)
+    assert s["http_requests"] == fetcher.requests > 1
+    assert sleeps == [2.0] * (fetcher.requests - 1)
+    sleeps.clear()
+    before = fetcher.requests
+    scrape_league(T, tmp_path, fetcher, "20", now=lambda: NOW, requests_made=lambda: fetcher.requests)
+    assert fetcher.requests == before and sleeps == []  # lecturas de caché: ni petición ni pausa

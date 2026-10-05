@@ -174,6 +174,6 @@
   "rounds_failed": 0,
   "rounds_from_cache": 2,
   "rounds_selected": 26,
-  "run_notes": "Valores de la ejecución completa (--resume): 24 descargas tras 2 jornadas previas del control --max-rounds 2 (26 peticiones reales en total). Una tercera ejecución sin --refresh hizo 0 peticiones y 26 jornadas desde caché.",
+  "run_notes": "Contadores (24 descargas, 2 de caché, 24 peticiones) de la ejecución completa con --resume, tras 2 jornadas previas del control --max-rounds 2 (26 peticiones reales en total, ~91 s con pausa de 2 s). ATENCIÓN: started_at/finished_at (~0,28 s) pertenecen a una tercera ejecución solo de caché (0 peticiones) que sobrescribió scrape-summary.json; no miden la descarga.",
   "started_at": "2026-10-04T21:49:04.808519+00:00"
 }
