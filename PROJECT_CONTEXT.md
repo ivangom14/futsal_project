@@ -12,7 +12,7 @@ determinista de reglas y agente orquestador. Detalle: `docs/architecture.md`.
 ## Tecnologías
 Python 3.11+ (entorno actual 3.11), FastAPI, PostgreSQL + pgvector, SQLAlchemy 2,
 Alembic, Pydantic, httpx, pytest, ruff, mypy, Docker Compose.
-Activos hoy: httpx, pydantic (+ Postgres en Compose, sin uso aún).
+Activos hoy: httpx, pydantic, SQLAlchemy 2 (síncrono), Alembic, psycopg 3, PostgreSQL 16.4 (Compose).
 
 ## Estructura del repositorio
 - `src/futsal/{domain,ingestion,repositories,api,mcp_server,knowledge,rules,agent,config}`
@@ -49,20 +49,28 @@ Fase 2: descarga de las 26 jornadas (`src/futsal/ingestion/rffm/league.py`, `Pol
 `pageProps.rounds.jornadas`; ID técnico (`codjornada`) separado de la etiqueta visible.
 Salidas en `data/rffm/` (ignorado); resumen versionado en `examples/league-summary.example.json`.
 
+Fase 3: PostgreSQL (`docker-compose.yml`, `.env.example`, Alembic `alembic/`, migración 0001), modelo en
+`src/futsal/db/models.py`, importador en `src/futsal/importer/` (schema→transform→service) y
+`repositories/league.py`. CLI: `preview-import`, `import-league [--dry-run] [--fail-on-quality-issues]`,
+`db-summary`. Importación completa verificada: 1/1/1 temporada/competición/grupo, 26 jornadas, 14 equipos,
+182 partidos, 182 observaciones; reimportación 0 cambios. Detalle: `docs/data-model.md`.
+Ejemplos: `examples/import-preview.txt`, `examples/db-summary.example.json`.
+Tests de integración usan una BD temporal `futsal_test_*` en el PostgreSQL de Compose (se omiten sin él).
+
 ## Comandos esenciales
 - `pip install -e '.[dev]'`
 - `python3 -m futsal.cli inspect-rffm --round 2`
 - `python3 -m futsal.cli scrape-round --round 2 --output data/round-2.json` (`--refresh` redescarga)
 - `python3 -m futsal.cli list-rounds` / `scrape-league [--resume|--refresh|--max-rounds N]`
 - `python3 -m pytest -q`, `ruff check .`, `python3 -m mypy`
-- `docker compose config -q`
+- `docker compose config -q`; `docker compose up -d --wait db && alembic upgrade head`
+- `python3 -m futsal.cli preview-import|import-league|db-summary` (ver README)
 
 ## Limitaciones conocidas
 - La página no da URL de acta ni de comparador: `match_report_url`/`comparison_url` = null.
 - Estado `postponed/suspended/cancelled` sin observar aún; la jornada 1 tiene un partido con `estado=0`.
-- Sin persistencia, API, MCP, KB ni agente. Ningún enlace de acta visitado.
+- Sin API, MCP, KB, agente, actas, jugadores ni clasificaciones. Ningún enlace de acta visitado.
 - La CLI real es `python -m futsal.cli` (el paquete es `futsal`, no `src`).
 
 ## Próxima fase (recomendada)
-Fase 3: persistencia en PostgreSQL de `league.json`, o acceso controlado a actas (`appweb.rffm.es`,
-dominio aún no autorizado).
+Acceso controlado a actas (`appweb.rffm.es`, dominio aún no autorizado) o API REST de solo lectura.

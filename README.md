@@ -18,3 +18,19 @@ carga el JSON de las jornadas completadas. Una jornada fallida no afecta al rest
 solo se guardan tras validar temporada, competición, grupo, tipo de juego y jornada.
 
 Pruebas: `python3 -m pytest -q`, `ruff check .`, `python3 -m mypy` (sin acceso a Internet).
+
+## PostgreSQL e importación (Fase 3)
+```
+cp .env.example .env                 # ajustar contraseña (ignorado por Git)
+docker compose up -d --wait db       # PostgreSQL 16.4 con healthcheck y volumen
+alembic upgrade head                 # crea tablas
+python3 -m futsal.cli preview-import --input data/rffm/league.json --output examples/import-preview.txt
+python3 -m futsal.cli import-league --input data/rffm/league.json [--dry-run] [--fail-on-quality-issues]
+python3 -m futsal.cli db-summary [--output examples/db-summary.example.json]
+```
+- **preview-import**: solo lee el JSON, no usa PostgreSQL; escribe un TXT con ejemplos.
+- **--dry-run**: ejecuta la importación real en una transacción que se descarta (necesita BD, no persiste nada ni registra ejecución).
+- **import-league**: persiste, registra `ingestion_runs` y crea observaciones.
+- Destruir y recrear la BD de desarrollo: `docker compose down -v && docker compose up -d --wait db && alembic upgrade head`.
+- Pruebas de integración (BD temporal `futsal_test_*` creada y eliminada en el mismo servidor): `python3 -m pytest -q` (se omiten si no hay PostgreSQL).
+- Detalle del modelo: `docs/data-model.md`.

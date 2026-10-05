@@ -1,0 +1,60 @@
+IMPORTACIÓN PREVISTA
+====================
+
+ORIGEN
+Temporada externa: 22
+Competición externa: 26738243
+Grupo externo: 26738245
+
+TABLA seasons
+-------------
+external_id | source | name
+22          | rffm   | null
+
+TABLA competitions
+------------------
+external_id | season_external_id | name
+26738243    | 22                 | PRIMERA DIVISION AUTONOMICA AFICIONADO FS
+
+TABLA competition_groups
+------------------------
+external_id | competition_external_id | name
+26738245    | 26738243                | Grupo 2
+
+TABLA rounds
+------------
+external_id | visible_label | scheduled_date
+1           | 1             | 2026-09-26
+2           | 2             | 2026-10-03
+
+TABLA teams
+-----------
+external_id | name
+21476534    | AGRUPACION AUTO-ESCUELA SIMANCAS 'B'
+26748522    | AGRUPACION DEPORTIVA COLEGIO CALASANCIO 'A'
+19068192    | PARQUE NORTE F.S. - RODILLITO 'B'
+
+TABLA matches
+-------------
+external_id | round | home                                 | away                                        | score | status
+5575697     | 1     | PARQUE NORTE F.S. - RODILLITO 'B'    | C.D. LOPE DE VEGA 'B'                       | 3-4   | finished
+5575696     | 1     | AGRUPACION AUTO-ESCUELA SIMANCAS 'B' | AGRUPACION DEPORTIVA COLEGIO CALASANCIO 'A' | null  | scheduled
+5575709     | 2     | A. D. OBISPO PERELLO 'B'             | C.D. DOSA                                   | 3-4   | finished
+
+TABLA match_observations
+------------------------
+match_external_id | status    | score | content_hash
+5575697           | finished  | 3-4   | 95079d4e20d15bee…
+5575696           | scheduled | null  | 23fac8b9149cc8a2…
+5575709           | finished  | 3-4   | 57c1aabbf29532bc…
+
+RECUENTOS ESPERADOS
+-------------------
+seasons: 1
+competitions: 1
+groups: 1
+rounds: 2
+teams: 14
+matches: 14
+observations iniciales: 14
+incidencias de calidad: 0

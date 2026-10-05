@@ -1,0 +1,15 @@
+{
+  "competiciones": 1,
+  "ejecuciones_importacion": 2,
+  "equipos": 14,
+  "grupos": 1,
+  "incidencias": 0,
+  "jornadas": 26,
+  "observaciones": 182,
+  "partidos": 182,
+  "partidos_por_estado": {
+    "finished": 13,
+    "scheduled": 169
+  },
+  "temporadas": 1
+}

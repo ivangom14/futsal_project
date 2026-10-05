@@ -68,6 +68,43 @@ def _league(args: argparse.Namespace) -> int:
     return 1 if s["rounds_failed"] else 0
 
 
+def _db_commands(args: argparse.Namespace) -> int:
+    import json
+
+    from sqlalchemy.exc import SQLAlchemyError
+
+    from futsal.db.session import make_engine
+    from futsal.importer.schema import InputError
+    from futsal.importer.service import run_import
+    from futsal.importer.summary import db_summary
+
+    try:
+        if args.command == "preview-import":
+            from futsal.importer.preview import write_preview
+
+            plan = write_preview(args.input, args.output)
+            print(f"vista previa -> {args.output}: jornadas={len(plan.rounds)} "
+                  f"partidos={len(plan.matches)} equipos={len(plan.teams)} "
+                  f"incidencias={len(plan.issues)}")
+            return 0
+        engine = make_engine()
+        if args.command == "import-league":
+            report = run_import(engine, args.input, dry_run=args.dry_run,
+                                fail_on_quality_issues=args.fail_on_quality_issues)
+            print("\n".join(report.lines()))
+            return 0 if report.status == "success" else 1
+        summary = db_summary(engine)
+        text = json.dumps(summary, ensure_ascii=False, indent=2, sort_keys=True)
+        if args.output:
+            args.output.parent.mkdir(parents=True, exist_ok=True)
+            args.output.write_text(text + "\n", encoding="utf-8")
+        print(text)
+        return 0
+    except (InputError, RuntimeError, SQLAlchemyError) as exc:
+        print(f"Error: {str(exc).splitlines()[0]}")
+        return 2
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="futsal")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -79,7 +116,18 @@ def main(argv: list[str] | None = None) -> int:
                         ("scrape-league", "descarga todas las jornadas")):
         league = sub.add_parser(name, help=help_)
         _league_args(league)
+    prev = sub.add_parser("preview-import", help="vista previa TXT (sin base de datos)")
+    prev.add_argument("--input", type=Path, required=True)
+    prev.add_argument("--output", type=Path, required=True)
+    imp = sub.add_parser("import-league", help="importa league.json en PostgreSQL")
+    imp.add_argument("--input", type=Path, required=True)
+    imp.add_argument("--dry-run", action="store_true", help="ejecuta y descarta la transacción")
+    imp.add_argument("--fail-on-quality-issues", action="store_true")
+    summ = sub.add_parser("db-summary", help="recuentos agregados desde PostgreSQL")
+    summ.add_argument("--output", type=Path, default=None)
     args = parser.parse_args(argv)
+    if args.command in ("preview-import", "import-league", "db-summary"):
+        return _db_commands(args)
     if args.command in ("list-rounds", "scrape-league"):
         return _league(args)
     url, html = _load(args)
