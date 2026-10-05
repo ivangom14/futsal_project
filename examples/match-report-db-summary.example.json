@@ -1,0 +1,27 @@
+{
+  "first_import": {
+    "issues_created": 0,
+    "observations_created": 1,
+    "records_inserted": 79,
+    "records_unchanged": 0,
+    "records_updated": 0,
+    "status": "success"
+  },
+  "match_events": 8,
+  "match_officials": 3,
+  "match_players": 21,
+  "match_report_observations": 1,
+  "match_reports": 1,
+  "match_staff": 3,
+  "player_team_memberships": 21,
+  "players": 21,
+  "quality_issues": 0,
+  "second_import": {
+    "issues_created": 0,
+    "observations_created": 0,
+    "records_inserted": 0,
+    "records_unchanged": 79,
+    "records_updated": 0,
+    "status": "success"
+  }
+}

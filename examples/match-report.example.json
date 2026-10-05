@@ -1,0 +1,499 @@
+{
+  "match": {
+    "home_team_name": "PARQUE NORTE F.S. - RODILLITO 'B'",
+    "home_team_external_id": "19068192",
+    "away_team_name": "C.D. LOPE DE VEGA 'B'",
+    "away_team_external_id": "18730340",
+    "scheduled_date": "2026-09-26",
+    "scheduled_time": "16:00:00",
+    "timezone": "Europe/Madrid",
+    "venue": "COL. NUEVA CASTILLA (futbol sala)",
+    "venue_external_id": "20481040",
+    "home_score": 3,
+    "away_score": 4,
+    "status": "finished"
+  },
+  "report": {
+    "report_external_id": "5575697",
+    "match_external_id": "5575697",
+    "season_external_id": "22",
+    "competition_external_id": "26738243",
+    "group_external_id": "26738245",
+    "round_external_id": "1",
+    "closed": true,
+    "content_hash": "27c92f3e6341875f4567a2c48f1d9d39070437bd5e5ba0f4aefa512a45d412b2"
+  },
+  "teams": [
+    {
+      "side": "home",
+      "external_id": "19068192",
+      "name": "PARQUE NORTE F.S. - RODILLITO 'B'",
+      "formation": "1-2-2",
+      "crest_url": "https://appweb.rffm.es/pnfg/pimg/Clubes/00100_0000002531_download.jpg?nova=1"
+    },
+    {
+      "side": "away",
+      "external_id": "18730340",
+      "name": "C.D. LOPE DE VEGA 'B'",
+      "formation": "1-2-2",
+      "crest_url": "https://appweb.rffm.es/pnfg/pimg/Clubes/00100_0012168000_ESCUDO_LOPE.png?nova=1"
+    }
+  ],
+  "players": [
+    {
+      "team_side": "home",
+      "team_external_id": "19068192",
+      "sequence": 1,
+      "player_external_id": "2799694",
+      "display_name": "GOMEZ RODRIGUEZ, PABLO",
+      "shirt_number": 13,
+      "role": "goalkeeper",
+      "lineup_status": "substitute",
+      "captain": false
+    },
+    {
+      "team_side": "home",
+      "team_external_id": "19068192",
+      "sequence": 2,
+      "player_external_id": "2800369",
+      "display_name": "JAÑEZ BONA, PABLO",
+      "shirt_number": 20,
+      "role": "goalkeeper",
+      "lineup_status": "starter",
+      "captain": false
+    },
+    {
+      "team_side": "home",
+      "team_external_id": "19068192",
+      "sequence": 3,
+      "player_external_id": "2799987",
+      "display_name": "KEMKACH SANTIAGO, JORGE",
+      "shirt_number": 4,
+      "role": "player",
+      "lineup_status": "starter",
+      "captain": true
+    },
+    {
+      "team_side": "home",
+      "team_external_id": "19068192",
+      "sequence": 4,
+      "player_external_id": "2799682",
+      "display_name": "ARIAS PALOMARES, PABLO",
+      "shirt_number": 10,
+      "role": "player",
+      "lineup_status": "starter",
+      "captain": false
+    },
+    {
+      "team_side": "home",
+      "team_external_id": "19068192",
+      "sequence": 5,
+      "player_external_id": "2800405",
+      "display_name": "GARCIA GUTIERREZ, JAVIER",
+      "shirt_number": 14,
+      "role": "player",
+      "lineup_status": "substitute",
+      "captain": false
+    },
+    {
+      "team_side": "home",
+      "team_external_id": "19068192",
+      "sequence": 6,
+      "player_external_id": "2791262",
+      "display_name": "MORETA DE ESTEBAN, JAVIER",
+      "shirt_number": 23,
+      "role": "player",
+      "lineup_status": "starter",
+      "captain": false
+    },
+    {
+      "team_side": "home",
+      "team_external_id": "19068192",
+      "sequence": 7,
+      "player_external_id": "2799999",
+      "display_name": "RODRIGUES GORDILLO, MARCOS ELIAS",
+      "shirt_number": 24,
+      "role": "player",
+      "lineup_status": "starter",
+      "captain": false
+    },
+    {
+      "team_side": "home",
+      "team_external_id": "19068192",
+      "sequence": 8,
+      "player_external_id": "2801069",
+      "display_name": "MORENO LEAL, JOSE",
+      "shirt_number": 92,
+      "role": "player",
+      "lineup_status": "substitute",
+      "captain": false
+    },
+    {
+      "team_side": "home",
+      "team_external_id": "19068192",
+      "sequence": 9,
+      "player_external_id": "2799717",
+      "display_name": "BRIHUEGA ALMAZAN, IVAN",
+      "shirt_number": 97,
+      "role": "player",
+      "lineup_status": "substitute",
+      "captain": false
+    },
+    {
+      "team_side": "away",
+      "team_external_id": "18730340",
+      "sequence": 1,
+      "player_external_id": "2799693",
+      "display_name": "GARCIA CASADO, DAVID",
+      "shirt_number": 20,
+      "role": "goalkeeper",
+      "lineup_status": "starter",
+      "captain": false
+    },
+    {
+      "team_side": "away",
+      "team_external_id": "18730340",
+      "sequence": 2,
+      "player_external_id": "2804191",
+      "display_name": "MUÑOZ MACÍAS, MIGUEL",
+      "shirt_number": 1,
+      "role": "goalkeeper",
+      "lineup_status": "substitute",
+      "captain": false
+    },
+    {
+      "team_side": "away",
+      "team_external_id": "18730340",
+      "sequence": 3,
+      "player_external_id": "2804160",
+      "display_name": "GARCÍA GARCÍA, JAVIER",
+      "shirt_number": 10,
+      "role": "player",
+      "lineup_status": "starter",
+      "captain": false
+    },
+    {
+      "team_side": "away",
+      "team_external_id": "18730340",
+      "sequence": 4,
+      "player_external_id": "2804189",
+      "display_name": "RODRÍGUEZ OLIVA, IZAN",
+      "shirt_number": 13,
+      "role": "player",
+      "lineup_status": "substitute",
+      "captain": false
+    },
+    {
+      "team_side": "away",
+      "team_external_id": "18730340",
+      "sequence": 5,
+      "player_external_id": "2800514",
+      "display_name": "LEON MARTIN, JAIME",
+      "shirt_number": 16,
+      "role": "player",
+      "lineup_status": "starter",
+      "captain": true
+    },
+    {
+      "team_side": "away",
+      "team_external_id": "18730340",
+      "sequence": 6,
+      "player_external_id": "2804190",
+      "display_name": "MUÑOZ LOZANO, JUAN ANTONIO",
+      "shirt_number": 17,
+      "role": "player",
+      "lineup_status": "substitute",
+      "captain": false
+    },
+    {
+      "team_side": "away",
+      "team_external_id": "18730340",
+      "sequence": 7,
+      "player_external_id": "2803917",
+      "display_name": "FERNANDEZ SANCHEZ, ALBERTO",
+      "shirt_number": 18,
+      "role": "player",
+      "lineup_status": "substitute",
+      "captain": false
+    },
+    {
+      "team_side": "away",
+      "team_external_id": "18730340",
+      "sequence": 8,
+      "player_external_id": "27470572",
+      "display_name": "SANZ GARCÍA, EDUARDO",
+      "shirt_number": 19,
+      "role": "player",
+      "lineup_status": "substitute",
+      "captain": false
+    },
+    {
+      "team_side": "away",
+      "team_external_id": "18730340",
+      "sequence": 9,
+      "player_external_id": "2802169",
+      "display_name": "CASTRO CORONADO, SERGIO",
+      "shirt_number": 23,
+      "role": "player",
+      "lineup_status": "substitute",
+      "captain": false
+    },
+    {
+      "team_side": "away",
+      "team_external_id": "18730340",
+      "sequence": 10,
+      "player_external_id": "2787447",
+      "display_name": "POMEDA GALLEGO, MIGUEL",
+      "shirt_number": 29,
+      "role": "player",
+      "lineup_status": "substitute",
+      "captain": false
+    },
+    {
+      "team_side": "away",
+      "team_external_id": "18730340",
+      "sequence": 11,
+      "player_external_id": "2801551",
+      "display_name": "LÓPEZ PEDROMINGO, JORGE",
+      "shirt_number": 30,
+      "role": "player",
+      "lineup_status": "starter",
+      "captain": false
+    },
+    {
+      "team_side": "away",
+      "team_external_id": "18730340",
+      "sequence": 12,
+      "player_external_id": "2802322",
+      "display_name": "BUENO GABAS, RAUL",
+      "shirt_number": 43,
+      "role": "player",
+      "lineup_status": "starter",
+      "captain": false
+    }
+  ],
+  "staff": [
+    {
+      "team_side": "home",
+      "team_external_id": "19068192",
+      "sequence": 1,
+      "display_name": "GÓMEZ RODRÍGUEZ, JUAN",
+      "role": "head_coach",
+      "external_id": "22127565"
+    },
+    {
+      "team_side": "away",
+      "team_external_id": "18730340",
+      "sequence": 2,
+      "display_name": "GARCÍA LÓPEZ, JOSÉ RAMÓN",
+      "role": "head_coach",
+      "external_id": "22861980"
+    },
+    {
+      "team_side": "away",
+      "team_external_id": "18730340",
+      "sequence": 3,
+      "display_name": "GUTIÉRREZ ANGULO, LUIS MIGUEL",
+      "role": "delegate",
+      "external_id": null
+    }
+  ],
+  "officials": [
+    {
+      "sequence": 1,
+      "display_name": "GARCIA LASA, ALVARO",
+      "role": "ARBITRO",
+      "external_id": "5167652"
+    },
+    {
+      "sequence": 2,
+      "display_name": "GARVALENA CRESPO, MARTA",
+      "role": "ARBITRO",
+      "external_id": "5001595"
+    },
+    {
+      "sequence": 3,
+      "display_name": "ARJONA ESCALONA, MANUEL JOSE",
+      "role": "ARBITRO ASISTENTE",
+      "external_id": "5000830"
+    }
+  ],
+  "events": [
+    {
+      "sequence": 1,
+      "event_type": "goal",
+      "team_side": "home",
+      "team_external_id": "19068192",
+      "player_external_id": "2800405",
+      "player_name": "GARCIA GUTIERREZ, JAVIER",
+      "minute": 7,
+      "source_code": "100",
+      "source_detail": null
+    },
+    {
+      "sequence": 2,
+      "event_type": "goal",
+      "team_side": "away",
+      "team_external_id": "18730340",
+      "player_external_id": "2802169",
+      "player_name": "CASTRO CORONADO, SERGIO",
+      "minute": 18,
+      "source_code": "100",
+      "source_detail": null
+    },
+    {
+      "sequence": 3,
+      "event_type": "card",
+      "team_side": "away",
+      "team_external_id": "18730340",
+      "player_external_id": "2804160",
+      "player_name": "GARCÍA GARCÍA, JAVIER",
+      "minute": 19,
+      "source_code": "100",
+      "source_detail": {
+        "segunda_amarilla": "0"
+      }
+    },
+    {
+      "sequence": 4,
+      "event_type": "goal",
+      "team_side": "away",
+      "team_external_id": "18730340",
+      "player_external_id": "2804189",
+      "player_name": "RODRÍGUEZ OLIVA, IZAN",
+      "minute": 20,
+      "source_code": "100",
+      "source_detail": null
+    },
+    {
+      "sequence": 5,
+      "event_type": "goal",
+      "team_side": "home",
+      "team_external_id": "19068192",
+      "player_external_id": "2799717",
+      "player_name": "BRIHUEGA ALMAZAN, IVAN",
+      "minute": 26,
+      "source_code": "100",
+      "source_detail": null
+    },
+    {
+      "sequence": 6,
+      "event_type": "goal",
+      "team_side": "home",
+      "team_external_id": "19068192",
+      "player_external_id": "2799999",
+      "player_name": "RODRIGUES GORDILLO, MARCOS ELIAS",
+      "minute": 29,
+      "source_code": "100",
+      "source_detail": null
+    },
+    {
+      "sequence": 7,
+      "event_type": "goal",
+      "team_side": "away",
+      "team_external_id": "18730340",
+      "player_external_id": "2804189",
+      "player_name": "RODRÍGUEZ OLIVA, IZAN",
+      "minute": 35,
+      "source_code": "100",
+      "source_detail": null
+    },
+    {
+      "sequence": 8,
+      "event_type": "goal",
+      "team_side": "away",
+      "team_external_id": "18730340",
+      "player_external_id": "2800514",
+      "player_name": "LEON MARTIN, JAIME",
+      "minute": 38,
+      "source_code": "100",
+      "source_detail": null
+    }
+  ],
+  "validation": {
+    "empty_sections": [
+      "tarjetas_equipo_local"
+    ],
+    "unparsed_sections": [],
+    "comparison": [
+      {
+        "field": "competición",
+        "matches_value": "26738243",
+        "report_value": "26738243",
+        "equal": true
+      },
+      {
+        "field": "grupo",
+        "matches_value": "26738245",
+        "report_value": "26738245",
+        "equal": true
+      },
+      {
+        "field": "jornada",
+        "matches_value": "1",
+        "report_value": "1",
+        "equal": true
+      },
+      {
+        "field": "equipo local (id)",
+        "matches_value": "19068192",
+        "report_value": "19068192",
+        "equal": true
+      },
+      {
+        "field": "equipo local (nombre)",
+        "matches_value": "PARQUE NORTE F.S. - RODILLITO 'B'",
+        "report_value": "PARQUE NORTE F.S. - RODILLITO 'B'",
+        "equal": true
+      },
+      {
+        "field": "equipo visitante (id)",
+        "matches_value": "18730340",
+        "report_value": "18730340",
+        "equal": true
+      },
+      {
+        "field": "equipo visitante (nombre)",
+        "matches_value": "C.D. LOPE DE VEGA 'B'",
+        "report_value": "C.D. LOPE DE VEGA 'B'",
+        "equal": true
+      },
+      {
+        "field": "goles local",
+        "matches_value": "3",
+        "report_value": "3",
+        "equal": true
+      },
+      {
+        "field": "goles visitante",
+        "matches_value": "4",
+        "report_value": "4",
+        "equal": true
+      },
+      {
+        "field": "fecha",
+        "matches_value": "2026-09-26",
+        "report_value": "2026-09-26",
+        "equal": true
+      },
+      {
+        "field": "hora",
+        "matches_value": "16:00:00",
+        "report_value": "16:00:00",
+        "equal": true
+      },
+      {
+        "field": "campo",
+        "matches_value": "COL. NUEVA CASTILLA (futbol sala)",
+        "report_value": "COL. NUEVA CASTILLA (futbol sala)",
+        "equal": true
+      }
+    ]
+  },
+  "source": {
+    "url": "https://www.rffm.es/acta-partido/5575697?temporada=22&competicion=26738243&grupo=26738245",
+    "system": "rffm",
+    "technical_source": "next_data:props.pageProps.game",
+    "observed_at": "2026-10-05T16:33:53.115187Z"
+  }
+}

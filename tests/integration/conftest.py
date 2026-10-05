@@ -43,6 +43,6 @@ def pg_engine() -> Iterator[Engine]:
 def engine(pg_engine: Engine) -> Engine:
     with pg_engine.begin() as c:
         c.execute(text("TRUNCATE seasons, competitions, competition_groups, rounds, teams, "
-                       "matches, match_observations, ingestion_runs, data_quality_issues "
+                       "matches, match_observations, ingestion_runs, data_quality_issues, players "
                        "RESTART IDENTITY CASCADE"))
     return pg_engine

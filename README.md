@@ -34,3 +34,15 @@ python3 -m futsal.cli db-summary [--output examples/db-summary.example.json]
 - Destruir y recrear la BD de desarrollo: `docker compose down -v && docker compose up -d --wait db && alembic upgrade head`.
 - Pruebas de integración (BD temporal `futsal_test_*` creada y eliminada en el mismo servidor): `python3 -m pytest -q` (se omiten si no hay PostgreSQL).
 - Detalle del modelo: `docs/data-model.md`.
+
+## Acta de un partido (Fase 4)
+```
+python3 -m futsal.cli inspect-match-report [--match-id ID]      # sin ID elige un finalizado sin acta; no descarga
+python3 -m futsal.cli scrape-match-report [--match-id ID]       # 1 petición (o caché) -> data/rffm/match-reports/ID/{raw.html,normalized.json}
+python3 -m futsal.cli preview-match-report --input data/rffm/match-reports/ID/normalized.json --output examples/match-report-preview.txt [--no-db]
+python3 -m futsal.cli import-match-report --input data/rffm/match-reports/ID/normalized.json [--dry-run]
+python3 -m futsal.cli match-report-summary [--output examples/match-report-db-summary.example.json]
+```
+Requiere PostgreSQL con la migración `0002` (`alembic upgrade head`) y las jornadas importadas.
+Ejemplos revisables: `examples/match-report.example.json`, `examples/match-report-preview.txt`,
+`examples/match-report-db-summary.example.json`. Método y campos: `docs/match-report-discovery.md`.

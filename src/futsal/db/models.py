@@ -4,6 +4,7 @@ from datetime import date, datetime, time
 
 from sqlalchemy import (
     BigInteger,
+    Boolean,
     CheckConstraint,
     Date,
     DateTime,
@@ -17,7 +18,9 @@ from sqlalchemy import (
     Time,
     UniqueConstraint,
     func,
+    text,
 )
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 NAMING = {
@@ -173,3 +176,129 @@ class DataQualityIssue(Base):
     external_id: Mapped[str | None] = mapped_column(String(64))
     message: Mapped[str] = mapped_column(Text)
     created_at: Mapped[datetime] = _ts()
+
+
+class MatchReport(Tracked, Base):
+    """Acta de un partido (una por partido). El contenido vive en las observaciones."""
+
+    __tablename__ = "match_reports"
+    __table_args__ = (UniqueConstraint("source", "external_id"), UniqueConstraint("match_id"))
+    match_id: Mapped[int] = mapped_column(ForeignKey("matches.id"))
+
+
+class MatchReportObservation(Base):
+    """Versión observada de un acta, identificada por el hash de su contenido normalizado."""
+
+    __tablename__ = "match_report_observations"
+    __table_args__ = (
+        UniqueConstraint("report_id", "content_hash"),
+        CheckConstraint("(home_score IS NULL) = (away_score IS NULL)", name="score_pair"),
+        Index("ix_match_report_observations_report_id_observed_at", "report_id", "observed_at"),
+    )
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    report_id: Mapped[int] = mapped_column(ForeignKey("match_reports.id"))
+    ingestion_run_id: Mapped[int] = mapped_column(ForeignKey("ingestion_runs.id"), index=True)
+    observed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    content_hash: Mapped[str] = mapped_column(String(64))
+    source_url: Mapped[str] = mapped_column(Text)
+    closed: Mapped[bool | None] = mapped_column(Boolean)
+    status: Mapped[str] = mapped_column(String(16))
+    round_external_id: Mapped[str] = mapped_column(String(64))
+    home_team_external_id: Mapped[str | None] = mapped_column(String(64))
+    away_team_external_id: Mapped[str | None] = mapped_column(String(64))
+    home_formation: Mapped[str | None] = mapped_column(String(32))
+    away_formation: Mapped[str | None] = mapped_column(String(32))
+    home_score: Mapped[int | None] = mapped_column(Integer)
+    away_score: Mapped[int | None] = mapped_column(Integer)
+    scheduled_date: Mapped[date | None] = mapped_column(Date)
+    scheduled_time: Mapped[time | None] = mapped_column(Time)
+    venue: Mapped[str | None] = mapped_column(String(256))
+
+
+class Player(Tracked, Base):
+    """Jugador con identificador externo RFFM (`codjugador`). Solo identidad; sin datos personales."""
+
+    __tablename__ = "players"
+    __table_args__ = (UniqueConstraint("source", "external_id"),)
+    display_name: Mapped[str] = mapped_column(String(256))
+
+
+class PlayerTeamMembership(Base):
+    """Equipo con el que se ha visto jugar a un jugador en una temporada (observado, no permanente)."""
+
+    __tablename__ = "player_team_memberships"
+    __table_args__ = (UniqueConstraint("player_id", "team_id", "season_id"),)
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    player_id: Mapped[int] = mapped_column(ForeignKey("players.id"), index=True)
+    team_id: Mapped[int] = mapped_column(ForeignKey("teams.id"), index=True)
+    season_id: Mapped[int] = mapped_column(ForeignKey("seasons.id"), index=True)
+    first_seen_at: Mapped[datetime] = _ts()
+    last_seen_at: Mapped[datetime] = _ts()
+
+
+class MatchPlayer(Base):
+    """Participación de una persona en el acta. `player_id` nulo si la fuente no da identificador."""
+
+    __tablename__ = "match_players"
+    __table_args__ = (
+        UniqueConstraint("observation_id", "team_id", "sequence"),
+        Index("uq_match_players_observation_id_team_id_player_external_id", "observation_id",
+              "team_id", "player_external_id", unique=True,
+              postgresql_where=text("player_external_id IS NOT NULL")),
+        CheckConstraint("lineup_status IN ('starter','substitute','unknown')", name="lineup_valid"),
+        CheckConstraint("shirt_number IS NULL OR shirt_number >= 0", name="shirt_non_negative"),
+    )
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    observation_id: Mapped[int] = mapped_column(ForeignKey("match_report_observations.id"), index=True)
+    team_id: Mapped[int] = mapped_column(ForeignKey("teams.id"), index=True)
+    player_id: Mapped[int | None] = mapped_column(ForeignKey("players.id"), index=True)
+    player_external_id: Mapped[str | None] = mapped_column(String(64))
+    display_name: Mapped[str] = mapped_column(String(256))
+    shirt_number: Mapped[int | None] = mapped_column(Integer)
+    role: Mapped[str] = mapped_column(String(16))
+    lineup_status: Mapped[str] = mapped_column(String(16))
+    is_captain: Mapped[bool] = mapped_column(Boolean)
+    sequence: Mapped[int] = mapped_column(Integer)
+
+
+class MatchStaff(Base):
+    __tablename__ = "match_staff"
+    __table_args__ = (UniqueConstraint("observation_id", "sequence"),)
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    observation_id: Mapped[int] = mapped_column(ForeignKey("match_report_observations.id"), index=True)
+    team_id: Mapped[int | None] = mapped_column(ForeignKey("teams.id"), index=True)
+    display_name: Mapped[str] = mapped_column(String(256))
+    role: Mapped[str] = mapped_column(String(32))
+    external_id: Mapped[str | None] = mapped_column(String(64))
+    sequence: Mapped[int] = mapped_column(Integer)
+
+
+class MatchOfficial(Base):
+    __tablename__ = "match_officials"
+    __table_args__ = (UniqueConstraint("observation_id", "sequence"),)
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    observation_id: Mapped[int] = mapped_column(ForeignKey("match_report_observations.id"), index=True)
+    display_name: Mapped[str] = mapped_column(String(256))
+    role: Mapped[str] = mapped_column(String(64))
+    external_id: Mapped[str | None] = mapped_column(String(64))
+    sequence: Mapped[int] = mapped_column(Integer)
+
+
+class MatchEvent(Base):
+    __tablename__ = "match_events"
+    __table_args__ = (
+        UniqueConstraint("observation_id", "sequence"),
+        CheckConstraint("event_type IN ('goal','card')", name="type_valid"),
+        CheckConstraint("minute IS NULL OR minute >= 0", name="minute_non_negative"),
+    )
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    observation_id: Mapped[int] = mapped_column(ForeignKey("match_report_observations.id"), index=True)
+    sequence: Mapped[int] = mapped_column(Integer)
+    event_type: Mapped[str] = mapped_column(String(16))
+    team_id: Mapped[int] = mapped_column(ForeignKey("teams.id"), index=True)
+    player_id: Mapped[int | None] = mapped_column(ForeignKey("players.id"), index=True)
+    player_external_id: Mapped[str | None] = mapped_column(String(64))
+    player_name: Mapped[str | None] = mapped_column(String(256))
+    minute: Mapped[int | None] = mapped_column(Integer)
+    source_code: Mapped[str | None] = mapped_column(String(32))
+    source_detail: Mapped[dict[str, str] | None] = mapped_column(JSONB)

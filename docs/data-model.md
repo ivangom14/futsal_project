@@ -43,3 +43,25 @@ Un error revierte toda la importación; la ejecución queda como `failed` en `in
 | `preview-import` | no | solo el TXT | no |
 | `import-league --dry-run` | sí (transacción descartada) | nada | no |
 | `import-league` | sí | sí | sí |
+
+## Actas de partido (Fase 4, migración 0002)
+Solo campos observados en un acta real (ver `docs/match-report-discovery.md`).
+- `match_reports`: una por partido (`match_id` único; única por `source`+`external_id` = `codacta`).
+- `match_report_observations`: una fila por versión de contenido (`content_hash`, único por acta).
+  Guarda también lo que dice el acta (marcador, equipos, fecha, campo) **sin tocar `matches`**.
+- `players`: solo jugadores con `codjugador` (único por `source`+`external_id`); nombre = último visto.
+- `player_team_memberships`: equipo con el que se vio jugar a un jugador en una temporada
+  (único por jugador+equipo+temporada). Es una observación, no pertenencia permanente.
+- `match_players`, `match_staff`, `match_officials`, `match_events`: filas hijas de una observación
+  (únicas por observación+`sequence`; jugador único por observación+equipo+id si hay id).
+  `match_players.player_id` es nulo si la fuente no da id: el nombre queda como dato observado.
+  Oficiales y técnicos conservan su id externo como texto, sin tabla global de personas.
+- Eventos: `goal`/`card`, `minute` nulo si falta, `source_code` y `source_detail` (JSONB) con lo original.
+
+### Identidad e idempotencia
+- Nunca se identifica por nombre si existe ID externo; homónimos sin ID no se fusionan.
+- Reimportar el mismo contenido (mismo hash): 0 filas nuevas. Contenido distinto: nueva observación
+  con sus hijas; las anteriores se conservan (la vigente es la de mayor `observed_at`).
+- Discrepancia de marcador/fecha/campo: incidencia `report_value_mismatch`; `matches` no se modifica.
+  Se considera fuente vigente el listado hasta revisión; el acta cerrada es la más fiable pero no se
+  consolida automáticamente. Equipos/competición/grupo/jornada distintos: error material y rollback.

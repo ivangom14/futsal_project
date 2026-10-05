@@ -21,13 +21,23 @@ class RffmParseError(ValueError):
     """La página no tiene la estructura esperada."""
 
 
-def extract_page_props(html: str) -> dict[str, Any]:
+def extract_next_data(html: str) -> dict[str, Any]:
     m = _NEXT_DATA.search(html)
     if not m:
         raise RffmParseError("No se encontró <script id='__NEXT_DATA__'> en el HTML")
     try:
-        props = json.loads(m.group(1))["props"]["pageProps"]
-    except (json.JSONDecodeError, KeyError, TypeError) as exc:
+        data = json.loads(m.group(1))
+    except json.JSONDecodeError as exc:
+        raise RffmParseError(f"__NEXT_DATA__ sin props.pageProps válido: {exc!r}") from exc
+    if not isinstance(data, dict):
+        raise RffmParseError("__NEXT_DATA__ no es un objeto")
+    return data
+
+
+def extract_page_props(html: str) -> dict[str, Any]:
+    try:
+        props = extract_next_data(html)["props"]["pageProps"]
+    except (KeyError, TypeError) as exc:
         raise RffmParseError(f"__NEXT_DATA__ sin props.pageProps válido: {exc!r}") from exc
     if not isinstance(props, dict):
         raise RffmParseError("props.pageProps no es un objeto")

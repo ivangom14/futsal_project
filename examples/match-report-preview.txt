@@ -1,0 +1,84 @@
+ACTA
+Partido: 5575697  (acta 5575697)
+Jornada: 1
+Fecha: 2026-09-26 16:00:00
+Local: PARQUE NORTE F.S. - RODILLITO 'B'
+Visitante: C.D. LOPE DE VEGA 'B'
+Marcador: 3-4
+URL: https://www.rffm.es/acta-partido/5575697?temporada=22&competicion=26738243&grupo=26738245
+
+ALINEACIÓN LOCAL
+Dorsal | Jugador | Rol | Titular/suplente
+13 | GOMEZ RODRIGUEZ, PABLO | goalkeeper | suplente
+20 | JAÑEZ BONA, PABLO | goalkeeper | titular
+4 | KEMKACH SANTIAGO, JORGE (C) | player | titular
+10 | ARIAS PALOMARES, PABLO | player | titular
+14 | GARCIA GUTIERREZ, JAVIER | player | suplente
+23 | MORETA DE ESTEBAN, JAVIER | player | titular
+24 | RODRIGUES GORDILLO, MARCOS ELIAS | player | titular
+92 | MORENO LEAL, JOSE | player | suplente
+97 | BRIHUEGA ALMAZAN, IVAN | player | suplente
+
+ALINEACIÓN VISITANTE
+Dorsal | Jugador | Rol | Titular/suplente
+20 | GARCIA CASADO, DAVID | goalkeeper | titular
+1 | MUÑOZ MACÍAS, MIGUEL | goalkeeper | suplente
+10 | GARCÍA GARCÍA, JAVIER | player | titular
+13 | RODRÍGUEZ OLIVA, IZAN | player | suplente
+16 | LEON MARTIN, JAIME (C) | player | titular
+17 | MUÑOZ LOZANO, JUAN ANTONIO | player | suplente
+18 | FERNANDEZ SANCHEZ, ALBERTO | player | suplente
+19 | SANZ GARCÍA, EDUARDO | player | suplente
+23 | CASTRO CORONADO, SERGIO | player | suplente
+29 | POMEDA GALLEGO, MIGUEL | player | suplente
+30 | LÓPEZ PEDROMINGO, JORGE | player | titular
+43 | BUENO GABAS, RAUL | player | titular
+
+CUERPO TÉCNICO
+Equipo | Nombre | Rol
+PARQUE NORTE F.S. - RODILLITO 'B' | GÓMEZ RODRÍGUEZ, JUAN | entrenador
+C.D. LOPE DE VEGA 'B' | GARCÍA LÓPEZ, JOSÉ RAMÓN | entrenador
+C.D. LOPE DE VEGA 'B' | GUTIÉRREZ ANGULO, LUIS MIGUEL | delegado
+
+OFICIALES
+Nombre | Rol
+GARCIA LASA, ALVARO | ARBITRO
+GARVALENA CRESPO, MARTA | ARBITRO
+ARJONA ESCALONA, MANUEL JOSE | ARBITRO ASISTENTE
+
+EVENTOS
+Minuto | Tipo | Equipo | Jugador | Descripción
+7 | goal | PARQUE NORTE F.S. - RODILLITO 'B' | GARCIA GUTIERREZ, JAVIER | código=100
+18 | goal | C.D. LOPE DE VEGA 'B' | CASTRO CORONADO, SERGIO | código=100
+19 | card | C.D. LOPE DE VEGA 'B' | GARCÍA GARCÍA, JAVIER | código=100 segunda_amarilla=0
+20 | goal | C.D. LOPE DE VEGA 'B' | RODRÍGUEZ OLIVA, IZAN | código=100
+26 | goal | PARQUE NORTE F.S. - RODILLITO 'B' | BRIHUEGA ALMAZAN, IVAN | código=100
+29 | goal | PARQUE NORTE F.S. - RODILLITO 'B' | RODRIGUES GORDILLO, MARCOS ELIAS | código=100
+35 | goal | C.D. LOPE DE VEGA 'B' | RODRÍGUEZ OLIVA, IZAN | código=100
+38 | goal | C.D. LOPE DE VEGA 'B' | LEON MARTIN, JAIME | código=100
+
+COMPARACIÓN
+Campo | Resultados | Acta | Coincide
+competición | 26738243 | 26738243 | sí
+grupo | 26738245 | 26738245 | sí
+jornada | 1 | 1 | sí
+equipo local (id) | 19068192 | 19068192 | sí
+equipo local (nombre) | PARQUE NORTE F.S. - RODILLITO 'B' | PARQUE NORTE F.S. - RODILLITO 'B' | sí
+equipo visitante (id) | 18730340 | 18730340 | sí
+equipo visitante (nombre) | C.D. LOPE DE VEGA 'B' | C.D. LOPE DE VEGA 'B' | sí
+goles local | 3 | 3 | sí
+goles visitante | 4 | 4 | sí
+fecha | 2026-09-26 | 2026-09-26 | sí
+hora | 16:00:00 | 16:00:00 | sí
+campo | COL. NUEVA CASTILLA (futbol sala) | COL. NUEVA CASTILLA (futbol sala) | sí
+
+IMPORTACIÓN PREVISTA
+Tabla | Registros nuevos | Actualizados | Sin cambios
+match_reports | 1 | 0 | 0
+match_report_observations | 1 | 0 | 0
+players | 21 | 0 | 0
+player_team_memberships | 21 | 0 | 0
+match_players | 21 | 0 | 0
+match_staff | 3 | 0 | 0
+match_officials | 3 | 0 | 0
+match_events | 8 | 0 | 0

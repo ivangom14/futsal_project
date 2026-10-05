@@ -18,7 +18,8 @@ Activos hoy: httpx, pydantic, SQLAlchemy 2 (síncrono), Alembic, psycopg 3, Post
 - `src/futsal/{domain,ingestion,repositories,api,mcp_server,knowledge,rules,agent,config}`
 - `src/futsal/ingestion/rffm/`: `client.py` (HTTP, solo RFFM), `parser.py` (puro),
   `models.py` (pydantic), `export.py` (JSON)
-- `src/futsal/cli.py`: CLI
+- `ingestion/rffm/report_*.py` (modelos, parser, comparación, TXT), `repositories/match_reports.py`,
+  `importer/report_service.py`; CLI en `cli.py` + `report_commands.py`
 - `tests/ingestion/`, `tests/fixtures/rffm_round_2.html`
 - `docs/architecture.md`, `docs/discovery.md` (método RFFM)
 - `data/` (ignorado por Git): snapshots en `data/raw/rffm/`, salidas JSON
@@ -47,30 +48,33 @@ Fase 2: descarga de las 26 jornadas (`src/futsal/ingestion/rffm/league.py`, `Pol
 `client.py`): 182 partidos (13 finalizados, 169 programados), 0 duplicados, 0 incidencias,
 26 peticiones reales; segunda ejecución 100% caché. Jornadas descubiertas en
 `pageProps.rounds.jornadas`; ID técnico (`codjornada`) separado de la etiqueta visible.
-Salidas en `data/rffm/` (ignorado); resumen versionado en `examples/league-summary.example.json`.
-
+Salidas en `data/rffm/` (ignorado); resumen en `examples/league-summary.example.json`.
 Fase 3: PostgreSQL (`docker-compose.yml`, `.env.example`, Alembic `alembic/`, migración 0001), modelo en
 `src/futsal/db/models.py`, importador en `src/futsal/importer/` (schema→transform→service) y
 `repositories/league.py`. CLI: `preview-import`, `import-league [--dry-run] [--fail-on-quality-issues]`,
 `db-summary`. Importación completa verificada: 1/1/1 temporada/competición/grupo, 26 jornadas, 14 equipos,
 182 partidos, 182 observaciones; reimportación 0 cambios. Detalle: `docs/data-model.md`.
-Ejemplos: `examples/import-preview.txt`, `examples/db-summary.example.json`.
-Tests de integración usan una BD temporal `futsal_test_*` en el PostgreSQL de Compose (se omiten sin él).
+Tests de integración: BD temporal `futsal_test_*` (se omiten sin PostgreSQL; el rol necesita CREATEDB).
+
+Fase 4: una acta real (`5575697`): `www.rffm.es/acta-partido/<codacta>?temporada&competicion&grupo`, datos en
+`__NEXT_DATA__` → `pageProps.game` (2 peticiones). Migración 0002 (8 tablas, observaciones por hash). Primera
+importación 79 filas nuevas; segunda 0 nuevas. Marcador 3-4 coincide con `matches`. Detalle:
+`docs/match-report-discovery.md`, `docs/data-model.md`. Ejemplos `examples/match-report*`.
 
 ## Comandos esenciales
 - `pip install -e '.[dev]'`
-- `python3 -m futsal.cli inspect-rffm --round 2`
 - `python3 -m futsal.cli scrape-round --round 2 --output data/round-2.json` (`--refresh` redescarga)
 - `python3 -m futsal.cli list-rounds` / `scrape-league [--resume|--refresh|--max-rounds N]`
 - `python3 -m pytest -q`, `ruff check .`, `python3 -m mypy`
 - `docker compose config -q`; `docker compose up -d --wait db && alembic upgrade head`
-- `python3 -m futsal.cli preview-import|import-league|db-summary` (ver README)
+- `python3 -m futsal.cli preview-import|import-league|db-summary` y `*-match-report` (ver README)
 
 ## Limitaciones conocidas
-- La página no da URL de acta ni de comparador: `match_report_url`/`comparison_url` = null.
+- El listado no da URL de acta (`match_report_url` = null); el patrón se descubrió en Fase 4.
 - Estado `postponed/suspended/cancelled` sin observar aún; la jornada 1 tiene un partido con `estado=0`.
-- Sin API, MCP, KB, agente, actas, jugadores ni clasificaciones. Ningún enlace de acta visitado.
+- Sin API, MCP, KB, agente ni clasificaciones. Solo 1 acta descargada; sin fichas de jugadores.
+- Sustituciones/penaltis/otros técnicos: estructura sin observar (se avisa, no se importan).
 - La CLI real es `python -m futsal.cli` (el paquete es `futsal`, no `src`).
 
 ## Próxima fase (recomendada)
-Acceso controlado a actas (`appweb.rffm.es`, dominio aún no autorizado) o API REST de solo lectura.
+Procesamiento masivo de actas finalizadas (con pausa y caché) o API REST de solo lectura.

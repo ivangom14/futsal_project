@@ -23,6 +23,12 @@ def round_url(season: str, competition: str, group: str, round_number: int | str
     return f"{BASE_URL}?{urlencode(query)}"
 
 
+def match_report_url(codacta: str, season: str, competition: str, group: str) -> str:
+    """URL pública del acta (patrón del JS de la web: `/acta-partido/<codacta>?temporada&competicion&grupo`)."""
+    query = urlencode({"temporada": season, "competicion": competition, "grupo": group})
+    return f"https://www.rffm.es/acta-partido/{codacta}?{query}"
+
+
 def fetch_html(url: str, timeout: float = 30.0) -> str:
     if urlparse(url).hostname not in ALLOWED_HOSTS:
         raise ValueError(f"Host no permitido: {url}")
