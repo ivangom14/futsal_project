@@ -58,9 +58,11 @@ class Loaded:
     season_external_id: str
 
 
-def select_candidate(session: Session, group_external_id: str) -> Candidate | None:
+def select_candidates(
+    session: Session, group_external_id: str, limit: int | None = None
+) -> list[Candidate]:
     home, away = aliased(Team), aliased(Team)
-    row = session.execute(
+    stmt = (
         select(Match, Round, home, away, CompetitionGroup, Competition, Season)
         .join(Round, (Round.id == Match.round_id) & (Round.group_id == Match.group_id))
         .join(home, home.id == Match.home_team_id).join(away, away.id == Match.away_team_id)
@@ -71,13 +73,18 @@ def select_candidate(session: Session, group_external_id: str) -> Candidate | No
         .where(CompetitionGroup.external_id == group_external_id, Match.status == "finished",
                Match.home_score.is_not(None), Match.away_score.is_not(None),
                MatchReport.id.is_(None))
-        .order_by(cast(Round.external_id, Integer), Match.external_id).limit(1)).first()
-    if row is None:
-        return None
-    m, rnd, h, a, g, c, s = row
-    return Candidate(m.external_id, rnd.visible_label, h.name, a.name,
-                     f"{m.home_score}-{m.away_score}", str(m.scheduled_date),
-                     s.external_id, c.external_id, g.external_id)
+        .order_by(cast(Round.external_id, Integer), Match.external_id))
+    if limit is not None:
+        stmt = stmt.limit(limit)
+    return [Candidate(m.external_id, rnd.visible_label, h.name, a.name,
+                      f"{m.home_score}-{m.away_score}", str(m.scheduled_date),
+                      s.external_id, c.external_id, g.external_id)
+            for m, rnd, h, a, g, c, s in session.execute(stmt).all()]
+
+
+def select_candidate(session: Session, group_external_id: str) -> Candidate | None:
+    found = select_candidates(session, group_external_id, 1)
+    return found[0] if found else None
 
 
 def load_match(session: Session, external_id: str) -> Loaded | None:

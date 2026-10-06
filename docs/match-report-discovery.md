@@ -39,6 +39,15 @@ temporada/competición/grupo. `host` (`https://appweb.rffm.es/`) solo sirve de b
 ## Hallazgo corregido
 El acta usa fechas `dd-mm-aaaa` (el listado usa `dd/mm/aaaa`); detectado al comparar con `matches`.
 
+## Lote de actas (13 finalizados del grupo objetivo)
+12 actas más, secuencial, pausa de 2 s, 12 peticiones, 0 fallos; la reejecución no encuentra candidatos (0 peticiones).
+- `tipo_gol=102` (3 goles): acreditado al equipo rival, el marcador cuadra en 13/13 actas (sin ello, en 10).
+  Probable gol en propia puerta; **no se normaliza**, solo se conserva el código.
+- 5575707: acta 7-4 frente a 7-3 del listado (descargado antes): incidencia `report_value_mismatch`, `matches` intacto.
+- 10 eventos (8 jugadores, 5 actas) citan jugadores ausentes de las alineaciones: se conservan con su id externo.
+- `codigo_tipo_amonestacion`: 100 (71 filas) y 101 (4); `segunda_amarilla=1` en 7. Significado sin verificar.
+- Ninguna acta trajo sustituciones, penaltis, otros técnicos ni tarjetas sin interpretar (`unparsed_sections` vacío).
+
 ## Pendiente para el procesamiento masivo
-Descarga de las actas restantes (con `PoliteFetcher`), manejo de actas no cerradas/suspendidas,
+Actas de partidos aún no finalizados (al jugarse), manejo de actas no cerradas/suspendidas,
 estructura de sustituciones y penaltis cuando aparezcan, y las fichas de jugadores.

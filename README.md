@@ -46,3 +46,12 @@ python3 -m futsal.cli match-report-summary [--output examples/match-report-db-su
 Requiere PostgreSQL con la migración `0002` (`alembic upgrade head`) y las jornadas importadas.
 Ejemplos revisables: `examples/match-report.example.json`, `examples/match-report-preview.txt`,
 `examples/match-report-db-summary.example.json`. Método y campos: `docs/match-report-discovery.md`.
+
+### Lote de actas
+```
+python3 -m futsal.cli process-match-reports [--limit N] [--request-delay 2.0] [--no-import] [--output resumen.json]
+```
+Toma los partidos finalizados sin acta importada, de uno en uno: usa el snapshot si existe; si no, descarga con pausa,
+valida que la página sea el partido/competición esperado antes de guardarla, normaliza, compara con `matches` e importa.
+Un fallo no detiene el lote; 3 fallos de descarga seguidos lo abortan. Reejecutarlo no repite lo ya importado.
+Resumen revisable: `examples/match-report-batch-summary.example.json`.

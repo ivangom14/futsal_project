@@ -15,15 +15,16 @@ from futsal.importer.report_service import (
     report_summary,
     run_report_import,
 )
-from futsal.ingestion.rffm.client import match_report_url, read_or_fetch
+from futsal.ingestion.rffm.client import PoliteFetcher, match_report_url, read_or_fetch
 from futsal.ingestion.rffm.parser import RffmParseError
 from futsal.ingestion.rffm.report_parser import parse_match_report
 from futsal.ingestion.rffm.report_preview import render_preview
+from futsal.report_batch import process_reports
 from futsal.repositories.match_reports import ReportImportError, load_match, select_candidate
 
 REPORT_DIR = Path("data/rffm/match-reports")
 COMMANDS = ("inspect-match-report", "scrape-match-report", "preview-match-report",
-            "import-match-report", "match-report-summary")
+            "import-match-report", "match-report-summary", "process-match-reports")
 
 
 def add_parsers(sub: "argparse._SubParsersAction[argparse.ArgumentParser]") -> None:
@@ -39,6 +40,14 @@ def add_parsers(sub: "argparse._SubParsersAction[argparse.ArgumentParser]") -> N
     p = sub.add_parser("import-match-report", help="importa el JSON normalizado en PostgreSQL")
     p.add_argument("--input", type=Path, required=True)
     p.add_argument("--dry-run", action="store_true")
+    p = sub.add_parser("process-match-reports",
+                       help="descarga/importa las actas de partidos finalizados sin acta (secuencial)")
+    p.add_argument("--limit", type=int, default=None)
+    p.add_argument("--request-delay", type=float, default=2.0)
+    p.add_argument("--timeout", type=float, default=30.0)
+    p.add_argument("--no-import", action="store_true", help="solo descarga y normaliza")
+    p.add_argument("--report-dir", type=Path, default=REPORT_DIR)
+    p.add_argument("--output", type=Path, default=None)
     p = sub.add_parser("match-report-summary", help="recuentos agregados de actas")
     p.add_argument("--output", type=Path, default=None)
 
@@ -93,6 +102,19 @@ def run(args: argparse.Namespace) -> int:
         if args.command in ("inspect-match-report", "scrape-match-report"):
             match_id, url = _resolve(args)
             return (_inspect if args.command == "inspect-match-report" else _scrape)(args, match_id, url)
+        if args.command == "process-match-reports":
+            fetcher = PoliteFetcher(delay=args.request_delay, timeout=args.timeout)
+            summary = process_reports(make_engine(), args.report_dir, fetcher, limit=args.limit,
+                                      do_import=not args.no_import,
+                                      requests_made=lambda: fetcher.requests)
+            if args.output:
+                args.output.parent.mkdir(parents=True, exist_ok=True)
+                args.output.write_text(json.dumps(summary, ensure_ascii=False, indent=2) + "\n",
+                                       encoding="utf-8")
+            keys = ("candidates", "processed", "downloaded", "from_cache", "imported", "failed",
+                    "http_requests", "aborted")
+            print(" ".join(f"{k}={summary[k]}" for k in keys))
+            return 1 if summary["failed"] else 0
         if args.command == "preview-match-report":
             report = read_report(args.input)
             plan = None

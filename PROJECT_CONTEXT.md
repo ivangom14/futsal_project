@@ -46,8 +46,7 @@ un error por la jornada (la correcta es 2).
 Fase 1: corte vertical RFFM jornada 2 (7 partidos finalizados).
 Fase 2: descarga de las 26 jornadas (`src/futsal/ingestion/rffm/league.py`, `PoliteFetcher` en
 `client.py`): 182 partidos (13 finalizados, 169 programados), 0 duplicados, 0 incidencias,
-26 peticiones reales; segunda ejecución 100% caché. Jornadas descubiertas en
-`pageProps.rounds.jornadas`; ID técnico (`codjornada`) separado de la etiqueta visible.
+26 peticiones reales; 2ª ejecución 100% caché. Jornadas en `pageProps.rounds.jornadas` (ID técnico ≠ etiqueta).
 Salidas en `data/rffm/` (ignorado); resumen en `examples/league-summary.example.json`.
 Fase 3: PostgreSQL (`docker-compose.yml`, `.env.example`, Alembic `alembic/`, migración 0001), modelo en
 `src/futsal/db/models.py`, importador en `src/futsal/importer/` (schema→transform→service) y
@@ -56,10 +55,11 @@ Fase 3: PostgreSQL (`docker-compose.yml`, `.env.example`, Alembic `alembic/`, mi
 182 partidos, 182 observaciones; reimportación 0 cambios. Detalle: `docs/data-model.md`.
 Tests de integración: BD temporal `futsal_test_*` (se omiten sin PostgreSQL; el rol necesita CREATEDB).
 
-Fase 4: una acta real (`5575697`): `www.rffm.es/acta-partido/<codacta>?temporada&competicion&grupo`, datos en
-`__NEXT_DATA__` → `pageProps.game` (2 peticiones). Migración 0002 (8 tablas, observaciones por hash). Primera
-importación 79 filas nuevas; segunda 0 nuevas. Marcador 3-4 coincide con `matches`. Detalle:
-`docs/match-report-discovery.md`, `docs/data-model.md`. Ejemplos `examples/match-report*`.
+Fase 4: acta piloto `5575697` (`www.rffm.es/acta-partido/<codacta>?temporada&competicion&grupo`, datos en
+`__NEXT_DATA__`→`pageProps.game`). Migración 0002 (8 tablas, observaciones por hash): 79 filas; reimportación 0 nuevas.
+Fase 5: `process-match-reports` (`report_batch.py`): 12 actas más (12 peticiones, 0 fallos) → 13 actas, 203 jugadores,
+172 eventos, 1 incidencia (5575707: acta 7-4 vs listado 7-3); reejecución 0 candidatos. Docs: `docs/match-report-discovery.md`,
+`docs/data-model.md`; ejemplos `examples/match-report*`.
 
 ## Comandos esenciales
 - `pip install -e '.[dev]'`
@@ -72,9 +72,9 @@ importación 79 filas nuevas; segunda 0 nuevas. Marcador 3-4 coincide con `match
 ## Limitaciones conocidas
 - El listado no da URL de acta (`match_report_url` = null); el patrón se descubrió en Fase 4.
 - Estado `postponed/suspended/cancelled` sin observar aún; la jornada 1 tiene un partido con `estado=0`.
-- Sin API, MCP, KB, agente ni clasificaciones. Solo 1 acta descargada; sin fichas de jugadores.
+- Sin API, MCP, KB, agente ni clasificaciones; sin fichas de jugadores. `tipo_gol=102` probable propia puerta (sin normalizar).
 - Sustituciones/penaltis/otros técnicos: estructura sin observar (se avisa, no se importan).
 - La CLI real es `python -m futsal.cli` (el paquete es `futsal`, no `src`).
 
 ## Próxima fase (recomendada)
-Procesamiento masivo de actas finalizadas (con pausa y caché) o API REST de solo lectura.
+API REST de solo lectura sobre los datos importados (o fichas de jugadores / nueva descarga del listado para la incidencia 5575707).
