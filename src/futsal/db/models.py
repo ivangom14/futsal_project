@@ -288,7 +288,7 @@ class MatchEvent(Base):
     __tablename__ = "match_events"
     __table_args__ = (
         UniqueConstraint("observation_id", "sequence"),
-        CheckConstraint("event_type IN ('goal','card')", name="type_valid"),
+        CheckConstraint("event_type IN ('goal','own_goal','card')", name="type_valid"),
         CheckConstraint("minute IS NULL OR minute >= 0", name="minute_non_negative"),
     )
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)

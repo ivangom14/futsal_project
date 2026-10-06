@@ -1,5 +1,5 @@
 {
-  "note": "Lote de actas finalizadas de la jornada 1-2 del grupo objetivo, tras la acta piloto 5575697 (Fase 4). Ejecutado en dos tandas (--limit 2 y resto) con concurrencia 1 y pausa de 2 s; el acta piloto no cuenta aquí.",
+  "note": "Lote de actas finalizadas de la jornada 1-2 del grupo objetivo, tras la acta piloto 5575697 (Fase 4). Ejecutado en dos tandas (--limit 2 y resto) con concurrencia 1 y pausa de 2 s; el acta piloto no cuenta aquí. Estado tras aplicar la política del acta y own_goal (reimportación sin peticiones). Los recuentos de filas hijas incluyen las versiones sustituidas (16 observaciones para 13 actas).",
   "runs": [
     {
       "started_at": "2026-10-06T19:52:45.719064+00:00",
@@ -232,19 +232,19 @@
     }
   ],
   "database": {
+    "match_events": 221,
+    "match_officials": 48,
+    "match_players": 364,
+    "match_report_observations": 16,
     "match_reports": 13,
-    "match_report_observations": 13,
-    "players": 203,
+    "match_staff": 66,
     "player_team_memberships": 195,
-    "match_players": 295,
-    "match_staff": 52,
-    "match_officials": 39,
-    "match_events": 172,
-    "quality_issues": 1
+    "players": 203,
+    "quality_issues": 2
   },
   "findings": [
-    "5575707: el acta (7-4) difiere del listado de jornadas (7-3); se registró incidencia report_value_mismatch y matches no se modificó.",
-    "tipo_gol=102 (3 goles en 3 actas): acreditándolo al equipo rival, el marcador cuadra en las 13 actas (sin ello, en 10). Probable gol en propia puerta; se conserva solo el código.",
+    "5575707: el acta cerrada (7-4) difiere del listado (7-3). Prevalece el acta: matches pasa a 7-4 y 7-3 queda en match_observations (incidencia report_score_applied).",
+    "tipo_gol=102 = gol en propia meta (confirmado): event_type own_goal (3 goles en 5575701, 5575705 y 5575707); suma al rival y el marcador cuadra en 13/13 actas.",
     "10 eventos (8 jugadores) en 5 actas citan jugadores que el acta no lista en ninguna alineación; se conservan con su id externo."
   ]
 }

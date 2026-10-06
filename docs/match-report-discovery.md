@@ -41,12 +41,19 @@ El acta usa fechas `dd-mm-aaaa` (el listado usa `dd/mm/aaaa`); detectado al comp
 
 ## Lote de actas (13 finalizados del grupo objetivo)
 12 actas más, secuencial, pausa de 2 s, 12 peticiones, 0 fallos; la reejecución no encuentra candidatos (0 peticiones).
-- `tipo_gol=102` (3 goles): acreditado al equipo rival, el marcador cuadra en 13/13 actas (sin ello, en 10).
-  Probable gol en propia puerta; **no se normaliza**, solo se conserva el código.
-- 5575707: acta 7-4 frente a 7-3 del listado (descargado antes): incidencia `report_value_mismatch`, `matches` intacto.
+- `tipo_gol=102` (3 goles): **gol en propia meta** (confirmado por el usuario): se normaliza como `own_goal`,
+  se lista en la plantilla del jugador y suma al rival; con ello el marcador cuadra en 13/13 actas (sin ello, en 10).
+- 5575707: acta 7-4 frente a 7-3 del listado (descargado antes). Política: el acta cerrada prevalece (ver abajo).
 - 10 eventos (8 jugadores, 5 actas) citan jugadores ausentes de las alineaciones: se conservan con su id externo.
 - `codigo_tipo_amonestacion`: 100 (71 filas) y 101 (4); `segunda_amarilla=1` en 7. Significado sin verificar.
 - Ninguna acta trajo sustituciones, penaltis, otros técnicos ni tarjetas sin interpretar (`unparsed_sections` vacío).
+
+## Política: el acta cerrada prevalece en el marcador
+Si el acta está cerrada, el partido es `finished` y el marcador difiere, `import-match-report` actualiza `matches`
+con el del acta, deja el valor anterior en `match_observations` y registra la incidencia `report_score_applied`.
+`import-league` no revierte ese marcador con un listado antiguo (usa la última acta cerrada). Un acta no cerrada
+no modifica `matches`: solo incidencia `report_value_mismatch`. Fecha, hora o campo distintos siguen sin consolidarse.
+También se avisa (`report_events_score_mismatch`) si los goles del acta no suman su marcador.
 
 ## Pendiente para el procesamiento masivo
 Actas de partidos aún no finalizados (al jugarse), manejo de actas no cerradas/suspendidas,

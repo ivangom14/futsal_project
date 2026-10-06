@@ -36,7 +36,8 @@ def render_preview(report: MatchReport, plan_rows: list[tuple[str, int, int, int
     out += [f"{o.display_name} | {o.role}" for o in report.officials] or [NA]
     out += ["", "EVENTOS", "Minuto | Tipo | Equipo | Jugador | Descripción"]
     for e in report.events:
-        detail = f"código={_v(e.source_code)}" + (
+        detail = ("gol en propia meta (suma al rival); " if e.event_type == "own_goal" else "") + (
+            f"código={_v(e.source_code)}") + (
             f" segunda_amarilla={e.source_detail.get('segunda_amarilla')}" if e.source_detail else "")
         out.append(f"{_v(e.minute)} | {e.event_type} | {_v(name[e.team_side])} | "
                    f"{_v(e.player_name)} | {detail}")

@@ -55,12 +55,12 @@ Fase 3: PostgreSQL (`docker-compose.yml`, `.env.example`, Alembic `alembic/`, mi
 182 partidos, 182 observaciones; reimportación 0 cambios. Detalle: `docs/data-model.md`.
 Tests de integración: BD temporal `futsal_test_*` (se omiten sin PostgreSQL; el rol necesita CREATEDB).
 
-Fase 4: acta piloto `5575697` (`www.rffm.es/acta-partido/<codacta>?temporada&competicion&grupo`, datos en
-`__NEXT_DATA__`→`pageProps.game`). Migración 0002 (8 tablas, observaciones por hash): 79 filas; reimportación 0 nuevas.
+Fase 4: acta piloto `5575697` (`www.rffm.es/acta-partido/<codacta>?temporada&competicion&grupo`, `__NEXT_DATA__`→`pageProps.game`).
+Migración 0002 (8 tablas, observaciones por hash): 79 filas; reimportación 0 nuevas.
 Fase 5: `process-match-reports` (`report_batch.py`): 12 actas más (12 peticiones, 0 fallos) → 13 actas, 203 jugadores,
-172 eventos, 1 incidencia (5575707: acta 7-4 vs listado 7-3); reejecución 0 candidatos. Docs: `docs/match-report-discovery.md`,
+172 eventos; reejecución 0 candidatos. Migración 0003: `own_goal` (`tipo_gol`=102, confirmado). Política: acta cerrada
+prevalece en el marcador (5575707: 7-3→7-4, anterior en `match_observations`); `import-league` no lo revierte. Docs: `docs/match-report-discovery.md`,
 `docs/data-model.md`; ejemplos `examples/match-report*`.
-
 ## Comandos esenciales
 - `pip install -e '.[dev]'`
 - `python3 -m futsal.cli scrape-round --round 2 --output data/round-2.json` (`--refresh` redescarga)
@@ -72,9 +72,9 @@ Fase 5: `process-match-reports` (`report_batch.py`): 12 actas más (12 peticione
 ## Limitaciones conocidas
 - El listado no da URL de acta (`match_report_url` = null); el patrón se descubrió en Fase 4.
 - Estado `postponed/suspended/cancelled` sin observar aún; la jornada 1 tiene un partido con `estado=0`.
-- Sin API, MCP, KB, agente ni clasificaciones; sin fichas de jugadores. `tipo_gol=102` probable propia puerta (sin normalizar).
+- Sin API, MCP, KB, agente ni clasificaciones; sin fichas de jugadores. Significado de tarjetas 100/101 sin verificar.
 - Sustituciones/penaltis/otros técnicos: estructura sin observar (se avisa, no se importan).
 - La CLI real es `python -m futsal.cli` (el paquete es `futsal`, no `src`).
 
 ## Próxima fase (recomendada)
-API REST de solo lectura sobre los datos importados (o fichas de jugadores / nueva descarga del listado para la incidencia 5575707).
+API REST de solo lectura sobre los datos importados (o fichas de jugadores).

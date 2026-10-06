@@ -13,12 +13,14 @@ from futsal.db.models import (
     CompetitionGroup,
     Match,
     MatchObservation,
+    MatchReport,
+    MatchReportObservation,
     Round,
     Season,
     Team,
     Tracked,
 )
-from futsal.importer.transform import SOURCE, ImportPlan, MatchRec
+from futsal.importer.transform import SOURCE, ImportPlan, MatchRec, content_hash
 
 T = TypeVar("T", bound=Tracked)
 
@@ -74,30 +76,48 @@ def import_plan(session: Session, plan: ImportPlan, run_id: int, now: datetime) 
         for t in plan.teams
     }
     for m in plan.matches:
+        acta = _closed_acta_score(session, m.external_id) if m.status == "finished" else None
+        home_score, away_score = acta if acta else (m.home_score, m.away_score)
         row = _upsert(
             session, Match, {"external_id": m.external_id},
             {"group_id": group.id, "round_id": rounds[m.round_external_id],
              "home_team_id": teams[m.home_external_id], "away_team_id": teams[m.away_external_id],
              "scheduled_date": m.scheduled_date, "scheduled_time": m.scheduled_time,
              "scheduled_at": m.scheduled_at, "timezone": m.timezone, "venue": m.venue,
-             "status": m.status, "home_score": m.home_score, "away_score": m.away_score,
+             "status": m.status, "home_score": home_score, "away_score": away_score,
              "source_url": m.source_url},
             now, stats, "matches")
-        _observe(session, row.id, m, run_id, now, stats)
+        digest = (content_hash(m.status, m.scheduled_date, m.scheduled_time, home_score, away_score)
+                  if acta else m.content_hash)
+        _observe(session, row.id, m, run_id, now, stats, home_score, away_score, digest)
     return stats
 
 
+def _closed_acta_score(session: Session, match_external_id: str) -> tuple[int, int] | None:
+    """Marcador de la última observación de un acta cerrada: prevalece sobre el listado."""
+    row = session.execute(
+        select(MatchReportObservation.home_score, MatchReportObservation.away_score,
+               MatchReportObservation.closed)
+        .join(MatchReport, MatchReport.id == MatchReportObservation.report_id)
+        .where(MatchReport.source == SOURCE, MatchReport.external_id == match_external_id)
+        .order_by(MatchReportObservation.observed_at.desc(), MatchReportObservation.id.desc())
+        .limit(1)).first()
+    if row is None or not row.closed or row.home_score is None or row.away_score is None:
+        return None
+    return int(row.home_score), int(row.away_score)
+
+
 def _observe(session: Session, match_id: int, m: MatchRec, run_id: int, now: datetime,
-             stats: Stats) -> None:
+             stats: Stats, home_score: int | None, away_score: int | None, digest: str) -> None:
     last = session.scalars(
         select(MatchObservation.content_hash).where(MatchObservation.match_id == match_id)
         .order_by(MatchObservation.observed_at.desc(), MatchObservation.id.desc()).limit(1)
     ).one_or_none()
-    if last == m.content_hash:
+    if last == digest:
         return
     session.add(MatchObservation(
         match_id=match_id, ingestion_run_id=run_id, observed_at=now, status=m.status,
-        home_score=m.home_score, away_score=m.away_score, scheduled_date=m.scheduled_date,
+        home_score=home_score, away_score=away_score, scheduled_date=m.scheduled_date,
         scheduled_time=m.scheduled_time, scheduled_at=m.scheduled_at,
-        content_hash=m.content_hash))
+        content_hash=digest))
     stats["observations"]["inserted"] += 1

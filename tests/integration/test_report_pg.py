@@ -79,16 +79,66 @@ def test_unique_constraints(seeded: Engine, tmp_path: Path) -> None:
                        "SELECT observation_id, sequence, 'goal', team_id FROM match_events LIMIT 1"))
 
 
-def test_score_discrepancy_creates_issue_and_keeps_both(seeded: Engine, tmp_path: Path) -> None:
-    r = run_report_import(seeded, _input(tmp_path, goles_local="5"))
-    assert r.status == "success" and any(c == "report_value_mismatch" for c, _ in r.issues)
+def _codes(engine: Engine) -> list[str]:
+    with engine.connect() as c:
+        return [r[0] for r in c.execute(text(
+            "SELECT code FROM data_quality_issues WHERE entity_type='match_report' ORDER BY id"))]
+
+
+def _scores(engine: Engine) -> tuple[tuple[int, int], list[tuple[int, int]]]:
+    with engine.connect() as c:
+        cur = c.execute(text("SELECT home_score, away_score FROM matches "
+                             "WHERE external_id='5575697'")).one()
+        hist = c.execute(text("SELECT o.home_score, o.away_score FROM match_observations o "
+                              "JOIN matches m ON m.id=o.match_id WHERE m.external_id='5575697' "
+                              "ORDER BY o.id")).all()
+    return (cur[0], cur[1]), [(h[0], h[1]) for h in hist]
+
+
+def test_closed_report_score_prevails_and_keeps_previous(seeded: Engine, tmp_path: Path) -> None:
+    p = _input(tmp_path, goles_local="5")
+    r = run_report_import(seeded, p)
+    assert r.status == "success" and "report_score_applied" in _codes(seeded)
+    assert "report_value_mismatch" not in _codes(seeded)  # el acta ya prevalece: no hay discrepancia
+    cur, hist = _scores(seeded)
+    assert cur == (5, 4) and hist == [(3, 4), (5, 4)]  # el valor anterior queda en el histórico
     with seeded.connect() as c:
-        db_score = c.execute(text("SELECT home_score, away_score FROM matches "
-                                  "WHERE external_id = '5575697'")).one()
-        obs_score = c.execute(text("SELECT home_score, away_score FROM match_report_observations")).one()
-        issue = c.scalar(text("SELECT message FROM data_quality_issues WHERE entity_type='match_report'"))
-    assert tuple(db_score) == (3, 4) and tuple(obs_score) == (5, 4)  # no se sobrescribe
-    assert "no se consolida" in issue
+        assert tuple(c.execute(text("SELECT home_score, away_score FROM match_report_observations")).one()) == (5, 4)
+    before = _codes(seeded)
+    again = run_report_import(seeded, p)  # idempotente: no vuelve a aplicar ni a crear incidencias
+    assert again.total("inserted") == 0 and _codes(seeded) == before
+    assert _scores(seeded)[1] == [(3, 4), (5, 4)]
+
+
+def test_stale_league_listing_does_not_revert_report_score(seeded: Engine, tmp_path: Path) -> None:
+    run_report_import(seeded, _input(tmp_path, goles_local="5"))
+    assert run_import(seeded, FIX / "league_two_rounds.json").status == "success"  # listado con 3-4
+    cur, hist = _scores(seeded)
+    assert cur == (5, 4) and hist == [(3, 4), (5, 4)]
+
+
+def test_open_report_does_not_override(seeded: Engine, tmp_path: Path) -> None:
+    r = run_report_import(seeded, _input(tmp_path, goles_local="5", acta_cerrada="0"))
+    assert r.status == "success" and "report_value_mismatch" in _codes(seeded)
+    assert "report_score_applied" not in _codes(seeded)
+    assert _scores(seeded) == ((3, 4), [(3, 4)])
+
+
+def test_own_goal_is_stored_with_type(seeded: Engine, tmp_path: Path) -> None:
+    html = (FIX / "rffm_match_report.html").read_text(encoding="utf-8")
+    data = json.loads(html.split('type="application/json">')[1].split("</script>")[0])
+    g = data["props"]["pageProps"]["game"]
+    moved = g["goles_equipo_local"].pop(0)  # un gol del local pasa a propia del visitante (102)
+    moved["tipo_gol"] = "102"
+    g["goles_equipo_visitante"].append(moved)
+    g["goles_local"], g["goles_visitante"] = "3", "4"  # 2 propios + 1 en propia = 3 ; 4
+    p = tmp_path / "own.json"
+    p.write_text(parse_match_report('<script id="__NEXT_DATA__">' + json.dumps(data) + "</script>",
+                                    URL).model_dump_json(), encoding="utf-8")
+    assert run_report_import(seeded, p).status == "success"
+    with seeded.connect() as c:
+        n = c.scalar(text("SELECT count(*) FROM match_events WHERE event_type='own_goal'"))
+    assert n == 1
 
 
 def test_changed_report_keeps_history(seeded: Engine, tmp_path: Path) -> None:

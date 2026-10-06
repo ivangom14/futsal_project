@@ -1,7 +1,7 @@
 """Persistencia de actas: observaciones versionadas por hash y upsert idempotente de personas."""
 
 from collections import Counter
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime
 from typing import Any
 
@@ -13,6 +13,7 @@ from futsal.db.models import (
     CompetitionGroup,
     Match,
     MatchEvent,
+    MatchObservation,
     MatchOfficial,
     MatchPlayer,
     MatchReport,
@@ -24,8 +25,14 @@ from futsal.db.models import (
     Season,
     Team,
 )
-from futsal.importer.transform import SOURCE
-from futsal.ingestion.rffm.report_compare import DbMatchView, compare, discrepancies, material_errors
+from futsal.importer.transform import SOURCE, content_hash
+from futsal.ingestion.rffm.report_compare import (
+    DbMatchView,
+    compare,
+    discrepancies,
+    events_score,
+    material_errors,
+)
 from futsal.ingestion.rffm.report_models import MatchReport as ReportModel
 
 Stats = dict[str, Counter[str]]
@@ -142,6 +149,39 @@ def _count(session: Session, model: Any, obs_id: int) -> int:
     return int(session.execute(stmt).scalar_one())
 
 
+def _reconcile_score(session: Session, match: Match, report: ReportModel, run_id: int,
+                     now: datetime, stats: Stats) -> list[tuple[str, str]]:
+    """Si el acta está cerrada y su marcador difiere, el acta prevalece. El valor anterior
+    se conserva en `match_observations`. Idempotente: tras aplicarse ya no hay diferencia."""
+    rm = report.match
+    if (not report.report.closed or rm.status != "finished" or match.status != "finished"
+            or rm.home_score is None or rm.away_score is None):
+        return []
+    old = (match.home_score, match.away_score)
+    if old == (rm.home_score, rm.away_score):
+        return []
+    match.home_score, match.away_score = rm.home_score, rm.away_score
+    digest = content_hash(match.status, match.scheduled_date, match.scheduled_time,
+                          match.home_score, match.away_score)
+    last = session.scalars(select(MatchObservation.content_hash).where(
+        MatchObservation.match_id == match.id)
+        .order_by(MatchObservation.observed_at.desc(), MatchObservation.id.desc()).limit(1)
+    ).one_or_none()
+    if last != digest:
+        session.add(MatchObservation(
+            match_id=match.id, ingestion_run_id=run_id, observed_at=now, status=match.status,
+            home_score=match.home_score, away_score=match.away_score,
+            scheduled_date=match.scheduled_date, scheduled_time=match.scheduled_time,
+            scheduled_at=match.scheduled_at, content_hash=digest))
+        stats.setdefault("match_observations", Counter())["inserted"] += 1
+    stats.setdefault("matches", Counter())["updated"] += 1
+    session.flush()
+    return [("report_score_applied",
+             f"marcador: matches={old[0]}-{old[1]} -> acta={rm.home_score}-{rm.away_score}. "
+             "El acta cerrada prevalece sobre el listado; el valor anterior queda en "
+             "match_observations.")]
+
+
 def import_report(session: Session, report: ReportModel, run_id: int, now: datetime
                   ) -> tuple[Stats, list[tuple[str, str]]]:
     """Devuelve (estadísticas por tabla, incidencias [(código, mensaje)]). Lanza ReportImportError."""
@@ -149,8 +189,7 @@ def import_report(session: Session, report: ReportModel, run_id: int, now: datet
     loaded = load_match(session, report.report.match_external_id)
     if loaded is None:
         raise ReportImportError(f"el partido {report.report.match_external_id} no existe en PostgreSQL")
-    rows = compare(report, loaded.view)
-    errors = material_errors(rows)
+    errors = material_errors(compare(report, loaded.view))
     if report.report.season_external_id != loaded.season_external_id:
         errors.append(f"temporada: matches={loaded.season_external_id} "
                       f"acta={report.report.season_external_id}")
@@ -158,6 +197,8 @@ def import_report(session: Session, report: ReportModel, run_id: int, now: datet
         raise ReportImportError("el acta no corresponde al partido: " + "; ".join(errors))
     m = loaded.match
     team_by_side = {"home": m.home_team_id, "away": m.away_team_id}
+    applied = _reconcile_score(session, m, report, run_id, now, stats)
+    rows = compare(report, replace(loaded.view, home_score=m.home_score, away_score=m.away_score))
 
     rep = session.scalars(select(MatchReport).filter_by(
         source=SOURCE, external_id=report.report.report_external_id)).one_or_none()
@@ -191,7 +232,7 @@ def import_report(session: Session, report: ReportModel, run_id: int, now: datet
         for key, model in (("match_players", MatchPlayer), ("match_staff", MatchStaff),
                            ("match_officials", MatchOfficial), ("match_events", MatchEvent)):
             stats[key]["unchanged"] += _count(session, model, existing.id)
-        return stats, []
+        return stats, applied
 
     teams = {t.side: t for t in report.teams}
     obs = MatchReportObservation(
@@ -239,11 +280,16 @@ def import_report(session: Session, report: ReportModel, run_id: int, now: datet
         stats["match_events"]["inserted"] += 1
     session.flush()
 
-    issues = [("report_value_mismatch",
+    issues = applied + [("report_value_mismatch",
                f"{d.field}: matches={d.matches_value} acta={d.report_value}. Se conserva el valor de "
                "matches (listado de jornadas) y el del acta queda en la observación; no se "
-               "consolida automáticamente. El acta cerrada se considera la fuente más fiable, "
-               "pendiente de revisión manual.") for d in discrepancies(rows)]
+               "consolida automáticamente (el acta no está cerrada o no es un partido finalizado).") for d in discrepancies(rows)]
+    derived = events_score(report)
+    if report.match.home_score is not None and derived != (report.match.home_score,
+                                                           report.match.away_score):
+        issues.append(("report_events_score_mismatch",
+                       f"los goles del acta (propias incluidas) dan {derived[0]}-{derived[1]} y el "
+                       f"marcador del acta es {report.match.home_score}-{report.match.away_score}"))
     issues += [("report_section_not_parsed", f"sección sin interpretar: {s}")
                for s in report.validation.unparsed_sections]
     return stats, issues

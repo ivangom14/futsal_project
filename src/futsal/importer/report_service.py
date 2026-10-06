@@ -1,6 +1,5 @@
 """Orquestación de actas: leer JSON normalizado -> transacción -> informe / resumen."""
 
-from collections import Counter
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
@@ -25,7 +24,6 @@ from futsal.ingestion.rffm.report_compare import compare
 from futsal.ingestion.rffm.report_models import ComparisonRow
 from futsal.ingestion.rffm.report_models import MatchReport as ReportModel
 from futsal.repositories.match_reports import (
-    TABLES,
     ReportImportError,
     Stats,
     import_report,
@@ -48,7 +46,7 @@ class ReportImportReport:
 
     def rows(self) -> list[tuple[str, int, int, int]]:
         return [(t, c["inserted"], c["updated"], c["unchanged"])
-                for t in TABLES if (c := self.stats.get(t, Counter()))]
+                for t, c in self.stats.items() if c]
 
     def lines(self) -> list[str]:
         mode = "DRY-RUN (sin cambios persistidos)" if self.dry_run else "importación real"

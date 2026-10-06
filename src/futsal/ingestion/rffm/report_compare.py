@@ -60,3 +60,17 @@ def material_errors(rows: list[ComparisonRow]) -> list[str]:
 
 def discrepancies(rows: list[ComparisonRow]) -> list[ComparisonRow]:
     return [r for r in rows if not r.equal and r.field not in MATERIAL_FIELDS]
+
+
+def events_score(report: MatchReport) -> tuple[int, int]:
+    """Marcador que resulta de los goles: el gol en propia suma al equipo rival."""
+    home = away = 0
+    for e in report.events:
+        if e.event_type == "card":
+            continue
+        credited = e.team_side if e.event_type == "goal" else ("away" if e.team_side == "home" else "home")
+        if credited == "home":
+            home += 1
+        else:
+            away += 1
+    return home, away

@@ -73,7 +73,7 @@ class ReportOfficial(BaseModel):
 
 class ReportEvent(BaseModel):
     sequence: int
-    event_type: Literal["goal", "card"]
+    event_type: Literal["goal", "own_goal", "card"]
     team_side: Side
     team_external_id: str | None
     player_external_id: str | None

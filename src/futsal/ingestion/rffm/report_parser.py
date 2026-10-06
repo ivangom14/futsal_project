@@ -3,7 +3,7 @@
 import hashlib
 import json
 from datetime import UTC, date, datetime
-from typing import Any
+from typing import Any, Literal
 from urllib.parse import urljoin
 
 from futsal.ingestion.rffm.parser import (
@@ -129,6 +129,15 @@ def _officials(game: dict[str, Any]) -> list[ReportOfficial]:
     return out
 
 
+OWN_GOAL_CODE = "102"  # confirmado por el usuario: gol en propia meta (suma al rival)
+
+
+def _event_type(kind: str, code: str | None) -> Literal["goal", "own_goal", "card"]:
+    if kind == "card":
+        return "card"
+    return "own_goal" if code == OWN_GOAL_CODE else "goal"
+
+
 def _events(game: dict[str, Any]) -> list[ReportEvent]:
     raw: list[tuple[int | None, int, ReportEvent]] = []
     for kind, prefix in (("goal", "goles_equipo"), ("card", "tarjetas_equipo")):
@@ -142,7 +151,7 @@ def _events(game: dict[str, Any]) -> list[ReportEvent]:
                     detail = {"segunda_amarilla": _text(row.get("segunda_amarilla")) or ""}
                 minute = _int(row.get("minuto"))
                 raw.append((minute, len(raw), ReportEvent(
-                    sequence=0, event_type="goal" if kind == "goal" else "card", team_side=side,
+                    sequence=0, event_type=_event_type(kind, code), team_side=side,
                     team_external_id=team_id, player_external_id=_text(row.get("codjugador")),
                     player_name=_text(row.get("nombre_jugador")), minute=minute,
                     source_code=code, source_detail=detail)))

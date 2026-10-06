@@ -55,3 +55,5 @@ Toma los partidos finalizados sin acta importada, de uno en uno: usa el snapshot
 valida que la página sea el partido/competición esperado antes de guardarla, normaliza, compara con `matches` e importa.
 Un fallo no detiene el lote; 3 fallos de descarga seguidos lo abortan. Reejecutarlo no repite lo ya importado.
 Resumen revisable: `examples/match-report-batch-summary.example.json`.
+Si el acta está cerrada y su marcador difiere del listado, prevalece el acta (el valor anterior queda en
+`match_observations`); `tipo_gol=102` es gol en propia meta y suma al rival.

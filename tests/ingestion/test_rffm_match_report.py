@@ -8,7 +8,13 @@ from typing import Any
 import pytest
 
 from futsal.ingestion.rffm.parser import RffmParseError
-from futsal.ingestion.rffm.report_compare import DbMatchView, compare, discrepancies, material_errors
+from futsal.ingestion.rffm.report_compare import (
+    DbMatchView,
+    compare,
+    discrepancies,
+    events_score,
+    material_errors,
+)
 from futsal.ingestion.rffm.report_parser import absolute_url, parse_match_report
 from futsal.ingestion.rffm.report_preview import NA, render_preview
 
@@ -150,3 +156,14 @@ def test_no_network(html: str, monkeypatch: pytest.MonkeyPatch) -> None:
 
     monkeypatch.setattr(socket, "socket", no_net)
     assert parse_match_report(html, URL, OBSERVED).players
+
+
+def test_own_goal_code_102_credits_the_rival(html: str) -> None:
+    base = parse_match_report(html, URL, OBSERVED)
+    assert events_score(base) == (3, 4) and not any(e.event_type == "own_goal" for e in base.events)
+    h = _mut(html, lambda g: g["goles_equipo_local"][0].update(tipo_gol="102"))
+    r = parse_match_report(h, URL, OBSERVED)
+    own = [e for e in r.events if e.event_type == "own_goal"]
+    assert len(own) == 1 and own[0].team_side == "home" and own[0].source_code == "102"
+    assert events_score(r) == (2, 5)  # la propia del local suma al visitante
+    assert "gol en propia meta" in render_preview(r)
