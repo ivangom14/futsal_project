@@ -63,6 +63,8 @@ prevalece en el marcador (5575707: 7-3→7-4, anterior en `match_observations`);
 `docs/data-model.md`; ejemplos `examples/match-report*`.
 Fase 5 (API): FastAPI de solo lectura en `src/futsal/api/app.py` (`/health`, `/competitions`, `/competitions/{id}/groups`,
 `/groups/{id}/{rounds,teams,matches}`, `/matches/{id}`); tests `tests/integration/test_api_pg.py`. Detalle: `docs/api.md`.
+Fase 6 (MCP): `src/futsal/mcp_server/server.py` (SDK `mcp`/FastMCP, stdio, cliente httpx sobre la API; `API_BASE_URL`).
+Tools: `list_competitions|groups|rounds|teams|matches`, `get_match`; errores controlados. Tests `tests/test_mcp_server.py`. Detalle: `docs/mcp.md`.
 (Nota: fases de actas anteriores se numeraron 4/5 en esta lista; la API es la siguiente fase.)
 ## Comandos esenciales
 - `pip install -e '.[dev]'`
@@ -70,15 +72,16 @@ Fase 5 (API): FastAPI de solo lectura en `src/futsal/api/app.py` (`/health`, `/c
 - `python3 -m futsal.cli list-rounds` / `scrape-league [--resume|--refresh|--max-rounds N]`
 - `python3 -m pytest -q`, `ruff check .`, `python3 -m mypy`
 - `uvicorn futsal.api.app:app_factory --factory --port 8000`
+- `python -m futsal.mcp_server.server` (MCP stdio)
 - `docker compose config -q`; `docker compose up -d --wait db && alembic upgrade head`
 - `python3 -m futsal.cli preview-import|import-league|db-summary` y `*-match-report` (ver README)
 
 ## Limitaciones conocidas
 - El listado no da URL de acta (`match_report_url` = null); el patrón se descubrió en Fase 4.
 - Estado `postponed/suspended/cancelled` sin observar aún; la jornada 1 tiene un partido con `estado=0`.
-- Sin MCP, KB, agente ni clasificaciones; sin fichas de jugadores. Significado de tarjetas 100/101 sin verificar.
+- Sin KB, agente ni clasificaciones; sin fichas de jugadores. Significado de tarjetas 100/101 sin verificar.
 - Sustituciones/penaltis/otros técnicos: estructura sin observar (se avisa, no se importan).
 - La CLI real es `python -m futsal.cli` (el paquete es `futsal`, no `src`).
 
 ## Próxima fase (recomendada)
-MCP de solo lectura sobre la API (o fichas de jugadores/clasificaciones).
+Agente sobre MCP (o fichas de jugadores/clasificaciones).

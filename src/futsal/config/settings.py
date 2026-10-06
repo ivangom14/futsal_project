@@ -21,3 +21,9 @@ def database_url() -> str:
     if not url:
         raise RuntimeError("DATABASE_URL no definida (ver .env.example)")
     return url
+
+
+def api_base_url() -> str:
+    """`API_BASE_URL` del entorno (o `.env`); por defecto la API local de desarrollo."""
+    url = os.environ.get("API_BASE_URL") or _load_dotenv(Path(".env")).get("API_BASE_URL")
+    return (url or "http://127.0.0.1:8000").rstrip("/")
