@@ -61,20 +61,24 @@ Fase 5: `process-match-reports` (`report_batch.py`): 12 actas más (12 peticione
 172 eventos; reejecución 0 candidatos. Migración 0003: `own_goal` (`tipo_gol`=102, confirmado). Política: acta cerrada
 prevalece en el marcador (5575707: 7-3→7-4, anterior en `match_observations`); `import-league` no lo revierte. Docs: `docs/match-report-discovery.md`,
 `docs/data-model.md`; ejemplos `examples/match-report*`.
+Fase 5 (API): FastAPI de solo lectura en `src/futsal/api/app.py` (`/health`, `/competitions`, `/competitions/{id}/groups`,
+`/groups/{id}/{rounds,teams,matches}`, `/matches/{id}`); tests `tests/integration/test_api_pg.py`. Detalle: `docs/api.md`.
+(Nota: fases de actas anteriores se numeraron 4/5 en esta lista; la API es la siguiente fase.)
 ## Comandos esenciales
 - `pip install -e '.[dev]'`
 - `python3 -m futsal.cli scrape-round --round 2 --output data/round-2.json` (`--refresh` redescarga)
 - `python3 -m futsal.cli list-rounds` / `scrape-league [--resume|--refresh|--max-rounds N]`
 - `python3 -m pytest -q`, `ruff check .`, `python3 -m mypy`
+- `uvicorn futsal.api.app:app_factory --factory --port 8000`
 - `docker compose config -q`; `docker compose up -d --wait db && alembic upgrade head`
 - `python3 -m futsal.cli preview-import|import-league|db-summary` y `*-match-report` (ver README)
 
 ## Limitaciones conocidas
 - El listado no da URL de acta (`match_report_url` = null); el patrón se descubrió en Fase 4.
 - Estado `postponed/suspended/cancelled` sin observar aún; la jornada 1 tiene un partido con `estado=0`.
-- Sin API, MCP, KB, agente ni clasificaciones; sin fichas de jugadores. Significado de tarjetas 100/101 sin verificar.
+- Sin MCP, KB, agente ni clasificaciones; sin fichas de jugadores. Significado de tarjetas 100/101 sin verificar.
 - Sustituciones/penaltis/otros técnicos: estructura sin observar (se avisa, no se importan).
 - La CLI real es `python -m futsal.cli` (el paquete es `futsal`, no `src`).
 
 ## Próxima fase (recomendada)
-API REST de solo lectura sobre los datos importados (o fichas de jugadores).
+MCP de solo lectura sobre la API (o fichas de jugadores/clasificaciones).
