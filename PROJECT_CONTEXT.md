@@ -65,6 +65,9 @@ Fase 5 (API): FastAPI de solo lectura en `src/futsal/api/app.py` (`/health`, `/c
 `/groups/{id}/{rounds,teams,matches}`, `/matches/{id}`); tests `tests/integration/test_api_pg.py`. Detalle: `docs/api.md`.
 Fase 6 (MCP): `src/futsal/mcp_server/server.py` (SDK `mcp`/FastMCP, stdio, cliente httpx sobre la API; `API_BASE_URL`).
 Tools: `list_competitions|groups|rounds|teams|matches`, `get_match`; errores controlados. Tests `tests/test_mcp_server.py`. Detalle: `docs/mcp.md`.
+Fase 7 (agente): `src/futsal/agent/` (`llm.py` Protocol+adaptador Anthropic/httpx, `mcp_client.py`, `agent.py` bucle con
+`MAX_TOOL_CALLS`=5 y traza, `python -m futsal.agent "pregunta"`). Tests `tests/test_agent.py` (LLM simulado). Detalle: `docs/agent.md`.
+PENDIENTE: prueba real con LLM (sin `ANTHROPIC_API_KEY` en el entorno); pipeline MCP→API→PG verificado con LLM simulado.
 (Nota: fases de actas anteriores se numeraron 4/5 en esta lista; la API es la siguiente fase.)
 ## Comandos esenciales
 - `pip install -e '.[dev]'`
@@ -72,16 +75,16 @@ Tools: `list_competitions|groups|rounds|teams|matches`, `get_match`; errores con
 - `python3 -m futsal.cli list-rounds` / `scrape-league [--resume|--refresh|--max-rounds N]`
 - `python3 -m pytest -q`, `ruff check .`, `python3 -m mypy`
 - `uvicorn futsal.api.app:app_factory --factory --port 8000`
-- `python -m futsal.mcp_server.server` (MCP stdio)
+- `python -m futsal.mcp_server.server` (MCP stdio); `python -m futsal.agent "pregunta"` (requiere `ANTHROPIC_API_KEY`)
 - `docker compose config -q`; `docker compose up -d --wait db && alembic upgrade head`
 - `python3 -m futsal.cli preview-import|import-league|db-summary` y `*-match-report` (ver README)
 
 ## Limitaciones conocidas
 - El listado no da URL de acta (`match_report_url` = null); el patrón se descubrió en Fase 4.
 - Estado `postponed/suspended/cancelled` sin observar aún; la jornada 1 tiene un partido con `estado=0`.
-- Sin KB, agente ni clasificaciones; sin fichas de jugadores. Significado de tarjetas 100/101 sin verificar.
+- Sin KB ni clasificaciones; agente solo experimental; sin fichas de jugadores. Significado de tarjetas 100/101 sin verificar.
 - Sustituciones/penaltis/otros técnicos: estructura sin observar (se avisa, no se importan).
 - La CLI real es `python -m futsal.cli` (el paquete es `futsal`, no `src`).
 
 ## Próxima fase (recomendada)
-Agente sobre MCP (o fichas de jugadores/clasificaciones).
+Validar el agente con LLM real (Fase 7 pendiente de clave), luego fichas de jugadores/clasificaciones).

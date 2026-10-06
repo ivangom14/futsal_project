@@ -27,3 +27,8 @@ def api_base_url() -> str:
     """`API_BASE_URL` del entorno (o `.env`); por defecto la API local de desarrollo."""
     url = os.environ.get("API_BASE_URL") or _load_dotenv(Path(".env")).get("API_BASE_URL")
     return (url or "http://127.0.0.1:8000").rstrip("/")
+
+
+def env_value(key: str, default: str = "") -> str:
+    """Valor del entorno (o `.env` local); `default` si no está definido."""
+    return os.environ.get(key) or _load_dotenv(Path(".env")).get(key) or default

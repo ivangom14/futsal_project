@@ -1,0 +1,69 @@
+# Fase 7 — Agente controlado con MCP (experimental)
+
+## Objetivo
+Demostrar el ciclo de *tool calling*: pregunta → LLM elige tool y argumentos → MCP → API → PostgreSQL
+→ resultado al LLM → respuesta. No es un agente de producción (sin memoria, RAG ni planificación).
+
+## Arquitectura
+```
+Agent (src/futsal/agent/agent.py)
+ ├── LLMClient  (llm.py: Protocol + tipos neutrales; adaptador AnthropicLLM sobre httpx)
+ └── McpClient  (mcp_client.py: sesión MCP; descubre y ejecuta tools)
+```
+LLM y MCP están desacoplados: cambiar de proveedor = nuevo adaptador de `LLMClient`.
+Las 6 tools se descubren desde MCP (`list_tools`); el agente no las duplica.
+
+## Ciclo
+1. `list_tools` (MCP) → se pasan al LLM como definiciones (`name`, `description`, `input_schema`).
+2. Se envía la pregunta con un system prompt corto (`SYSTEM_PROMPT`).
+3. Si el LLM devuelve tool calls → se ejecutan por MCP y los resultados (también errores, `is_error`)
+   vuelven al LLM; se repite.
+4. Sin tool calls → respuesta final.
+`MAX_TOOL_CALLS` (def. 5): si la siguiente ronda lo superaría, se detiene sin ejecutar más tools y
+`AgentResult.error` indica el límite.
+
+## Arranque
+```
+docker compose up -d --wait db && alembic upgrade head
+uvicorn futsal.api.app:app_factory --factory --port 8000
+export ANTHROPIC_API_KEY=...            # o en .env (ignorado por Git)
+python -m futsal.agent "¿Cómo quedó el partido 2?"
+```
+El agente lanza el MCP (`python -m futsal.mcp_server.server`, stdio) como subproceso.
+
+## Configuración (entorno o `.env`)
+`ANTHROPIC_API_KEY` (obligatoria), `LLM_MODEL` (def. `claude-haiku-4-5-20251001`, barato),
+`ANTHROPIC_BASE_URL`, `MAX_TOOL_CALLS`, `API_BASE_URL`. La clave nunca se imprime ni se traza.
+
+## Preguntas de prueba
+"¿Cómo quedó el partido 2?" · "¿Qué partidos terminados hay en el grupo 1?" ·
+"¿Qué equipos hay en el grupo 1?" · "¿Qué partidos juega PARQUE NORTE F.S.?" ·
+"¿Qué partidos hay en la jornada 2 del grupo 1?" · "¿Qué puedes hacer?" · "¿Cómo quedó el partido 999999?"
+
+## Ejemplo de traza (formato real del agente; resultados MCP reales, LLM simulado)
+```
+USER
+¿Qué partidos terminados hay en el grupo 1?
+
+LLM
+→ tool: list_matches
+→ arguments: {"group_id": 1, "status": "finished"}
+
+MCP
+→ 13 matches
+
+LLM
+→ final answer
+```
+Error: `MCP → ERROR Error executing tool get_match: error_no_encontrado: partido 999999 no existe`.
+
+## Tests
+`python -m pytest tests/test_agent.py -q`: LLM simulado (guion) + servidor MCP real en memoria con API
+simulada. Cubre descubrimiento, ejecución, retorno al LLM, varias tools, fin sin tools, límite, error
+MCP y formato del adaptador Anthropic.
+
+## Limitaciones
+- Prueba real con LLM **no ejecutada** en la Fase 7 por falta de clave (ver `PROJECT_CONTEXT.md`).
+- Un solo adaptador (Anthropic); sin streaming, memoria ni conversación multi-turno.
+- Los IDs son internos: preguntas por nombre requieren que el modelo navegue las tools.
+- Tool calls de una ronda se ejecutan en serie; sin reintentos ante fallos del LLM.
