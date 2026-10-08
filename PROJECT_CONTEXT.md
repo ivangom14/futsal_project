@@ -67,6 +67,7 @@ Fase 6 (MCP): `src/futsal/mcp_server/server.py` (SDK `mcp`/FastMCP, stdio, clien
 Tools: `list_competitions|groups|rounds|teams|matches`, `get_match`; errores controlados. Tests `tests/test_mcp_server.py`. Detalle: `docs/mcp.md`.
 Fase 7 (agente): `src/futsal/agent/` (`llm.py` Protocol+adaptador Anthropic/httpx, `mcp_client.py`, `agent.py` bucle con
 `MAX_TOOL_CALLS`=5 y traza, `python -m futsal.agent "pregunta"`). Tests `tests/test_agent.py` (LLM simulado). Detalle: `docs/agent.md`.
+Gemini: `GeminiLLM` (REST httpx) + `create_llm()` según `LLM_PROVIDER`; `GEMINI_API_KEY`/`GEMINI_MODEL` solo por entorno/.env; tests con HTTP simulado.
 PENDIENTE: prueba real con LLM (sin `ANTHROPIC_API_KEY` en el entorno); pipeline MCP→API→PG verificado con LLM simulado.
 (Nota: fases de actas anteriores se numeraron 4/5 en esta lista; la API es la siguiente fase.)
 ## Comandos esenciales

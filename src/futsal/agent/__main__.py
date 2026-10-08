@@ -7,13 +7,13 @@ from mcp import ClientSession
 from mcp.client.stdio import stdio_client
 
 from futsal.agent.agent import DEFAULT_MAX_TOOL_CALLS, Agent
-from futsal.agent.llm import AnthropicLLM, LLMError
+from futsal.agent.llm import LLMError, create_llm
 from futsal.agent.mcp_client import SessionMcpClient, stdio_params
 from futsal.config.settings import env_value
 
 
 async def _main(questions: list[str]) -> int:
-    llm = AnthropicLLM.from_env()
+    llm = create_llm()
     limit = int(env_value("MAX_TOOL_CALLS", str(DEFAULT_MAX_TOOL_CALLS)))
     status = 0
     async with stdio_client(stdio_params()) as (read, write):
@@ -25,7 +25,7 @@ async def _main(questions: list[str]) -> int:
                 res = await agent.run(q)
                 status |= 1 if res.error else 0
                 print("-" * 40)
-    print(f"tokens: {llm.usage}")
+    print(f"tokens: {getattr(llm, 'usage', {})}")
     return status
 
 

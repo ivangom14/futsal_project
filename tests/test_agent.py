@@ -5,10 +5,22 @@ import json
 from typing import Any
 
 import httpx
+import pytest
 from mcp.shared.memory import create_connected_server_and_client_session as connect
 
 from futsal.agent.agent import Agent, AgentResult
-from futsal.agent.llm import AnthropicLLM, LLMResponse, Message, ToolCall
+from futsal.agent.llm import (
+    DEFAULT_GEMINI_MODEL,
+    AnthropicLLM,
+    GeminiLLM,
+    LLMClient,
+    LLMError,
+    LLMResponse,
+    Message,
+    ToolCall,
+    ToolResult,
+    create_llm,
+)
 from futsal.agent.mcp_client import SessionMcpClient
 from futsal.mcp_server.server import create_server
 
@@ -119,3 +131,100 @@ def test_anthropic_adapter_wire_format() -> None:
     assert out.tool_calls == [ToolCall("a", "get_match", {"match_id": 2})]
     assert seen["system"] == "sys" and seen["messages"] == [{"role": "user", "content": "q"}]
     assert llm.usage == {"input_tokens": 5, "output_tokens": 3}
+
+
+# --- GeminiLLM (HTTP simulado; sin llamadas reales) ---
+
+FAKE_KEY = "fake-test-key-not-real"
+
+
+def _gemini(handler: Any) -> GeminiLLM:
+    return GeminiLLM(FAKE_KEY, "gm", client=httpx.Client(
+        base_url="http://llm", transport=httpx.MockTransport(handler)))
+
+
+def test_gemini_implements_llm_client() -> None:
+    client: LLMClient = GeminiLLM(FAKE_KEY, "gm")  # comprobación estática (mypy)
+    assert callable(client.complete)
+
+
+def test_gemini_config_from_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("GEMINI_API_KEY", FAKE_KEY)
+    monkeypatch.setenv("GEMINI_MODEL", "modelo-x")
+    monkeypatch.setenv("LLM_PROVIDER", "gemini")
+    llm = create_llm()
+    assert isinstance(llm, GeminiLLM) and llm._model == "modelo-x"
+    monkeypatch.delenv("GEMINI_MODEL")
+    monkeypatch.chdir("/")  # sin .env
+    assert GeminiLLM.from_env()._model == DEFAULT_GEMINI_MODEL
+    monkeypatch.setenv("LLM_PROVIDER", "otro")
+    with pytest.raises(LLMError, match="desconocido"):
+        create_llm()
+
+
+def test_gemini_missing_key_clear_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+    monkeypatch.chdir("/")  # sin .env
+    with pytest.raises(LLMError, match="GEMINI_API_KEY no definida"):
+        GeminiLLM.from_env()
+
+
+def test_gemini_error_never_contains_key() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(400, text=f"bad key {FAKE_KEY}")
+
+    with pytest.raises(LLMError) as exc:
+        _gemini(handler).complete("s", [Message("user", "q")], [])
+    assert FAKE_KEY not in str(exc.value) and "400" in str(exc.value)
+
+    def boom(request: httpx.Request) -> httpx.Response:
+        raise httpx.ConnectError("x", request=request)
+
+    with pytest.raises(LLMError) as exc2:
+        _gemini(boom).complete("s", [Message("user", "q")], [])
+    assert FAKE_KEY not in str(exc2.value)
+
+
+def test_gemini_tool_definitions_and_tool_call_and_result() -> None:
+    seen: dict[str, Any] = {}
+    replies = [
+        {"candidates": [{"content": {"parts": [
+            {"functionCall": {"name": "get_match", "args": {"match_id": 2}}}]}}],
+         "usageMetadata": {"promptTokenCount": 5, "candidatesTokenCount": 3}},
+        {"candidates": [{"content": {"parts": [{"text": "Quedó 3-4"}]}}]},
+    ]
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen["last"] = json.loads(request.content)
+        seen["key"] = request.headers["x-goog-api-key"]
+        seen["url"] = str(request.url)
+        return httpx.Response(200, json=replies.pop(0))
+
+    tools = [{"name": "get_match", "description": "d", "input_schema": {
+        "type": "object", "title": "T", "additionalProperties": False,
+        "properties": {"match_id": {"type": "integer"}}, "required": ["match_id"]}},
+        {"name": "list_x", "description": "d", "input_schema": {"type": "object",
+                                                                 "properties": {}}}]
+    llm = _gemini(handler)
+    first = llm.complete("sys", [Message("user", "q")], tools)
+    body = seen["last"]
+    assert body["systemInstruction"] == {"parts": [{"text": "sys"}]}
+    assert body["contents"] == [{"role": "user", "parts": [{"text": "q"}]}]
+    decls = body["tools"][0]["functionDeclarations"]
+    assert decls[0] == {"name": "get_match", "description": "d", "parameters": {
+        "type": "object", "properties": {"match_id": {"type": "integer"}},
+        "required": ["match_id"]}}
+    assert "parameters" not in decls[1]
+    assert seen["key"] == FAKE_KEY and FAKE_KEY not in seen["url"]
+    assert first.tool_calls == [ToolCall("get_match:0", "get_match", {"match_id": 2})]
+    assert llm.usage == {"input_tokens": 5, "output_tokens": 3}
+
+    history = [Message("user", "q"), Message("assistant", tool_calls=first.tool_calls),
+               Message("tool", tool_results=[ToolResult("get_match:0", "3-4")])]
+    final = llm.complete("sys", history, tools)
+    contents = seen["last"]["contents"]
+    assert contents[1] == {"role": "model", "parts": [
+        {"functionCall": {"name": "get_match", "args": {"match_id": 2}}}]}
+    assert contents[2] == {"role": "user", "parts": [
+        {"functionResponse": {"name": "get_match", "response": {"result": "3-4"}}}]}
+    assert final.text == "Quedó 3-4" and final.tool_calls == []
