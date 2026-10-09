@@ -57,3 +57,7 @@ Descubre las 6 tools, `list_matches(group_id=1, status="finished")` → 13 parti
 - Solo stdio; sin autenticación, paginación ni caché.
 - Los IDs son internos de BD: hay que navegar competiciones → grupos → jornadas/partidos.
 - La API no expone clasificaciones, jugadores ni eventos de acta.
+
+## Versión del SDK
+El código usa `mcp.server.fastmcp` (SDK 1.x). `mcp` 2.x renombró `FastMCP` a `MCPServer`, por lo que `pyproject.toml`
+fija `mcp>=1.2,<2`. Si tienes la 2.x instalada: `pip install "mcp<2"`.
