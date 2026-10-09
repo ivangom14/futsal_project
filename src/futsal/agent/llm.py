@@ -38,7 +38,7 @@ class LLMResponse:
     tool_calls: list[ToolCall]
 
 
-DEFAULT_GEMINI_MODEL = "gemini-2.5-flash-lite"
+DEFAULT_GEMINI_MODEL = "gemini-3.5-flash-lite"
 
 
 class LLMError(RuntimeError):

@@ -40,7 +40,7 @@ El agente lanza el MCP (`python -m futsal.mcp_server.server`, stdio) como subpro
 ```
 LLM_PROVIDER=gemini
 GEMINI_API_KEY=<configurar localmente>   # en el entorno o en .env (ignorado por Git)
-GEMINI_MODEL=<modelo>                    # def. gemini-2.5-flash-lite (económico, con function calling)
+GEMINI_MODEL=<modelo>                    # def. gemini-3.5-flash-lite (económico, con function calling)
 ```
 `GeminiLLM` usa la REST `generateContent` (httpx, sin SDK nuevo); la clave viaja solo en la cabecera
 `x-goog-api-key` (nunca en URL) y se oculta en mensajes de error. Convierte `input_schema` a
