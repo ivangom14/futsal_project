@@ -13,6 +13,7 @@ class ToolCall:
     id: str
     name: str
     arguments: dict[str, Any]
+    signature: str | None = None  # Gemini 3: `thoughtSignature`, hay que devolverla tal cual
 
 
 @dataclass
@@ -142,7 +143,10 @@ def _gemini_contents(messages: list[Message]) -> list[dict[str, Any]]:
             mparts: list[dict[str, Any]] = [{"text": m.text}] if m.text else []
             for c in m.tool_calls:
                 names[c.id] = c.name
-                mparts.append({"functionCall": {"name": c.name, "args": c.arguments}})
+                part: dict[str, Any] = {"functionCall": {"name": c.name, "args": c.arguments}}
+                if c.signature:
+                    part["thoughtSignature"] = c.signature
+                mparts.append(part)
             out.append({"role": "model", "parts": mparts})
         else:
             out.append({"role": "user", "parts": [{"text": m.text}]})
@@ -192,7 +196,8 @@ class GeminiLLM:
         parts = (cands[0].get("content") or {}).get("parts", [])
         text = "".join(p["text"] for p in parts if "text" in p)
         calls = [ToolCall(f"{p['functionCall']['name']}:{i}", p["functionCall"]["name"],
-                          dict(p["functionCall"].get("args") or {}))
+                          dict(p["functionCall"].get("args") or {}),
+                          p.get("thoughtSignature"))
                  for i, p in enumerate(q for q in parts if "functionCall" in q)]
         return LLMResponse(text, calls)
 

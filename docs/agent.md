@@ -79,3 +79,8 @@ MCP y formato del adaptador Anthropic.
 - Dos adaptadores (Anthropic, Gemini; Gemini sin prueba real aún); sin streaming, memoria ni conversación multi-turno.
 - Los IDs son internos: preguntas por nombre requieren que el modelo navegue las tools.
 - Tool calls de una ronda se ejecutan en serie; sin reintentos ante fallos del LLM.
+
+## Gemini 3 y `thoughtSignature`
+Los modelos Gemini 3 devuelven un `thoughtSignature` junto a cada `functionCall`; hay que reenviarlo tal cual en el
+mensaje del modelo del turno siguiente o la API responde HTTP 400. `ToolCall.signature` lo conserva y
+`_gemini_contents` lo devuelve. Anthropic lo ignora.

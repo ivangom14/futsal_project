@@ -228,3 +228,27 @@ def test_gemini_tool_definitions_and_tool_call_and_result() -> None:
     assert contents[2] == {"role": "user", "parts": [
         {"functionResponse": {"name": "get_match", "response": {"result": "3-4"}}}]}
     assert final.text == "Quedó 3-4" and final.tool_calls == []
+
+
+def test_gemini_thought_signature_is_echoed_back() -> None:
+    """Gemini 3 exige devolver `thoughtSignature` de la llamada a tool en el turno siguiente."""
+    sent: list[dict[str, Any]] = []
+    replies = [
+        {"candidates": [{"content": {"parts": [
+            {"functionCall": {"name": "get_match", "args": {"match_id": 2}},
+             "thoughtSignature": "SIG-123"}]}}]},
+        {"candidates": [{"content": {"parts": [{"text": "ok"}]}}]},
+    ]
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        sent.append(json.loads(request.content))
+        return httpx.Response(200, json=replies[len(sent) - 1])
+
+    llm = _gemini(handler)
+    first = llm.complete("s", [Message("user", "q")], [])
+    assert first.tool_calls[0].signature == "SIG-123"
+    llm.complete("s", [Message("user", "q"), Message("assistant", "", first.tool_calls),
+                       Message("tool", tool_results=[ToolResult(first.tool_calls[0].id, "r")])], [])
+    model_parts = [c for c in sent[1]["contents"] if c["role"] == "model"][0]["parts"]
+    assert model_parts[0]["thoughtSignature"] == "SIG-123"
+    assert model_parts[0]["functionCall"]["name"] == "get_match"
