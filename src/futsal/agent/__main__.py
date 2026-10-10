@@ -6,7 +6,7 @@ import asyncio
 from mcp import ClientSession
 from mcp.client.stdio import stdio_client
 
-from futsal.agent.agent import DEFAULT_MAX_TOOL_CALLS, Agent
+from futsal.agent.agent import DEFAULT_MAX_ROWS, DEFAULT_MAX_TOOL_CALLS, Agent
 from futsal.agent.llm import LLMError, create_llm
 from futsal.agent.mcp_client import SessionMcpClient, stdio_params
 from futsal.config.settings import env_value
@@ -15,12 +15,13 @@ from futsal.config.settings import env_value
 async def _main(questions: list[str]) -> int:
     llm = create_llm()
     limit = int(env_value("MAX_TOOL_CALLS", str(DEFAULT_MAX_TOOL_CALLS)))
+    rows = int(env_value("MAX_RESULT_ROWS", str(DEFAULT_MAX_ROWS)))
     status = 0
     async with stdio_client(stdio_params()) as (read, write):
         async with ClientSession(read, write) as session:
             await session.initialize()
             agent = Agent(llm, SessionMcpClient(session), limit,
-                          on_trace=lambda line: print(line + "\n"))
+                          on_trace=lambda line: print(line + "\n"), max_rows=rows)
             for q in questions:
                 res = await agent.run(q)
                 status |= 1 if res.error else 0
