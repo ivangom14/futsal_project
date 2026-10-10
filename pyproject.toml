@@ -23,7 +23,8 @@ where = ["src"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-markers = ["integration: requiere PostgreSQL real (docker compose up -d db)"]
+markers = ["integration: requiere PostgreSQL real (docker compose up -d db)",
+           "live: llama al LLM real (de pago); requiere RUN_LIVE_LLM=1"]
 pythonpath = ["src"]
 
 [tool.ruff]

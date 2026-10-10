@@ -57,3 +57,12 @@ Un fallo no detiene el lote; 3 fallos de descarga seguidos lo abortan. Reejecuta
 Resumen revisable: `examples/match-report-batch-summary.example.json`.
 Si el acta está cerrada y su marcador difiere del listado, prevalece el acta (el valor anterior queda en
 `match_observations`); `tipo_gol=102` es gol en propia meta y suma al rival.
+
+## Agente: evaluación y trazas (Fase 8)
+```
+python -m futsal.agent.evaluate                      # offline: sin LLM, solo lectura, necesita API y PostgreSQL
+python -m futsal.agent.evaluate --mode live --confirm-live --limit 3   # LLM real (de pago)
+python -m futsal.agent "pregunta"                    # añade una línea a data/agent/traces.jsonl
+python -m pytest -q                                  # sin red; la prueba real con Gemini está desactivada
+```
+Detalle, casos y método de medición de tokens: `docs/agent.md`.

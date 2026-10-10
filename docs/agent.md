@@ -106,3 +106,57 @@ Cambios: (1) `compact_result`: JSON compacto, sin `group_id`/`home_team_id`/`awa
 y listas recortadas a `MAX_RESULT_ROWS` (def. 40) con `truncated` y el `count` total; (2) contexto previo: al empezar,
 el agente consulta por MCP (sin LLM) competición, grupo y `jornada=round_id` y lo añade al system prompt, de modo que
 no gasta 3 vueltas en descubrir IDs (esas consultas no cuentan para `MAX_TOOL_CALLS`); (3) el prompt pide filtros.
+
+## Fase 8 — Evaluación, trazabilidad y tokens
+
+### Cómo se contaban los tokens (y por qué 19.883 no era una llamada)
+`GeminiLLM.usage` acumulaba con `+=` el `promptTokenCount` de **todas** las llamadas (y de todas las preguntas del
+proceso) y la CLI lo imprimía una sola vez al final. Además el agente reenvía en cada vuelta prompt, tools y todo el
+historial. Medido con la API real (estimación ~3,5 car./token, sin tokenizer; el LLM va guionizado):
+`list_matches` sin filtro devolvía 64.180 caracteres (182 partidos) ≈ 18-21k tokens; la pregunta "resultados y próximos
+partidos del DOSA" con el código de antes (`67ff2f0`) son 2 llamadas de ~0,9k + ~21,5k ≈ **22.400** estimados.
+Compatible con los 19.883 observados, pero **hipótesis**: aquella ejecución no dejó traza. Demostrado por código:
+la cifra era acumulada, el historial se reenvía, no existía filtro por equipo. No medible sin clave: tokens reales de
+Gemini y `thoughtsTokenCount` (razonamiento, que no se leía y se factura como salida).
+
+### Traza (`src/futsal/agent/trace.py`)
+Cada ejecución añade una línea JSON a `data/agent/traces.jsonl` (`AGENT_TRACE_FILE`, `--trace-file`; vacío la desactiva):
+`run_id`, pregunta, proveedor/modelo, `llm_calls[]` (tokens in/out/thinking **de esa llamada**, latencia, tools pedidas,
+error), `tool_calls[]` (nombre, argumentos, duración, `is_error`, caracteres devueltos/enviados al LLM, resumen,
+`truncated`), `context_ms`, `latency_ms`, respuesta, `guardrail`, `error` y `totals`. Los totales suman cada llamada
+**una vez** (el `input` de la llamada N ya incluye el historial reenviado; por eso crece) e incluyen
+`peak_input_tokens`. Si el proveedor no informa uso se anota `calls_without_usage`; no se inventa. Los resultados de las
+tools solo se guardan con `--trace-results`. Los secretos del entorno se enmascaran. No hay reintentos de LLM ni de MCP.
+La CLI imprime ahora tokens por llamada y el total de la pregunta; el acumulado de la sesión sigue visible, rotulado.
+
+### Optimizaciones (justificadas por la medición)
+1. `list_matches` admite `team_id` (parámetro del tool existente, no una tool nueva): sin él el agente debía traer los
+   182 partidos y, desde el recorte a 40 filas, perdía los de las últimas jornadas. Los equipos (`team_id=nombre`) van en
+   el contexto previo (~350 tokens) y evitan `list_teams`.
+2. La API devolvía `date: null` para 152 de 182 partidos (sin hora publicada); ahora cae a `scheduled_date`. Lo detectó
+   la evaluación: sin fecha el agente no podía decir cuándo se juega un partido.
+3. El prompt manda filtrar siempre por `team_id`/`round_id`/`status`.
+
+### Evaluación (`python -m futsal.agent.evaluate`)
+15 casos con verdad calculada en el momento por consultas **solo lectura** a PostgreSQL (nada hardcodeado). Aserciones
+estructuradas (marcador, fecha en varios formatos, recuentos, rival, campo, rechazo); la presentación se puntúa aparte.
+| Caso | Qué comprueba | Tools razonables |
+|---|---|---|
+| equipo_resultados | resultados finalizados del DOSA | list_matches(team_id, finished) |
+| equipo_proximo_partido | rival y fecha del próximo | list_matches(team_id, scheduled) |
+| equipo_recuento | jugados y pendientes del DOSA | list_matches(team_id) |
+| equipo_jornada_5 | rival y fecha en la jornada 5 | list_matches(team_id, round_id) |
+| enfrentamiento_ganador | marcador de un partido concreto | list_matches(team_id, finished) |
+| proximo_campo | campo del próximo (2 tools) | list_matches + get_match |
+| jornada_2_resultados | todos los marcadores de la jornada 2 | list_matches(round_id) |
+| partido_mas_goles | agregación sobre finalizados | list_matches(finished) |
+| recuento_global | jugados / pendientes del grupo | list_matches ×2 |
+| equipos_del_grupo | nº y nombres de los equipos | list_teams |
+| goleadores_no_disponible, arbitro_no_disponible | debe reconocer que sus tools no lo cubren | — (live) |
+| equipo_inexistente, jornada_inexistente | debe decir que no existe, sin inventar | — (live) |
+| fuera_de_alcance | chiste: respuesta = aviso de alcance | — (guardarraíl) |
+**Offline** (por defecto, sin LLM): un LLM guionizado recorre la ruta de tools razonable por el MCP/API reales y se
+comprueba que la **evidencia** que recibiría el modelo (tras compactar/recortar) contiene las cifras correctas; tokens
+estimados. No evalúa texto del modelo: esos casos salen `not_evaluable`, nunca aprobados. **Live** (`--mode live
+--confirm-live`): LLM real, puntúa respuestas y exige evidencia. Un caso sin datos suficientes se marca `not_evaluable`.
+Resultado guardado en `data/agent/eval-last.json`.

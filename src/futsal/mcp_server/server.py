@@ -98,13 +98,15 @@ def create_server(client: httpx.Client | None = None) -> FastMCP:
                                               " opcional")] = None,
         status: Annotated[MatchStatus | None, Field(description="Filtro de estado (opcional)")]
         = None,
+        team_id: Annotated[int | None, Field(description="ID interno de equipo (de list_teams); "
+                                             "devuelve solo sus partidos; opcional")] = None,
     ) -> dict[str, Any]:
         """Lista los partidos de un grupo con equipos, fecha, estado y marcador.
-        Filtra por jornada y/o estado (p. ej. `finished` para resultados ya jugados)."""
+        Filtra por jornada, estado (p. ej. `finished` para resultados ya jugados) y/o equipo."""
         return _listing(
             "matches",
             _get(http, f"/groups/{group_id}/matches", f"grupo {group_id}",
-                 round_id=round_id, status=status),
+                 round_id=round_id, status=status, team_id=team_id),
         )
 
     @mcp.tool()

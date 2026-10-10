@@ -114,3 +114,17 @@ def test_timeout_is_controlled() -> None:
 
     is_error, text = _run("list_competitions", {}, handler)
     assert is_error and "error_timeout" in text
+
+
+def test_list_matches_forwards_team_id() -> None:
+    seen: dict[str, str] = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.update(dict(request.url.params))
+        return httpx.Response(200, json=LISTING)
+
+    err, _ = _run("list_matches", {"group_id": 1, "team_id": 11, "status": "finished"}, handler)
+    assert not err and seen == {"team_id": "11", "status": "finished"}
+    tools = asyncio.run(create_server().list_tools())
+    props = next(t for t in tools if t.name == "list_matches").inputSchema["properties"]
+    assert "team_id" in props

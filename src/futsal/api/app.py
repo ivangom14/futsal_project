@@ -35,7 +35,7 @@ def _iso(value: date | time | datetime | None) -> str | None:
 def _match_dict(m: Match, home: str | None, away: str | None, number: int | None) -> dict[str, Any]:
     return {"id": m.id, "group_id": m.group_id, "round_id": m.round_id, "round_number": number,
             "home_team_id": m.home_team_id, "away_team_id": m.away_team_id,
-            "home_team": home, "away_team": away, "date": _iso(m.scheduled_at),
+            "home_team": home, "away_team": away, "date": _iso(m.scheduled_at) or _iso(m.scheduled_date),
             "status": m.status, "home_score": m.home_score, "away_score": m.away_score}
 
 
@@ -114,8 +114,11 @@ def create_app(engine: Engine | None = None) -> FastAPI:
 
     @app.get("/groups/{group_id}/matches")
     def matches(group_id: int, db: Db, round_id: int | None = None,
-                status: str | None = None) -> dict[str, Any]:
+                status: str | None = None, team_id: int | None = None) -> dict[str, Any]:
         _group(db, group_id)
+        if team_id is not None and db.scalar(
+                select(Team.id).where(Team.id == team_id, Team.group_id == group_id)) is None:
+            raise HTTPException(404, f"equipo {team_id} no encontrado en el grupo {group_id}")
         if status is not None and status not in STATUSES:
             raise HTTPException(400, f"status inválido; valores: {', '.join(STATUSES)}")
         home, away = aliased(Team), aliased(Team)
@@ -129,6 +132,8 @@ def create_app(engine: Engine | None = None) -> FastAPI:
             stmt = stmt.where(Match.round_id == round_id)
         if status is not None:
             stmt = stmt.where(Match.status == status)
+        if team_id is not None:
+            stmt = stmt.where((Match.home_team_id == team_id) | (Match.away_team_id == team_id))
         return _items([_match_dict(m, h, a, n) for m, h, a, n in db.execute(stmt)])
 
     @app.get("/matches/{match_id}")
@@ -150,7 +155,7 @@ def create_app(engine: Engine | None = None) -> FastAPI:
                     observations=[
                         {"observed_at": _iso(o.observed_at), "status": o.status,
                          "home_score": o.home_score, "away_score": o.away_score,
-                         "date": _iso(o.scheduled_at)} for o in obs])
+                         "date": _iso(o.scheduled_at) or _iso(o.scheduled_date)} for o in obs])
         return data
 
     return app

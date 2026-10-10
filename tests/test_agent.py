@@ -316,6 +316,8 @@ def _api_with_context(request: httpx.Request) -> httpx.Response:
     if path == "/groups/9/rounds":
         return httpx.Response(200, json={"items": [{"id": 31, "number": 1}, {"id": 32, "number": 2}],
                                           "count": 2})
+    if path == "/groups/9/teams":
+        return httpx.Response(200, json={"items": [{"id": 4, "name": "C.D. DOSA"}], "count": 1})
     return httpx.Response(200, json={"items": [{"id": 1}], "count": 1})
 
 
@@ -331,6 +333,7 @@ def test_context_gives_ids_to_llm_without_counting_tool_calls() -> None:
     res = asyncio.run(go())
     assert res.tool_calls == 0
     assert "group_id=9" in llm.systems[0] and "1=31,2=32" in llm.systems[0]
+    assert "4=C.D. DOSA" in llm.systems[0]  # equipos con su team_id, para filtrar sin list_teams
     assert "no hace falta llamar a list_competitions" in llm.systems[0]
 
 
@@ -338,3 +341,98 @@ def test_context_failure_is_tolerated() -> None:
     llm = ScriptedLLM([_call("get_match", match_id=2), LLMResponse("ok", [])])
     res = _run(llm, "pregunta")  # la API de prueba por defecto no devuelve competiciones
     assert res.answer == "ok" and "Contexto" not in llm.systems[0]
+
+
+# --- Fase 8: uso de tokens por llamada, latencias y traza JSONL ---
+
+from pathlib import Path  # noqa: E402
+
+from futsal.agent.llm import Usage  # noqa: E402
+from futsal.agent.trace import redact  # noqa: E402
+
+
+def _with_usage(resp: LLMResponse, i: int, o: int, think: int = 0) -> LLMResponse:
+    resp.usage = Usage(i, o, think)
+    return resp
+
+
+def _run_traced(llm: ScriptedLLM, tmp: Path | None, results: bool = False) -> AgentResult:
+    server = create_server(httpx.Client(base_url="http://api", transport=httpx.MockTransport(_api)))
+
+    async def go() -> AgentResult:
+        async with connect(server._mcp_server) as session:
+            agent = Agent(llm, SessionMcpClient(session), 5, trace_path=tmp, trace_results=results)
+            return await agent.run("¿Cómo quedó el partido 2?")
+
+    return asyncio.run(go())
+
+
+def test_run_totals_sum_each_call_once_and_keep_peak(tmp_path: Path) -> None:
+    llm = ScriptedLLM([_with_usage(_call("get_match", match_id=2), 100, 10),
+                       _with_usage(LLMResponse("Quedó 3-4", []), 250, 20, think=7)])
+    rec = _run_traced(llm, tmp_path / "t.jsonl").run
+    assert rec is not None
+    t = rec.totals()
+    # el 2.º input (250) ya incluye el historial reenviado: se suma una vez por llamada, sin más
+    assert (t["llm_calls"], t["tool_calls"], t["input_tokens"], t["output_tokens"]) == (2, 1, 350, 30)
+    assert (t["peak_input_tokens"], t["thinking_tokens"], t["billed_output_tokens"]) == (250, 7, 37)
+    assert [c.input_tokens for c in rec.llm_calls] == [100, 250]
+    tc = rec.tool_calls[0]
+    assert tc.name == "get_match" and tc.arguments == {"match_id": 2} and tc.llm_call == 1
+    assert tc.duration_ms >= 0 and tc.result_chars_raw > 0 and not tc.is_error and not tc.truncated
+
+
+def test_trace_jsonl_written_without_results_by_default(tmp_path: Path) -> None:
+    path = tmp_path / "t.jsonl"
+    llm = ScriptedLLM([_with_usage(_call("get_match", match_id=2), 10, 1),
+                       _with_usage(LLMResponse("ok", []), 20, 2)])
+    _run_traced(llm, path)
+    row = json.loads(path.read_text(encoding="utf-8").splitlines()[0])
+    assert row["question"] and row["totals"]["input_tokens"] == 30 and len(row["run_id"]) == 12
+    assert "result" not in row["tool_calls"][0] and row["tool_calls"][0]["result_summary"]
+    _run_traced(ScriptedLLM([_with_usage(_call("get_match", match_id=2), 1, 1),
+                             _with_usage(LLMResponse("ok", []), 1, 1)]), path, results=True)
+    second = json.loads(path.read_text(encoding="utf-8").splitlines()[1])
+    assert "3" in second["tool_calls"][0]["result"] and len(path.read_text().splitlines()) == 2
+
+
+def test_trace_records_llm_error_and_never_leaks_secret(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("GEMINI_API_KEY", "super-secret-key-123456")
+
+    class Boom:
+        provider, model = "gemini", "m"
+
+        def complete(self, system: str, messages: list[Message], tools: list[dict[str, Any]]) -> LLMResponse:
+            raise LLMError("LLM HTTP 400: clave super-secret-key-123456 inválida")
+
+    path = tmp_path / "t.jsonl"
+    server = create_server(httpx.Client(base_url="http://api", transport=httpx.MockTransport(_api)))
+
+    async def go() -> AgentResult:
+        async with connect(server._mcp_server) as session:
+            return await Agent(Boom(), SessionMcpClient(session), 5, trace_path=path).run("q")
+
+    res = asyncio.run(go())
+    raw = path.read_text(encoding="utf-8")
+    assert "super-secret-key" not in raw and "super-secret-key" not in (res.error or "")
+    rec = json.loads(raw.splitlines()[0])
+    assert rec["llm_calls"][0]["error"] and rec["error"] and rec["model"] == "m" and rec["provider"] == "gemini"
+    assert redact("x super-secret-key-123456 y") == "x *** y"
+
+
+def test_missing_usage_is_reported_not_invented() -> None:
+    rec = _run_traced(ScriptedLLM([_call("get_match", match_id=2), LLMResponse("ok", [])]), None).run
+    assert rec is not None
+    t = rec.totals()
+    assert t["calls_without_usage"] == 2 and t["input_tokens"] == 0
+
+
+def test_gemini_reports_usage_per_call_with_thinking() -> None:
+    body = {"candidates": [{"content": {"parts": [{"text": "hola"}]}}],
+            "usageMetadata": {"promptTokenCount": 120, "candidatesTokenCount": 5,
+                              "thoughtsTokenCount": 40, "totalTokenCount": 165}}
+    llm = _gemini(lambda req: httpx.Response(200, json=body))
+    a = llm.complete("s", [Message("user", "q")], [])
+    b = llm.complete("s", [Message("user", "q")], [])
+    assert a.usage == Usage(120, 5, 40, 165) and b.usage == a.usage and not a.usage.estimated
+    assert llm.usage == {"input_tokens": 240, "output_tokens": 10}  # acumulado de la instancia, no de la llamada

@@ -34,9 +34,21 @@ class Message:
 
 
 @dataclass
+class Usage:
+    """Tokens de UNA llamada al modelo (no acumulados). `estimated`: contados por nosotros, no por el proveedor."""
+
+    input_tokens: int = 0
+    output_tokens: int = 0  # visibles (candidatos)
+    thinking_tokens: int = 0  # Gemini 3: razonamiento interno; se factura como salida
+    total_tokens: int | None = None  # el que informa el proveedor, si lo hace
+    estimated: bool = False
+
+
+@dataclass
 class LLMResponse:
     text: str
     tool_calls: list[ToolCall]
+    usage: Usage | None = None
 
 
 DEFAULT_GEMINI_MODEL = "gemini-3.5-flash-lite"
@@ -62,7 +74,8 @@ class AnthropicLLM:
         self._model = model
         self._max_tokens = max_tokens
         self._http = client or httpx.Client(base_url=base_url, timeout=60)
-        self.usage = {"input_tokens": 0, "output_tokens": 0}
+        self.provider, self.model = "anthropic", model
+        self.usage = {"input_tokens": 0, "output_tokens": 0}  # ACUMULADO de la instancia (todas las llamadas)
 
     @classmethod
     def from_env(cls) -> "AnthropicLLM":
@@ -84,13 +97,15 @@ class AnthropicLLM:
         if resp.status_code != 200:
             raise LLMError(f"LLM HTTP {resp.status_code}: {resp.text[:200]}")
         data = resp.json()
+        raw = data.get("usage", {})
         for k in self.usage:
-            self.usage[k] += int(data.get("usage", {}).get(k, 0))
+            self.usage[k] += int(raw.get(k, 0))
+        usage = Usage(int(raw.get("input_tokens", 0)), int(raw.get("output_tokens", 0)))
         blocks = data.get("content", [])
         text = "".join(b["text"] for b in blocks if b["type"] == "text")
         calls = [ToolCall(b["id"], b["name"], b.get("input", {}))
                  for b in blocks if b["type"] == "tool_use"]
-        return LLMResponse(text, calls)
+        return LLMResponse(text, calls, usage)
 
 
 def _to_wire(m: Message) -> dict[str, Any]:
@@ -163,7 +178,8 @@ class GeminiLLM:
         self._model = model
         self._max_tokens = max_tokens
         self._http = client or httpx.Client(base_url=base_url, timeout=60)
-        self.usage = {"input_tokens": 0, "output_tokens": 0}
+        self.provider, self.model = "gemini", model
+        self.usage = {"input_tokens": 0, "output_tokens": 0}  # ACUMULADO de la instancia (todas las llamadas)
 
     @classmethod
     def from_env(cls) -> "GeminiLLM":
@@ -192,6 +208,10 @@ class GeminiLLM:
         meta = data.get("usageMetadata", {})
         self.usage["input_tokens"] += int(meta.get("promptTokenCount", 0))
         self.usage["output_tokens"] += int(meta.get("candidatesTokenCount", 0))
+        total = meta.get("totalTokenCount")
+        usage = Usage(int(meta.get("promptTokenCount", 0)), int(meta.get("candidatesTokenCount", 0)),
+                      int(meta.get("thoughtsTokenCount", 0)),
+                      int(total) if total is not None else None)
         cands = data.get("candidates") or [{}]
         parts = (cands[0].get("content") or {}).get("parts", [])
         text = "".join(p["text"] for p in parts if "text" in p)
@@ -199,7 +219,7 @@ class GeminiLLM:
                           dict(p["functionCall"].get("args") or {}),
                           p.get("thoughtSignature"))
                  for i, p in enumerate(q for q in parts if "functionCall" in q)]
-        return LLMResponse(text, calls)
+        return LLMResponse(text, calls, usage)
 
 
 def create_llm() -> LLMClient:

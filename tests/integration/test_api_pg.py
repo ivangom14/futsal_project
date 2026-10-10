@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import Engine
+from sqlalchemy import Engine, text
 
 from futsal.api.app import create_app
 from futsal.importer.service import run_import
@@ -78,3 +78,30 @@ def test_not_found_and_invalid(client: TestClient) -> None:
     assert client.get(f"/groups/{gid}/matches?status=bogus").status_code == 400
     assert client.get(f"/groups/{gid}/matches?round_id=abc").status_code == 400
     assert client.get("/matches/abc").status_code == 400
+
+
+def test_matches_filter_by_team_and_unknown_team(client: TestClient) -> None:
+    gid = _group_id(client)
+    teams = client.get(f"/groups/{gid}/teams").json()["items"]
+    allm = client.get(f"/groups/{gid}/matches").json()["items"]
+    tid = teams[0]["id"]
+    mine = client.get(f"/groups/{gid}/matches?team_id={tid}").json()
+    assert mine["count"] >= 1
+    assert all(tid in (m["home_team_id"], m["away_team_id"]) for m in mine["items"])
+    assert mine["count"] == sum(tid in (m["home_team_id"], m["away_team_id"]) for m in allm)
+    both = client.get(f"/groups/{gid}/matches?team_id={tid}&status=finished").json()
+    assert all(m["status"] == "finished" for m in both["items"])
+    r = client.get(f"/groups/{gid}/matches?team_id=999999")
+    assert r.status_code == 404 and "equipo" in r.json()["detail"]
+
+
+def test_match_date_falls_back_to_scheduled_date_when_no_time(client: TestClient, engine: Engine) -> None:
+    gid = _group_id(client)
+    with engine.begin() as c:  # BD temporal de test: un partido sin hora publicada
+        c.execute(text("UPDATE matches SET scheduled_at = NULL, scheduled_time = NULL "
+                       "WHERE id = (SELECT min(id) FROM matches)"))
+    items = client.get(f"/groups/{gid}/matches").json()["items"]
+    first = min(items, key=lambda m: m["id"])
+    assert first["date"] is not None and len(first["date"]) == 10  # AAAA-MM-DD, no null
+    detail = client.get(f"/matches/{first['id']}").json()
+    assert all(o["date"] for o in detail["observations"])

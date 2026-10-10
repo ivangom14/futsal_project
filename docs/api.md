@@ -19,7 +19,7 @@ Todos devuelven JSON; los listados usan `{"items": [...], "count": N}`. IDs = ID
 | `GET /competitions/{id}/groups` | 404 si no existe la competición |
 | `GET /groups/{id}/rounds` | ordenadas por número |
 | `GET /groups/{id}/teams` | ordenados por nombre |
-| `GET /groups/{id}/matches` | filtros `round_id`, `status` (`scheduled`, `finished`, `postponed`, `suspended`, `cancelled`, `unknown`) |
+| `GET /groups/{id}/matches` | filtros `round_id`, `team_id` (partidos del equipo, local o visitante; 404 si no es del grupo), `status` (`scheduled`, `finished`, `postponed`, `suspended`, `cancelled`, `unknown`) |
 | `GET /matches/{id}` | partido + `venue`, `timezone`, `observations` (`match_observations`) |
 
 Errores: 400 parámetros inválidos (tipo erróneo, `status` desconocido), 404 recurso inexistente,
@@ -52,7 +52,7 @@ uvicorn futsal.api.app:app_factory --factory --port 8000  # docs interactivas en
 ## Decisiones
 - FastAPI (ya previsto en la arquitectura); endpoints síncronos, SQLAlchemy 2 existente.
 - Validación de entrada: se remapea el 422 de FastAPI a 400.
-- `date` = `scheduled_at` ISO 8601 (UTC); `home_score`/`away_score` nulos si no hay marcador.
+- `date` = `scheduled_at` ISO 8601 (UTC) y, si el partido no tiene hora publicada (152 de 182 hoy), `scheduled_date` (`AAAA-MM-DD`); `home_score`/`away_score` nulos si no hay marcador.
 - Detalle de partido incluye observaciones de listado, no datos de acta (Fase 4).
 
 ## Limitaciones

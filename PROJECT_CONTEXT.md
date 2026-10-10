@@ -68,7 +68,8 @@ Tools: `list_competitions|groups|rounds|teams|matches`, `get_match`; errores con
 Fase 7 (agente): `src/futsal/agent/` (`llm.py` Protocol+adaptador Anthropic/httpx, `mcp_client.py`, `agent.py` bucle con
 `MAX_TOOL_CALLS`=5 y traza, `python -m futsal.agent "pregunta"`). Tests `tests/test_agent.py` (LLM simulado). Detalle: `docs/agent.md`.
 Gemini: `GeminiLLM` (REST httpx) + `create_llm()` según `LLM_PROVIDER`; `GEMINI_API_KEY`/`GEMINI_MODEL` solo por entorno/.env; tests con HTTP simulado.
-PENDIENTE: prueba real con LLM (sin `ANTHROPIC_API_KEY` en el entorno); pipeline MCP→API→PG verificado con LLM simulado.
+Fase 8: evaluación (`agent/evaluate.py`, 15 casos, verdad de PostgreSQL solo lectura), traza JSONL (`agent/trace.py`), tokens por llamada
+(`Usage`), `team_id` en `list_matches`, `date` con fallback a `scheduled_date`. Detalle y medidas en `docs/agent.md`.
 (Nota: fases de actas anteriores se numeraron 4/5 en esta lista; la API es la siguiente fase.)
 ## Comandos esenciales
 - `pip install -e '.[dev]'`
@@ -88,4 +89,4 @@ PENDIENTE: prueba real con LLM (sin `ANTHROPIC_API_KEY` en el entorno); pipeline
 - La CLI real es `python -m futsal.cli` (el paquete es `futsal`, no `src`).
 
 ## Próxima fase (recomendada)
-Validar el agente con LLM real (Fase 7 pendiente de clave), luego fichas de jugadores/clasificaciones).
+Exponer actas/goleadores por API+MCP (hoy el agente solo reconoce que no los tiene), luego clasificaciones.
