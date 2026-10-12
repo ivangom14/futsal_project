@@ -36,3 +36,36 @@ def test_live_agent_answers_two_cases_with_structured_assertions() -> None:
 
     results = asyncio.run(go())
     assert results and all(getattr(r, "status") in ("pass", "not_evaluable") for r in results), results
+
+
+@pytest.mark.skipif(os.environ.get("RUN_LIVE_LLM") != "1", reason="define RUN_LIVE_LLM=1 para llamar al LLM real")
+def test_live_agent_answers_acta_questions_with_exact_names_and_expected_tools() -> None:
+    """Fase 9 (de pago, ~5 casos): exactitud de la respuesta + tools invocadas + evidencia devuelta."""
+    from mcp import ClientSession
+    from mcp.client.stdio import stdio_client
+
+    from futsal.agent.evaluate import CaseResult, evaluate, load_truth
+    from futsal.agent.llm import create_llm
+    from futsal.agent.mcp_client import SessionMcpClient, stdio_params
+    from futsal.db.session import make_engine
+
+    truth = load_truth(make_engine())
+    assert truth is not None, "sin datos en PostgreSQL"
+    cases = {"acta_goleadores_ultimo", "acta_arbitro", "acta_jugador_inexistente", "acta_goles_agrupados",
+             "acta_jornada_sin_resultados"}
+    expected = {"acta_goleadores_ultimo": "get_match_report", "acta_arbitro": "get_match_report",
+                "acta_jugador_inexistente": "find_players", "acta_goles_agrupados": "top_scorers",
+                "acta_jornada_sin_resultados": "top_scorers"}
+
+    async def go() -> list[CaseResult]:
+        async with stdio_client(stdio_params()) as (read, write):
+            async with ClientSession(read, write) as session:
+                await session.initialize()
+                return await evaluate(truth, SessionMcpClient(session), "live", create_llm(), only=cases)
+
+    results = asyncio.run(go())
+    for r in results:
+        if r.status == "not_evaluable":
+            continue
+        assert r.status == "pass" and r.evidence_ok and r.answer_ok, (r.case_id, r.detail, r.answer)
+        assert expected[r.case_id] in r.tools_used, (r.case_id, r.tools_used)

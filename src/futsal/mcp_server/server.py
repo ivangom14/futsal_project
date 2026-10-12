@@ -11,6 +11,8 @@ from futsal.config.settings import api_base_url
 
 TIMEOUT_SECONDS = 10.0
 
+EventType = Literal["goal", "own_goal", "card"]
+ReportSection = Literal["officials", "goals", "cards", "players", "staff"]
 MatchStatus = Literal["scheduled", "finished", "postponed", "suspended", "cancelled", "unknown"]
 
 
@@ -100,13 +102,15 @@ def create_server(client: httpx.Client | None = None) -> FastMCP:
         = None,
         team_id: Annotated[int | None, Field(description="ID interno de equipo (de list_teams); "
                                              "devuelve solo sus partidos; opcional")] = None,
+        has_report: Annotated[bool | None, Field(description="Solo con/sin acta; opcional")] = None,
     ) -> dict[str, Any]:
-        """Lista los partidos de un grupo con equipos, fecha, estado y marcador.
-        Filtra por jornada, estado (p. ej. `finished` para resultados ya jugados) y/o equipo."""
+        """Lista los partidos de un grupo con equipos, fecha, estado, marcador y has_report (acta
+        disponible). Filtra por jornada, estado (p. ej. `finished` para resultados ya jugados), equipo
+        y/o acta."""
         return _listing(
             "matches",
             _get(http, f"/groups/{group_id}/matches", f"grupo {group_id}",
-                 round_id=round_id, status=status, team_id=team_id),
+                 round_id=round_id, status=status, team_id=team_id, has_report=has_report),
         )
 
     @mcp.tool()
@@ -116,6 +120,60 @@ def create_server(client: httpx.Client | None = None) -> FastMCP:
         """Devuelve el detalle de un partido: equipos, marcador, estado, pista, zona horaria
         y observaciones disponibles."""
         return _get(http, f"/matches/{match_id}", f"partido {match_id}")
+
+    @mcp.tool()
+    def get_match_report(
+        match_id: Annotated[int, Field(description="ID de partido")],
+        sections: Annotated[list[ReportSection] | None, Field(
+            description="Por defecto officials y goals")] = None,
+    ) -> dict[str, Any]:
+        """Acta de un partido: árbitros, goles (jugador, minuto), tarjetas, alineaciones y consistency
+        (marcador vs acta). Sin acta: report_available=false y el motivo. not_in_source: lo que no consta."""
+        return _get(http, f"/matches/{match_id}/report", f"partido {match_id}",
+                    sections=",".join(sections) if sections else None)
+
+    @mcp.tool()
+    def list_match_events(
+        group_id: int,
+        team_id: Annotated[int | None, Field(description="Jugadores de este equipo")] = None,
+        against_team_id: Annotated[int | None, Field(description="Goles contra este equipo")] = None,
+        round_id: Annotated[int | None, Field(description="ID de jornada, no número")] = None,
+        match_id: int | None = None,
+        player_id: int | None = None,
+        event_type: Annotated[EventType | None, Field(description="Def.: goal y own_goal")] = None,
+        limit: Annotated[int, Field(ge=1, le=200)] = 40,
+    ) -> dict[str, Any]:
+        """Eventos de actas (goles, propia meta, tarjetas) con partido, equipo, rival, jugador y minuto.
+        coverage indica cuántos partidos finalizados tienen acta: si es parcial, faltar no prueba nada."""
+        return _get(http, f"/groups/{group_id}/match-events", f"grupo {group_id}", team_id=team_id,
+                    against_team_id=against_team_id, round_id=round_id, match_id=match_id,
+                    player_id=player_id, event_type=event_type, limit=limit)
+
+    @mcp.tool()
+    def top_scorers(
+        group_id: int,
+        team_id: int | None = None,
+        against_team_id: int | None = None,
+        round_id: Annotated[int | None, Field(description="ID de jornada, no número")] = None,
+        match_id: int | None = None,
+        player_id: int | None = None,
+        min_goals: Annotated[int, Field(ge=1, le=100)] = 1,
+        limit: Annotated[int, Field(ge=1, le=200)] = 20,
+    ) -> dict[str, Any]:
+        """Goles por jugador (agrupados en la base de datos, de más a menos) con los mismos filtros.
+        No cuenta propia meta. Incluye coverage."""
+        return _get(http, f"/groups/{group_id}/scorers", f"grupo {group_id}", team_id=team_id,
+                    against_team_id=against_team_id, round_id=round_id, match_id=match_id,
+                    player_id=player_id, min_goals=min_goals, limit=limit)
+
+    @mcp.tool()
+    def find_players(
+        group_id: int,
+        name: Annotated[str, Field(min_length=2, max_length=80, description="Nombre o apellido")],
+        team_id: int | None = None,
+    ) -> dict[str, Any]:
+        """Busca jugadores de las actas por nombre y devuelve su player_id. Sin resultados: no consta."""
+        return _get(http, f"/groups/{group_id}/players", f"grupo {group_id}", name=name, team_id=team_id)
 
     return mcp
 

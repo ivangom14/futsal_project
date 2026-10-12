@@ -34,7 +34,7 @@ Activos hoy: httpx, pydantic, SQLAlchemy 2 (síncrono), Alembic, psycopg 3, Post
 - Estado: `finished` si hay marcador y acta cerrada; `scheduled` si no hay marcador;
   `postponed/suspended/cancelled` por texto de `motivo_estado`; si no, `unknown`.
   El original se guarda en `status_raw`.
-- Se excluye el nombre del árbitro (dato personal innecesario).
+- El listado de jornadas no trae árbitro. El acta sí (`match_officials`, nombre y rol) y se expone tal cual figura en el acta (Fase 9).
 
 ## Objetivo vigente (confirmado)
 temporada=22, competicion=26738243, grupo=26738245, tipojuego=3, jornada inicial=2.
@@ -70,6 +70,10 @@ Fase 7 (agente): `src/futsal/agent/` (`llm.py` Protocol+adaptador Anthropic/http
 Gemini: `GeminiLLM` (REST httpx) + `create_llm()` según `LLM_PROVIDER`; `GEMINI_API_KEY`/`GEMINI_MODEL` solo por entorno/.env; tests con HTTP simulado.
 Fase 8: evaluación (`agent/evaluate.py`, 15 casos, verdad de PostgreSQL solo lectura), traza JSONL (`agent/trace.py`), tokens por llamada
 (`Usage`), `team_id` en `list_matches`, `date` con fallback a `scheduled_date`. Detalle y medidas en `docs/agent.md`.
+Fase 9 (actas por API/MCP/agente): `api/reports.py` + `repositories/report_queries.py` (solo lectura, última observación del acta).
+Endpoints `/matches/{id}/report`, `/groups/{id}/{match-events,scorers,players}`, `has_report` en partidos; MCP `get_match_report`,
+`list_match_events`, `top_scorers`, `find_players`. `coverage` explícito (finalizados con/sin acta), `consistency` marcador vs acta.
+Sin migraciones. Eval: 9 casos de actas; retirados `goleadores_/arbitro_no_disponible` (premisa obsoleta). Detalle: `docs/api.md`, `docs/agent.md`.
 (Nota: fases de actas anteriores se numeraron 4/5 en esta lista; la API es la siguiente fase.)
 ## Comandos esenciales
 - `pip install -e '.[dev]'`
@@ -85,8 +89,9 @@ Fase 8: evaluación (`agent/evaluate.py`, 15 casos, verdad de PostgreSQL solo le
 - El listado no da URL de acta (`match_report_url` = null); el patrón se descubrió en Fase 4.
 - Estado `postponed/suspended/cancelled` sin observar aún; la jornada 1 tiene un partido con `estado=0`.
 - Sin KB ni clasificaciones; agente solo experimental; sin fichas de jugadores. Significado de tarjetas 100/101 sin verificar.
-- Sustituciones/penaltis/otros técnicos: estructura sin observar (se avisa, no se importan).
+- Sustituciones/penaltis/otros técnicos/periodos: no figuran en el acta observada (no se importan ni se exponen; `not_in_source`).
+- Cobertura de actas medida solo sobre snapshots locales (13/13 finalizados); no se ha comprobado la BD real del usuario ni Gemini en vivo.
 - La CLI real es `python -m futsal.cli` (el paquete es `futsal`, no `src`).
 
 ## Próxima fase (recomendada)
-Exponer actas/goleadores por API+MCP (hoy el agente solo reconoce que no los tiene), luego clasificaciones.
+Clasificaciones (derivables de `matches`) y procesamiento incremental de actas al jugarse más partidos; verificar el significado de las tarjetas 100/101.

@@ -10,7 +10,7 @@ import pytest
 from futsal.mcp_server.server import create_server
 
 TOOLS = {"list_competitions", "list_groups", "list_rounds", "list_teams", "list_matches",
-         "get_match"}
+         "get_match", "get_match_report", "list_match_events", "top_scorers", "find_players"}
 LISTING = {"items": [{"id": 1}], "count": 1}
 
 
@@ -128,3 +128,35 @@ def test_list_matches_forwards_team_id() -> None:
     tools = asyncio.run(create_server().list_tools())
     props = next(t for t in tools if t.name == "list_matches").inputSchema["properties"]
     assert "team_id" in props
+
+
+def _echo(request: httpx.Request) -> httpx.Response:
+    return httpx.Response(200, json={"path": request.url.path, "params": dict(request.url.params)})
+
+
+def test_report_tools_forward_filters_to_read_only_api_routes() -> None:
+    _, text = _run("get_match_report", {"match_id": 7, "sections": ["officials", "cards"]}, _echo)
+    assert json.loads(text) == {"path": "/matches/7/report", "params": {"sections": "officials,cards"}}
+    _, text = _run("top_scorers", {"group_id": 1, "round_id": 3, "min_goals": 2, "against_team_id": 9}, _echo)
+    got = json.loads(text)
+    assert got["path"] == "/groups/1/scorers"
+    assert got["params"] == {"round_id": "3", "min_goals": "2", "against_team_id": "9", "limit": "20"}
+    _, text = _run("list_match_events", {"group_id": 1, "event_type": "card", "player_id": 4}, _echo)
+    assert json.loads(text)["params"] == {"event_type": "card", "player_id": "4", "limit": "40"}
+    _, text = _run("find_players", {"group_id": 1, "name": "perez"}, _echo)
+    assert json.loads(text) == {"path": "/groups/1/players", "params": {"name": "perez"}}
+    seen: list[dict[str, str]] = []
+
+    def _capture(request: httpx.Request) -> httpx.Response:
+        seen.append(dict(request.url.params))
+        return httpx.Response(200, json=LISTING)
+
+    _run("list_matches", {"group_id": 1, "status": "finished", "has_report": False}, _capture)
+    assert seen == [{"status": "finished", "has_report": "false"}]
+
+
+def test_report_tools_reject_invalid_parameters_and_map_missing_match() -> None:
+    assert _run("list_match_events", {"group_id": 1, "event_type": "penalty"}, _echo)[0] is True
+    assert _run("top_scorers", {"group_id": 1, "limit": 999}, _echo)[0] is True
+    err, text = _run("get_match_report", {"match_id": 999})
+    assert err and "error_no_encontrado" in text

@@ -32,7 +32,7 @@ from futsal.agent.mcp_client import SessionMcpClient
 from futsal.mcp_server.server import create_server
 
 TOOLS = {"list_competitions", "list_groups", "list_rounds", "list_teams", "list_matches",
-         "get_match"}
+         "get_match", "get_match_report", "list_match_events", "top_scorers", "find_players"}
 
 
 def _api(request: httpx.Request) -> httpx.Response:
@@ -436,3 +436,18 @@ def test_gemini_reports_usage_per_call_with_thinking() -> None:
     b = llm.complete("s", [Message("user", "q")], [])
     assert a.usage == Usage(120, 5, 40, 165) and b.usage == a.usage and not a.usage.estimated
     assert llm.usage == {"input_tokens": 240, "output_tokens": 10}  # acumulado de la instancia, no de la llamada
+
+
+def test_strip_titles_removes_schema_noise_but_keeps_properties_named_title() -> None:
+    from futsal.agent.mcp_client import strip_titles
+
+    schema = {"title": "X", "type": "object", "properties": {"title": {"title": "Title", "type": "string"},
+                                                              "n": {"title": "N", "type": "integer"}}}
+    assert strip_titles(schema) == {"type": "object", "properties": {"title": {"type": "string"},
+                                                                     "n": {"type": "integer"}}}
+
+
+def test_system_prompt_routes_actas_to_tools_and_demands_partial_coverage_warning() -> None:
+    for name in ("get_match_report", "top_scorers", "list_match_events", "find_players", "coverage.complete"):
+        assert name in SYSTEM_PROMPT
+    assert "goleadores" in OFF_TOPIC_MESSAGE

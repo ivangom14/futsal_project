@@ -1,6 +1,7 @@
 """Evaluación OFFLINE del agente sobre una BD temporal sembrada con fixtures (API y MCP reales en memoria)."""
 
 import asyncio
+import json
 from pathlib import Path
 
 import pytest
@@ -11,11 +12,25 @@ from sqlalchemy import Engine
 from futsal.agent.evaluate import CaseResult, evaluate, load_truth
 from futsal.agent.mcp_client import SessionMcpClient
 from futsal.api.app import create_app
+from futsal.importer.report_service import run_report_import
 from futsal.importer.service import run_import
+from futsal.ingestion.rffm.report_parser import parse_match_report
 from futsal.mcp_server.server import create_server
 
 pytestmark = pytest.mark.integration
 FIXTURE = Path(__file__).parents[1] / "fixtures" / "league_two_rounds.json"
+REPORT_URL = "https://www.rffm.es/acta-partido/5575697?temporada=22&competicion=26738243&grupo=26738245"
+
+
+def _seed_report(engine: Engine, tmp_path: Path, **game: str) -> None:
+    html = (FIXTURE.parent / "rffm_match_report.html").read_text(encoding="utf-8")
+    if game:  # variante controlada del acta (p. ej. otro marcador)
+        data = json.loads(html.split('type="application/json">')[1].split("</script>")[0])
+        data["props"]["pageProps"]["game"].update(game)
+        html = '<script id="__NEXT_DATA__">' + json.dumps(data) + "</script>"
+    path = tmp_path / "report.json"
+    path.write_text(parse_match_report(html, REPORT_URL).model_dump_json(), encoding="utf-8")
+    assert run_report_import(engine, path).status == "success"
 
 
 def _evaluate(engine: Engine, **kw: object) -> list[CaseResult]:
@@ -40,7 +55,7 @@ def test_offline_evaluation_passes_with_complete_evidence(engine: Engine) -> Non
     assert results["recuento_global"].status == "pass" and results["fuera_de_alcance"].status == "pass"
     assert results["fuera_de_alcance"].answer_ok is True  # guardarraíl determinista
     # casos que dependen del texto del modelo: no se inventan resultados offline
-    assert results["goleadores_no_disponible"].status == "not_evaluable"
+    assert results["acta_dato_no_almacenado"].status == "not_evaluable"
     assert all(r.tokens_estimated for r in results.values() if r.status != "not_evaluable" and r.llm_calls)
 
 
@@ -111,3 +126,26 @@ def test_live_mode_scores_correct_wrong_and_presentation_separately(engine: Engi
     assert wrong.status == "fail" and wrong.answer_ok is False and "respuesta incorrecta" in wrong.detail
     ugly = _live(engine, lambda t, d: _correct(t, d) + ' {"home_team_id": 3}')
     assert ugly.status == "pass" and ugly.answer_ok and ugly.presentation_ok is False  # presentación aparte
+
+
+def test_report_cases_are_evaluated_against_seeded_acta(engine: Engine, tmp_path: Path) -> None:
+    run_import(engine, FIXTURE)
+    _seed_report(engine, tmp_path)
+    results = {r.case_id: r for r in _evaluate(engine)}
+    assert not [r for r in results.values() if r.status == "fail"], {
+        r.case_id: r.detail for r in results.values() if r.status == "fail"}
+    for case in ("acta_partido_sin_acta", "acta_arbitro", "acta_jugador_inexistente", "acta_goles_agrupados"):
+        assert results[case].status == "pass", (case, results[case].detail)
+    assert results["acta_arbitro"].tools_used == ["list_matches", "get_match_report"]
+    assert results["acta_jugador_inexistente"].tools_used == ["find_players"]
+    # sin discrepancias en estos datos: el caso se declara no evaluable en vez de aprobarse en vacío
+    assert results["acta_discrepancia_resultado"].status == "not_evaluable"
+
+
+def test_discrepancy_case_is_evaluable_when_acta_changed_the_score(engine: Engine, tmp_path: Path) -> None:
+    run_import(engine, FIXTURE)
+    _seed_report(engine, tmp_path, goles_local="5")  # el acta cerrada prevalece; el marcador previo queda en match_observations
+    results = {r.case_id: r for r in _evaluate(engine)}
+    case = results["acta_discrepancia_resultado"]
+    assert case.status == "pass" and case.evidence_ok is True, case.detail
+    assert case.tools_used == ["list_matches", "get_match_report"]

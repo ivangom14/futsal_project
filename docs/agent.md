@@ -138,7 +138,7 @@ La CLI imprime ahora tokens por llamada y el total de la pregunta; el acumulado 
 3. El prompt manda filtrar siempre por `team_id`/`round_id`/`status`.
 
 ### Evaluación (`python -m futsal.agent.evaluate`)
-15 casos con verdad calculada en el momento por consultas **solo lectura** a PostgreSQL (nada hardcodeado). Aserciones
+22 casos (15 de la Fase 8, menos 2 retirados, más 9 de actas) con verdad calculada en el momento por consultas **solo lectura** a PostgreSQL (nada hardcodeado). Aserciones
 estructuradas (marcador, fecha en varios formatos, recuentos, rival, campo, rechazo); la presentación se puntúa aparte.
 | Caso | Qué comprueba | Tools razonables |
 |---|---|---|
@@ -152,7 +152,15 @@ estructuradas (marcador, fecha en varios formatos, recuentos, rival, campo, rech
 | partido_mas_goles | agregación sobre finalizados | list_matches(finished) |
 | recuento_global | jugados / pendientes del grupo | list_matches ×2 |
 | equipos_del_grupo | nº y nombres de los equipos | list_teams |
-| goleadores_no_disponible, arbitro_no_disponible | debe reconocer que sus tools no lo cubren | — (live) |
+| acta_goleadores_ultimo | goleadores del DOSA en su último partido | list_matches → get_match_report |
+| acta_partido_sin_acta | partido no jugado: debe decir que no hay acta | list_matches → get_match_report |
+| acta_arbitro | árbitros de un partido con acta | list_matches → get_match_report(officials) |
+| acta_jugador_inexistente | jugador que no consta: no inventar | find_players |
+| acta_jornada_sin_resultados | jornada sin partidos jugados: cobertura vacía | top_scorers(round_id) |
+| acta_goles_agrupados | jugadores con 2+ goles en una jornada (agrupado en SQL) | top_scorers(round_id, min_goals=2) |
+| acta_goleadores_contra_equipo | quién marcó contra el DOSA | top_scorers(against_team_id) |
+| acta_discrepancia_resultado | marcador previo del listado vs acta (solo si hay datos reales/fixture) | list_matches → get_match_report |
+| acta_dato_no_almacenado | resultado por periodos: no figura en la fuente | — (live) |
 | equipo_inexistente, jornada_inexistente | debe decir que no existe, sin inventar | — (live) |
 | fuera_de_alcance | chiste: respuesta = aviso de alcance | — (guardarraíl) |
 **Offline** (por defecto, sin LLM): un LLM guionizado recorre la ruta de tools razonable por el MCP/API reales y se
@@ -160,3 +168,21 @@ comprueba que la **evidencia** que recibiría el modelo (tras compactar/recortar
 estimados. No evalúa texto del modelo: esos casos salen `not_evaluable`, nunca aprobados. **Live** (`--mode live
 --confirm-live`): LLM real, puntúa respuestas y exige evidencia. Un caso sin datos suficientes se marca `not_evaluable`.
 Resultado guardado en `data/agent/eval-last.json`.
+
+
+### Fase 9 — actas (goleadores, árbitros, eventos)
+Nuevas tools MCP (ver `docs/mcp.md`): `get_match_report`, `list_match_events`, `top_scorers`, `find_players` y el filtro
+`has_report` de `list_matches`. Cálculos (agrupar goles, cobertura, coherencia con el marcador) en SQL/Python
+deterministas; el LLM solo elige tool y redacta. El prompt le exige avisar si no hay acta o `coverage.complete=false`.
+**Cambios en la evaluación (declarados, no maquillaje):** `goleadores_no_disponible` y `arbitro_no_disponible` se retiran
+porque su premisa ("ninguna tool expone goleadores/oficiales") ya no es cierta; ambos eran `not_evaluable` offline, así que
+no afectan a ningún pass/fail. Se sustituyen por casos con verdad en BD (`acta_goleadores_ultimo`, `acta_arbitro`,
+`acta_goles_agrupados`...) y por `acta_dato_no_almacenado` (periodos). Los otros 13 casos no se han tocado.
+La verdad de actas sale de SQL propio de solo lectura en `evaluate.py` (independiente de `report_queries.py`).
+**Coste (offline, tokens estimados, mismos 11 casos comunes con la BD de snapshots):** 45 719 → 67 396 tokens de entrada
+(+47 %, ≈ +890 por llamada al LLM): el coste fijo son los esquemas de las 4 tools nuevas y 4 frases de prompt. Mitigado quitando
+los `title` autogenerados del JSON Schema (`strip_titles`, −1 000 caracteres). Número de llamadas LLM y de tools de esos casos
+sin cambios (23 llamadas LLM y 12 de tools en ambas mediciones). Con Gemini real no se ha medido (sin clave en el entorno de desarrollo).
+Pruebas: unitarias `tests/test_agent_eval.py`, `tests/test_mcp_server.py`; integración `tests/integration/test_report_queries_pg.py`,
+`test_agent_eval_pg.py` (BD temporal con el acta fixture, sin LLM); en vivo `tests/live/test_gemini_live.py`
+(`RUN_LIVE_LLM=1`, comprueba exactitud, tools invocadas y evidencia).

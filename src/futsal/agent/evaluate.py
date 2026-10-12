@@ -38,7 +38,8 @@ STOP = {"futbol", "sala", "club", "deportivo", "escuela", "colegio", "agrupacion
         "deportiva", "esc", "dep", "las", "los", "del", "san"}
 LIMIT_PHRASES = ["no incluyen", "no incluye", "no dispongo", "no disponible", "no tengo", "no puedo",
                  "no cubren", "no cubre", "no existe", "no encuentro", "no aparece", "no he encontrado",
-                 "no hay", "no consta", "no se encuentra", "solo puedo responder", "no es posible"]
+                 "no hay", "no consta", "no se encuentra", "solo puedo responder", "no es posible", "sin acta",
+                 "aun no", "todavia no", "ningun", "no se ha", "no figura"]
 
 
 # ----------------------------------------------------------------------------- verdad (solo SELECT)
@@ -57,12 +58,25 @@ class M:
     venue: str | None
 
 
+@dataclass(frozen=True)
+class RGoal:
+    match_id: int
+    round_number: int
+    team_id: int  # equipo del jugador (en propia meta, el que lo sufre)
+    player: str
+    kind: str  # goal | own_goal
+
+
 @dataclass
 class Truth:
     group_id: int
     teams: dict[int, str]
     rounds: dict[int, int]  # número de jornada -> round_id
     matches: list[M]
+    goals: list[RGoal] = field(default_factory=list)  # goles de la última observación de cada acta
+    referees: dict[int, list[str]] = field(default_factory=dict)  # partido -> árbitros (rol ARBITRO)
+    reported: set[int] = field(default_factory=set)  # partidos con acta almacenada
+    old_scores: dict[int, tuple[int, int]] = field(default_factory=dict)  # marcador previo distinto al actual
 
     def team_id(self, token: str) -> int | None:
         return next((i for i, n in self.teams.items() if token.lower() in n.lower()), None)
@@ -94,7 +108,39 @@ def load_truth(engine: Engine) -> Truth | None:
         matches = [M(m.id, n or 0, m.home_team_id, m.away_team_id, teams.get(m.home_team_id, ""),
                      teams.get(m.away_team_id, ""), m.home_score, m.away_score, m.status,
                      m.scheduled_date, m.venue) for m, n in rows]
-        return Truth(group.id, teams, rounds, matches)
+        truth = Truth(group.id, teams, rounds, matches)
+        _load_report_truth(db, truth)
+        return truth
+
+
+LAST_OBS = ("(SELECT DISTINCT ON (r.id) r.match_id, o.id AS obs_id FROM match_reports r "
+            "JOIN match_report_observations o ON o.report_id = r.id "
+            "ORDER BY r.id, o.observed_at DESC, o.id DESC)")
+
+
+def _load_report_truth(db: Session, t: Truth) -> None:
+    """Verdad de actas con SQL propio y de solo lectura (independiente del código bajo prueba)."""
+    from sqlalchemy import text
+
+    arg = {"g": t.group_id}
+    t.reported = {r[0] for r in db.execute(text(
+        f"SELECT l.match_id FROM {LAST_OBS} l JOIN matches m ON m.id = l.match_id WHERE m.group_id = :g"), arg)}
+    t.goals = [RGoal(r[0], r[1], r[2], r[3], r[4]) for r in db.execute(text(
+        f"SELECT l.match_id, rd.visible_number, e.team_id, COALESCE(e.player_name, ''), e.event_type "
+        f"FROM {LAST_OBS} l JOIN match_events e ON e.observation_id = l.obs_id "
+        "JOIN matches m ON m.id = l.match_id JOIN rounds rd ON rd.id = m.round_id "
+        "WHERE m.group_id = :g AND e.event_type IN ('goal', 'own_goal') ORDER BY l.match_id, e.sequence"), arg)]
+    for mid, name in db.execute(text(
+            f"SELECT l.match_id, of.display_name FROM {LAST_OBS} l "
+            "JOIN match_officials of ON of.observation_id = l.obs_id JOIN matches m ON m.id = l.match_id "
+            "WHERE m.group_id = :g AND of.role = 'ARBITRO' ORDER BY l.match_id, of.sequence"), arg):
+        t.referees.setdefault(mid, []).append(name)
+    for mid, h, a in db.execute(text(
+            "SELECT mo.match_id, mo.home_score, mo.away_score FROM match_observations mo "
+            "JOIN matches m ON m.id = mo.match_id WHERE m.group_id = :g AND mo.home_score IS NOT NULL "
+            "AND (mo.home_score, mo.away_score) IS DISTINCT FROM (m.home_score, m.away_score) "
+            "ORDER BY mo.observed_at"), arg):
+        t.old_scores[mid] = (h, a)
 
 
 # ----------------------------------------------------------------------------- texto
@@ -131,6 +177,7 @@ def has_number(text: str, n: int) -> bool:
 @dataclass(frozen=True)
 class Fact:
     kind: str  # match | match_any | count | names | venue | limitation | refusal
+    # actas: people (nombres que deben figurar) | no_report | no_player | empty_scope | discrepancy
     label: str
     matches: tuple[M, ...] = ()
     need_score: bool = False
@@ -139,6 +186,7 @@ class Fact:
     names: tuple[str, ...] = ()
     status: str | None = None  # para "count": cuenta filas de partidos finished / pending en la evidencia
     exclude: str = ""  # equipo por el que se pregunta: basta con que la respuesta nombre al rival
+    scores: tuple[tuple[int, int], ...] = ()  # discrepancy: (marcador previo, marcador actual)
 
 
 def _items(payloads: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -181,6 +229,19 @@ def evidence_ok(f: Fact, payloads: list[dict[str, Any]]) -> bool:
         return all(norm(n) in names for n in f.names)
     if f.kind == "venue":
         return any(norm(str(i.get("venue", ""))) == norm(f.names[0]) for i in items)
+    if f.kind == "people":  # nombres devueltos por las tools de actas (goles, oficiales, goleadores)
+        seen = {norm(str(i.get("player") or i.get("name") or "")) for i in items}
+        return all(norm(n) in seen for n in f.names)
+    if f.kind == "no_report":
+        return any(p.get("report_available") is False for p in payloads)
+    if f.kind == "no_player":
+        return any(p.get("players") == [] and p.get("total") == 0 for p in payloads)
+    if f.kind == "empty_scope":
+        return any(isinstance(p.get("coverage"), dict) and p["coverage"].get("finished_matches") == 0
+                   and p.get("count") == 0 for p in payloads)
+    if f.kind == "discrepancy":
+        old = f"{f.scores[0][0]}-{f.scores[0][1]}"
+        return any(old in " ".join(p.get("consistency", {}).get("differences", [])) for p in payloads)
     return False
 
 
@@ -205,6 +266,12 @@ def answer_ok(f: Fact, text: str) -> bool:
         return all(key(n) in low for n in f.names)
     if f.kind == "venue":
         return key(f.names[0]) in low
+    if f.kind == "people":
+        return all(key(n) in low for n in f.names)
+    if f.kind in ("no_report", "no_player", "empty_scope"):
+        return any(p in low for p in LIMIT_PHRASES)
+    if f.kind == "discrepancy":
+        return all(has_score(text, h, a) for h, a in f.scores)
     return False
 
 
@@ -229,8 +296,8 @@ class EvalCase:
     reason: str = ""  # por qué no es evaluable / qué se comprueba
 
 
-def _call(name: str, **args: Any) -> list[ToolCall]:
-    return [ToolCall(f"c-{name}", name, args)]
+def _call(tool: str, /, **args: Any) -> list[ToolCall]:
+    return [ToolCall(f"c-{tool}", tool, args)]
 
 
 def build_cases(t: Truth) -> list[EvalCase]:  # noqa: C901 - catálogo declarativo
@@ -307,13 +374,8 @@ def build_cases(t: Truth) -> list[EvalCase]:  # noqa: C901 - catálogo declarati
         "equipos_del_grupo", "recuentos", "¿Cuántos equipos hay en el grupo y cuáles son?",
         [Fact("count", "equipos", number=len(t.teams)), Fact("names", "nombres", names=tuple(t.teams.values()))],
         frozenset({"list_teams"}), lambda s, p: _call("list_teams", group_id=g) if s == 0 else None))
-    ref = done[0] if done else None
+    cases += _report_cases(t, dosa)
     cases += [
-        EvalCase("goleadores_no_disponible", "limitacion", "¿Quién marcó más goles en la jornada 1?",
-                 [Fact("limitation", "sin tools de goleadores")], reason="ninguna tool expone goleadores"),
-        EvalCase("arbitro_no_disponible", "limitacion",
-                 f"¿Quién arbitró el partido entre {ref.home} y {ref.away}?" if ref else "¿Quién arbitró el partido 1?",
-                 [Fact("limitation", "sin tools de actas")], reason="ninguna tool expone oficiales"),
         EvalCase("equipo_inexistente", "limitacion", "¿Cómo quedó el C.D. FANTASMA UNITED en la jornada 3?",
                  [Fact("limitation", "equipo inexistente")], reason="el equipo no existe"),
         EvalCase("jornada_inexistente", "limitacion", "¿Qué partidos hay en la jornada 99?",
@@ -322,6 +384,111 @@ def build_cases(t: Truth) -> list[EvalCase]:  # noqa: C901 - catálogo declarati
                  [Fact("refusal", "rechazo de tema ajeno")],
                  plan=lambda s, p: None, reason="se comprueba el guardarraíl determinista"),
     ]
+    return cases
+
+
+def _uniq(names: list[str]) -> tuple[str, ...]:
+    return tuple(dict.fromkeys(n for n in names if n))
+
+
+def _report_cases(t: Truth, dosa: int | None) -> list[EvalCase]:  # noqa: C901 - catálogo declarativo
+    """Casos de actas (Fase 9). La verdad sale de SQL de solo lectura sobre las actas almacenadas."""
+    g = t.group_id
+    rm = frozenset({"list_matches", "get_match_report"})
+    cases: list[EvalCase] = []
+
+    def via_list(m: M, **report_args: Any) -> Plan:
+        def plan(step: int, p: list[dict[str, Any]]) -> list[ToolCall] | None:
+            if step == 0:
+                return _call("list_matches", group_id=g, team_id=m.home_id, round_id=t.rounds[m.round_number])
+            if step == 1 and p and p[0].get("matches"):
+                return _call("get_match_report", match_id=int(p[0]["matches"][0]["id"]), **report_args)
+            return None
+        return plan
+
+    def top(**args: Any) -> Plan:
+        return lambda s, p: _call("top_scorers", group_id=g, **args) if s == 0 else None
+
+    done_rep = [m for m in t.matches if m.status == "finished" and m.id in t.reported]
+    # 1. goleadores del último partido de un equipo (list_matches -> get_match_report)
+    if dosa is not None:
+        fin = t.of_team(dosa, "finished")
+        last = fin[-1] if fin else None
+        names = _uniq([x.player for x in t.goals if last and x.match_id == last.id
+                       and x.kind == "goal" and x.team_id == dosa])
+        ok = bool(last) and last.id in t.reported and bool(names)  # type: ignore[union-attr]
+        cases.append(EvalCase(
+            "acta_goleadores_ultimo", "actas", f"¿Quién marcó los goles del {t.teams[dosa]} en su último partido?",
+            [Fact("people", "goleadores", names=names)] if ok else None, rm,
+            (lambda s, p: _call("list_matches", group_id=g, team_id=dosa, status="finished") if s == 0 else
+             _call("get_match_report", match_id=int(p[0]["matches"][-1]["id"]), sections=["goals"])
+             if s == 1 and p and p[0].get("matches") else None) if ok else None,
+            "" if ok else "el equipo no tiene último partido con acta y goles propios"))
+    # 2. partido sin acta (aún no jugado)
+    nr = next((m for m in t.matches if m.status != "finished" and m.id not in t.reported), None)
+    cases.append(EvalCase(
+        "acta_partido_sin_acta", "actas",
+        f"¿Quién marcó en el partido {nr.home} - {nr.away} de la jornada {nr.round_number}?" if nr else "",
+        [Fact("no_report", "sin acta")] if nr else None, rm, via_list(nr, sections=["goals"]) if nr else None,
+        "" if nr else "todos los partidos tienen acta"))
+    # 3. árbitro de un partido con acta
+    rf = next((m for m in done_rep if t.referees.get(m.id)), None)
+    cases.append(EvalCase(
+        "acta_arbitro", "actas", f"¿Quién arbitró el partido entre {rf.home} y {rf.away}?" if rf else "",
+        [Fact("people", "árbitros", names=_uniq(t.referees[rf.id]))] if rf else None, rm,
+        via_list(rf, sections=["officials"]) if rf else None, "" if rf else "ningún acta con árbitros"))
+    # 4. jugador inexistente
+    cases.append(EvalCase(
+        "acta_jugador_inexistente", "actas", "¿Cuántos goles ha marcado Zacarías Pimpollo?",
+        [Fact("no_player", "jugador inexistente")], frozenset({"find_players"}),
+        lambda s, p: _call("find_players", group_id=g, name="Pimpollo") if s == 0 else None))
+    # 5. jornada sin resultados
+    empty = next((n for n in sorted(t.rounds) if not any(
+        m.round_number == n and m.status == "finished" for m in t.matches)), None)
+    cases.append(EvalCase(
+        "acta_jornada_sin_resultados", "actas",
+        f"¿Qué jugadores marcaron dos o más goles en la jornada {empty}?" if empty else "",
+        [Fact("empty_scope", "sin partidos jugados")] if empty else None,
+        frozenset({"top_scorers", "list_matches"}), top(round_id=t.rounds[empty], min_goals=2) if empty else None,
+        "" if empty else "todas las jornadas tienen partidos finalizados"))
+    # 6. goles agrupados por jugador en una jornada
+    best = max((n for n in t.rounds if any(m.round_number == n and m.id in t.reported for m in t.matches)),
+               key=lambda n: sum(m.round_number == n and m.id in t.reported for m in t.matches), default=None)
+    per: dict[str, int] = {}
+    for x in t.goals:
+        if best is not None and x.round_number == best and x.kind == "goal":
+            per[x.player] = per.get(x.player, 0) + 1
+    multi = _uniq([n for n, c in per.items() if c >= 2])
+    cases.append(EvalCase(
+        "acta_goles_agrupados", "actas",
+        f"¿Qué jugadores marcaron dos o más goles en la jornada {best}?" if best else "",
+        [Fact("people", "dos o más goles", names=multi)] if multi else None, frozenset({"top_scorers"}),
+        top(round_id=t.rounds[best], min_goals=2, limit=50) if best and multi else None,
+        "" if multi else "nadie marcó 2+ goles en una jornada con actas"))
+    # 7. goleadores contra un equipo
+    if dosa is not None:
+        vs = _uniq([x.player for x in t.goals if x.kind == "goal" and x.team_id != dosa and any(
+            m.id == x.match_id and dosa in (m.home_id, m.away_id) for m in t.matches)])
+        cases.append(EvalCase(
+            "acta_goleadores_contra_equipo", "actas", f"¿Qué jugadores han marcado contra el {t.teams[dosa]}?",
+            [Fact("people", "goleadores rivales", names=vs)] if vs else None, frozenset({"top_scorers"}),
+            top(against_team_id=dosa, limit=50) if vs else None, "" if vs else "nadie ha marcado contra el equipo"))
+    # 8. discrepancia entre el marcador de competición y el del acta (si hay datos reales)
+    dm = next((m for m in done_rep if m.id in t.old_scores and m.hs is not None and m.aws is not None), None)
+    cases.append(EvalCase(
+        "acta_discrepancia_resultado", "actas",
+        f"¿El resultado del {dm.home} - {dm.away} ha cambiado respecto al listado de jornadas? Compáralo con el acta."
+        if dm else "",
+        [Fact("discrepancy", "marcador previo vs acta", scores=(t.old_scores[dm.id], (dm.hs, dm.aws)))]  # type: ignore[arg-type]
+        if dm else None, rm, via_list(dm, sections=["goals"]) if dm else None,
+        "" if dm else "sin discrepancias registradas en los datos reales (se cubre con fixtures)"))
+    # 9. dato que el sistema no almacena
+    pm = done_rep[0] if done_rep else None
+    cases.append(EvalCase(
+        "acta_dato_no_almacenado", "limitacion",
+        f"¿Cuál fue el resultado por periodos del partido entre {pm.home} y {pm.away}?" if pm else "",
+        [Fact("limitation", "periodos no figuran")] if pm else None, rm,
+        via_list(pm, sections=["goals"]) if pm else None, "los periodos no constan en el acta almacenada"))
     return cases
 
 

@@ -15,10 +15,12 @@ from futsal.db.models import (
     CompetitionGroup,
     Match,
     MatchObservation,
+    MatchReport,
     Round,
     Season,
     Team,
 )
+from futsal.api.reports import reports_router
 from futsal.db.session import make_engine
 
 STATUSES = ("scheduled", "finished", "postponed", "suspended", "cancelled", "unknown")
@@ -32,11 +34,15 @@ def _iso(value: date | time | datetime | None) -> str | None:
     return value.isoformat() if value is not None else None
 
 
-def _match_dict(m: Match, home: str | None, away: str | None, number: int | None) -> dict[str, Any]:
-    return {"id": m.id, "group_id": m.group_id, "round_id": m.round_id, "round_number": number,
+def _match_dict(m: Match, home: str | None, away: str | None, number: int | None,
+                has_report: bool | None = None) -> dict[str, Any]:
+    data = {"id": m.id, "group_id": m.group_id, "round_id": m.round_id, "round_number": number,
             "home_team_id": m.home_team_id, "away_team_id": m.away_team_id,
             "home_team": home, "away_team": away, "date": _iso(m.scheduled_at) or _iso(m.scheduled_date),
             "status": m.status, "home_score": m.home_score, "away_score": m.away_score}
+    if has_report is not None:
+        data["has_report"] = has_report
+    return data
 
 
 def create_app(engine: Engine | None = None) -> FastAPI:
@@ -114,7 +120,8 @@ def create_app(engine: Engine | None = None) -> FastAPI:
 
     @app.get("/groups/{group_id}/matches")
     def matches(group_id: int, db: Db, round_id: int | None = None,
-                status: str | None = None, team_id: int | None = None) -> dict[str, Any]:
+                status: str | None = None, team_id: int | None = None,
+                has_report: bool | None = None) -> dict[str, Any]:
         _group(db, group_id)
         if team_id is not None and db.scalar(
                 select(Team.id).where(Team.id == team_id, Team.group_id == group_id)) is None:
@@ -122,7 +129,8 @@ def create_app(engine: Engine | None = None) -> FastAPI:
         if status is not None and status not in STATUSES:
             raise HTTPException(400, f"status inválido; valores: {', '.join(STATUSES)}")
         home, away = aliased(Team), aliased(Team)
-        stmt = (select(Match, home.name, away.name, Round.visible_number)
+        report_id = select(MatchReport.id).where(MatchReport.match_id == Match.id).exists()
+        stmt = (select(Match, home.name, away.name, Round.visible_number, report_id)
                 .join(home, home.id == Match.home_team_id)
                 .join(away, away.id == Match.away_team_id)
                 .join(Round, Round.id == Match.round_id)
@@ -134,7 +142,9 @@ def create_app(engine: Engine | None = None) -> FastAPI:
             stmt = stmt.where(Match.status == status)
         if team_id is not None:
             stmt = stmt.where((Match.home_team_id == team_id) | (Match.away_team_id == team_id))
-        return _items([_match_dict(m, h, a, n) for m, h, a, n in db.execute(stmt)])
+        if has_report is not None:
+            stmt = stmt.where(report_id if has_report else ~report_id)
+        return _items([_match_dict(m, h, a, n, r) for m, h, a, n, r in db.execute(stmt)])
 
     @app.get("/matches/{match_id}")
     def match_detail(match_id: int, db: Db) -> dict[str, Any]:
@@ -158,6 +168,7 @@ def create_app(engine: Engine | None = None) -> FastAPI:
                          "date": _iso(o.scheduled_at) or _iso(o.scheduled_date)} for o in obs])
         return data
 
+    app.include_router(reports_router(get_session))
     return app
 
 

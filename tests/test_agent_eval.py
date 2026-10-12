@@ -112,3 +112,36 @@ def test_summary_and_table_exclude_not_evaluable_from_tokens() -> None:
     s = summarize_results(rs)
     assert (s["pass"], s["fail"], s["not_evaluable"], s["input_tokens"]) == (1, 1, 1, 150)
     assert "TOTAL: 1 pass, 1 fail, 1 no evaluables" in format_table(rs)
+
+
+# ----------------------------------------------------------------------------- Fase 9: hechos de actas
+def test_people_fact_needs_every_name_in_tool_evidence_and_answer() -> None:
+    f = Fact("people", "goleadores", names=("GARCIA GUTIERREZ, JAVIER", "CASTRO CORONADO, SERGIO"))
+    goals = {"goals": [{"player": "GARCIA GUTIERREZ, JAVIER"}, {"player": "CASTRO CORONADO, SERGIO"}]}
+    assert evidence_ok(f, [goals])
+    assert not evidence_ok(f, [{"goals": [{"player": "GARCIA GUTIERREZ, JAVIER"}]}])  # falta uno: parcial
+    assert evidence_ok(Fact("people", "árbitro", names=("GARCIA LASA, ALVARO",)),
+                       [{"officials": [{"name": "GARCIA LASA, ALVARO", "role": "ARBITRO"}]}])
+    assert answer_ok(f, "Marcaron Javier García Gutiérrez y Sergio Castro Coronado.")
+    assert not answer_ok(f, "Marcó Javier García Gutiérrez.")
+
+
+def test_absence_facts_require_explicit_no_data_evidence_and_wording() -> None:
+    assert evidence_ok(Fact("no_report", "x"), [{"report_available": False, "reason": "..."}])
+    assert not evidence_ok(Fact("no_report", "x"), [{"report_available": True}])
+    assert evidence_ok(Fact("no_player", "x"), [{"players": [], "count": 0, "total": 0}])
+    assert not evidence_ok(Fact("no_player", "x"), [{"players": [{"name": "A"}], "total": 1}])
+    empty = {"scorers": [], "count": 0, "coverage": {"finished_matches": 0}}
+    assert evidence_ok(Fact("empty_scope", "x"), [empty])
+    assert not evidence_ok(Fact("empty_scope", "x"), [{"scorers": [], "count": 0, "coverage": {"finished_matches": 3}}])
+    assert answer_ok(Fact("no_report", "x"), "Todavía no hay acta de ese partido.")
+    assert answer_ok(Fact("no_player", "x"), "No consta ningún jugador con ese nombre.")
+    assert not answer_ok(Fact("no_report", "x"), "Marcó Javier García.")
+
+
+def test_discrepancy_fact_checks_previous_score_in_evidence_and_both_scores_in_answer() -> None:
+    f = Fact("discrepancy", "x", scores=((7, 3), (7, 4)))
+    assert evidence_ok(f, [{"consistency": {"differences": ["el listado de jornadas tuvo antes otro marcador 7-3"]}}])
+    assert not evidence_ok(f, [{"consistency": {"differences": []}}])
+    assert answer_ok(f, "Antes figuraba 7-3, pero el acta dice 7-4.")
+    assert not answer_ok(f, "Quedó 7-4.")

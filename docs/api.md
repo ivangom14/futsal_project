@@ -20,6 +20,11 @@ Todos devuelven JSON; los listados usan `{"items": [...], "count": N}`. IDs = ID
 | `GET /groups/{id}/rounds` | ordenadas por número |
 | `GET /groups/{id}/teams` | ordenados por nombre |
 | `GET /groups/{id}/matches` | filtros `round_id`, `team_id` (partidos del equipo, local o visitante; 404 si no es del grupo), `status` (`scheduled`, `finished`, `postponed`, `suspended`, `cancelled`, `unknown`) |
+| `GET /groups/{id}/matches` (`has_report`) | cada partido trae `has_report`; filtro `has_report=true|false` (p. ej. `status=finished&has_report=false` = finalizados sin acta descargada) |
+| `GET /matches/{id}/report` | acta de UN partido; `sections` = `officials,goals` (def.), `cards`, `players`, `staff`. Sin acta: 200 con `report_available=false` y `reason`; partido inexistente: 404. Incluye `consistency` y `not_in_source` |
+| `GET /groups/{id}/match-events` | eventos de las actas (def. `goal`,`own_goal`; `event_type=card`). Filtros `team_id`, `against_team_id`, `round_id`, `match_id`, `player_id`, `limit` (1-200, def. 40). `total`/`truncated` y `coverage` |
+| `GET /groups/{id}/scorers` | goles agrupados por jugador en SQL (`min_goals`, mismos filtros, `limit` def. 20); `own_goals` aparte; `coverage` |
+| `GET /groups/{id}/players?name=` | jugadores vistos en actas del grupo (sin acentos/mayúsculas, todas las palabras); devuelve `player_id` |
 | `GET /matches/{id}` | partido + `venue`, `timezone`, `observations` (`match_observations`) |
 
 Errores: 400 parámetros inválidos (tipo erróneo, `status` desconocido), 404 recurso inexistente,
@@ -59,3 +64,19 @@ uvicorn futsal.api.app:app_factory --factory --port 8000  # docs interactivas en
 - Sin paginación ni autenticación; sin clasificaciones, jugadores ni eventos de acta.
 - Filtro de jornada por `round_id` interno (no por número).
 - `season` es null si la temporada no tiene nombre importado.
+
+
+## Actas (Fase 9) — lectura sobre `match_reports` / `match_events` / `match_officials`
+Código: `src/futsal/api/reports.py` (rutas) y `src/futsal/repositories/report_queries.py` (SQL). Solo lectura: no descargan
+ni importan (eso sigue en la CLI). Siempre se usa la **última observación** de cada acta.
+- `coverage` (en eventos y goleadores) cuenta solo partidos **finalizados** del ámbito: `finished_matches`, `with_report`,
+  `reports_not_closed`, `without_report` (hasta 10 ids), `complete` y una `note`. Si `complete` es false el resultado puede
+  ser parcial y la ausencia de un evento no prueba nada. Un ámbito sin partidos finalizados lo dice explícitamente.
+- Distinción: partido finalizado sin acta importada ("no implica que no exista en la RFFM") vs. partido no jugado (estado).
+- `consistency` (en `/report`): `competition_score`, `report_score`, `events_score` (goles + propia meta al rival) y
+  `differences` legibles; incluye el marcador previo del listado cuando el acta cerrada lo sustituyó (política de la Fase 5).
+- `own_goal`: `team` = equipo del jugador; suma al rival. `against_team_id` cuenta solo goles (`goal`) de rivales.
+- Tarjetas: se devuelve `source_code`; su significado (amarilla/roja) **no está verificado** y no se traduce.
+- Árbitros: `officials` con nombre y rol tal cual figuran en el acta (la exclusión de la Fase 1 afectaba solo al listado de
+  jornadas, que no los trae; el acta sí los trae y ya estaban almacenados en `match_officials`).
+- Errores: 404 grupo/equipo/jornada/partido/jugador inexistente; 400 parámetros inválidos (`limit`, `event_type`, `sections`, `name`).

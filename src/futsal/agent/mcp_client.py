@@ -16,6 +16,16 @@ class McpClient(Protocol):
         ...
 
 
+def strip_titles(schema: Any) -> Any:
+    """Quita los `title` autogenerados del JSON Schema (ruido que el LLM paga en cada llamada)."""
+    if isinstance(schema, dict):
+        return {k: ({n: strip_titles(v) for n, v in val.items()} if k == "properties" else strip_titles(val))
+                for k, val in schema.items() if k != "title"}
+    if isinstance(schema, list):
+        return [strip_titles(x) for x in schema]
+    return schema
+
+
 class SessionMcpClient:
     def __init__(self, session: ClientSession) -> None:
         self._session = session
@@ -23,7 +33,7 @@ class SessionMcpClient:
     async def list_tools(self) -> list[dict[str, Any]]:
         res = await self._session.list_tools()
         return [{"name": t.name, "description": t.description or "",
-                 "input_schema": t.inputSchema} for t in res.tools]
+                 "input_schema": strip_titles(t.inputSchema)} for t in res.tools]
 
     async def call_tool(self, name: str, arguments: dict[str, Any]) -> tuple[bool, str]:
         res = await self._session.call_tool(name, arguments)
