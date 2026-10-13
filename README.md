@@ -66,3 +66,12 @@ python -m futsal.agent "pregunta"                    # añade una línea a data/
 python -m pytest -q                                  # sin red; la prueba real con Gemini está desactivada
 ```
 Detalle, casos y método de medición de tokens: `docs/agent.md`.
+
+## Fiabilidad y evaluación online del agente (Fase 10)
+Procedimiento completo para CMD (qué se ejecuta dónde, cuota y cómo compartir el informe): `docs/evaluation-online.md`.
+```
+python -m futsal.agent.preflight --for-live                       # configuración sin secretos + prueba de "misma base"
+python -m futsal.agent.evaluate --plan --suite smoke               # llamadas y cuota previstas; NO llama a ningún LLM
+python -m futsal.agent.evaluate --mode live --confirm-live --suite smoke --max-requests 25   # consume cuota de Gemini
+python -m futsal.agent.evaluate --compare ANTES\results.json DESPUES\results.json
+```

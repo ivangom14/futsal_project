@@ -21,12 +21,16 @@ def _print_run(res: AgentResult) -> None:
     if rec is None:
         return
     t = rec.totals()
-    est = " (estimados)" if t["tokens_estimated"] else ""
+    src = {"provider": " (reales del proveedor)", "estimated": " (ESTIMADOS)", "mixed": " (mezcla de reales y estimados)",
+           "unreported": " (el proveedor no informó tokens)"}.get(t["token_source"], "")
+    est = src
     print(f"run {rec.run_id} | modelo {rec.model} | {t['llm_calls']} llamadas LLM, "
           f"{t['tool_calls']} tools | {t['latency_ms']} ms (LLM {t['llm_ms']}, tools {t['tool_ms']})")
     for c in rec.llm_calls:
+        retry = f" | {c.retries} reintento(s), espera {c.retry_wait_ms} ms" if c.retries else ""
         print(f"  llamada {c.index}: in={c.input_tokens} out={c.output_tokens} "
-              f"thinking={c.thinking_tokens} | {c.latency_ms} ms")
+              f"thinking={c.thinking_tokens} | {c.latency_ms} ms{retry}"
+              + (f" | ERROR {c.error}" if c.error else ""))
     print(f"  TOTAL ejecución{est}: in={t['input_tokens']} (máx. una llamada {t['peak_input_tokens']}) "
           f"out={t['output_tokens']} thinking={t['thinking_tokens']}")
 

@@ -1,6 +1,7 @@
 """Traza estructurada de una ejecución del agente (JSONL). Sin secretos; los resultados completos son opcionales."""
 
 import json
+import re
 import uuid
 from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime
@@ -36,6 +37,18 @@ class LlmCallRecord:
     tokens_estimated: bool
     tool_calls_requested: int
     error: str | None = None
+    retries: int = 0  # reintentos HTTP de esta llamada lógica (0 = salió a la primera)
+    attempts: list[dict[str, Any]] = field(default_factory=list)  # un dict por intento: number/status/error/waited_s
+    retry_wait_ms: float = 0.0  # parte de latency_ms que fue espera de reintentos
+    token_source: str = "unreported"  # provider | estimated | unreported
+    cached_input_tokens: int | None = None  # entrada servida desde la caché del proveedor (si la informa)
+
+
+def _overall_source(calls: list["LlmCallRecord"]) -> str:
+    sources = {c.token_source for c in calls}
+    if not sources:
+        return "unreported"
+    return sources.pop() if len(sources) == 1 else "mixed"
 
 
 @dataclass
@@ -81,9 +94,13 @@ class RunRecord:
             "tool_calls": len(self.tool_calls),
             "input_tokens": inp, "output_tokens": out, "thinking_tokens": think,
             "billed_output_tokens": out + think,
+            "cached_input_tokens": sum(c.cached_input_tokens or 0 for c in reported),
             "peak_input_tokens": max((c.input_tokens or 0 for c in reported), default=0),
             "calls_without_usage": len(self.llm_calls) - len(reported),
             "tokens_estimated": any(c.tokens_estimated for c in reported),
+            "token_source": _overall_source(self.llm_calls),
+            "llm_retries": sum(c.retries for c in self.llm_calls),
+            "retry_wait_ms": round(sum(c.retry_wait_ms for c in self.llm_calls), 1),
             "llm_ms": round(sum(c.latency_ms for c in self.llm_calls), 1),
             "tool_ms": round(sum(t.duration_ms for t in self.tool_calls), 1),
             "latency_ms": round(self.latency_ms, 1)}
@@ -104,3 +121,41 @@ def write_jsonl(path: Path, record: RunRecord, include_results: bool = False) ->
     line = json.dumps(record.to_dict(include_results), ensure_ascii=False, separators=(",", ":"))
     with path.open("a", encoding="utf-8") as fh:
         fh.write(line + "\n")
+
+
+# --- saneado para compartir trazas (sin resultados de tools, sin claves ni cadenas de conexión) ------------------
+_SECRET_PATTERNS = (
+    (re.compile(r"AIza[0-9A-Za-z_\-]{20,}"), "***"),  # claves de Google/Gemini
+    (re.compile(r"sk-[A-Za-z0-9_\-]{20,}"), "***"),  # claves tipo Anthropic/OpenAI
+    (re.compile(r"(?i)bearer\s+[A-Za-z0-9._\-]{10,}"), "Bearer ***"),
+    (re.compile(r"postgres(?:ql)?(?:\+\w+)?://[^\s\"'<>]+"), "postgresql://***"),
+    (re.compile(r"(?i)(api[_-]?key|token|password|passwd|secret)(\s*[=:]\s*)[^\s,;\"']{4,}"), r"\1\2***"))
+MAX_SANITIZED_CHARS = 1500
+
+
+def sanitize_text(text: str) -> str:
+    for pattern, repl in _SECRET_PATTERNS:
+        text = pattern.sub(repl, text)
+    text = redact(text)
+    return text if len(text) <= MAX_SANITIZED_CHARS else text[:MAX_SANITIZED_CHARS] + "…[recortado]"
+
+
+def _sanitize(o: Any) -> Any:
+    if isinstance(o, dict):
+        return {k: _sanitize(v) for k, v in o.items() if k != "result"}  # los datos devueltos por las tools no se comparten
+    if isinstance(o, list):
+        return [_sanitize(v) for v in o]
+    return sanitize_text(o) if isinstance(o, str) else o
+
+
+def sanitize_trace_file(src: Path, dst: Path) -> int:
+    """Copia una traza JSONL a `dst` sin resultados de tools y con claves/conexiones enmascaradas. Devuelve nº de líneas."""
+    dst.parent.mkdir(parents=True, exist_ok=True)
+    n = 0
+    with src.open(encoding="utf-8") as fin, dst.open("w", encoding="utf-8") as fout:
+        for line in fin:
+            if not line.strip():
+                continue
+            fout.write(json.dumps(_sanitize(json.loads(line)), ensure_ascii=False, separators=(",", ":")) + "\n")
+            n += 1
+    return n

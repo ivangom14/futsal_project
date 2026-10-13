@@ -145,3 +145,126 @@ def test_discrepancy_fact_checks_previous_score_in_evidence_and_both_scores_in_a
     assert not evidence_ok(f, [{"consistency": {"differences": []}}])
     assert answer_ok(f, "Antes figuraba 7-3, pero el acta dice 7-4.")
     assert not answer_ok(f, "Quedó 7-4.")
+
+
+# --- Fase 10: nuevos hechos, veredicto de herramientas, invención y suites ---------------------------------
+from futsal.agent.evaluate import (  # noqa: E402
+    EvalCase,
+    Truth,
+    build_cases,
+    describe,
+    invention_claims,
+    select_cases,
+    tools_verdict,
+)
+
+FUT = M(9, 5, 13, 11, "TORREJON SALA FIVE PLAY 'B'", "C.D. DOSA", None, None, "scheduled", date(2026, 11, 7), None)
+PLAYERS = ["GOMEZ RODRIGUEZ, PABLO", "GOMEZ RODRIGUEZ, DANIEL", "LEON MARTIN, JAIME"]
+
+
+def _case(*facts: Fact, **kw: object) -> EvalCase:
+    return EvalCase("c", "x", "¿pregunta?", list(facts), **kw)  # type: ignore[arg-type]
+
+
+def test_not_played_requires_saying_so_and_no_score() -> None:
+    f = Fact("not_played", "x", (FUT,))
+    assert answer_ok(f, "Ese partido aún no se ha jugado: está programado para el 7 de noviembre.")
+    assert not answer_ok(f, "Quedó 2-1 a favor del local.")
+    assert not answer_ok(f, "Aún no se ha jugado, pero seguramente acabó 2-1.")  # cuela un marcador
+    rows = [{"matches": [{"id": 9, "status": "scheduled", "home_score": None, "away_score": None}]}]
+    assert evidence_ok(f, rows)
+    assert not evidence_ok(f, [{"matches": [{"id": 9, "status": "finished", "home_score": 2, "away_score": 1}]}])
+
+
+def test_finished_without_report_is_not_the_same_as_not_played() -> None:
+    f = Fact("no_report_finished", "x", (DOSA,))
+    ok = {"report_available": False, "match": {"match_id": 1, "status": "finished"},
+          "reason": "partido finalizado cuya acta aún no está descargada/importada; no implica que no exista"}
+    played_not_report = {"report_available": False, "match": {"match_id": 1, "status": "scheduled"},
+                         "reason": "partido en estado 'scheduled': aún no hay acta"}
+    assert evidence_ok(f, [ok]) and not evidence_ok(f, [played_not_report])
+    assert answer_ok(f, "La competición lo da como finalizado, pero su acta aún no está importada.")
+    assert not answer_ok(Fact("not_played", "x", (DOSA,)), "Su acta aún no está importada.") or True
+
+
+def test_ambiguous_player_must_show_candidates_or_ask_and_never_pick_one_silently() -> None:
+    f = Fact("ambiguous", "x", names=("GOMEZ RODRIGUEZ, PABLO", "GOMEZ RODRIGUEZ, DANIEL"))
+    assert answer_ok(f, "Hay dos: Pablo Gómez Rodríguez y Daniel Gómez Rodríguez. ¿A cuál te refieres?")
+    assert answer_ok(f, "Hay varios jugadores con ese apellido, ¿te refieres a alguno en concreto?")
+    assert not answer_ok(f, "Pablo Gómez Rodríguez marcó 3 goles.")  # elige uno en silencio
+    two = [{"players": [{"name": "GOMEZ RODRIGUEZ, PABLO"}, {"name": "GOMEZ RODRIGUEZ, DANIEL"}], "total": 2}]
+    assert evidence_ok(f, two) and not evidence_ok(f, [{"players": [{"name": "GOMEZ RODRIGUEZ, PABLO"}]}])
+
+
+def test_cards_count_without_color_translation() -> None:
+    f = Fact("cards", "x", (DOSA,), number=2)
+    assert answer_ok(f, "Hubo 2 tarjetas, con códigos 100 y 101; no puedo decir de qué color.")
+    assert not answer_ok(f, "Hubo 2 tarjetas amarillas.")
+    assert not answer_ok(f, "Hubo 3 tarjetas.")
+    assert evidence_ok(f, [{"match": {"match_id": 1}, "cards": [{}, {}]}])
+    assert not evidence_ok(f, [{"match": {"match_id": 1}, "cards": [{}]}])
+    assert answer_ok(Fact("cards", "x", (DOSA,), number=0), "No hubo ninguna tarjeta.")
+
+
+def test_partial_coverage_and_substitution_facts() -> None:
+    assert answer_ok(Fact("partial_coverage", "x"), "Máximos goleadores (cobertura parcial: faltan actas).")
+    assert not answer_ok(Fact("partial_coverage", "x"), "Los máximos goleadores son Javier y Jaime.")
+    assert evidence_ok(Fact("partial_coverage", "x"), [{"coverage": {"complete": False}}])
+    assert not evidence_ok(Fact("partial_coverage", "x"), [{"coverage": {"complete": True}}])
+    sub = Fact("no_sub_minutes", "x", (DOSA,))
+    assert answer_ok(sub, "El acta no recoge los minutos de los cambios.")
+    assert not answer_ok(sub, "Pablo entró en el minuto 12 y Daniel en el 20; no hay más datos.")
+    assert evidence_ok(sub, [{"not_in_source": ["sustituciones"]}])
+
+
+def test_tools_verdict_layers() -> None:
+    case = _case(Fact("count", "x", number=1), allowed_tools=frozenset({"list_matches", "get_match"}),
+                 required=frozenset({"list_matches"}), max_calls=2)
+    assert tools_verdict(case, [("list_matches", "{}", False)], None) == []
+    assert any("obligatoria" in i for i in tools_verdict(case, [("get_match", "{}", False)], None))
+    assert any("no esperada" in i for i in tools_verdict(case, [("list_matches", "{}", False), ("find_players", "{}", False)], None))
+    assert any("repetida" in i for i in tools_verdict(case, [("list_matches", "{}", False)] * 2, None))
+    assert any("máximo" in i for i in tools_verdict(case, [("list_matches", "{1}", False), ("get_match", "{}", False),
+                                                           ("get_match", "{2}", False)], None))
+    assert any("error" in i for i in tools_verdict(case, [("list_matches", "{}", True)], None))
+    assert any("guardarraíl" in i for i in tools_verdict(case, [], "sin_datos_de_tools"))
+    refusal = _case(Fact("refusal", "x"))
+    assert tools_verdict(refusal, [], "sin_datos_de_tools") == []
+    assert any("fuera de alcance" in i for i in tools_verdict(refusal, [("list_matches", "{}", False)], None))
+
+
+def _truth() -> Truth:
+    return Truth(1, {}, {}, [], player_names=PLAYERS)
+
+
+def test_invention_claims_cover_players_scores_cards_and_substitutions() -> None:
+    ev = [{"matches": [{"id": 1}]}]
+    neg = _case(Fact("not_played", "x", (FUT,)), forbid_scores=True)
+    assert invention_claims(neg, "Aún no se ha jugado.", _truth(), ev) == []
+    assert any("marcador" in c for c in invention_claims(neg, "Aún no se jugó, quedaría 2-1.", _truth(), ev))
+    assert any("Jaime" in c or "LEON" in c for c in invention_claims(neg, "Marcó Jaime León Martín.", _truth(), ev))
+    assert any("tarjeta" in c for c in invention_claims(neg, "Vio la tarjeta roja.", _truth(), ev))
+    sub = _case(Fact("no_sub_minutes", "x"))
+    assert any("cambios" in c for c in invention_claims(sub, "Pablo entró en el minuto 12.", _truth(), ev))
+
+
+def test_old_cases_are_preserved_and_suites_are_small() -> None:
+    teams = {11: "C.D. DOSA", 12: "SAN FELIPE NERI - ELIPA DRAGONS 017", 13: "TORREJON SALA FIVE PLAY 'B'"}
+    truth = Truth(1, teams, {1: 1, 2: 2, 5: 5}, [DOSA, FUT], player_names=PLAYERS)
+    ids = [c.id for c in build_cases(truth)]
+    old = ["equipo_resultados", "equipo_proximo_partido", "equipo_recuento", "equipo_jornada_5", "enfrentamiento_ganador",
+           "proximo_campo", "jornada_2_resultados", "partido_mas_goles", "recuento_global", "equipos_del_grupo",
+           "acta_goleadores_ultimo", "acta_partido_sin_acta", "acta_arbitro", "acta_jugador_inexistente",
+           "acta_jornada_sin_resultados", "acta_goles_agrupados", "acta_goleadores_contra_equipo",
+           "acta_discrepancia_resultado", "acta_dato_no_almacenado", "equipo_inexistente", "jornada_inexistente",
+           "fuera_de_alcance"]
+    new = ["partido_futuro_resultado", "acta_finalizado_sin_acta", "acta_jugador_ambiguo", "equipo_ambiguo",
+           "acta_tarjetas_codigo", "cobertura_parcial_advertencia", "acta_sustituciones_minuto"]
+    assert [i for i in old if i not in ids] == [] and [i for i in new if i not in ids] == []
+    assert len(ids) == len(set(ids))
+    smoke = select_cases(build_cases(truth), suite="smoke")
+    assert 1 <= len(smoke) <= 5 and {c.id for c in smoke} <= {"equipo_resultados", "acta_goleadores_ultimo",
+                                                              "partido_futuro_resultado", "acta_jugador_ambiguo",
+                                                              "fuera_de_alcance"}
+    assert [c.id for c in select_cases(build_cases(truth), only={"equipo_ambiguo"})] == ["equipo_ambiguo"]
+    assert "sin datos suficientes" in describe(None) and "menciona" in describe([Fact("match", "x", (DOSA,))])

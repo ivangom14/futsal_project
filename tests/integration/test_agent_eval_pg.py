@@ -149,3 +149,218 @@ def test_discrepancy_case_is_evaluable_when_acta_changed_the_score(engine: Engin
     case = results["acta_discrepancia_resultado"]
     assert case.status == "pass" and case.evidence_ok is True, case.detail
     assert case.tools_used == ["list_matches", "get_match_report"]
+
+
+# --- Fase 10: casos nuevos (ambigüedad, tarjetas, no jugado, cobertura parcial, invención) -----------------------
+
+from futsal.agent.evaluate import build_cases  # noqa: E402
+from futsal.agent.llm import LLMResponse, ToolCall, Usage  # noqa: E402
+
+NEW = {"partido_futuro_resultado", "acta_finalizado_sin_acta", "acta_jugador_ambiguo", "equipo_ambiguo",
+       "acta_tarjetas_codigo", "cobertura_parcial_advertencia", "acta_sustituciones_minuto"}
+URL = "https://www.rffm.es/acta-partido/5575697?temporada=22&competicion=26738243&grupo=26738245"
+
+
+def _seed_with_report(engine: Engine, tmp_path: Path) -> None:
+    """Fixture de liga + el acta 5575697 con un jugador visitante renombrado para que compartan apellidos."""
+    assert run_import(engine, FIXTURE).status == "success"
+    html = (FIXTURE.parent / "rffm_match_report.html").read_text(encoding="utf-8")
+    data = json.loads(html.split('type="application/json">')[1].split("</script>")[0])
+    data["props"]["pageProps"]["game"]["jugadores_equipo_visitante"][0]["nombre_jugador"] = "GOMEZ RODRIGUEZ, DANIEL"
+    rep = parse_match_report('<script id="__NEXT_DATA__">' + json.dumps(data) + "</script>", URL)
+    p = tmp_path / "n.json"
+    p.write_text(rep.model_dump_json(), encoding="utf-8")
+    assert run_report_import(engine, p).status == "success"
+
+
+def _offline(engine: Engine, only: set[str]) -> dict[str, CaseResult]:
+    truth = load_truth(engine)
+    assert truth is not None
+    server = create_server(TestClient(create_app(engine)))
+
+    async def go() -> list[CaseResult]:
+        async with connect(server._mcp_server) as session:
+            return await evaluate(truth, SessionMcpClient(session), "offline", only=only)
+
+    return {r.case_id: r for r in asyncio.run(go())}
+
+
+def test_new_cases_are_evaluable_offline_with_fixture_report(engine: Engine, tmp_path: Path) -> None:
+    _seed_with_report(engine, tmp_path)
+    res = _offline(engine, NEW)
+    assert set(res) == NEW
+    for cid in ("partido_futuro_resultado", "acta_finalizado_sin_acta", "acta_jugador_ambiguo", "acta_tarjetas_codigo",
+                "cobertura_parcial_advertencia", "acta_sustituciones_minuto"):
+        assert res[cid].status == "pass", (cid, res[cid].detail)
+        assert res[cid].evidence_ok and res[cid].tools_ok and res[cid].answer_ok is None  # offline: sin texto del modelo
+    assert res["equipo_ambiguo"].status == "not_evaluable"  # sin nombres de equipo repetidos: no se aprueba por defecto
+
+
+def test_cases_without_data_are_not_evaluable_instead_of_passing(engine: Engine) -> None:
+    assert run_import(engine, FIXTURE).status == "success"  # sin actas: no hay jugadores ni tarjetas
+    res = _offline(engine, NEW)
+    for cid in ("acta_jugador_ambiguo", "acta_tarjetas_codigo", "acta_sustituciones_minuto"):
+        assert res[cid].status == "not_evaluable" and res[cid].detail
+    assert res["cobertura_parcial_advertencia"].status == "pass"  # los 13 finalizados sin acta: cobertura parcial real
+
+
+def _live_llm(case_plan, text: str):  # type: ignore[no-untyped-def]
+    """LLM falso que ejecuta el plan de referencia completo y responde con `text`."""
+    from futsal.agent.evaluate import PolicyLLM
+
+    return PolicyLLM(case_plan, text)
+
+
+class _Say:
+    """LLM falso sin plan: responde directamente (para probar el guardarraíl)."""
+
+    provider, model = "fake", "fake"
+
+    def __init__(self, calls: list[ToolCall], text: str) -> None:
+        self._text = text
+        _ = calls
+
+    def complete(self, system, messages, tools):  # type: ignore[no-untyped-def]
+        return LLMResponse(self._text, [], Usage(400, 40, 0, None))
+
+
+def _live_case(engine: Engine, case_id: str, text: str, calls_for: object | None = None) -> CaseResult:
+    truth = load_truth(engine)
+    assert truth is not None
+    case = next(c for c in build_cases(truth) if c.id == case_id)
+    assert case.plan is not None
+    server = create_server(TestClient(create_app(engine)))
+    llm = _live_llm(case.plan, text)
+
+    async def go() -> list[CaseResult]:
+        async with connect(server._mcp_server) as session:
+            return await evaluate(truth, SessionMcpClient(session), "live", llm, only={case_id})
+
+    return asyncio.run(go())[0]
+
+
+def test_live_negative_case_rejects_invented_score_and_accepts_honest_answer(engine: Engine) -> None:
+    assert run_import(engine, FIXTURE).status == "success"
+    bad = _live_case(engine, "partido_futuro_resultado", "Ese partido terminó 2-1 para el local.")
+    assert bad.status == "fail" and bad.invention_ok is False and any("marcador" in c for c in bad.claims)
+    good = _live_case(engine, "partido_futuro_resultado",
+                      "Ese partido de la jornada 1 aún no se ha jugado: está programado y no tiene resultado.")
+    assert good.status == "pass" and good.invention_ok and good.answer_ok and good.provenance_ok
+
+
+def test_live_partial_coverage_must_be_warned(engine: Engine) -> None:
+    assert run_import(engine, FIXTURE).status == "success"
+    silent = _live_case(engine, "cobertura_parcial_advertencia", "Los máximos goleadores del grupo no constan.")
+    assert silent.warning_required and silent.warning_ok is False and silent.status == "fail"
+    warned = _live_case(engine, "cobertura_parcial_advertencia",
+                        "Aún no hay goleadores: la cobertura de actas es parcial y el dato puede estar incompleto.")
+    assert warned.warning_ok and warned.status == "pass"
+
+
+def test_live_ambiguity_cards_and_unsupported_player(engine: Engine, tmp_path: Path) -> None:
+    _seed_with_report(engine, tmp_path)
+    silent_pick = _live_case(engine, "acta_jugador_ambiguo", "Pablo Gómez Rodríguez ha marcado 1 gol.")
+    assert silent_pick.status == "fail" and silent_pick.answer_ok is False
+    asks = _live_case(engine, "acta_jugador_ambiguo",
+                      "Hay dos jugadores: Pablo Gómez Rodríguez y Daniel Gómez Rodríguez. ¿A cuál te refieres?")
+    assert asks.status == "pass" and asks.invention_ok
+    color = _live_case(engine, "acta_tarjetas_codigo", "Hubo 1 tarjeta amarilla.")
+    assert color.status == "fail" and color.invention_ok is False
+    honest = _live_case(engine, "acta_tarjetas_codigo", "Hubo 1 tarjeta (código 100); no consta de qué color.")
+    assert honest.status == "pass"
+    invented = _live_case(engine, "acta_sustituciones_minuto",
+                          "El acta no recoge los minutos, pero Pablo Gómez Rodríguez entró en el minuto 12.")
+    assert invented.status == "fail" and invented.invention_ok is False
+
+
+def test_guardrail_replacement_is_a_failure_for_data_questions(engine: Engine) -> None:
+    assert run_import(engine, FIXTURE).status == "success"
+    truth = load_truth(engine)
+    assert truth is not None
+    server = create_server(TestClient(create_app(engine)))
+
+    async def go() -> list[CaseResult]:
+        async with connect(server._mcp_server) as session:
+            return await evaluate(truth, SessionMcpClient(session), "live", _Say([], "Quedó 3-1."),
+                                  only={"partido_futuro_resultado"})
+
+    r = asyncio.run(go())[0]
+    assert r.status == "fail" and r.tools_ok is False and any("guardarraíl" in i for i in r.tool_issues)
+
+
+# --- Fase 10: --plan sin LLM, presupuesto de peticiones e informe sin secretos --------------------------------------
+def test_plan_never_creates_an_llm_and_estimates_quota(engine: Engine, monkeypatch: pytest.MonkeyPatch) -> None:
+    import futsal.agent.llm as llm_mod
+    from futsal.agent.evaluate import plan_run
+
+    def forbidden(*a: object, **k: object) -> None:
+        raise AssertionError("--plan no puede construir un cliente LLM real")
+
+    monkeypatch.setattr(llm_mod, "create_llm", forbidden)
+    monkeypatch.setattr(llm_mod.GeminiLLM, "complete", forbidden)
+    monkeypatch.setattr(llm_mod.AnthropicLLM, "complete", forbidden)
+    assert run_import(engine, FIXTURE).status == "success"
+    truth = load_truth(engine)
+    assert truth is not None
+    server = create_server(TestClient(create_app(engine)))
+
+    async def go() -> dict[str, object]:
+        async with connect(server._mcp_server) as session:
+            return await plan_run(truth, SessionMcpClient(session), suite="smoke", only=None, limit=None,
+                                  max_tool_calls=5, max_rows=40, retries=2, max_requests=40)
+
+    plan = asyncio.run(go())
+    assert plan["cases_selected"] <= 5 and plan["max_llm_calls"] == plan["cases_evaluable"] * 6  # type: ignore[operator]
+    assert plan["max_http_requests_worst_case"] == plan["max_llm_calls"] * 3  # type: ignore[operator]
+    import inspect
+
+    assert "create_llm" not in inspect.getsource(plan_run)
+
+
+def test_request_budget_stops_the_run_and_marks_remaining_cases(engine: Engine) -> None:
+    assert run_import(engine, FIXTURE).status == "success"
+    truth = load_truth(engine)
+    assert truth is not None
+    server = create_server(TestClient(create_app(engine)))
+
+    async def go() -> list[CaseResult]:
+        async with connect(server._mcp_server) as session:
+            from futsal.agent.evaluate import PolicyLLM  # LLM guionizado: 2 peticiones por caso con tool
+
+            class Live(PolicyLLM):
+                pass
+
+            return await evaluate(truth, SessionMcpClient(session), "live", Live(None, "x"),
+                                  only={"equipo_resultados", "enfrentamiento_ganador", "jornada_2_resultados"},
+                                  max_requests=1)
+
+    res = asyncio.run(go())
+    assert res[0].status != "not_run" and [r.status for r in res[1:]] == ["not_run", "not_run"]
+    assert "presupuesto" in res[1].detail
+
+
+def test_report_files_exist_and_contain_no_secret(engine: Engine, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from futsal.agent.report import build_meta, write_report
+    from futsal.agent.trace import sanitize_trace_file
+
+    monkeypatch.setenv("GEMINI_API_KEY", "AIzaSySECRETSECRETSECRETSECRET1234")
+    assert run_import(engine, FIXTURE).status == "success"
+    truth = load_truth(engine)
+    assert truth is not None
+    server = create_server(TestClient(create_app(engine)))
+    trace = tmp_path / "raw.jsonl"
+
+    async def go() -> list[CaseResult]:
+        async with connect(server._mcp_server) as session:
+            return await evaluate(truth, SessionMcpClient(session), "offline", only={"equipo_resultados"},
+                                  trace_path=trace)
+
+    results = asyncio.run(go())
+    meta = build_meta(mode="offline", suite="all", provider="offline", model="policy", args={}, preflight=None)
+    paths = write_report(tmp_path / "run", meta, results)
+    n = sanitize_trace_file(trace, tmp_path / "run" / "traces.sanitized.jsonl")
+    assert n == 1 and paths["report"].exists() and paths["results"].exists()
+    blob = "".join(p.read_text(encoding="utf-8") for p in (paths["report"], paths["results"],
+                                                           tmp_path / "run" / "traces.sanitized.jsonl"))
+    assert "AIzaSySECRET" not in blob and "ESTIMADOS" in blob
+    assert '"result":' not in (tmp_path / "run" / "traces.sanitized.jsonl").read_text(encoding="utf-8")

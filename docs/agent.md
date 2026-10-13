@@ -186,3 +186,46 @@ sin cambios (23 llamadas LLM y 12 de tools en ambas mediciones). Con Gemini real
 Pruebas: unitarias `tests/test_agent_eval.py`, `tests/test_mcp_server.py`; integración `tests/integration/test_report_queries_pg.py`,
 `test_agent_eval_pg.py` (BD temporal con el acta fixture, sin LLM); en vivo `tests/live/test_gemini_live.py`
 (`RUN_LIVE_LLM=1`, comprueba exactitud, tools invocadas y evidencia).
+
+## Fase 10 — Fiabilidad, evaluación real y observabilidad
+Procedimiento para ejecutar la validación con Gemini desde tu equipo: `docs/evaluation-online.md`. Estado: implementación y
+validación **offline** completadas; validación **online pendiente** (requiere tu clave, tu PostgreSQL y compartir el informe).
+
+### Reintentos controlados (`llm.py`)
+`RetryPolicy` + `post_with_retries` (Gemini y Anthropic). Solo errores **transitorios**: 429, 5xx y fallos de red/timeout.
+Nunca 400/401/403/404 ni respuestas inválidas (200 con JSON roto → `LLMError`, 1 intento). Máximo `LLM_MAX_RETRIES` (por
+defecto **2**, tope 5; `0` desactiva; construir el cliente a mano = sin reintentos). Espera exponencial 1 s, 2 s…, o `Retry-After`
+(cabecera, o `retryDelay` del cuerpo de error de Gemini), siempre ≤ `LLM_RETRY_MAX_WAIT` (20 s): si el servidor pide más, **no se
+reintenta**. Cada intento queda en `LlmCallRecord.attempts` (`number`, `status`, `error`, `waited_s`) junto con `retries` y
+`retry_wait_ms`; `totals` suma `llm_retries`. Una llamada lógica = 1 + reintentos peticiones HTTP: así se mide su impacto en cuota.
+
+### Trazas: real, estimado o no informado
+Cada llamada lleva `token_source`: `provider` (lo informa Gemini: `promptTokenCount`, `candidatesTokenCount`,
+`thoughtsTokenCount`, `cachedContentTokenCount`), `estimated` (LLM guionizado del modo offline, ~3,5 car./token sobre el
+**formato real** que recibe Gemini) o `unreported` (el proveedor no informó: aparece como "n/d", no como 0). `totals` suma cada
+llamada una vez y añade `token_source` (`provider|estimated|mixed|unreported`), `cached_input_tokens` y `llm_retries`.
+
+### Evaluación en tres capas + invención (`evaluate.py`, `criteria.py`)
+29 casos (los 22 de las fases 8-9 intactos + 7 nuevos). Veredictos **independientes** por caso:
+1. **Datos**: las tools devolvieron la cifra correcta (verdad = `SELECT` de solo lectura a PostgreSQL).
+2. **Herramientas**: obligatorias usadas, ninguna ajena, sin llamadas repetidas ni errores, dentro del máximo; un caso de datos
+   cuyo texto fue sustituido por el guardarraíl cuenta como fallo; fuera de alcance no debe usar tools.
+3. **Respuesta** (solo con texto real del modelo o rechazo determinista): hechos esperados, y por separado
+   **invención** (nombra un jugador de la base que las tools no devolvieron; da marcador de un partido no jugado o inexistente;
+   afirma colores de tarjeta; da minutos de cambios), **advertencia** (si la evidencia es parcial, el acta falta o los marcadores
+   se contradicen, la respuesta debe avisar *de ese motivo concreto*) y **presentación** (informativa).
+Un caso sin datos suficientes en la base se marca `not_evaluable` (con el motivo) y nunca pasa por defecto. Casos nuevos:
+`partido_futuro_resultado`, `acta_finalizado_sin_acta` (≠ no jugado), `acta_jugador_ambiguo`, `equipo_ambiguo`,
+`acta_tarjetas_codigo`, `cobertura_parcial_advertencia`, `acta_sustituciones_minuto`. Suite `smoke` (5 casos) para la primera prueba.
+Los criterios son léxicos y deterministas: acotan la invención, no la eliminan; por eso el informe incluye cada respuesta.
+
+### Seguridad de la evaluación online
+`preflight.py` demuestra por huella (partidos: id, estado, marcador; y nº de actas) que la API y la evaluación leen la misma base;
+si no se demuestra, `evaluate --mode live` **se bloquea** (`--allow-unverified-db` lo fuerza, no recomendado). `--plan` nunca
+construye un cliente LLM real (prueba automática). `--max-requests` es un tope duro de peticiones (llamadas + reintentos).
+
+### Línea base offline (réplica del contenedor de desarrollo, NO tu base)
+Mismo método (LLM guionizado, tokens estimados con el esquema MCP crudo), 19 casos comunes evaluables: Fase 9 → Fase 10 pasa
+de 2.788 a 2.916 tokens de entrada por llamada (+4,6 %) por las reglas añadidas al prompt, con 19/19 casos en ambas y las mismas
+43 llamadas. Coste fijo por llamada medido: prompt ~565 + contexto ~262 + 10 tools ~1.550 ≈ 2.380 tokens (~80 % de la entrada).
+No se recortaron herramientas ni descripciones sin una prueba online que confirme que Gemini mantiene la calidad.

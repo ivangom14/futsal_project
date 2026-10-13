@@ -3,7 +3,7 @@
 import json
 import time
 from collections.abc import Callable
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -32,7 +32,12 @@ SYSTEM_PROMPT = (
     "que falte no prueba que no ocurriera. No traduzcas el código de tarjeta a amarilla/roja. "
     "En list_matches usa siempre filtros: team_id para las preguntas sobre un equipo, round_id para una "
     "jornada y status para jugados (finished) o pendientes (scheduled); nunca pidas todos los partidos. "
-    "Último partido de un equipo: su último finished, y con su id get_match_report."
+    "Último partido de un equipo: su último finished, y con su id get_match_report. "
+    "Antes de decir que un equipo o jugador no existe, compruébalo con list_teams o find_players. Si varios "
+    "jugadores o equipos coinciden con el nombre, no elijas uno: muéstralos o pregunta cuál. Partido sin jugar "
+    "(scheduled): dilo y no des marcador; finalizado sin acta importada: dilo, sin sugerir que no ocurrió. "
+    "Indica la jornada y la fecha del partido, y avisa si las actas son parciales o si el marcador de la "
+    "competición y el del acta difieren."
 )
 CONTEXT_HEADER = (
     "\n\nContexto (solo para elegir IDs al llamar a las tools; los datos se consultan siempre "
@@ -184,8 +189,11 @@ class Agent:
             try:
                 resp = self._llm.complete(system, messages, self._tools)
             except LLMError as exc:
-                rec.llm_calls.append(LlmCallRecord(len(rec.llm_calls) + 1, _ms(t0), None, None, None,
-                                                   None, False, 0, error=redact(str(exc))))
+                waited = sum(a.waited_s for a in exc.attempts)
+                rec.llm_calls.append(LlmCallRecord(
+                    len(rec.llm_calls) + 1, _ms(t0), None, None, None, None, False, 0, error=redact(str(exc)),
+                    retries=max(len(exc.attempts) - 1, 0), attempts=[asdict(a) for a in exc.attempts],
+                    retry_wait_ms=round(waited * 1000, 1)))
                 result.error = redact(str(exc))
                 log(f"ERROR\n{result.error}")
                 return
@@ -194,7 +202,11 @@ class Agent:
             rec.llm_calls.append(LlmCallRecord(
                 call_no, _ms(t0), u.input_tokens if u else None, u.output_tokens if u else None,
                 u.thinking_tokens if u else None, u.total_tokens if u else None,
-                bool(u and u.estimated), len(resp.tool_calls)))
+                bool(u and u.estimated), len(resp.tool_calls), retries=resp.retries,
+                attempts=[asdict(a) for a in resp.attempts],
+                retry_wait_ms=round(sum(a.waited_s for a in resp.attempts) * 1000, 1),
+                token_source="unreported" if u is None else "estimated" if u.estimated else "provider",
+                cached_input_tokens=u.cached_input_tokens if u else None))
             if not resp.tool_calls:
                 result.answer = resp.text
                 if result.tool_calls == 0 and resp.text.strip() != OFF_TOPIC_MESSAGE:

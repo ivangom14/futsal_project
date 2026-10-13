@@ -95,3 +95,9 @@ Sin migraciones. Eval: 9 casos de actas; retirados `goleadores_/arbitro_no_dispo
 
 ## Próxima fase (recomendada)
 Clasificaciones (derivables de `matches`) y procesamiento incremental de actas al jugarse más partidos; verificar el significado de las tarjetas 100/101.
+
+Fase 10 (fiabilidad): reintentos acotados en el cliente LLM (`LLM_MAX_RETRIES`=2, 429/5xx/red), traza con `token_source`
+(proveedor/estimado/no informado), caché y reintentos; evaluación en capas (datos, herramientas, respuesta, invención,
+advertencia) con 29 casos y criterios anti-invención (`agent/criteria.py`); `agent/preflight.py` (misma base API=evaluación,
+bloquea el modo online si no se demuestra); `evaluate --plan/--suite smoke/--report/--compare`. Offline completado; **validación
+online con Gemini PENDIENTE** (la ejecuta el usuario: `docs/evaluation-online.md`). Detalle: `docs/agent.md`.

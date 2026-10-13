@@ -451,3 +451,37 @@ def test_system_prompt_routes_actas_to_tools_and_demands_partial_coverage_warnin
     for name in ("get_match_report", "top_scorers", "list_match_events", "find_players", "coverage.complete"):
         assert name in SYSTEM_PROMPT
     assert "goleadores" in OFF_TOPIC_MESSAGE
+
+
+def test_system_prompt_has_reliability_rules() -> None:
+    from futsal.agent.agent import SYSTEM_PROMPT as P
+
+    for phrase in ("compruébalo con list_teams o find_players", "no elijas uno", "no des marcador",
+                   "sin sugerir que no ocurrió", "avisa si las actas son parciales", "No traduzcas el código de tarjeta"):
+        assert phrase in P
+
+
+def test_cached_input_tokens_are_reported_separately_and_totalled(tmp_path: Path) -> None:
+    body = {"candidates": [{"content": {"parts": [{"text": "hola"}]}}],
+            "usageMetadata": {"promptTokenCount": 2000, "candidatesTokenCount": 5, "cachedContentTokenCount": 1500}}
+    u = _gemini(lambda req: httpx.Response(200, json=body)).complete("s", [Message("user", "q")], []).usage
+    assert u is not None and u.cached_input_tokens == 1500 and u.input_tokens == 2000
+    plain = {"candidates": [{"content": {"parts": [{"text": "x"}]}}], "usageMetadata": {"promptTokenCount": 10}}
+    assert _gemini(lambda req: httpx.Response(200, json=plain)).complete("s", [Message("user", "q")], []).usage.cached_input_tokens is None  # type: ignore[union-attr]
+    rec = _run_traced(ScriptedLLM([_with_usage(_call("get_match", match_id=2), 100, 1),
+                                   LLMResponse("ok", [], Usage(300, 5, 0, None, False, 120))]), None).run
+    assert rec is not None and rec.totals()["cached_input_tokens"] == 120 and rec.totals()["input_tokens"] == 400
+
+
+def test_offline_token_estimate_uses_the_provider_wire_format_not_raw_mcp_schemas() -> None:
+    import json
+
+    from futsal.agent.evaluate import PolicyLLM
+    from futsal.agent.llm import _gemini_tools
+
+    tools = [{"name": "t", "description": "d", "input_schema": {"type": "object", "title": "X" * 400, "properties": {
+        "a": {"type": "integer", "title": "A" * 300, "default": None}}}}]
+    wire, raw = len(json.dumps(_gemini_tools(tools))), len(json.dumps(tools))
+    assert wire < raw - 600  # title/default no viajan a Gemini
+    est = PolicyLLM(None, "x").complete("", [Message("user", "")], tools).usage
+    assert est is not None and est.estimated and est.input_tokens < round(raw / 3.5)
