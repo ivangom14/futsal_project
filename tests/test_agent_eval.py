@@ -358,3 +358,11 @@ def test_invention_flags_wrong_coverage_figures() -> None:
     ev = [{"coverage": {"finished_matches": 19, "with_report": 18, "complete": False}}]
     assert any("cobertura" in c for c in invention_claims(case, "1 de los 18 partidos no tiene acta", _truth(), ev))
     assert invention_claims(case, "18 de 19 partidos tienen acta (cobertura parcial)", _truth(), ev) == []
+
+
+def test_unplayed_match_answer_without_the_word_acta_still_satisfies_no_report() -> None:
+    f = Fact("no_report", "x")
+    assert answer_ok(f, "El partido está por jugar (scheduled), sin marcador ni acta.")
+    assert answer_ok(f, "Aún no se ha jugado, así que no hay goles.")
+    assert not answer_ok(f, "Quedó 3-1 y marcó Javier.")
+    assert not answer_ok(f, "Está por jugar, pero quedaría 2-1.")

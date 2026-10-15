@@ -68,3 +68,25 @@ regresión que mantiene `list_teams` como «herramienta no esperada». Offline p
 - El uso de `limit` depende de que el modelo lo elija: si no, solo se pierde el ahorro del recuento (~5k), no la precisión.
 - Zona horaria de las fechas (`+00:00`) sin confirmar; fuera del alcance de esta fase.
 - Siguiente paso: smoke online con presupuesto, luego la suite completa, y `--compare` contra `20261015-205505-live-all`/la ejecución de `aeb29e4`.
+
+## 8. Primera medición online de la Fase 11 (commit `b1d62d3`, 15/10/2026 21:34, `gemini-3.5-flash-lite`)
+| | Línea base `aeb29e4` | `b1d62d3` | Δ |
+|---|---|---|---|
+| Entrada (real) | 172.078 | 145.622 | **−26.456 (−15,4 %)** |
+| Salida (real) | 3.650 | 3.252 | −398 |
+| Llamadas LLM / herramientas MCP | 58 / 32 | 54 / 28 | −4 / −4 |
+| Caché | 0 | 4.012 | |
+| Casos | 26 pass, 1 fail, 2 n.e. | 23 pass, 4 fail, 2 n.e. | **4 regresiones, 1 corrección** |
+| Latencia sin pausas | no comparable | 58,4 s (herramientas 1,9 s) | |
+
+La proyección offline (−16 %) se cumplió (−15,4 %), **pero 8.077 de esos tokens vienen de tres casos que dejaron de consultar herramientas**
+y fallaron; el ahorro «limpio» en casos que se comportan igual es ≈ −18,4k (−10,7 %). Resumen de causas:
+- `equipo_inexistente`, `jornada_inexistente`: la cabecera de contexto de la 10.4 («no llames a … list_teams») hizo que el modelo contestara sin
+  consultar (los nombres ya estaban en el contexto) y el guardarraíl sustituyó su respuesta por el aviso de alcance. Se corrige con una
+  cabecera condicional (si NO aparece en la lista, comprobarlo) y con la reconsulta también ante respuestas sin herramientas.
+- `jornada_2_resultados`: el modelo pidió 7 herramientas a la vez y saltó el límite de 5. Hipótesis: al reescribir la descripción de
+  `list_matches` se perdió «(acta disponible)» junto a `has_report`; restaurada. Causa no confirmada; sin traza de los argumentos pedidos.
+- `acta_partido_sin_acta`: respuesta correcta («por jugar, sin marcador ni acta») rechazada por criterio léxico; ahora vale «no se ha jugado»
+  sin marcador para esa verdad.
+- `acta_tarjetas_codigo`: **corregido** (ya no llama a `list_teams`).
+- `acta_goleadores_contra_equipo` usa `top_scorers(against_team_id)`: −4.127 tokens y una llamada menos.

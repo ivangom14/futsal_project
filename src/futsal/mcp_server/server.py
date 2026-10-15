@@ -102,8 +102,8 @@ def create_server(client: httpx.Client | None = None) -> FastMCP:
         limit: Annotated[int | None, Field(ge=1, le=200, description=(
             "Solo las N primeras filas; count sigue siendo el total (para contar: limit=1)"))] = None,
     ) -> dict[str, Any]:
-        """Partidos de un grupo: equipos, fecha, estado, marcador y has_report. Filtros opcionales; count = total
-        de coincidencias (shown = filas devueltas si hay limit)."""
+        """Partidos de un grupo: equipos, fecha, estado, marcador y has_report (acta disponible). Filtros
+        opcionales; count = total de coincidencias (shown = filas devueltas si hay limit)."""
         return _listing(
             "matches",
             _get(http, f"/groups/{group_id}/matches", f"grupo {group_id}",

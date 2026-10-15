@@ -125,3 +125,7 @@ Fase 11 (optimización de tokens; ver `docs/phase11-report.md`): línea base rea
 `list_matches(limit)` con `count` total y `shown`, pausa de ritmo fuera de la latencia y `prefix_chars` en la traza.
 Offline (estimado): −16,4 % de entrada, sin regresiones. Objetivo realista ≤145k; el 70-90k no es viable sin perder calidad.
 Validación online PENDIENTE (preflight → smoke con `--max-requests` → suite completa).
+
+Fase 11.4 (primera medición online de la Fase 11, `b1d62d3`): entrada real 145.622 (−15,4 %), 54 llamadas, pero 4 regresiones; ahorro
+limpio ≈ −10,7 %. Corregido: cabecera de contexto condicional, reconsulta ante respuestas sin tools a preguntas de la competición,
+«(acta disponible)» restaurado, primera persona en las limitaciones y criterio léxico de `no_report`. Pendiente repetir online.

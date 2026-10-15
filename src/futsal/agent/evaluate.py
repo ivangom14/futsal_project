@@ -322,7 +322,9 @@ def answer_ok(f: Fact, text: str) -> bool:
         return key(f.names[0]) in low
     if f.kind == "people":
         return all(key(n) in low for n in f.names)
-    if f.kind in ("no_report", "no_player", "empty_scope"):
+    if f.kind == "no_report":  # partido sin jugar y sin acta: vale decir que no hay acta o que no se ha jugado, sin marcador
+        return any(p in low for p in LIMIT_PHRASES) or (says_not_played(text) and not has_any_score(text))
+    if f.kind in ("no_player", "empty_scope"):
         return any(p in low for p in LIMIT_PHRASES)
     if f.kind == "discrepancy":
         return all(has_score(text, h, a) for h, a in f.scores) and answer_warns(text)
