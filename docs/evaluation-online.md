@@ -112,3 +112,8 @@ Si Gemini responde 429 pidiendo esperar más de `LLM_RETRY_MAX_WAIT`, el caso qu
 En live se separan las peticiones con `--min-interval` (4 s por defecto, ~15 por minuto; `0` lo desactiva). Para repetir solo
 los casos no ejecutados: `--only id1,id2,...`. Una suite `all` completa tarda más (~53 llamadas × 4 s como mínimo).
 
+## Criterios de invención añadidos en 10.2
+Además de jugadores, colores de tarjeta y minutos de cambios, la capa de invención comprueba que cada marcador «N-M» de la
+respuesta figure en lo devuelto por las tools (en cualquier sentido) o en la pregunta, y que no se copien fragmentos de las
+instrucciones del sistema. Siguen siendo heurísticas léxicas: no sustituyen la lectura de las respuestas.
+

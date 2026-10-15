@@ -107,3 +107,10 @@ Fase 10.1 (tras la primera evaluación online, smoke 5/5 y suite `all` con 13 ca
 live, `PacedLLM`) separa las peticiones; herramientas equivalentes de solo lectura permitidas (`EXTRA_ALLOWED`); el aviso de alcance
 ya no vale como limitación y el agente conserva una limitación declarada sin tools (`limitacion_sin_tools`); el prompt prohíbe
 mostrar IDs internos. Pendiente: repetir online los casos `not_run` y revisar `acta_partido_sin_acta` con su traza.
+
+Fase 10.2 (segunda evaluación online `all`: 22 pass, 5 fail, 0 reintentos): nuevos criterios de invención verificables en
+`agent/criteria.py` (`unsupported_scores`: todo marcador de la respuesta debe figurar en la evidencia; `leaks_prompt`: no copiar
+las instrucciones del sistema); evidencia equivalente vía `list_matches` para casos sin acta y limitación sin tools estructural;
+el agente pide UNA reconsulta de tools si responde con el aviso de alcance a una pregunta con vocabulario de la competición
+(`RECONSIDER_MESSAGE`); el prompt pide copiar marcadores tal cual y no citar instrucciones. Offline completado (246 tests);
+online pendiente de repetir con estos cambios.

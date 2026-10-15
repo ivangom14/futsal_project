@@ -104,6 +104,64 @@ def has_any_score(text: str) -> bool:
     return SCORE_RE.search(text) is not None
 
 
+def _evidence_scores(payloads: list[dict[str, Any]]) -> set[tuple[int, int]]:
+    """Marcadores presentes en lo devuelto por las tools: pares home_score/away_score y cualquier «N-M» en textos."""
+    out: set[tuple[int, int]] = set()
+
+    def walk(o: Any) -> None:
+        if isinstance(o, dict):
+            h, a = o.get("home_score"), o.get("away_score")
+            if isinstance(h, int) and isinstance(a, int) and not isinstance(h, bool):
+                out.add((h, a))
+            for v in o.values():
+                walk(v)
+        elif isinstance(o, list):
+            for v in o:
+                walk(v)
+        elif isinstance(o, str):
+            out.update(_parse_scores(o))
+
+    for p in payloads:
+        walk(p)
+    return out
+
+
+def _parse_scores(text: str) -> set[tuple[int, int]]:
+    pairs: set[tuple[int, int]] = set()
+    for m in SCORE_RE.finditer(text):
+        a, b = re.split(r"\s*[-–]\s*", m.group(0))
+        pairs.add((int(a), int(b)))
+    return pairs
+
+
+def unsupported_scores(text: str, payloads: list[dict[str, Any]], question: str = "") -> list[str]:
+    """Marcadores «N-M» de la respuesta que NO figuran (en ningún sentido) en la evidencia ni en la pregunta."""
+    known = _evidence_scores(payloads) | _parse_scores(question)
+    known |= {(b, a) for a, b in known}
+    return sorted(f"{a}-{b}" for a, b in _parse_scores(text) if (a, b) not in known)
+
+
+def leaks_prompt(text: str, prompt: str, allowed: str = "", window: int = 7) -> bool:
+    """¿Copia la respuesta una secuencia de `window` palabras seguidas de las instrucciones del sistema?
+    `allowed` (el aviso de alcance, que sí se cita) se descuenta antes de comparar."""
+    body = norm(text)
+    if allowed:
+        body = body.replace(norm(allowed), " ")
+    words, ref = body.split(), norm(prompt).split()
+    grams = {" ".join(ref[i:i + window]) for i in range(max(len(ref) - window + 1, 0))}
+    return any(" ".join(words[i:i + window]) in grams for i in range(max(len(words) - window + 1, 0)))
+
+
+DOMAIN_WORDS = frozenset({"jornada", "jornadas", "partido", "partidos", "equipo", "equipos", "gol", "goles", "goleador",
+                          "goleadores", "resultado", "resultados", "acta", "actas", "arbitro", "arbitros", "tarjeta",
+                          "tarjetas", "jugador", "jugadores", "grupo", "grupos", "marcador", "clasificacion"})
+
+
+def mentions_domain(question: str) -> bool:
+    """¿La pregunta usa vocabulario de la competición? (para no darla por ajena sin consultar las tools)"""
+    return any(w in DOMAIN_WORDS for w in norm(question).split())
+
+
 def card_color_claims(text: str) -> list[str]:
     """Frases que afirman un color de tarjeta sin negarlo (el significado de los códigos no está verificado)."""
     return [s.strip() for s in sentences(text)

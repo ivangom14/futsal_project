@@ -26,6 +26,7 @@ from futsal.agent.agent import (
     DEFAULT_MAX_ROWS,
     DEFAULT_MAX_TOOL_CALLS,
     OFF_TOPIC_MESSAGE,
+    SYSTEM_PROMPT,
     Agent,
 )
 from futsal.agent.criteria import (
@@ -33,6 +34,7 @@ from futsal.agent.criteria import (
     card_color_claims,
     clarifies,
     has_any_score,
+    leaks_prompt,
     mentioned_players,
     missing_warnings,
     needs_warning,
@@ -40,6 +42,7 @@ from futsal.agent.criteria import (
     says_not_played,
     substitution_minute_claims,
     unsupported_players,
+    unsupported_scores,
 )
 from futsal.agent.llm import LLMClient, LLMResponse, Message, ToolCall, Usage
 from futsal.agent.llm import _gemini_tools as gemini_tools
@@ -259,7 +262,10 @@ def evidence_ok(f: Fact, payloads: list[dict[str, Any]]) -> bool:
         seen = {norm(str(i.get("player") or i.get("name") or "")) for i in items}
         return all(norm(n) in seen for n in f.names)
     if f.kind == "no_report":
-        return any(p.get("report_available") is False for p in payloads)
+        mid0 = f.matches[0].id if f.matches else None
+        return any(p.get("report_available") is False for p in payloads) or (
+            mid0 is not None and any(i.get("id") == mid0 and i.get("status") != "finished"
+                                     and i.get("home_score") is None for i in items))
     if f.kind == "no_player":
         return any(p.get("players") == [] and p.get("total") == 0 for p in payloads)
     if f.kind == "empty_scope":
@@ -275,7 +281,8 @@ def evidence_ok(f: Fact, payloads: list[dict[str, Any]]) -> bool:
                                           and p.get("match", {}).get("status") != "finished" for p in payloads)
     if f.kind == "no_report_finished":  # finalizado en la competición, acta aún no importada
         return any(p.get("report_available") is False and p.get("match", {}).get("match_id") == mid
-                   and "descargada" in str(p.get("reason", "")) for p in payloads)
+                   and "descargada" in str(p.get("reason", "")) for p in payloads) or any(
+            i.get("id") == mid and i.get("status") == "finished" and i.get("has_report") is False for i in items)
     if f.kind == "ambiguous":
         seen = {norm(str(i.get("name", ""))) for i in items}
         return sum(norm(n) in seen for n in f.names) >= 2
@@ -284,8 +291,8 @@ def evidence_ok(f: Fact, payloads: list[dict[str, Any]]) -> bool:
                    and p.get("match", {}).get("match_id") == mid for p in payloads)
     if f.kind == "partial_coverage":
         return any(isinstance(p.get("coverage"), dict) and p["coverage"].get("complete") is False for p in payloads)
-    if f.kind == "no_sub_minutes":
-        return any("not_in_source" in p for p in payloads)
+    if f.kind == "no_sub_minutes":  # sin tools es una afirmación sobre las propias herramientas (estructural)
+        return not payloads or any("not_in_source" in p for p in payloads)
     if f.kind == "team_ambiguous":
         return True  # los equipos van en el contexto previo del prompt: no hace falta tool
     return False
@@ -460,7 +467,7 @@ REQUIRED: dict[str, frozenset[str]] = {k: frozenset(v) for k, v in {
     "enfrentamiento_ganador": {"list_matches"}, "proximo_campo": {"list_matches", "get_match"},
     "jornada_2_resultados": {"list_matches"}, "partido_mas_goles": {"list_matches"},
     "recuento_global": {"list_matches"}, "equipos_del_grupo": {"list_teams"},
-    "acta_goleadores_ultimo": {"get_match_report"}, "acta_partido_sin_acta": {"get_match_report"},
+    "acta_goleadores_ultimo": {"get_match_report"},
     "acta_arbitro": {"get_match_report"}, "acta_jugador_inexistente": {"find_players"},
     "acta_goles_agrupados": {"top_scorers"},
     "acta_discrepancia_resultado": {"get_match_report"}}.items()}
@@ -607,7 +614,7 @@ def _report_cases(t: Truth, dosa: int | None) -> list[EvalCase]:  # noqa: C901 -
     cases.append(EvalCase(
         "acta_partido_sin_acta", "actas",
         f"¿Quién marcó en el partido {nr.home} - {nr.away} de la jornada {nr.round_number}?" if nr else "",
-        [Fact("no_report", "sin acta")] if nr else None, rm, via_list(nr, sections=["goals"]) if nr else None,
+        [Fact("no_report", "sin acta", (nr,))] if nr else None, rm, via_list(nr, sections=["goals"]) if nr else None,
         "" if nr else "todos los partidos tienen acta"))
     # 3. árbitro de un partido con acta
     rf = next((m for m in done_rep if t.referees.get(m.id)), None)
@@ -783,6 +790,10 @@ def invention_claims(case: EvalCase, answer: str, truth: Truth, payloads: list[d
     """Afirmaciones de la respuesta incompatibles con la evidencia recuperada (criterios verificables)."""
     claims = [f"nombra a «{n}» sin que las herramientas lo devolvieran"
               for n in unsupported_players(answer, truth.player_names, payloads, case.question)]
+    claims += [f"da el marcador {sc}, que no figura en lo devuelto por las herramientas"
+               for sc in unsupported_scores(answer, payloads, case.question)]
+    if leaks_prompt(answer, SYSTEM_PROMPT, OFF_TOPIC_MESSAGE):
+        claims.append("repite fragmentos de las instrucciones del sistema")
     claims += [f"afirma color de tarjeta: «{c[:80]}»" for c in card_color_claims(answer)]
     if case.forbid_scores and has_any_score(answer):
         claims.append("da un marcador donde no hay partido jugado ni dato")

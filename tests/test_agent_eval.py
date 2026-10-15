@@ -302,3 +302,38 @@ def test_summary_counts_consumption_of_runs_aborted_by_the_provider() -> None:
     s = summarize_results([r])
     assert s["not_run"] == 1 and s["fail"] == 0 and s["llm_calls"] == 2 and s["input_tokens"] == 100
     assert s["layers"]["invencion"] == {"pass": 0, "fail": 0}
+
+
+def test_equivalent_evidence_from_list_matches_for_reportless_cases() -> None:
+    sched = M(7, 1, 1, 2, "A", "B", None, None, "scheduled", date(2026, 12, 5), None)
+    fin = M(8, 3, 3, 4, "C", "D", 3, 1, "finished", date(2026, 10, 11), None)
+    listed = [{"matches": [{"id": 7, "status": "scheduled", "home_score": None}]}]
+    assert evidence_ok(Fact("no_report", "x", (sched,)), listed)
+    assert not evidence_ok(Fact("no_report", "x", (sched,)), [{"matches": [{"id": 9, "status": "scheduled",
+                                                                          "home_score": None}]}])
+    done = [{"matches": [{"id": 8, "status": "finished", "home_score": 3, "has_report": False}]}]
+    assert evidence_ok(Fact("no_report_finished", "x", (fin,)), done)
+    assert not evidence_ok(Fact("no_report_finished", "x", (fin,)),
+                           [{"matches": [{"id": 8, "status": "finished", "has_report": True}]}])
+
+
+def test_substitution_limitation_without_tools_is_structural_but_still_checked_with_tools() -> None:
+    sub = Fact("no_sub_minutes", "x")
+    assert evidence_ok(sub, [])
+    assert not evidence_ok(sub, [{"match": {"match_id": 1}}])
+    assert evidence_ok(sub, [{"not_in_source": ["sustituciones"]}])
+
+
+def test_invention_flags_wrong_scores_and_prompt_leaks() -> None:
+    case = _case(Fact("count", "x", number=1))
+    ev = [{"matches": [{"id": 1, "home_score": 5, "away_score": 7}]}]
+    assert any("7-7" in c for c in invention_claims(case, "MEJORSALA 7 - 7 PARQUE NORTE", _truth(), ev))
+    assert invention_claims(case, "MEJORSALA 5 - 7 PARQUE NORTE", _truth(), ev) == []
+    leak = "Antes de decir que un equipo o jugador no existe, compruébalo con list_teams. No consta."
+    assert any("instrucciones" in c for c in invention_claims(case, leak, _truth(), ev))
+
+
+def test_reportless_cases_no_longer_require_get_match_report() -> None:
+    from futsal.agent.evaluate import REQUIRED
+
+    assert "acta_partido_sin_acta" not in REQUIRED and "acta_finalizado_sin_acta" not in REQUIRED
