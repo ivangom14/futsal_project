@@ -268,3 +268,37 @@ def test_old_cases_are_preserved_and_suites_are_small() -> None:
                                                               "fuera_de_alcance"}
     assert [c.id for c in select_cases(build_cases(truth), only={"equipo_ambiguo"})] == ["equipo_ambiguo"]
     assert "sin datos suficientes" in describe(None) and "menciona" in describe([Fact("match", "x", (DOSA,))])
+
+
+def test_scope_notice_is_not_a_valid_limitation_answer() -> None:
+    from futsal.agent.agent import OFF_TOPIC_MESSAGE
+
+    lim = Fact("limitation", "periodos")
+    assert not answer_ok(lim, OFF_TOPIC_MESSAGE)
+    assert answer_ok(lim, "Mis herramientas no incluyen el resultado por periodos.")
+
+
+def test_presentation_rejects_internal_ids() -> None:
+    assert not presentation_ok("Alejandro (team_id=10, player_id=91)")
+    assert not presentation_ok("match_id 21")
+
+
+def test_limitation_guardrail_note_is_not_a_tool_issue_but_replacement_is() -> None:
+    case = _case(Fact("limitation", "x"), allowed_tools=frozenset({"list_matches"}))
+    assert tools_verdict(case, [], "limitacion_sin_tools") == []
+    assert any("guardarraíl" in i for i in tools_verdict(case, [], "sin_datos_de_tools"))
+
+
+def test_relaxed_tool_labels_for_equivalent_read_only_tools() -> None:
+    from futsal.agent.evaluate import EXTRA_ALLOWED, REQUIRED
+
+    assert {"get_match", "get_match_report"} <= EXTRA_ALLOWED["enfrentamiento_ganador"]
+    assert "list_match_events" in EXTRA_ALLOWED["acta_goleadores_contra_equipo"]
+    assert "acta_goleadores_contra_equipo" not in REQUIRED and "acta_dato_no_almacenado" not in REQUIRED
+
+
+def test_summary_counts_consumption_of_runs_aborted_by_the_provider() -> None:
+    r = CaseResult("c", "x", "q", "not_run", llm_calls=2, input_tokens=100, output_tokens=5, llm_retries=1)
+    s = summarize_results([r])
+    assert s["not_run"] == 1 and s["fail"] == 0 and s["llm_calls"] == 2 and s["input_tokens"] == 100
+    assert s["layers"]["invencion"] == {"pass": 0, "fail": 0}

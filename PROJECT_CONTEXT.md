@@ -101,3 +101,9 @@ Fase 10 (fiabilidad): reintentos acotados en el cliente LLM (`LLM_MAX_RETRIES`=2
 advertencia) con 29 casos y criterios anti-invención (`agent/criteria.py`); `agent/preflight.py` (misma base API=evaluación,
 bloquea el modo online si no se demuestra); `evaluate --plan/--suite smoke/--report/--compare`. Offline completado; **validación
 online con Gemini PENDIENTE** (la ejecuta el usuario: `docs/evaluation-online.md`). Detalle: `docs/agent.md`.
+
+Fase 10.1 (tras la primera evaluación online, smoke 5/5 y suite `all` con 13 casos cortados por 429): un 429 abortado es `not_run`
+(infraestructura, ninguna capa se juzga, el consumo sí se cuenta); capas sin respuesta = `—`; `--min-interval` (4 s por defecto en
+live, `PacedLLM`) separa las peticiones; herramientas equivalentes de solo lectura permitidas (`EXTRA_ALLOWED`); el aviso de alcance
+ya no vale como limitación y el agente conserva una limitación declarada sin tools (`limitacion_sin_tools`); el prompt prohíbe
+mostrar IDs internos. Pendiente: repetir online los casos `not_run` y revisar `acta_partido_sin_acta` con su traza.

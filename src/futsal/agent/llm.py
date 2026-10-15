@@ -155,6 +155,28 @@ def post_with_retries(http: httpx.Client, path: str, body: dict[str, Any], heade
     return resp, attempts
 
 
+class PacedLLM:
+    """Separa en el tiempo las llamadas de un cliente: al menos `min_interval` s entre el inicio de dos peticiones.
+    Evita superar el límite por minuto del proveedor (429) en las evaluaciones largas. No cambia las respuestas."""
+
+    def __init__(self, inner: "LLMClient", min_interval: float, sleep: Callable[[float], None] = time.sleep,
+                 clock: Callable[[], float] = time.monotonic) -> None:
+        self._inner, self._min, self._sleep, self._clock = inner, max(min_interval, 0.0), sleep, clock
+        self._last: float | None = None
+        self.provider = getattr(inner, "provider", "")
+        self.model = getattr(inner, "model", "")
+        self.waited_s = 0.0
+
+    def complete(self, system: str, messages: list[Message], tools: list[dict[str, Any]]) -> "LLMResponse":
+        if self._last is not None:
+            wait = self._min - (self._clock() - self._last)
+            if wait > 0:
+                self._sleep(wait)
+                self.waited_s += wait
+        self._last = self._clock()
+        return self._inner.complete(system, messages, tools)
+
+
 class LLMClient(Protocol):
     def complete(self, system: str, messages: list[Message],
                  tools: list[dict[str, Any]]) -> LLMResponse:

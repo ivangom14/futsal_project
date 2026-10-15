@@ -1,6 +1,7 @@
 """Criterios anti-invención: deterministas, sin red ni BD."""
 
 from futsal.agent.criteria import (
+    states_tool_limit,
     answer_warns,
     card_color_claims,
     clarifies,
@@ -81,3 +82,10 @@ def test_negation_in_one_clause_does_not_hide_an_invented_claim_in_another() -> 
     assert substitution_minute_claims(text)
     assert not substitution_minute_claims("El acta no recoge los minutos de los cambios.")
     assert card_color_claims("No consta el color, aunque hubo una tarjeta roja.")
+
+
+def test_states_tool_limit_needs_a_limitation_without_figures() -> None:
+    assert states_tool_limit("Mis herramientas no incluyen el resultado por periodos.")
+    assert not states_tool_limit("Las herramientas no incluyen periodos, pero quedó 3-4.")
+    assert not states_tool_limit("Aquí tienes un chiste.")
+    assert not states_tool_limit("No incluyen el dato; fue en el minuto 12.")

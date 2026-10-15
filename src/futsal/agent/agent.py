@@ -7,6 +7,7 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
 
+from futsal.agent.criteria import states_tool_limit
 from futsal.agent.llm import LLMClient, LLMError, Message, ToolCall, ToolResult
 from futsal.agent.mcp_client import McpClient
 from futsal.agent.trace import LlmCallRecord, RunRecord, ToolCallRecord, redact, write_jsonl
@@ -26,7 +27,9 @@ SYSTEM_PROMPT = (
     "Responde en español usando solo los resultados de las tools; no inventes datos. "
     "Si una tool devuelve un error, díselo al usuario. "
     "Si lo pedido no lo cubren tus tools (p. ej. periodos o sustituciones), di que tus herramientas no incluyen "
-    "esa información, no que el dato no exista. "
+    "esa información, no que el dato no exista; el aviso de alcance es SOLO para temas ajenos a la competición, "
+    "nunca para datos de la competición que no tengas. No muestres identificadores internos (team_id, player_id, "
+    "match_id…) al usuario: usa nombres. "
     "Goleadores, árbitros y tarjetas salen solo de las actas (get_match_report, top_scorers, list_match_events; "
     "find_players da un player_id). Sin acta o con coverage.complete=false avisa de que el dato puede ser parcial; "
     "que falte no prueba que no ocurriera. No traduzcas el código de tarjeta a amarilla/roja. "
@@ -210,9 +213,14 @@ class Agent:
             if not resp.tool_calls:
                 result.answer = resp.text
                 if result.tool_calls == 0 and resp.text.strip() != OFF_TOPIC_MESSAGE:
-                    # Guardarraíl: toda respuesta debe apoyarse en al menos una tool.
-                    result.answer, result.guardrail = OFF_TOPIC_MESSAGE, "sin_datos_de_tools"
-                    log("GUARDRAIL\n→ respuesta sin consultar tools: se sustituye por el aviso de alcance")
+                    if states_tool_limit(resp.text):
+                        # Limitación honesta (sin cifras): no es un tema ajeno, no se sustituye por el aviso de alcance.
+                        result.guardrail = "limitacion_sin_tools"
+                        log("GUARDRAIL\n→ limitación declarada sin tools: se conserva la respuesta")
+                    else:
+                        # Guardarraíl: toda respuesta con datos debe apoyarse en al menos una tool.
+                        result.answer, result.guardrail = OFF_TOPIC_MESSAGE, "sin_datos_de_tools"
+                        log("GUARDRAIL\n→ respuesta sin consultar tools: se sustituye por el aviso de alcance")
                 log("LLM\n→ final answer")
                 log(f"ASSISTANT\n{resp.text}")
                 return

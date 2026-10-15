@@ -364,3 +364,29 @@ def test_report_files_exist_and_contain_no_secret(engine: Engine, tmp_path: Path
                                                            tmp_path / "run" / "traces.sanitized.jsonl"))
     assert "AIzaSySECRET" not in blob and "ESTIMADOS" in blob
     assert '"result":' not in (tmp_path / "run" / "traces.sanitized.jsonl").read_text(encoding="utf-8")
+
+
+def test_provider_429_is_not_run_not_fail_and_judges_no_layer(engine: Engine) -> None:
+    from futsal.agent.llm import Attempt, LLMError
+
+    assert run_import(engine, FIXTURE).status == "success"
+    truth = load_truth(engine)
+    assert truth is not None
+    server = create_server(TestClient(create_app(engine)))
+
+    class Limited:
+        provider, model = "fake", "fake"
+
+        def complete(self, system, messages, tools):  # type: ignore[no-untyped-def]
+            raise LLMError("LLM HTTP 429: el servidor pide esperar 58s, por encima del máximo permitido (20s)",
+                           [Attempt(1, 429, None)])
+
+    async def go() -> list[CaseResult]:
+        async with connect(server._mcp_server) as session:
+            return await evaluate(truth, SessionMcpClient(session), "live", Limited(),
+                                  only={"partido_futuro_resultado"})
+
+    r = asyncio.run(go())[0]
+    assert r.status == "not_run" and "infraestructura" in r.detail
+    assert r.evidence_ok is None and r.tools_ok is None and r.invention_ok is None and r.warning_ok is None
+    assert r.presentation_ok is None and r.llm_calls == 1

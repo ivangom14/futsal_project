@@ -189,3 +189,29 @@ def test_trace_records_failed_attempts_when_retries_exhausted(tmp_path: Path) ->
     assert row["totals"]["calls_without_usage"] == 1 and row["totals"]["token_source"] == "unreported"
 
 
+def test_paced_llm_spaces_requests_without_real_sleep() -> None:
+    from futsal.agent.llm import LLMResponse, PacedLLM
+
+    class Inner:
+        provider, model = "fake", "m"
+
+        def complete(self, system: str, messages: list[Message], tools: list[dict[str, Any]]) -> LLMResponse:
+            return LLMResponse("ok", [])
+
+    now = [100.0]
+    sleeps: list[float] = []
+
+    def sleep(s: float) -> None:
+        sleeps.append(s)
+        now[0] += s
+
+    llm = PacedLLM(Inner(), 4.0, sleep=sleep, clock=lambda: now[0])
+    llm.complete("s", [], [])
+    assert sleeps == []                      # la primera no espera
+    now[0] += 1.0
+    llm.complete("s", [], [])
+    assert sleeps == [3.0]                   # completa hasta 4 s desde el inicio de la anterior
+    now[0] += 10.0
+    llm.complete("s", [], [])
+    assert sleeps == [3.0] and llm.provider == "fake" and llm.model == "m" and llm.waited_s == 3.0
+    assert PacedLLM(Inner(), -5).complete("s", [], []).text == "ok"

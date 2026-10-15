@@ -485,3 +485,18 @@ def test_offline_token_estimate_uses_the_provider_wire_format_not_raw_mcp_schema
     assert wire < raw - 600  # title/default no viajan a Gemini
     est = PolicyLLM(None, "x").complete("", [Message("user", "")], tools).usage
     assert est is not None and est.estimated and est.input_tokens < round(raw / 3.5)
+
+
+def test_tool_limit_statement_without_tools_is_kept() -> None:
+    text = "Mis herramientas no incluyen el resultado por periodos, solo el marcador final."
+    res = _run(ScriptedLLM([LLMResponse(text, [])]), "¿Resultado por periodos del partido 2?")
+    assert res.answer == text and res.guardrail == "limitacion_sin_tools"
+
+
+def test_figures_without_tools_are_still_replaced_even_if_framed_as_limit() -> None:
+    res = _run(ScriptedLLM([LLMResponse("No incluyen periodos, pero quedó 3-4.", [])]), "¿Cómo quedó el 2?")
+    assert res.answer == OFF_TOPIC_MESSAGE and res.guardrail == "sin_datos_de_tools"
+
+
+def test_system_prompt_forbids_internal_ids_and_scope_notice_for_domain_gaps() -> None:
+    assert "identificadores internos" in SYSTEM_PROMPT and "SOLO para temas ajenos" in SYSTEM_PROMPT

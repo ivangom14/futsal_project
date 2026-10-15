@@ -106,3 +106,9 @@ y **no consumen cuota**. Una pregunta suelta: `python -m futsal.agent "tu pregun
   no da marcador de un partido no jugado, no traduce códigos de tarjeta a color, no inventa minutos de cambios.
   **advertencia**: avisa si la cobertura de actas es parcial, el acta falta o los marcadores se contradicen.
 - Estos criterios son léxicos y deterministas: reducen la invención, **no la descartan**. Lee las respuestas del informe.
+
+## Límite por minuto (429)
+Si Gemini responde 429 pidiendo esperar más de `LLM_RETRY_MAX_WAIT`, el caso queda `not_run` (no es un fallo del agente).
+En live se separan las peticiones con `--min-interval` (4 s por defecto, ~15 por minuto; `0` lo desactiva). Para repetir solo
+los casos no ejecutados: `--only id1,id2,...`. Una suite `all` completa tarda más (~53 llamadas × 4 s como mínimo).
+

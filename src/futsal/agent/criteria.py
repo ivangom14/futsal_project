@@ -121,6 +121,17 @@ def says_not_played(text: str) -> bool:
     return any(p in low for p in NOT_PLAYED_PHRASES)
 
 
+TOOL_LIMIT_PHRASES = ("mis herramientas no", "mis tools no", "las herramientas no", "no incluyen", "no incluye",
+                      "no cubren", "no cubre", "no dispongo de", "no tengo ese dato", "no esta en las actas",
+                      "no consta en las actas", "no se almacena", "no se registra")
+
+
+def states_tool_limit(text: str) -> bool:
+    """¿Dice que SUS HERRAMIENTAS no cubren lo pedido, sin dar cifras ni marcadores? (limitación honesta sin tools)"""
+    low = _padded(text)
+    return any(p in low for p in TOOL_LIMIT_PHRASES) and not has_any_score(text) and not re.search(r"\d", text)
+
+
 def clarifies(text: str) -> bool:
     low = _padded(text)
     return any(p in low for p in CLARIFY_PHRASES)

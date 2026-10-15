@@ -296,7 +296,7 @@ def answer_ok(f: Fact, text: str) -> bool:
     if f.kind == "refusal":
         return text.strip() == OFF_TOPIC_MESSAGE
     if f.kind == "limitation":
-        return any(p in low for p in LIMIT_PHRASES)
+        return text.strip() != OFF_TOPIC_MESSAGE and any(p in low for p in LIMIT_PHRASES)
     if f.kind in ("match", "match_any"):
         def ok(m: M) -> bool:
             keys = [key(n) for n in (m.home, m.away) if not (f.exclude and key(n) == key(f.exclude))]
@@ -339,7 +339,7 @@ def answer_ok(f: Fact, text: str) -> bool:
 
 def presentation_ok(text: str) -> bool:
     """Calidad de presentación, separada de la exactitud: sin JSON/IDs técnicos y de longitud razonable."""
-    bad = ['{"', "team_id", "round_id", "group_id", "home_team", "null"]
+    bad = ['{"', "team_id", "round_id", "group_id", "player_id", "match_id", "home_team", "null"]
     return 0 < len(text.strip()) <= 1500 and not any(b in text for b in bad)
 
 
@@ -462,9 +462,12 @@ REQUIRED: dict[str, frozenset[str]] = {k: frozenset(v) for k, v in {
     "recuento_global": {"list_matches"}, "equipos_del_grupo": {"list_teams"},
     "acta_goleadores_ultimo": {"get_match_report"}, "acta_partido_sin_acta": {"get_match_report"},
     "acta_arbitro": {"get_match_report"}, "acta_jugador_inexistente": {"find_players"},
-    "acta_goles_agrupados": {"top_scorers"}, "acta_goleadores_contra_equipo": {"top_scorers"},
-    "acta_discrepancia_resultado": {"get_match_report"}, "acta_dato_no_almacenado": {"get_match_report"}}.items()}
-EXTRA_ALLOWED: dict[str, frozenset[str]] = {  # comprobar que algo no existe puede hacerse con estas tools
+    "acta_goles_agrupados": {"top_scorers"},
+    "acta_discrepancia_resultado": {"get_match_report"}}.items()}
+EXTRA_ALLOWED: dict[str, frozenset[str]] = {  # herramientas de solo lectura igual de válidas para el mismo dato
+    "enfrentamiento_ganador": frozenset({"get_match", "get_match_report"}),
+    "acta_goleadores_contra_equipo": frozenset({"list_match_events", "list_teams", "find_players"}),
+    "acta_dato_no_almacenado": frozenset({"get_match_report", "list_matches"}),
     "equipo_inexistente": frozenset({"list_teams", "list_matches"}),
     "jornada_inexistente": frozenset({"list_rounds", "list_matches"})}
 FORBID_SCORES = frozenset({"acta_partido_sin_acta", "acta_jugador_inexistente", "acta_jornada_sin_resultados",
@@ -764,7 +767,7 @@ def tools_verdict(case: EvalCase, calls: list[tuple[str, str, bool]], guardrail:
     is_refusal = bool(case.facts and case.facts[0].kind == "refusal")
     if is_refusal and names:
         issues.append("usó herramientas en una pregunta fuera de alcance")
-    if guardrail and not is_refusal:
+    if guardrail == "sin_datos_de_tools" and not is_refusal:
         issues.append("no consultó herramientas: el guardarraíl sustituyó la respuesta")
     issues += [f"falta la herramienta obligatoria {t}" for t in sorted(case.required - set(names))]
     issues += [f"herramienta no esperada {t}" for t in sorted(set(names) - case.allowed_tools)] if not is_refusal else []
@@ -842,14 +845,15 @@ async def run_case(case: EvalCase, mcp: McpClient, mode: str, llm: LLMClient | N
                                            for tc in rec.tool_calls], run.guardrail)
     res.tools_ok = not res.tool_issues
     # capa 3: RESPUESTA (hechos) + INVENCIÓN + ADVERTENCIA; solo con texto real del modelo (live) o rechazo determinista
-    if mode == "live" or facts[0].kind == "refusal":
+    infra = bool(run.error) and bool(rec.llm_calls) and bool(rec.llm_calls[-1].error)  # el LLM no respondió (429, red…)
+    if (mode == "live" or facts[0].kind == "refusal") and run.answer and not infra:
         res.answer_ok = all(answer_ok(f, run.answer) for f in facts)
         res.claims = invention_claims(case, run.answer, truth, payloads) if truth else []
         res.invention_ok = not res.claims
         res.warning_required = needs_warning(payloads)
         res.missing_warnings = missing_warnings(run.answer, res.warning_required)
         res.warning_ok = not res.missing_warnings
-        res.presentation_ok = presentation_ok(run.answer) if run.answer else False
+        res.presentation_ok = presentation_ok(run.answer)
         res.provenance_ok = _provenance(run.answer, facts) if case.category != "alcance" else None
     layers = [("datos: evidencia incompleta (¿resultado recortado?)", res.evidence_ok),
               ("herramientas: " + "; ".join(res.tool_issues), res.tools_ok),
@@ -857,7 +861,12 @@ async def run_case(case: EvalCase, mcp: McpClient, mode: str, llm: LLMClient | N
               ("invención: " + "; ".join(res.claims), res.invention_ok),
               ("falta advertir: " + ", ".join(res.missing_warnings), res.warning_ok)]
     failed = [msg for msg, ok in layers if ok is False]
-    if run.error:
+    if infra:
+        # Fallo de infraestructura, no del agente: no se juzga ninguna capa ni se cuenta como fallo.
+        res.evidence_ok = res.tools_ok = res.answer_ok = res.invention_ok = res.warning_ok = None
+        res.presentation_ok = res.provenance_ok = None
+        res.status, res.detail = "not_run", f"infraestructura (LLM): {run.error}"
+    elif run.error:
         res.status, res.detail = "fail", run.error
     elif structural and facts[0].kind == "limitation" and mode == "offline":
         res.status, res.detail = "not_evaluable", f"requiere LLM real ({case.reason})"
@@ -869,6 +878,7 @@ async def run_case(case: EvalCase, mcp: McpClient, mode: str, llm: LLMClient | N
 
 def summarize_results(results: list[CaseResult]) -> dict[str, Any]:
     ev = [r for r in results if r.status in ("pass", "fail")]
+    used = [r for r in results if r.status in ("pass", "fail") or r.llm_calls]  # el consumo incluye las ejecuciones abortadas por el proveedor
 
     def layer(name: str) -> dict[str, int]:
         vals = [getattr(r, name) for r in ev if getattr(r, name) is not None]
@@ -882,13 +892,13 @@ def summarize_results(results: list[CaseResult]) -> dict[str, Any]:
         "layers": {"datos": layer("evidence_ok"), "herramientas": layer("tools_ok"), "respuesta": layer("answer_ok"),
                    "invencion": layer("invention_ok"), "advertencia": layer("warning_ok"),
                    "presentacion": layer("presentation_ok")},
-        "input_tokens": sum(r.input_tokens for r in ev), "output_tokens": sum(r.output_tokens for r in ev),
-        "thinking_tokens": sum(r.thinking_tokens for r in ev), "cached_tokens": sum(r.cached_tokens for r in ev),
-        "llm_calls": sum(r.llm_calls for r in ev),
-        "llm_retries": sum(r.llm_retries for r in ev), "tool_calls": sum(r.tool_calls for r in ev),
-        "latency_ms": round(sum(r.latency_ms for r in ev), 1), "tool_ms": round(sum(r.tool_ms for r in ev), 1),
-        "tokens_estimated": any(r.tokens_estimated for r in ev),
-        "token_sources": sorted({r.token_source for r in ev if r.llm_calls})}
+        "input_tokens": sum(r.input_tokens for r in used), "output_tokens": sum(r.output_tokens for r in used),
+        "thinking_tokens": sum(r.thinking_tokens for r in used), "cached_tokens": sum(r.cached_tokens for r in used),
+        "llm_calls": sum(r.llm_calls for r in used),
+        "llm_retries": sum(r.llm_retries for r in used), "tool_calls": sum(r.tool_calls for r in used),
+        "latency_ms": round(sum(r.latency_ms for r in used), 1), "tool_ms": round(sum(r.tool_ms for r in used), 1),
+        "tokens_estimated": any(r.tokens_estimated for r in used),
+        "token_sources": sorted({r.token_source for r in used})}
 
 
 async def evaluate(truth: Truth, mcp: McpClient, mode: str, llm: LLMClient | None = None, *,
@@ -939,6 +949,7 @@ def format_table(results: list[CaseResult]) -> str:
 
 
 # ----------------------------------------------------------------------------- CLI
+DEFAULT_MIN_INTERVAL = 4.0  # s entre peticiones al LLM (~15 por minuto) para no superar el límite por minuto
 DEFAULT_MAX_REQUESTS = 40  # presupuesto duro de peticiones HTTP al LLM (llamadas + reintentos) en una ejecución online
 
 
@@ -1009,7 +1020,9 @@ async def _main(args: argparse.Namespace) -> int:
     llm: LLMClient | None = None
     if live and not args.plan:
         try:
-            llm = create_llm()  # solo aquí se construye un cliente real; --plan nunca llega a este punto
+            from futsal.agent.llm import PacedLLM
+
+            llm = PacedLLM(create_llm(), DEFAULT_MIN_INTERVAL if args.min_interval is None else args.min_interval)  # solo aquí se construye un cliente real; --plan nunca llega a este punto
         except LLMError as exc:
             print(f"No se puede iniciar el LLM: {exc}")
             return 2
@@ -1040,7 +1053,7 @@ async def _main(args: argparse.Namespace) -> int:
     meta = build_meta(
         mode=args.mode, suite=suite, provider=getattr(llm, "provider", "offline"), model=getattr(llm, "model", "policy"),
         args={"max_tool_calls": args.max_tool_calls, "max_rows": args.max_rows, "max_requests": max_requests,
-              "llm_max_retries": retries, "only": sorted(only) if only else None, "limit": args.limit},
+              "llm_max_retries": retries, "min_interval_s": getattr(llm, "_min", None), "only": sorted(only) if only else None, "limit": args.limit},
         preflight={"same_database": same.verdict, "detail": same.detail,
                    "db": {k: v for k, v in same.db.items() if k != "empty"}})
     paths = write_report(run_dir, meta, results)
@@ -1065,6 +1078,8 @@ def main() -> None:
                    help="permite el modo live aunque no se demuestre que API y evaluación usan la misma base (no recomendado)")
     p.add_argument("--max-requests", type=int, default=DEFAULT_MAX_REQUESTS,
                    help="presupuesto duro de peticiones HTTP al LLM (llamadas + reintentos) en modo live")
+    p.add_argument("--min-interval", type=float, default=None,
+                   help="segundos mínimos entre peticiones al LLM en modo live (por defecto 4; 0 = sin pausa)")
     p.add_argument("--only", default="", help="ids de caso separados por comas")
     p.add_argument("--limit", type=int, default=None)
     p.add_argument("--max-tool-calls", type=int, default=DEFAULT_MAX_TOOL_CALLS)
