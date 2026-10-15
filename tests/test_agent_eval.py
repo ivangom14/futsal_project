@@ -329,7 +329,7 @@ def test_invention_flags_wrong_scores_and_prompt_leaks() -> None:
     ev = [{"matches": [{"id": 1, "home_score": 5, "away_score": 7}]}]
     assert any("7-7" in c for c in invention_claims(case, "MEJORSALA 7 - 7 PARQUE NORTE", _truth(), ev))
     assert invention_claims(case, "MEJORSALA 5 - 7 PARQUE NORTE", _truth(), ev) == []
-    leak = "Copia los marcadores tal cual los devuelven las tools. No consta."
+    leak = "Si un equipo o jugador no aparece, compruébalo con list_teams o find_players. No consta."
     assert any("instrucciones" in c for c in invention_claims(case, leak, _truth(), ev))
 
 

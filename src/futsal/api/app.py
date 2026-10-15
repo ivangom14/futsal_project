@@ -4,7 +4,7 @@ from collections.abc import Iterator
 from datetime import date, datetime, time
 from typing import Annotated, Any
 
-from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi import Depends, FastAPI, HTTPException, Query, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from sqlalchemy import Engine, select, text
@@ -121,7 +121,8 @@ def create_app(engine: Engine | None = None) -> FastAPI:
     @app.get("/groups/{group_id}/matches")
     def matches(group_id: int, db: Db, round_id: int | None = None,
                 status: str | None = None, team_id: int | None = None,
-                has_report: bool | None = None) -> dict[str, Any]:
+                has_report: bool | None = None,
+                limit: Annotated[int | None, Query(ge=1, le=200)] = None) -> dict[str, Any]:
         _group(db, group_id)
         if team_id is not None and db.scalar(
                 select(Team.id).where(Team.id == team_id, Team.group_id == group_id)) is None:
@@ -144,7 +145,10 @@ def create_app(engine: Engine | None = None) -> FastAPI:
             stmt = stmt.where((Match.home_team_id == team_id) | (Match.away_team_id == team_id))
         if has_report is not None:
             stmt = stmt.where(report_id if has_report else ~report_id)
-        return _items([_match_dict(m, h, a, n, r) for m, h, a, n, r in db.execute(stmt)])
+        rows = [_match_dict(m, h, a, n, r) for m, h, a, n, r in db.execute(stmt)]
+        if limit is not None and len(rows) > limit:  # count = total de coincidencias; shown = filas devueltas
+            return {"items": rows[:limit], "count": len(rows), "shown": limit}
+        return _items(rows)
 
     @app.get("/matches/{match_id}")
     def match_detail(match_id: int, db: Db) -> dict[str, Any]:

@@ -50,7 +50,10 @@ def _detail(resp: httpx.Response) -> str:
 
 
 def _listing(key: str, data: dict[str, Any]) -> dict[str, Any]:
-    return {key: data["items"], "count": data["count"]}
+    out = {key: data["items"], "count": data["count"]}
+    if "shown" in data:  # recorte por `limit`: count sigue siendo el total de coincidencias
+        out["shown"] = data["shown"]
+    return out
 
 
 def create_server(client: httpx.Client | None = None) -> FastMCP:
@@ -60,19 +63,16 @@ def create_server(client: httpx.Client | None = None) -> FastMCP:
 
     @mcp.tool()
     def list_competitions(
-        season_id: Annotated[int | None, Field(description="ID interno de temporada (opcional)")]
-        = None,
+        season_id: Annotated[int | None, Field(description="ID de temporada")] = None,
     ) -> dict[str, Any]:
-        """Lista las competiciones de fútbol sala disponibles, opcionalmente de una temporada.
-        Punto de partida: devuelve los `id` de competición para `list_groups`."""
+        """Competiciones (opcional: de una temporada); su `id` sirve para list_groups."""
         return _listing("competitions", _get(http, "/competitions", "temporada", season_id=season_id))
 
     @mcp.tool()
     def list_groups(
-        competition_id: Annotated[int, Field(description="ID interno de competición")],
+        competition_id: Annotated[int, Field(description="ID de competición")],
     ) -> dict[str, Any]:
-        """Lista los grupos de una competición. Devuelve los `id` de grupo usados por
-        `list_rounds`, `list_teams` y `list_matches`."""
+        """Grupos de una competición; su `id` es el group_id del resto de tools."""
         return _listing(
             "groups",
             _get(http, f"/competitions/{competition_id}/groups", f"competición {competition_id}"),
@@ -80,45 +80,41 @@ def create_server(client: httpx.Client | None = None) -> FastMCP:
 
     @mcp.tool()
     def list_rounds(
-        group_id: Annotated[int, Field(description="ID interno de grupo")],
+        group_id: Annotated[int, Field(description="ID de grupo")],
     ) -> dict[str, Any]:
-        """Lista las jornadas de un grupo, ordenadas por número. Devuelve los `id` de jornada
-        usables como filtro `round_id` en `list_matches`."""
+        """Jornadas de un grupo por número; su `id` es el round_id de list_matches."""
         return _listing("rounds", _get(http, f"/groups/{group_id}/rounds", f"grupo {group_id}"))
 
     @mcp.tool()
     def list_teams(
-        group_id: Annotated[int, Field(description="ID interno de grupo")],
+        group_id: Annotated[int, Field(description="ID de grupo")],
     ) -> dict[str, Any]:
-        """Lista los equipos de un grupo, ordenados por nombre."""
+        """Equipos de un grupo por nombre."""
         return _listing("teams", _get(http, f"/groups/{group_id}/teams", f"grupo {group_id}"))
 
     @mcp.tool()
     def list_matches(
-        group_id: Annotated[int, Field(description="ID interno de grupo")],
-        round_id: Annotated[int | None, Field(description="ID interno de jornada (no su número);"
-                                              " opcional")] = None,
-        status: Annotated[MatchStatus | None, Field(description="Filtro de estado (opcional)")]
-        = None,
-        team_id: Annotated[int | None, Field(description="ID interno de equipo (de list_teams); "
-                                             "devuelve solo sus partidos; opcional")] = None,
-        has_report: Annotated[bool | None, Field(description="Solo con/sin acta; opcional")] = None,
+        group_id: Annotated[int, Field(description="ID de grupo")],
+        round_id: Annotated[int | None, Field(description="ID de jornada, no número")] = None,
+        status: Annotated[MatchStatus | None, Field(description="Estado")] = None,
+        team_id: Annotated[int | None, Field(description="Solo partidos de este equipo")] = None,
+        has_report: Annotated[bool | None, Field(description="Con/sin acta")] = None,
+        limit: Annotated[int | None, Field(ge=1, le=200, description=(
+            "Solo las N primeras filas; count sigue siendo el total (para contar: limit=1)"))] = None,
     ) -> dict[str, Any]:
-        """Lista los partidos de un grupo con equipos, fecha, estado, marcador y has_report (acta
-        disponible). Filtra por jornada, estado (p. ej. `finished` para resultados ya jugados), equipo
-        y/o acta."""
+        """Partidos de un grupo: equipos, fecha, estado, marcador y has_report. Filtros opcionales; count = total
+        de coincidencias (shown = filas devueltas si hay limit)."""
         return _listing(
             "matches",
             _get(http, f"/groups/{group_id}/matches", f"grupo {group_id}",
-                 round_id=round_id, status=status, team_id=team_id, has_report=has_report),
+                 round_id=round_id, status=status, team_id=team_id, has_report=has_report, limit=limit),
         )
 
     @mcp.tool()
     def get_match(
-        match_id: Annotated[int, Field(description="ID interno de partido")],
+        match_id: Annotated[int, Field(description="ID de partido")],
     ) -> dict[str, Any]:
-        """Devuelve el detalle de un partido: equipos, marcador, estado, pista, zona horaria
-        y observaciones disponibles."""
+        """Detalle de un partido: equipos, marcador, estado, pista y zona horaria."""
         return _get(http, f"/matches/{match_id}", f"partido {match_id}")
 
     @mcp.tool()
@@ -127,8 +123,8 @@ def create_server(client: httpx.Client | None = None) -> FastMCP:
         sections: Annotated[list[ReportSection] | None, Field(
             description="Por defecto officials y goals")] = None,
     ) -> dict[str, Any]:
-        """Acta de un partido: árbitros, goles (jugador, minuto), tarjetas, alineaciones y consistency
-        (marcador vs acta). Sin acta: report_available=false y el motivo. not_in_source: lo que no consta."""
+        """Acta: árbitros, goles, tarjetas, alineaciones y consistency (marcador vs acta). Sin acta:
+        report_available=false y motivo; not_in_source: lo que no consta."""
         return _get(http, f"/matches/{match_id}/report", f"partido {match_id}",
                     sections=",".join(sections) if sections else None)
 
@@ -143,8 +139,8 @@ def create_server(client: httpx.Client | None = None) -> FastMCP:
         event_type: Annotated[EventType | None, Field(description="Def.: goal y own_goal")] = None,
         limit: Annotated[int, Field(ge=1, le=200)] = 40,
     ) -> dict[str, Any]:
-        """Eventos de actas (goles, propia meta, tarjetas) con partido, equipo, rival, jugador y minuto.
-        coverage indica cuántos partidos finalizados tienen acta: si es parcial, faltar no prueba nada."""
+        """Eventos de actas (goles, propia meta, tarjetas): partido, equipo, rival, jugador, minuto y coverage
+        (si es parcial, faltar no prueba nada)."""
         return _get(http, f"/groups/{group_id}/match-events", f"grupo {group_id}", team_id=team_id,
                     against_team_id=against_team_id, round_id=round_id, match_id=match_id,
                     player_id=player_id, event_type=event_type, limit=limit)
@@ -160,8 +156,7 @@ def create_server(client: httpx.Client | None = None) -> FastMCP:
         min_goals: Annotated[int, Field(ge=1, le=100)] = 1,
         limit: Annotated[int, Field(ge=1, le=200)] = 20,
     ) -> dict[str, Any]:
-        """Goles por jugador (agrupados en la base de datos, de más a menos) con los mismos filtros.
-        No cuenta propia meta. Incluye coverage."""
+        """Goles por jugador de más a menos (sin propia meta), mismos filtros, con coverage."""
         return _get(http, f"/groups/{group_id}/scorers", f"grupo {group_id}", team_id=team_id,
                     against_team_id=against_team_id, round_id=round_id, match_id=match_id,
                     player_id=player_id, min_goals=min_goals, limit=limit)
@@ -172,7 +167,7 @@ def create_server(client: httpx.Client | None = None) -> FastMCP:
         name: Annotated[str, Field(min_length=2, max_length=80, description="Nombre o apellido")],
         team_id: int | None = None,
     ) -> dict[str, Any]:
-        """Busca jugadores de las actas por nombre y devuelve su player_id. Sin resultados: no consta."""
+        """Jugadores de las actas por nombre (devuelve player_id). Sin resultados: no consta."""
         return _get(http, f"/groups/{group_id}/players", f"grupo {group_id}", name=name, team_id=team_id)
 
     return mcp

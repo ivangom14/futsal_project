@@ -401,7 +401,9 @@ def _base_cases(t: Truth) -> list[EvalCase]:  # noqa: C901 - catálogo declarati
               Fact("count", "pendientes", number=len(pend), status="pending")]
         cases.append(EvalCase("equipo_recuento", "recuentos",
                               f"¿Cuántos partidos ha disputado y cuántos le quedan por jugar al {name}?", f3, lm,
-                              lambda s, p: _call("list_matches", group_id=g, team_id=dosa) if s == 0 else None))
+                              lambda s, p: (_call("list_matches", group_id=g, team_id=dosa, status="finished", limit=1)
+                                            if s == 0 else _call("list_matches", group_id=g, team_id=dosa,
+                                                                 status="scheduled", limit=1) if s == 1 else None)))
         r5 = [m for m in t.of_team(dosa) if m.round_number == 5]
         f5 = [Fact("match", "j5", (r5[0],), need_date=True, exclude=name)] if r5 else None
         cases.append(EvalCase("equipo_jornada_5", "combinada", f"¿Contra quién juega el {name} en la jornada 5 y cuándo?",
@@ -442,8 +444,8 @@ def _base_cases(t: Truth) -> list[EvalCase]:  # noqa: C901 - catálogo declarati
     cases.append(EvalCase(
         "recuento_global", "recuentos", "¿Cuántos partidos se han jugado ya y cuántos quedan en total en el grupo?",
         [Fact("count", "jugados", number=n_done), Fact("count", "pendientes", number=n_other)], lm,
-        lambda s, p: (_call("list_matches", group_id=g, status="finished") if s == 0 else
-                      _call("list_matches", group_id=g, status="scheduled") if s == 1 else None)))
+        lambda s, p: (_call("list_matches", group_id=g, status="finished", limit=1) if s == 0 else
+                      _call("list_matches", group_id=g, status="scheduled", limit=1) if s == 1 else None)))
     cases.append(EvalCase(
         "equipos_del_grupo", "recuentos", "¿Cuántos equipos hay en el grupo y cuáles son?",
         [Fact("count", "equipos", number=len(t.teams)), Fact("names", "nombres", names=tuple(t.teams.values()))],

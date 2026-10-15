@@ -108,7 +108,7 @@ def test_unsupported_scores_catches_a_transcribed_wrong_score() -> None:
 def test_leaks_prompt_detects_copied_instructions_but_allows_the_scope_notice() -> None:
     from futsal.agent.agent import OFF_TOPIC_MESSAGE, SYSTEM_PROMPT
 
-    leak = "Copia los marcadores tal cual los devuelven las tools. No consta."
+    leak = "Si un equipo o jugador no aparece, compruébalo con list_teams o find_players. No consta."
     assert leaks_prompt(leak, SYSTEM_PROMPT, OFF_TOPIC_MESSAGE)
     assert not leaks_prompt(OFF_TOPIC_MESSAGE, SYSTEM_PROMPT, OFF_TOPIC_MESSAGE)
     assert not leaks_prompt("El jugador no consta en las actas almacenadas del grupo.", SYSTEM_PROMPT, OFF_TOPIC_MESSAGE)

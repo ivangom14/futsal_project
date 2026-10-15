@@ -105,3 +105,14 @@ def test_match_date_falls_back_to_scheduled_date_when_no_time(client: TestClient
     assert first["date"] is not None and len(first["date"]) == 10  # AAAA-MM-DD, no null
     detail = client.get(f"/matches/{first['id']}").json()
     assert all(o["date"] for o in detail["observations"])
+
+
+def test_matches_limit_trims_rows_but_count_stays_the_total(client: TestClient) -> None:
+    gid = _group_id(client)
+    full = client.get(f"/groups/{gid}/matches").json()
+    assert "shown" not in full and full["count"] == len(full["items"])
+    cut = client.get(f"/groups/{gid}/matches?limit=1").json()
+    assert cut["count"] == full["count"] and cut["shown"] == 1 and cut["items"] == full["items"][:1]
+    big = client.get(f"/groups/{gid}/matches?limit=200").json()
+    assert "shown" not in big and big["count"] == full["count"]
+    assert client.get(f"/groups/{gid}/matches?limit=0").status_code == 400

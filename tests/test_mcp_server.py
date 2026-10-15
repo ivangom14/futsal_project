@@ -160,3 +160,17 @@ def test_report_tools_reject_invalid_parameters_and_map_missing_match() -> None:
     assert _run("top_scorers", {"group_id": 1, "limit": 999}, _echo)[0] is True
     err, text = _run("get_match_report", {"match_id": 999})
     assert err and "error_no_encontrado" in text
+
+
+def test_list_matches_forwards_limit_and_exposes_shown() -> None:
+    seen: list[httpx.URL] = []
+
+    def handler(req: httpx.Request) -> httpx.Response:
+        seen.append(req.url)
+        return httpx.Response(200, json={"items": [{"id": 1}], "count": 163, "shown": 1})
+
+    is_error, text = _run("list_matches", {"group_id": 1, "status": "scheduled", "limit": 1}, handler)
+    assert dict(seen[0].params) == {"status": "scheduled", "limit": "1"}
+    assert not is_error and json.loads(text) == {"matches": [{"id": 1}], "count": 163, "shown": 1}
+    plain = _run("list_matches", {"group_id": 1}, lambda r: httpx.Response(200, json=LISTING))
+    assert "shown" not in json.loads(plain[1])
