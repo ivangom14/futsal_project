@@ -229,3 +229,9 @@ Mismo método (LLM guionizado, tokens estimados con el esquema MCP crudo), 19 ca
 de 2.788 a 2.916 tokens de entrada por llamada (+4,6 %) por las reglas añadidas al prompt, con 19/19 casos en ambas y las mismas
 43 llamadas. Coste fijo por llamada medido: prompt ~565 + contexto ~262 + 10 tools ~1.550 ≈ 2.380 tokens (~80 % de la entrada).
 No se recortaron herramientas ni descripciones sin una prueba online que confirme que Gemini mantiene la calidad.
+
+## Fase 11: consumo de tokens
+Resumen y comparativa en `docs/phase11-report.md`. Cambios que afectan al uso: `list_matches` admite `limit` (devuelve `count` = total y
+`shown` = filas devueltas; para contar basta `limit=1`); los resultados enviados al LLM no incluyen `round_id` ni valores nulos;
+el esquema de herramientas se envía sin uniones `null` ni sangrías (`slim_tools`); la traza y el informe incluyen el tamaño del
+prefijo fijo por llamada y la latencia se mide sin las pausas de `--min-interval`.

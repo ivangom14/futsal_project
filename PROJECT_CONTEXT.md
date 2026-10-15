@@ -119,3 +119,9 @@ Fase 10.3 (tercera evaluación online: 25 pass, 2 fail, 0 reintentos): el prompt
 existe» (el modelo la repetía en sus respuestas), pide «no figura en el grupo» y «mis herramientas…»; `find_players` permitido en
 `equipo_inexistente`. Pendiente: repetir online `equipo_inexistente` y `acta_jugador_inexistente` y medir estabilidad con
 `--compare` entre ejecuciones completas.
+
+Fase 11 (optimización de tokens; ver `docs/phase11-report.md`): línea base real `aeb29e4` = 172.078 tokens de entrada, 58 llamadas;
+83 % es prefijo fijo repetido. Prompt/esquemas/contexto más cortos (`slim_tools`), resultados sin nulos ni `round_id`,
+`list_matches(limit)` con `count` total y `shown`, pausa de ritmo fuera de la latencia y `prefix_chars` en la traza.
+Offline (estimado): −16,4 % de entrada, sin regresiones. Objetivo realista ≤145k; el 70-90k no es viable sin perder calidad.
+Validación online PENDIENTE (preflight → smoke con `--max-requests` → suite completa).
