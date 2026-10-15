@@ -41,6 +41,7 @@ from futsal.agent.criteria import (
     says_coverage_partial,
     says_not_played,
     substitution_minute_claims,
+    unsupported_coverage_counts,
     unsupported_players,
     unsupported_scores,
 )
@@ -792,6 +793,7 @@ def invention_claims(case: EvalCase, answer: str, truth: Truth, payloads: list[d
               for n in unsupported_players(answer, truth.player_names, payloads, case.question)]
     claims += [f"da el marcador {sc}, que no figura en lo devuelto por las herramientas"
                for sc in unsupported_scores(answer, payloads, case.question)]
+    claims += [f"cifra de cobertura que no cuadra con coverage: «{c}»" for c in unsupported_coverage_counts(answer, payloads)]
     if leaks_prompt(answer, SYSTEM_PROMPT, OFF_TOPIC_MESSAGE):
         claims.append("repite fragmentos de las instrucciones del sistema")
     claims += [f"afirma color de tarjeta: «{c[:80]}»" for c in card_color_claims(answer)]

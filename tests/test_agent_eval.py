@@ -343,3 +343,18 @@ def test_nonexistent_team_may_be_checked_with_find_players() -> None:
     from futsal.agent.evaluate import EXTRA_ALLOWED
 
     assert {"list_teams", "list_matches", "find_players"} <= EXTRA_ALLOWED["equipo_inexistente"]
+
+
+def test_card_case_keeps_its_strict_tool_allowlist() -> None:
+    from futsal.agent.evaluate import EXTRA_ALLOWED
+
+    case = _case(Fact("cards", "x"), allowed_tools=frozenset({"list_matches", "get_match_report"}))
+    assert any("no esperada list_teams" in i for i in tools_verdict(case, [("list_teams", "{}", False)], None))
+    assert "acta_tarjetas_codigo" not in EXTRA_ALLOWED
+
+
+def test_invention_flags_wrong_coverage_figures() -> None:
+    case = _case(Fact("partial_coverage", "x"))
+    ev = [{"coverage": {"finished_matches": 19, "with_report": 18, "complete": False}}]
+    assert any("cobertura" in c for c in invention_claims(case, "1 de los 18 partidos no tiene acta", _truth(), ev))
+    assert invention_claims(case, "18 de 19 partidos tienen acta (cobertura parcial)", _truth(), ev) == []

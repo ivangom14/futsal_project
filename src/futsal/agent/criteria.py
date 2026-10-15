@@ -141,6 +141,22 @@ def unsupported_scores(text: str, payloads: list[dict[str, Any]], question: str 
     return sorted(f"{a}-{b}" for a, b in _parse_scores(text) if (a, b) not in known)
 
 
+COVERAGE_COUNT_RE = re.compile(r"\b(\d+)\s+de\s+(?:los\s+|las\s+)?(\d+)\s+(?:partidos|actas)\b", re.I)
+
+
+def unsupported_coverage_counts(text: str, payloads: list[dict[str, Any]]) -> list[str]:
+    """Cifras «X de Y partidos/actas» que no cuadran con `coverage` (con acta de finalizados, o los que faltan)."""
+    valid: set[tuple[int, int]] = set()
+    for p in payloads:
+        cov = p.get("coverage")
+        if isinstance(cov, dict) and isinstance(cov.get("finished_matches"), int) and isinstance(cov.get("with_report"), int):
+            f, w = cov["finished_matches"], cov["with_report"]
+            valid |= {(w, f), (f - w, f), (f, f)}
+    if not valid:
+        return []
+    return [m.group(0) for m in COVERAGE_COUNT_RE.finditer(text) if (int(m.group(1)), int(m.group(2))) not in valid]
+
+
 def leaks_prompt(text: str, prompt: str, allowed: str = "", window: int = 7) -> bool:
     """¿Copia la respuesta una secuencia de `window` palabras seguidas de las instrucciones del sistema?
     `allowed` (el aviso de alcance, que sí se cita) se descuenta antes de comparar."""
