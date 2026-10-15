@@ -106,3 +106,9 @@ def test_cli_compare_and_sanitize_need_no_database_or_network(tmp_path: Path, mo
     with pytest.raises(SystemExit):
         ev.main()
     assert "1 ejecuciones saneadas" in capsys.readouterr().out and '"result"' not in out.read_text(encoding="utf-8")
+
+
+def test_report_shows_prefix_breakdown_and_excludes_pacing_from_latency() -> None:
+    md = render_markdown(META, [_r("a", paced_ms=4000.0, prefix_chars={"system_prompt": 2400, "tools": 5100, "context": 1000})])
+    assert "sistema 2400 · herramientas 5100 · contexto 1000 (total 8500)" in md
+    assert "Latencia (sin pausas de ritmo)" in md and "pausas de ritmo 4000.0 ms" in md

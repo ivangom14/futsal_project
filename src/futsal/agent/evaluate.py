@@ -735,8 +735,10 @@ class CaseResult:
     thinking_tokens: int = 0
     cached_tokens: int = 0  # entrada servida desde caché del proveedor (solo si la informa)
     tokens_estimated: bool = False
-    latency_ms: float = 0.0
+    latency_ms: float = 0.0  # sin las pausas de ritmo (--min-interval)
     tool_ms: float = 0.0
+    paced_ms: float = 0.0  # pausas de ritmo entre peticiones (no es latencia del modelo)
+    prefix_chars: dict[str, int] = field(default_factory=dict)  # prefijo fijo por llamada: sistema/contexto/herramientas
     run_id: str = ""
     answer: str = ""
 
@@ -847,6 +849,7 @@ async def run_case(case: EvalCase, mcp: McpClient, mode: str, llm: LLMClient | N
     res.llm_calls, res.input_tokens, res.output_tokens = t["llm_calls"], t["input_tokens"], t["output_tokens"]
     res.thinking_tokens, res.tokens_estimated = t["thinking_tokens"], t["tokens_estimated"]
     res.cached_tokens = t["cached_input_tokens"]
+    res.paced_ms, res.prefix_chars = t["paced_ms"], t["prefix_chars"]
     res.token_source, res.llm_retries, res.tool_calls = t["token_source"], t["llm_retries"], t["tool_calls"]
     res.latency_ms, res.tool_ms, res.run_id, res.answer = t["latency_ms"], t["tool_ms"], rec.run_id, run.answer
     facts = case.facts
@@ -909,6 +912,8 @@ def summarize_results(results: list[CaseResult]) -> dict[str, Any]:
         "thinking_tokens": sum(r.thinking_tokens for r in used), "cached_tokens": sum(r.cached_tokens for r in used),
         "llm_calls": sum(r.llm_calls for r in used),
         "llm_retries": sum(r.llm_retries for r in used), "tool_calls": sum(r.tool_calls for r in used),
+        "paced_ms": round(sum(r.paced_ms for r in used), 1),
+        "prefix_chars": next((r.prefix_chars for r in used if r.prefix_chars), {}),
         "latency_ms": round(sum(r.latency_ms for r in used), 1), "tool_ms": round(sum(r.tool_ms for r in used), 1),
         "tokens_estimated": any(r.tokens_estimated for r in used),
         "token_sources": sorted({r.token_source for r in used})}

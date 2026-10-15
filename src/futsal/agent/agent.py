@@ -109,6 +109,12 @@ def summarize(is_error: bool, text: str, limit: int = 120) -> str:
     return f"{text[:limit]}{'…' if len(text) > limit else ''}"
 
 
+def _paced_ms(llm: object) -> float:
+    """Pausa de ritmo de la última llamada (solo la expone PacedLLM); se descuenta de la latencia medida."""
+    wait = getattr(llm, "last_wait_s", 0.0)
+    return round(wait * 1000, 1) if isinstance(wait, (int, float)) else 0.0
+
+
 def _ms(start: float) -> float:
     return round((time.perf_counter() - start) * 1000, 1)
 
@@ -193,6 +199,8 @@ class Agent:
         if self._tools is None:
             self._tools = await self._mcp.list_tools()
         system = await self._system_prompt(rec)
+        rec.prefix_chars = {"system_prompt": len(SYSTEM_PROMPT), "context": len(system) - len(SYSTEM_PROMPT),
+                            "tools": len(json.dumps(self._tools, ensure_ascii=False, separators=(",", ":")))}
         messages = [Message("user", question)]
         nudged = False
         log(f"USER\n{question}")
@@ -201,24 +209,27 @@ class Agent:
             try:
                 resp = self._llm.complete(system, messages, self._tools)
             except LLMError as exc:
+                paced_ms = _paced_ms(self._llm)
                 waited = sum(a.waited_s for a in exc.attempts)
                 rec.llm_calls.append(LlmCallRecord(
-                    len(rec.llm_calls) + 1, _ms(t0), None, None, None, None, False, 0, error=redact(str(exc)),
+                    len(rec.llm_calls) + 1, max(_ms(t0) - paced_ms, 0.0), None, None, None, None, False, 0,
+                    error=redact(str(exc)), paced_ms=paced_ms,
                     retries=max(len(exc.attempts) - 1, 0), attempts=[asdict(a) for a in exc.attempts],
                     retry_wait_ms=round(waited * 1000, 1)))
                 result.error = redact(str(exc))
                 log(f"ERROR\n{result.error}")
                 return
+            paced_ms = _paced_ms(self._llm)
             u = resp.usage
             call_no = len(rec.llm_calls) + 1
             rec.llm_calls.append(LlmCallRecord(
-                call_no, _ms(t0), u.input_tokens if u else None, u.output_tokens if u else None,
+                call_no, max(_ms(t0) - paced_ms, 0.0), u.input_tokens if u else None, u.output_tokens if u else None,
                 u.thinking_tokens if u else None, u.total_tokens if u else None,
                 bool(u and u.estimated), len(resp.tool_calls), retries=resp.retries,
                 attempts=[asdict(a) for a in resp.attempts],
                 retry_wait_ms=round(sum(a.waited_s for a in resp.attempts) * 1000, 1),
                 token_source="unreported" if u is None else "estimated" if u.estimated else "provider",
-                cached_input_tokens=u.cached_input_tokens if u else None))
+                cached_input_tokens=u.cached_input_tokens if u else None, paced_ms=paced_ms))
             if (not resp.tool_calls and result.tool_calls == 0 and not nudged and resp.text.strip() == OFF_TOPIC_MESSAGE
                     and mentions_domain(question)):
                 # La pregunta habla de la competición: se pide UNA vez consultar las tools antes de darla por ajena.

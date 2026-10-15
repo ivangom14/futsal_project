@@ -42,6 +42,7 @@ class LlmCallRecord:
     retry_wait_ms: float = 0.0  # parte de latency_ms que fue espera de reintentos
     token_source: str = "unreported"  # provider | estimated | unreported
     cached_input_tokens: int | None = None  # entrada servida desde la caché del proveedor (si la informa)
+    paced_ms: float = 0.0  # pausa de ritmo (--min-interval) ANTES de la llamada; no forma parte de latency_ms
 
 
 def _overall_source(calls: list["LlmCallRecord"]) -> str:
@@ -78,7 +79,8 @@ class RunRecord:
     tool_calls: list[ToolCallRecord] = field(default_factory=list)
     context_ms: float = 0.0  # contexto previo (consultas MCP sin LLM); solo en la ejecución que lo construye
     context_tool_calls: int = 0
-    latency_ms: float = 0.0
+    latency_ms: float = 0.0  # reloj de pared de la ejecución (incluye las pausas de ritmo)
+    prefix_chars: dict[str, int] = field(default_factory=dict)  # caracteres del prefijo fijo: system_prompt/context/tools
     answer: str = ""
     guardrail: str | None = None
     error: str | None = None
@@ -86,6 +88,7 @@ class RunRecord:
     def totals(self) -> dict[str, Any]:
         """Totales de la ejecución sumando cada llamada UNA vez (el historial reenviado ya va en su input)."""
         reported = [c for c in self.llm_calls if c.input_tokens is not None]
+        paced = sum(c.paced_ms for c in self.llm_calls)
         inp = sum(c.input_tokens or 0 for c in reported)
         out = sum(c.output_tokens or 0 for c in reported)
         think = sum(c.thinking_tokens or 0 for c in reported)
@@ -103,7 +106,10 @@ class RunRecord:
             "retry_wait_ms": round(sum(c.retry_wait_ms for c in self.llm_calls), 1),
             "llm_ms": round(sum(c.latency_ms for c in self.llm_calls), 1),
             "tool_ms": round(sum(t.duration_ms for t in self.tool_calls), 1),
-            "latency_ms": round(self.latency_ms, 1)}
+            "paced_ms": round(paced, 1),
+            "latency_ms": round(max(self.latency_ms - paced, 0.0), 1),  # sin las pausas de ritmo
+            "wall_ms": round(self.latency_ms, 1),
+            "prefix_chars": dict(self.prefix_chars)}
 
     def to_dict(self, include_results: bool = False) -> dict[str, Any]:
         data = asdict(self)

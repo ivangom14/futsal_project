@@ -68,6 +68,13 @@ def _yn(v: bool | None) -> str:
     return {True: "✔", False: "✘", None: "—"}[v]
 
 
+def _prefix_line(p: dict[str, int]) -> str:
+    if not p:
+        return "n/d"
+    return (f"sistema {p.get('system_prompt', 0)} · herramientas {p.get('tools', 0)} · contexto {p.get('context', 0)} "
+            f"(total {sum(p.values())})")
+
+
 def render_markdown(meta: dict[str, Any], results: list[CaseResult]) -> str:
     s = summarize_results(results)
     pre = meta.get("preflight") or {}
@@ -79,7 +86,8 @@ def render_markdown(meta: dict[str, Any], results: list[CaseResult]) -> str:
            f"- Llamadas al LLM: {s['llm_calls']} · reintentos: {s['llm_retries']} · llamadas a tools: {s['tool_calls']}",
            f"- Tokens: entrada {s['input_tokens']} · salida {s['output_tokens']} · razonamiento {s['thinking_tokens']} "
            f"· de la entrada, servidos desde caché {s['cached_tokens']} — origen: {', '.join(SOURCE_LABEL[x] for x in s['token_sources']) or 'n/d'}",
-           f"- Latencia: total {s['latency_ms']} ms (herramientas {s['tool_ms']} ms)", "",
+           f"- Latencia (sin pausas de ritmo): total {s['latency_ms']} ms (herramientas {s['tool_ms']} ms) · pausas de ritmo {s.get('paced_ms', 0)} ms",
+           f"- Prefijo fijo por llamada (caracteres): {_prefix_line(s.get('prefix_chars') or {})}", "",
            "## Veredictos por capa", "", "| Capa | OK | Fallo |", "|---|---|---|"]
     label = {"invencion": "invención", "presentacion": "presentación"}
     out += [f"| {label.get(name, name)} | {v['pass']} | {v['fail']} |" for name, v in s["layers"].items()]

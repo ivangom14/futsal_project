@@ -535,3 +535,16 @@ def test_context_header_tells_the_model_team_ids_are_already_known() -> None:
     from futsal.agent.agent import CONTEXT_HEADER
 
     assert "list_teams" in CONTEXT_HEADER and "ya figuran aquí" in CONTEXT_HEADER and "solo para comprobar" in CONTEXT_HEADER
+
+
+class _PacedFake(ScriptedLLM):
+    last_wait_s = 0.5  # como PacedLLM: pausa de ritmo de la última llamada
+
+
+def test_pacing_is_recorded_apart_and_excluded_from_latency_and_prefix_is_measured() -> None:
+    res = _run(_PacedFake([LLMResponse(OFF_TOPIC_MESSAGE, [])]), "Cuéntame un chiste")
+    rec = res.run
+    assert rec is not None and rec.llm_calls[0].paced_ms == 500.0 and rec.llm_calls[0].latency_ms < 400
+    t = rec.totals()
+    assert t["paced_ms"] == 500.0 and t["latency_ms"] <= t["wall_ms"]
+    assert set(rec.prefix_chars) == {"system_prompt", "context", "tools"} and rec.prefix_chars["tools"] > 1000

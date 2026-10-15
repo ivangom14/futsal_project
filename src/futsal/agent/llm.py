@@ -166,13 +166,16 @@ class PacedLLM:
         self.provider = getattr(inner, "provider", "")
         self.model = getattr(inner, "model", "")
         self.waited_s = 0.0
+        self.last_wait_s = 0.0  # pausa de la ÚLTIMA llamada: el agente la descuenta de la latencia
 
     def complete(self, system: str, messages: list[Message], tools: list[dict[str, Any]]) -> "LLMResponse":
+        self.last_wait_s = 0.0
         if self._last is not None:
             wait = self._min - (self._clock() - self._last)
             if wait > 0:
                 self._sleep(wait)
                 self.waited_s += wait
+                self.last_wait_s = wait
         self._last = self._clock()
         return self._inner.complete(system, messages, tools)
 

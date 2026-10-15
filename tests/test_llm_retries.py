@@ -215,3 +215,22 @@ def test_paced_llm_spaces_requests_without_real_sleep() -> None:
     llm.complete("s", [], [])
     assert sleeps == [3.0] and llm.provider == "fake" and llm.model == "m" and llm.waited_s == 3.0
     assert PacedLLM(Inner(), -5).complete("s", [], []).text == "ok"
+
+
+def test_paced_llm_exposes_the_last_wait() -> None:
+    from futsal.agent.llm import LLMResponse, PacedLLM
+
+    class Inner:
+        def complete(self, system: str, messages: list[Message], tools: list[dict[str, Any]]) -> LLMResponse:
+            return LLMResponse("ok", [])
+
+    now = [0.0]
+    llm = PacedLLM(Inner(), 4.0, sleep=lambda s: now.__setitem__(0, now[0] + s), clock=lambda: now[0])
+    llm.complete("s", [], [])
+    assert llm.last_wait_s == 0.0
+    now[0] += 1.0
+    llm.complete("s", [], [])
+    assert llm.last_wait_s == 3.0
+    now[0] += 10.0
+    llm.complete("s", [], [])
+    assert llm.last_wait_s == 0.0
