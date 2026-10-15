@@ -475,7 +475,7 @@ EXTRA_ALLOWED: dict[str, frozenset[str]] = {  # herramientas de solo lectura igu
     "enfrentamiento_ganador": frozenset({"get_match", "get_match_report"}),
     "acta_goleadores_contra_equipo": frozenset({"list_match_events", "list_teams", "find_players"}),
     "acta_dato_no_almacenado": frozenset({"get_match_report", "list_matches"}),
-    "equipo_inexistente": frozenset({"list_teams", "list_matches"}),
+    "equipo_inexistente": frozenset({"list_teams", "list_matches", "find_players"}),
     "jornada_inexistente": frozenset({"list_rounds", "list_matches"})}
 FORBID_SCORES = frozenset({"acta_partido_sin_acta", "acta_jugador_inexistente", "acta_jornada_sin_resultados",
                            "equipo_inexistente", "jornada_inexistente"})

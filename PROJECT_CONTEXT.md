@@ -114,3 +114,8 @@ las instrucciones del sistema); evidencia equivalente vía `list_matches` para c
 el agente pide UNA reconsulta de tools si responde con el aviso de alcance a una pregunta con vocabulario de la competición
 (`RECONSIDER_MESSAGE`); el prompt pide copiar marcadores tal cual y no citar instrucciones. Offline completado (246 tests);
 online pendiente de repetir con estos cambios.
+
+Fase 10.3 (tercera evaluación online: 25 pass, 2 fail, 0 reintentos): el prompt ya no contiene la frase «Antes de decir que … no
+existe» (el modelo la repetía en sus respuestas), pide «no figura en el grupo» y «mis herramientas…»; `find_players` permitido en
+`equipo_inexistente`. Pendiente: repetir online `equipo_inexistente` y `acta_jugador_inexistente` y medir estabilidad con
+`--compare` entre ejecuciones completas.

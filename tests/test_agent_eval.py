@@ -329,7 +329,7 @@ def test_invention_flags_wrong_scores_and_prompt_leaks() -> None:
     ev = [{"matches": [{"id": 1, "home_score": 5, "away_score": 7}]}]
     assert any("7-7" in c for c in invention_claims(case, "MEJORSALA 7 - 7 PARQUE NORTE", _truth(), ev))
     assert invention_claims(case, "MEJORSALA 5 - 7 PARQUE NORTE", _truth(), ev) == []
-    leak = "Antes de decir que un equipo o jugador no existe, compruébalo con list_teams. No consta."
+    leak = "Copia los marcadores tal cual los devuelven las tools. No consta."
     assert any("instrucciones" in c for c in invention_claims(case, leak, _truth(), ev))
 
 
@@ -337,3 +337,9 @@ def test_reportless_cases_no_longer_require_get_match_report() -> None:
     from futsal.agent.evaluate import REQUIRED
 
     assert "acta_partido_sin_acta" not in REQUIRED and "acta_finalizado_sin_acta" not in REQUIRED
+
+
+def test_nonexistent_team_may_be_checked_with_find_players() -> None:
+    from futsal.agent.evaluate import EXTRA_ALLOWED
+
+    assert {"list_teams", "list_matches", "find_players"} <= EXTRA_ALLOWED["equipo_inexistente"]
