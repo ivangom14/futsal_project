@@ -196,7 +196,8 @@ def says_not_played(text: str) -> bool:
 
 
 TOOL_LIMIT_PHRASES = ("mis herramientas no", "mis tools no", "las herramientas no", "no incluyen", "no incluye",
-                      "no cubren", "no cubre", "no dispongo de", "no tengo ese dato", "no esta en las actas",
+                      "no cubren", "no cubre", "no dispongo", "no dispone", "no tengo esa", "no tengo ese",
+                      "no cuento con", "no esta en las actas",
                       "no consta en las actas", "no se almacena", "no se registra")
 
 

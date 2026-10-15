@@ -83,6 +83,7 @@ class RunRecord:
     prefix_chars: dict[str, int] = field(default_factory=dict)  # caracteres del prefijo fijo: system_prompt/context/tools
     answer: str = ""
     guardrail: str | None = None
+    raw_answer: str | None = None  # texto del modelo antes de que el guardarraíl lo sustituya (recortado)
     error: str | None = None
 
     def totals(self) -> dict[str, Any]:

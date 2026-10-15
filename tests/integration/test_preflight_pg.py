@@ -13,6 +13,7 @@ from futsal.agent.preflight import (
     db_snapshot,
     env_checks,
     render,
+    api_limit_check,
     run_preflight,
     verify_same_database,
     write_marker,
@@ -110,3 +111,25 @@ def test_marker_and_output_never_contain_secrets(seeded: Engine, tmp_path: Path,
         assert secret not in out and secret not in marker.read_text(encoding="utf-8")
     assert "GEMINI_API_KEY: definida" in out and "contraseña=definida" in out
     assert not any(c.status == "fail" and c.name == "GEMINI_API_KEY" for c in env_checks(True))
+
+
+class _IgnoreLimit(httpx.BaseTransport):
+    """API anterior a `limit`: ignora el parámetro y devuelve todas las filas."""
+
+    def __init__(self, inner: TestClient) -> None:
+        self.inner = inner
+
+    def handle_request(self, request: httpx.Request) -> httpx.Response:
+        url = str(request.url).replace("limit=1", "").rstrip("?&")
+        resp = self.inner.request(request.method, url)
+        return httpx.Response(resp.status_code, json=resp.json())
+
+
+def test_api_limit_check_detects_a_stale_api(seeded: Engine) -> None:
+    fresh = httpx.Client(base_url="http://testserver", transport=httpx.MockTransport(
+        lambda r: httpx.Response(200, json=TestClient(create_app(seeded)).get(str(r.url)).json())))
+    assert api_limit_check(fresh).status == "ok"
+    stale = httpx.Client(base_url="http://testserver", transport=_IgnoreLimit(TestClient(create_app(seeded))))
+    c = api_limit_check(stale)
+    assert c.status == "warn" and "ignora `limit`" in c.detail and "reiníciala" in c.detail
+

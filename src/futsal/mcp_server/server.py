@@ -104,11 +104,11 @@ def create_server(client: httpx.Client | None = None) -> FastMCP:
     ) -> dict[str, Any]:
         """Partidos de un grupo: equipos, fecha, estado, marcador y has_report (acta disponible). Filtros
         opcionales; count = total de coincidencias (shown = filas devueltas si hay limit)."""
-        return _listing(
-            "matches",
-            _get(http, f"/groups/{group_id}/matches", f"grupo {group_id}",
-                 round_id=round_id, status=status, team_id=team_id, has_report=has_report, limit=limit),
-        )
+        data = _get(http, f"/groups/{group_id}/matches", f"grupo {group_id}",
+                    round_id=round_id, status=status, team_id=team_id, has_report=has_report, limit=limit)
+        if limit is not None and len(data["items"]) > limit:  # API anterior a `limit` (sin reiniciar): se recorta aquí
+            data = {"items": data["items"][:limit], "count": len(data["items"]), "shown": limit}
+        return _listing("matches", data)
 
     @mcp.tool()
     def get_match(

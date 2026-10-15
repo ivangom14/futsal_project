@@ -174,3 +174,9 @@ def test_list_matches_forwards_limit_and_exposes_shown() -> None:
     assert not is_error and json.loads(text) == {"matches": [{"id": 1}], "count": 163, "shown": 1}
     plain = _run("list_matches", {"group_id": 1}, lambda r: httpx.Response(200, json=LISTING))
     assert "shown" not in json.loads(plain[1])
+
+
+def test_list_matches_limit_is_enforced_even_if_the_api_ignores_it() -> None:
+    old_api = lambda req: httpx.Response(200, json={"items": [{"id": i} for i in range(19)], "count": 19})  # noqa: E731
+    is_error, text = _run("list_matches", {"group_id": 1, "status": "finished", "limit": 1}, old_api)
+    assert not is_error and json.loads(text) == {"matches": [{"id": 0}], "count": 19, "shown": 1}

@@ -90,3 +90,23 @@ y fallaron; el ahorro «limpio» en casos que se comportan igual es ≈ −18,4k
   sin marcador para esa verdad.
 - `acta_tarjetas_codigo`: **corregido** (ya no llama a `list_teams`).
 - `acta_goleadores_contra_equipo` usa `top_scorers(against_team_id)`: −4.127 tokens y una llamada menos.
+
+## 9. Segunda medición online (commit `27a6596`, 15/10/2026 21:46)
+| | Línea base `aeb29e4` | `b1d62d3` | `27a6596` |
+|---|---|---|---|
+| Entrada (real) | 172.078 | 145.622 | **170.732** |
+| Llamadas LLM / herramientas | 58 / 32 | 54 / 28 | 61 / 36 |
+| Casos | 26 pass, 1 fail | 23 pass, 4 fail | 25 pass, 2 fail |
+| Primera llamada (prefijo, real) | 2.463 | ~2.071 | ~2.102 (**−14,7 %**) |
+| Caché | 0 | 4.012 | 8.218 |
+
+**Conclusión honesta:** el ahorro del prefijo es real y estable (−14,7 % por llamada), pero el total depende del número de llamadas y de las filas
+devueltas, que varían entre ejecuciones del mismo código (54 → 61 llamadas; 145k → 171k). Con una ejecución por caso **no se puede resolver
+un efecto menor de ~10 %**.
+- **`limit` no funcionó en ninguna de las dos mediciones:** `list_matches(limit=1)` devolvió «19 matches» y 7.403 caracteres, es decir, la API
+  en marcha era anterior al cambio (no se reinició tras `git pull`). El modelo repitió las llamadas y `recuento_global` pasó de 9k a 21k tokens.
+  Corregido: el MCP recorta él mismo cuando la API ignora `limit`, y el preflight avisa («la API en marcha ignora `limit`: reiníciala»).
+- `acta_sustituciones_minuto`: el modelo respondió con una frase de limitación no reconocida («no tengo esa información…») y el guardarraíl la
+  sustituyó. Ampliadas las frases reconocidas y la traza guarda ahora `raw_answer` (texto previo a la sustitución).
+- Variaciones de conducta sin fallo: `acta_jugador_ambiguo` dio los goles de los dos candidatos (una llamada más) y
+  `acta_goleadores_contra_equipo` verificó el equipo con `find_players` y `list_teams` (dos llamadas más).

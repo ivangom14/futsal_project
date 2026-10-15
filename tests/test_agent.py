@@ -594,3 +594,13 @@ def test_unverified_not_found_answer_gets_one_reconsideration_instead_of_the_sco
     limit = ScriptedLLM([LLMResponse("No dispongo de esa información.", [])])
     res3 = _run(limit, "¿Resultado por periodos del partido de la jornada 3?")
     assert len(limit.calls) == 1 and res3.guardrail == "limitacion_sin_tools"
+
+
+def test_raw_text_is_kept_when_the_guardrail_replaces_it_and_wider_limit_phrases_are_kept() -> None:
+    llm = ScriptedLLM([LLMResponse("Quedó 3-1.", []), LLMResponse("Seguro que fue 2-0.", [])])
+    res = _run(llm, "¿Cómo quedó el partido de la jornada 3?")
+    assert res.guardrail == "sin_datos_de_tools" and res.run is not None
+    assert res.run.raw_answer == "Quedó 3-1. || Seguro que fue 2-0."
+    for text in ("No tengo esa información.", "No dispongo de los minutos de los cambios.", "No cuento con ese dato."):
+        kept = _run(ScriptedLLM([LLMResponse(text, [])]), "¿En qué minuto entraron los suplentes?")
+        assert kept.answer == text and kept.guardrail == "limitacion_sin_tools", text

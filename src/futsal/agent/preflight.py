@@ -114,6 +114,20 @@ def api_snapshot(client: httpx.Client) -> dict[str, Any]:
             "with_report": cov.get("with_report")}
 
 
+def api_limit_check(client: httpx.Client) -> Check:
+    """¿La API en marcha admite `limit` en list_matches? Si es una versión anterior (no reiniciada tras git pull) lo ignora."""
+    try:
+        comps = client.get("/competitions").json()["items"]
+        gid = client.get(f"/competitions/{comps[0]['id']}/groups").json()["items"][0]["id"]
+        data = client.get(f"/groups/{gid}/matches", params={"limit": 1}).json()
+    except Exception as exc:  # noqa: BLE001
+        return Check("API limit", "warn", f"no se pudo comprobar ({type(exc).__name__})")
+    if data.get("count", 0) <= 1 or (len(data["items"]) == 1 and data.get("shown") == 1):
+        return Check("API limit", "ok", "list_matches admite limit")
+    return Check("API limit", "warn", "la API en marcha ignora `limit`: reiníciala (Ctrl+C y uvicorn futsal.api.app:app_factory"
+                                      " --factory --port 8000) tras git pull; el MCP recorta mientras tanto, pero la API lee de más")
+
+
 def verify_same_database(engine: Engine, client: httpx.Client) -> SameDb:
     """¿La base que lee la evaluación es la que sirve la API? Compara huellas de partidos y cobertura de actas."""
     try:
@@ -202,6 +216,8 @@ def run_preflight(engine: Engine | None, client: httpx.Client | None, *, for_liv
         health = Check("API", "fail", f"no responde ({type(exc).__name__}); arranca: uvicorn futsal.api.app:app_factory"
                                       " --factory --port 8000")
     checks.append(health)
+    if health.status == "ok":
+        checks.append(api_limit_check(client))
     same = verify_same_database(engine, client) if health.status == "ok" else SameDb(
         "unproven", "la API no responde: no se puede demostrar que usa la misma base")
     db = same.db

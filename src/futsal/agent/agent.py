@@ -258,6 +258,7 @@ class Agent:
                     and (resp.text.strip() == OFF_TOPIC_MESSAGE or not states_tool_limit(resp.text))):
                 # La pregunta habla de la competición: se pide UNA vez consultar las tools antes de darla por ajena.
                 nudged = True
+                rec.raw_answer = redact(resp.text.strip()[:300])
                 messages += [Message("assistant", resp.text), Message("user", RECONSIDER_MESSAGE)]
                 log("GUARDRAIL\n→ respuesta sin tools a una pregunta de la competición: se pide consultar las tools")
                 continue
@@ -270,6 +271,8 @@ class Agent:
                         log("GUARDRAIL\n→ limitación declarada sin tools: se conserva la respuesta")
                     else:
                         # Guardarraíl: toda respuesta con datos debe apoyarse en al menos una tool.
+                        first = f"{rec.raw_answer} || " if rec.raw_answer else ""
+                        rec.raw_answer = (first + redact(resp.text.strip()[:300]))[:600]
                         result.answer, result.guardrail = OFF_TOPIC_MESSAGE, "sin_datos_de_tools"
                         log("GUARDRAIL\n→ respuesta sin consultar tools: se sustituye por el aviso de alcance")
                 log("LLM\n→ final answer")
