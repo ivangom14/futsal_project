@@ -110,3 +110,22 @@ un efecto menor de ~10 %**.
   sustituyó. Ampliadas las frases reconocidas y la traza guarda ahora `raw_answer` (texto previo a la sustitución).
 - Variaciones de conducta sin fallo: `acta_jugador_ambiguo` dio los goles de los dos candidatos (una llamada más) y
   `acta_goleadores_contra_equipo` verificó el equipo con `find_players` y `list_teams` (dos llamadas más).
+
+## 10. Tercera medición online (commit `07006ca`, 16/10/2026 21:13; API reiniciada)
+| | Línea base `aeb29e4` | `27a6596` | `07006ca` |
+|---|---|---|---|
+| Entrada (real) | 172.078 | 170.732 | **157.967 (−8,2 % vs base)** |
+| Llamadas LLM / herramientas | 58 / 32 | 61 / 36 | 58 / 32 |
+| Casos | 26 pass, 1 fail | 25 pass, 2 fail | 24 pass, 3 fail |
+| Capa herramientas | 26/27 | 25/27 | **27/27** |
+| Primera llamada (prefijo) | 2.463 | ~2.102 | 2.100-2.132 (−13,6 %) |
+| Caché | 0 | 8.218 | 4.012 |
+
+- El prefijo fijo sigue siendo el 77,5 % de los tokens. No hay fallos de herramientas, datos, invención ni advertencias.
+- **Las 3 regresiones tienen la misma causa y es mía:** el prompt de la 11.4 decía «que no dispones de esa información» y el modelo repitió
+  esa frase en segunda persona («No dispones de esa información…»), que es falsa y el criterio léxico rechaza con razón. Afecta a
+  `acta_dato_no_almacenado`, `jornada_inexistente` y `acta_sustituciones_minuto`; la traza confirma `limitacion_sin_tools` en los tres.
+  Corregido con una frase de ejemplo en primera persona; «no dispone(s)» ya no cuenta como limitación de las herramientas.
+- `limit` no se usó en `recuento_global` (el modelo no lo eligió); sin `limit` el recuento cuesta ~9k tokens.
+- Llamadas de más por conducta del modelo: `enfrentamiento_ganador` (+`get_match`), `acta_finalizado_sin_acta` (+`get_match_report`),
+  `acta_goleadores_contra_equipo` (+`find_players`, `list_teams`).

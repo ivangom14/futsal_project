@@ -108,7 +108,7 @@ def test_unsupported_scores_catches_a_transcribed_wrong_score() -> None:
 def test_leaks_prompt_detects_copied_instructions_but_allows_the_scope_notice() -> None:
     from futsal.agent.agent import OFF_TOPIC_MESSAGE, SYSTEM_PROMPT
 
-    leak = "Si un equipo o jugador no aparece, compruébalo con list_teams o find_players. No consta."
+    leak = "Último partido de un equipo: su último finished y, con su id, get_match_report. No consta."
     assert leaks_prompt(leak, SYSTEM_PROMPT, OFF_TOPIC_MESSAGE)
     assert not leaks_prompt(OFF_TOPIC_MESSAGE, SYSTEM_PROMPT, OFF_TOPIC_MESSAGE)
     assert not leaks_prompt("El jugador no consta en las actas almacenadas del grupo.", SYSTEM_PROMPT, OFF_TOPIC_MESSAGE)
@@ -126,3 +126,8 @@ def test_coverage_counts_must_match_the_coverage_payload() -> None:
     assert unsupported_coverage_counts("1 de 19 partidos sin acta", ev) == []
     assert unsupported_coverage_counts("7 de 7 partidos", [{"coverage": {"finished_matches": 7, "with_report": 7}}]) == []
     assert unsupported_coverage_counts("3 de 9 partidos", []) == []       # sin cobertura en la evidencia: no se juzga
+
+
+def test_second_person_limitation_is_not_accepted_as_a_tool_limit_statement() -> None:
+    assert states_tool_limit("No dispongo de ese dato en mis herramientas.")
+    assert not states_tool_limit("No dispones de esa información.")      # persona equivocada: el modelo repite el prompt

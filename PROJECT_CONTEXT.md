@@ -129,3 +129,7 @@ Validación online PENDIENTE (preflight → smoke con `--max-requests` → suite
 Fase 11.4 (primera medición online de la Fase 11, `b1d62d3`): entrada real 145.622 (−15,4 %), 54 llamadas, pero 4 regresiones; ahorro
 limpio ≈ −10,7 %. Corregido: cabecera de contexto condicional, reconsulta ante respuestas sin tools a preguntas de la competición,
 «(acta disponible)» restaurado, primera persona en las limitaciones y criterio léxico de `no_report`. Pendiente repetir online.
+
+Fase 11.6 (tercera medición online, `07006ca`): entrada real 157.967 (−8,2 % vs 172.078), 58 llamadas, herramientas 27/27; 3 fallos por mi
+frase de limitación en segunda persona («No dispones…»), corregida con ejemplo en primera persona. Prefijo −13,6 % por llamada (estable);
+el total depende de la conducta del modelo (54-61 llamadas). Pendiente: repetir online y medir con varias ejecuciones.
