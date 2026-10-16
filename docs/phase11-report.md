@@ -142,3 +142,28 @@ es una constante compartida y `leaks_prompt` la descuenta, igual que el aviso de
 presentación en ✔), 1 llamada cada una, 2.145 tokens de entrada por llamada (línea base: 2.463). Junto con `jornada_inexistente`
 (pass en `9e6214f`), las tres regresiones de la 11.4 quedan resueltas **en ejecuciones parciales**. Falta una ejecución completa con el
 commit final para dar la fase por validada de extremo a extremo.
+
+## 13. Suite completa con el commit final (`83d1472`, 16/10/2026 21:40)
+| | Línea base `aeb29e4` | `83d1472` | Δ |
+|---|---|---|---|
+| Entrada (real) | 172.078 | **158.715** | **−13.363 (−7,8 %)** |
+| Salida (real) | 3.650 | 3.654 | = |
+| Llamadas LLM / herramientas MCP | 58 / 32 | 60 / 34 | +2 / +2 |
+| Primera llamada (prefijo) | 2.463 | 2.145 | −12,9 % |
+| Casos | 26 pass, 1 fail, 2 n.e. | 26 pass, 1 fail, 2 n.e. | = |
+| Capas datos / respuesta / invención / advertencia / presentación | — | 27/27 en todas | |
+| Capa herramientas | 26/27 | 26/27 | = |
+| Caché | 0 | 4.012 | |
+| Reintentos / 429 | 0 | 0 | |
+
+- **Único fallo:** `acta_arbitro` (respuesta correcta; datos, invención y advertencia ✔). El modelo llamó además a `list_teams` aunque
+  los IDs de equipo están en el contexto (4 llamadas, 14.285 tokens). Es la misma clase de desviación que tuvo `acta_tarjetas_codigo` en
+  la línea base; aparece en un caso distinto en cada ejecución (no en todas), es decir, conducta variable del modelo, no una regla rota.
+- **`acta_tarjetas_codigo` pasa** y `limit` funciona: `recuento_global` pasó de 9.092 a 4.536 tokens (el modelo usó `limit=1`).
+- Casos de limitación, existencia y ambigüedad: todos pass.
+- Latencia sin pausas 104,8 s, mayor que en ejecuciones anteriores (58-67 s): los primeros casos tardaron ~6 s por 2 llamadas (vs ~2 s), es decir,
+  variación de latencia del proveedor, no de código; las herramientas suman 2,0 s.
+
+**Conclusión de la fase.** Prefijo −13 % por llamada (estable en 5 mediciones), ahorro total de entrada de entre el 8 y el 15 % según la
+ejecución, sin pérdida de calidad medible (mismos 26/27 evaluables, capas de datos, invención y advertencia sin fallos). El objetivo de 70-90k no
+era alcanzable sin recortar herramientas o reglas; el realista queda en ~150-160k.

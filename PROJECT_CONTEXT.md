@@ -139,3 +139,6 @@ Fase 11.7: repetición de las 3 limitaciones (`9e6214f`): respuestas correctas e
 
 Fase 11.8: las 2 limitaciones pasan online con `73e03b6` (2/2); `jornada_inexistente` pasó con `9e6214f`. Pendiente solo una suite completa
 con el commit final para cerrar la fase.
+
+Fase 11 cerrada (suite completa con `83d1472`): entrada real 158.715 (−7,8 % vs 172.078), 60 llamadas, 26 pass / 1 fail / 2 n.e.; único fallo =
+`list_teams` de más en `acta_arbitro` (variación del modelo). Prefijo −13 %/llamada, `limit` operativo, 0 reintentos. Informe: `docs/phase11-report.md`.
