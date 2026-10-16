@@ -136,3 +136,6 @@ el total depende de la conducta del modelo (54-61 llamadas). Pendiente: repetir 
 
 Fase 11.7: repetición de las 3 limitaciones (`9e6214f`): respuestas correctas en primera persona, pero el detector de fugas marcaba la fórmula
 `LIMITATION_REPLY` que el propio prompt pide; ahora se descuenta (como el aviso de alcance). Pendiente: confirmar online.
+
+Fase 11.8: las 2 limitaciones pasan online con `73e03b6` (2/2); `jornada_inexistente` pasó con `9e6214f`. Pendiente solo una suite completa
+con el commit final para cerrar la fase.

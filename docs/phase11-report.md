@@ -136,3 +136,9 @@ un efecto menor de ~10 %**.
 herramientas y respuesta, pero **fallan la capa de invención**: el detector de fugas del prompt marca esa frase porque el propio
 prompt la da como ejemplo. Es un falso positivo mío (la frase es la fórmula pedida, no una cita accidental). Corregido: `LIMITATION_REPLY`
 es una constante compartida y `leaks_prompt` la descuenta, igual que el aviso de alcance; cualquier otra copia de las instrucciones se sigue marcando.
+
+## 12. Confirmación de las limitaciones (commit `73e03b6`, 16/10/2026 21:26)
+`acta_dato_no_almacenado` y `acta_sustituciones_minuto`: **2 pass, 0 fail** (datos, herramientas, respuesta, invención, advertencia y
+presentación en ✔), 1 llamada cada una, 2.145 tokens de entrada por llamada (línea base: 2.463). Junto con `jornada_inexistente`
+(pass en `9e6214f`), las tres regresiones de la 11.4 quedan resueltas **en ejecuciones parciales**. Falta una ejecución completa con el
+commit final para dar la fase por validada de extremo a extremo.
