@@ -133,3 +133,6 @@ limpio ≈ −10,7 %. Corregido: cabecera de contexto condicional, reconsulta an
 Fase 11.6 (tercera medición online, `07006ca`): entrada real 157.967 (−8,2 % vs 172.078), 58 llamadas, herramientas 27/27; 3 fallos por mi
 frase de limitación en segunda persona («No dispones…»), corregida con ejemplo en primera persona. Prefijo −13,6 % por llamada (estable);
 el total depende de la conducta del modelo (54-61 llamadas). Pendiente: repetir online y medir con varias ejecuciones.
+
+Fase 11.7: repetición de las 3 limitaciones (`9e6214f`): respuestas correctas en primera persona, pero el detector de fugas marcaba la fórmula
+`LIMITATION_REPLY` que el propio prompt pide; ahora se descuenta (como el aviso de alcance). Pendiente: confirmar online.

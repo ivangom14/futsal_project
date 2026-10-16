@@ -157,12 +157,13 @@ def unsupported_coverage_counts(text: str, payloads: list[dict[str, Any]]) -> li
     return [m.group(0) for m in COVERAGE_COUNT_RE.finditer(text) if (int(m.group(1)), int(m.group(2))) not in valid]
 
 
-def leaks_prompt(text: str, prompt: str, allowed: str = "", window: int = 7) -> bool:
+def leaks_prompt(text: str, prompt: str, allowed: str | tuple[str, ...] = "", window: int = 7) -> bool:
     """¿Copia la respuesta una secuencia de `window` palabras seguidas de las instrucciones del sistema?
     `allowed` (el aviso de alcance, que sí se cita) se descuenta antes de comparar."""
     body = norm(text)
-    if allowed:
-        body = body.replace(norm(allowed), " ")
+    for ok in ((allowed,) if isinstance(allowed, str) else allowed):
+        if ok:
+            body = body.replace(norm(ok), " ")
     words, ref = body.split(), norm(prompt).split()
     grams = {" ".join(ref[i:i + window]) for i in range(max(len(ref) - window + 1, 0))}
     return any(" ".join(words[i:i + window]) in grams for i in range(max(len(words) - window + 1, 0)))

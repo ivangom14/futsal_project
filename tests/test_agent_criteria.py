@@ -131,3 +131,14 @@ def test_coverage_counts_must_match_the_coverage_payload() -> None:
 def test_second_person_limitation_is_not_accepted_as_a_tool_limit_statement() -> None:
     assert states_tool_limit("No dispongo de ese dato en mis herramientas.")
     assert not states_tool_limit("No dispones de esa información.")      # persona equivocada: el modelo repite el prompt
+
+
+def test_the_instructed_limitation_formula_is_not_a_prompt_leak_but_other_copies_are() -> None:
+    from futsal.agent.agent import LIMITATION_REPLY, OFF_TOPIC_MESSAGE, SYSTEM_PROMPT
+
+    allowed = (OFF_TOPIC_MESSAGE, LIMITATION_REPLY)
+    assert leaks_prompt(LIMITATION_REPLY, SYSTEM_PROMPT)                          # sin permitirla, coincide con el prompt
+    assert not leaks_prompt(LIMITATION_REPLY, SYSTEM_PROMPT, allowed)
+    assert not leaks_prompt("Respuesta: " + LIMITATION_REPLY, SYSTEM_PROMPT, allowed)
+    copied = "Último partido de un equipo: su último finished y, con su id, get_match_report."
+    assert leaks_prompt(LIMITATION_REPLY + " " + copied, SYSTEM_PROMPT, allowed)

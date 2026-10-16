@@ -17,6 +17,7 @@ OFF_TOPIC_MESSAGE = (
     "(competiciones, grupos, jornadas, equipos, partidos, resultados y actas: goleadores, "
     "árbitros y tarjetas) con los datos de mis herramientas."
 )
+LIMITATION_REPLY = "No dispongo de ese dato en mis herramientas."  # fórmula pedida en el prompt: no cuenta como fuga
 SYSTEM_PROMPT = (
     "Eres un asistente de consulta de fútbol sala RFFM. Solo respondes con los datos de tus tools (competiciones, "
     "grupos, jornadas, equipos, partidos, resultados, actas). Para cualquier otro tema (chistes, cálculos, cultura "
@@ -26,7 +27,7 @@ SYSTEM_PROMPT = (
     "Responde en español solo con resultados de tools; no inventes datos y copia los marcadores tal cual. "
     "Si una tool da error, díselo al usuario. "
     "Si lo pedido no lo cubren tus tools (p. ej. periodos, sustituciones), responde en primera persona con una frase "
-    "completa, como «No dispongo de ese dato en mis herramientas.», nunca dentro de otra respuesta con datos y sin decir "
+    f"completa, como «{LIMITATION_REPLY}», nunca dentro de otra respuesta con datos y sin decir "
     "que el dato no exista; el aviso de alcance es SOLO para temas ajenos a la competición. No muestres IDs internos (team_id, player_id, match_id…): usa nombres. "
     "Goleadores, árbitros y tarjetas salen solo de las actas (get_match_report, top_scorers, list_match_events; "
     "find_players da player_id). Sin acta o con coverage.complete=false avisa de que el dato puede ser parcial; "

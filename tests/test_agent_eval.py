@@ -366,3 +366,10 @@ def test_unplayed_match_answer_without_the_word_acta_still_satisfies_no_report()
     assert answer_ok(f, "Aún no se ha jugado, así que no hay goles.")
     assert not answer_ok(f, "Quedó 3-1 y marcó Javier.")
     assert not answer_ok(f, "Está por jugar, pero quedaría 2-1.")
+
+
+def test_invention_does_not_flag_the_instructed_limitation_reply() -> None:
+    from futsal.agent.agent import LIMITATION_REPLY
+
+    case = _case(Fact("limitation", "x"))
+    assert invention_claims(case, LIMITATION_REPLY, _truth(), []) == []

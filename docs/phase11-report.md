@@ -129,3 +129,10 @@ un efecto menor de ~10 %**.
 - `limit` no se usó en `recuento_global` (el modelo no lo eligió); sin `limit` el recuento cuesta ~9k tokens.
 - Llamadas de más por conducta del modelo: `enfrentamiento_ganador` (+`get_match`), `acta_finalizado_sin_acta` (+`get_match_report`),
   `acta_goleadores_contra_equipo` (+`find_players`, `list_teams`).
+
+## 11. Repetición de los 3 casos de limitación (commit `9e6214f`, 16/10/2026 21:23)
+`jornada_inexistente` pasa (consulta `list_rounds`, «La jornada 99 no figura en el grupo»). `acta_dato_no_almacenado` y
+`acta_sustituciones_minuto` responden bien, en primera persona («No dispongo de ese dato en mis herramientas.»), y pasan datos,
+herramientas y respuesta, pero **fallan la capa de invención**: el detector de fugas del prompt marca esa frase porque el propio
+prompt la da como ejemplo. Es un falso positivo mío (la frase es la fórmula pedida, no una cita accidental). Corregido: `LIMITATION_REPLY`
+es una constante compartida y `leaks_prompt` la descuenta, igual que el aviso de alcance; cualquier otra copia de las instrucciones se sigue marcando.
