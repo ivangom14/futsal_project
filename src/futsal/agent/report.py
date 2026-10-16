@@ -1,5 +1,6 @@
 """Informe de evaluación (Markdown + JSON), estimación de cuota y comparación entre ejecuciones. Sin red."""
 
+import hashlib
 import json
 import subprocess
 from dataclasses import asdict
@@ -8,6 +9,7 @@ from pathlib import Path
 from typing import Any
 
 from futsal.agent.evaluate import CaseResult, summarize_results
+from futsal.agent.regression import UNAVAILABLE_METRICS, overall_status
 
 LAYERS = [("datos", "evidence_ok"), ("herramientas", "tools_ok"), ("respuesta", "answer_ok"),
           ("invención", "invention_ok"), ("advertencia", "warning_ok"), ("presentación", "presentation_ok")]
@@ -23,11 +25,32 @@ def git_commit() -> str:
         return "n/d"
 
 
+def git_dirty() -> bool | None:
+    """¿Hay cambios sin commit? None si no se puede saber (sin git): entonces el commit no identifica del todo el código."""
+    try:
+        done = subprocess.run(["git", "status", "--porcelain"], capture_output=True, text=True,  # noqa: S603, S607
+                              timeout=5, check=False)
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    return bool(done.stdout.strip()) if done.returncode == 0 else None
+
+
+def suite_version(suite: str, case_ids: list[str]) -> str:
+    """Identifica el CONJUNTO de casos ejecutados (nombre + nº + huella de sus ids); cambia al añadir/quitar casos."""
+    digest = hashlib.sha256("\n".join(sorted(case_ids)).encode("utf-8")).hexdigest()[:10]
+    return f"{suite}-{len(case_ids)}-{digest}"
+
+
 def build_meta(*, mode: str, suite: str, provider: str, model: str, args: dict[str, Any],
-               preflight: dict[str, Any] | None) -> dict[str, Any]:
+               preflight: dict[str, Any] | None, run_id: str | None = None,
+               case_ids: list[str] | None = None) -> dict[str, Any]:
     """Metadatos de la ejecución. Nunca incluye claves ni cadenas de conexión."""
-    return {"generated_at": datetime.now(UTC).isoformat(), "mode": mode, "suite": suite, "provider": provider,
-            "model": model, "commit": git_commit(), "args": args, "preflight": preflight}
+    meta: dict[str, Any] = {"schema": 2, "run_id": run_id, "generated_at": datetime.now(UTC).isoformat(), "mode": mode,
+                            "suite": suite, "provider": provider, "model": model, "commit": git_commit(),
+                            "commit_dirty": git_dirty(), "args": args, "preflight": preflight}
+    if case_ids is not None:
+        meta["suite_version"] = suite_version(suite, case_ids)
+    return meta
 
 
 def plan_estimate(offline: list[CaseResult], *, selected: int, max_tool_calls: int, retries: int,
@@ -79,7 +102,10 @@ def render_markdown(meta: dict[str, Any], results: list[CaseResult]) -> str:
     s = summarize_results(results)
     pre = meta.get("preflight") or {}
     out = [f"# Informe de evaluación del agente ({meta['mode']}, suite {meta['suite']})", "",
-           f"- Fecha: {meta['generated_at']}  ·  commit: `{meta['commit']}`",
+           f"- Estado global: **{overall_status(s)[0]}** — {overall_status(s)[1]}",
+           f"- Ejecución: `{meta.get('run_id') or 'n/d'}`  ·  suite: `{meta.get('suite_version') or 'n/d (informe anterior a la Fase 13)'}`",
+           f"- Fecha: {meta['generated_at']}  ·  commit: `{meta['commit']}`"
+           + {True: " (**con cambios sin commit**)", False: "", None: " (¿cambios sin commit? no se pudo comprobar)"}[meta.get("commit_dirty")],
            f"- Proveedor/modelo: **{meta['provider']} / {meta['model']}**",
            f"- Misma base API = evaluación: **{pre.get('same_database', 'no comprobado')}** — {pre.get('detail', '')}",
            f"- Resultado: **{s['pass']} pass · {s['fail']} fail · {s['not_evaluable']} no evaluables · {s['not_run']} sin ejecutar**",
@@ -118,6 +144,11 @@ def render_markdown(meta: dict[str, Any], results: list[CaseResult]) -> str:
         out += [f"**Consumo:** {r.llm_calls} llamadas LLM ({r.llm_retries} reintentos) · tokens in {r.input_tokens} / out "
                 f"{r.output_tokens} / razonamiento {r.thinking_tokens} · caché {r.cached_tokens} · origen: {SOURCE_LABEL.get(r.token_source, r.token_source)}"
                 f" · latencia {r.latency_ms} ms (tools {r.tool_ms} ms) · run `{r.run_id}`", ""]
+    out += ["## Limitaciones de la medición", "",
+            "- Los tokens son los que informa el proveedor cuando el origen es de proveedor; las estimaciones locales (modo offline) no se mezclan con ellos.",
+            "- Cada llamada al LLM se cuenta una sola vez (tokens por llamada, no acumulados); el total por caso es la suma de sus llamadas "
+            "y el de la suite, la suma de los casos evaluados o cortados por el proveedor.",
+            "- No disponible: " + "; ".join(UNAVAILABLE_METRICS) + ".", ""]
     out += ["## Cómo interpretar este informe", "",
             "- `✔` cumple, `✘` falla, `—` no aplica o no se pudo evaluar de forma fiable (nunca se aprueba por defecto).",
             "- Las comprobaciones de respuesta son criterios léxicos deterministas: acotan la invención pero no sustituyen "

@@ -235,3 +235,43 @@ Resumen y comparativa en `docs/phase11-report.md`. Cambios que afectan al uso: `
 `shown` = filas devueltas; para contar basta `limit=1`); los resultados enviados al LLM no incluyen `round_id` ni valores nulos;
 el esquema de herramientas se envía sin uniones `null` ni sangrías (`slim_tools`); la traza y el informe incluyen el tamaño del
 prefijo fijo por llamada y la latencia se mide sin las pausas de `--min-interval`.
+
+## Fase 13: evaluación continua y observabilidad (todo offline por defecto)
+Reutiliza el evaluador, `results.json`/`report.md` y las trazas existentes; añade identidad de ejecución, estado global, comparación con
+veredicto y listado de ejecuciones. **Nada de esto llama a ningún LLM**: solo lee `results.json`.
+
+**Identidad de cada ejecución** (`meta` de `results.json` y cabecera de `report.md`): `run_id`, fecha, commit (+ `commit_dirty` si hay cambios
+sin commit), `suite_version` (nombre, nº de casos y huella de sus ids), modo, proveedor/modelo (sin credenciales), casos
+pass/fail/no evaluables/sin ejecutar y **estado global**: `SUPERADA`, `CON FALLOS`, `INCOMPLETA` (hay casos sin ejecutar: no es concluyente) o
+`SIN CASOS EVALUABLES`. Los informes anteriores a la Fase 13 se leen igual; sus campos nuevos aparecen como «n/d».
+
+**Cómo se agregan las métricas.** Los tokens son los de cada llamada al LLM (no acumulados); el caso suma sus llamadas y la suite suma los casos
+evaluados y los cortados por el proveedor, cada llamada una sola vez. Las pausas de `--min-interval` no cuentan como latencia. Los tokens
+estimados (offline) y los del proveedor no se mezclan ni se comparan. **No disponibles:** tokens de caché de escritura, coste monetario y
+códigos de error por llamada (solo reintentos y casos cortados por el proveedor).
+
+**Comparar con una referencia** (CMD):
+```
+python -m futsal.agent.evaluate --list-runs
+python -m futsal.agent.evaluate --compare data\agent\eval\<ANTES>\results.json data\agent\eval\<DESPUES>\results.json
+python -m futsal.agent.evaluate --mode offline --suite all --baseline data\agent\eval\<ANTES>\results.json
+```
+La comparación mantiene la tabla por caso y añade un **veredicto**: `SIN_REGRESIONES`, `ATENCION`, `REGRESION` o `NO_COMPARABLE`
+(distinto modo, proveedor o modelo, o sin casos comunes: no se emite decisión automática), y «LISTA / NO LISTA PARA REVISIÓN». La calidad
+es una condición independiente: **menos tokens nunca compensa un fallo**. `--baseline` guarda además `comparison.txt` en la carpeta de la ejecución.
+Por defecto solo informa (código de salida 0); con `--fail-on-regression` sale con 1 si hay regresiones bloqueantes.
+
+| Señal | Tipo | Umbral por defecto y justificación |
+|---|---|---|
+| pass → fail; caso evaluado → no evaluable/sin ejecutar; menos casos evaluables | bloqueante | ninguno: es pérdida de calidad o de cobertura |
+| capa datos/herramientas/respuesta/invención/advertencia ✔ → ✘ (aunque el caso ya fallara) | bloqueante | ninguno; invención y advertencias son salvaguardas |
+| errores de herramientas MCP nuevos | bloqueante | ninguno |
+| tokens de entrada, llamadas LLM, llamadas MCP (casos comunes evaluados) | bloqueante | +15 %, +10 %, +15 %: es el ruido real entre ejecuciones del mismo código en la Fase 11 (54-61 llamadas, 145k-171k tokens). `--max-tokens-pct`, `--max-calls-pct` (negativo = solo informativo) |
+| latencia | aviso | desactivado: varía con el proveedor (58-105 s con el mismo código). `--max-latency-pct` |
+| reintentos adicionales; ejecuciones cortadas por el proveedor | aviso | +3 (`--max-retries-increase`) |
+| capa presentación ✔ → ✘ | aviso | informativa |
+| casos nuevos o ausentes, suite distinta | info/aviso | se comparan solo los casos comunes |
+
+**Limitaciones:** la comparación de consumo solo es fiable entre ejecuciones del mismo modo, proveedor, modelo y origen de tokens; con una
+ejecución por caso no se distinguen diferencias menores que el ruido anterior; la validación con un proveedor real depende de ejecuciones
+`--mode live` que lanza el usuario.

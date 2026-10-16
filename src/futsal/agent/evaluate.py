@@ -1051,6 +1051,8 @@ async def _main(args: argparse.Namespace) -> int:
             return 2
     stamp = datetime.now(UTC).strftime("%Y%m%d-%H%M%S")
     run_dir = Path(args.report_dir) / f"{stamp}-{args.mode}-{suite}"
+    run_id = f"{stamp}-{args.mode}-{suite}"
+    case_ids = [c.id for c in select_cases(build_cases(truth), suite=suite, only=only, limit=args.limit)]
     trace = Path(args.trace_file) if args.trace_file else run_dir / "traces.raw.jsonl"
     max_requests = args.max_requests if live else None
     async with stdio_client(stdio_params()) as (read, write):
@@ -1078,15 +1080,53 @@ async def _main(args: argparse.Namespace) -> int:
         args={"max_tool_calls": args.max_tool_calls, "max_rows": args.max_rows, "max_requests": max_requests,
               "llm_max_retries": retries, "min_interval_s": getattr(llm, "_min", None), "only": sorted(only) if only else None, "limit": args.limit},
         preflight={"same_database": same.verdict, "detail": same.detail,
-                   "db": {k: v for k, v in same.db.items() if k != "empty"}})
+                   "db": {k: v for k, v in same.db.items() if k != "empty"}}, run_id=run_id, case_ids=case_ids)
     paths = write_report(run_dir, meta, results)
+    exit_code = 1 if any(r.status == "fail" for r in results) else 0
+    if args.baseline:
+        exit_code = max(exit_code, _compare_with_baseline(args, paths, run_dir))
     if trace.exists():
         sanitize_trace_file(trace, run_dir / "traces.sanitized.jsonl")
     if args.output:
         Path(args.output).parent.mkdir(parents=True, exist_ok=True)
         Path(args.output).write_text(paths["results"].read_text(encoding="utf-8"), encoding="utf-8")
     print(f"\nInforme: {paths['report']}\nPara compartir (sin claves): {paths['report']} y {run_dir / 'traces.sanitized.jsonl'}")
-    return 1 if any(r.status == "fail" for r in results) else 0
+    return exit_code
+
+
+def _thresholds(args: argparse.Namespace) -> Any:
+    from futsal.agent.regression import Thresholds
+
+    d = Thresholds()
+
+    def pick(value: float | None, default: float | None) -> float | None:
+        return default if value is None else (None if value < 0 else value)  # negativo = solo informativo
+
+    return Thresholds(pick(args.max_tokens_pct, d.max_input_tokens_pct), pick(args.max_calls_pct, d.max_llm_calls_pct),
+                      d.max_tool_calls_pct, pick(args.max_latency_pct, d.max_latency_pct),
+                      d.max_retries_increase if args.max_retries_increase is None else args.max_retries_increase,
+                      args.allow_fewer_evaluable)
+
+
+def _compare_text(before_path: Path, after: dict[str, Any], args: argparse.Namespace) -> tuple[str, bool]:
+    """Comparación + veredicto de «lista para revisión» frente a una referencia. Devuelve (texto, hay bloqueos)."""
+    from futsal.agent.regression import compare, render_verdict
+    from futsal.agent.report import compare_runs
+
+    before = json.loads(before_path.read_text(encoding="utf-8"))
+    verdict = compare(before, after, _thresholds(args))
+    return compare_runs(before, after) + "\n\n" + render_verdict(verdict, after, str(before_path)), bool(verdict.blocking())
+
+
+def _compare_with_baseline(args: argparse.Namespace, paths: dict[str, Path], run_dir: Path) -> int:
+    ref = Path(args.baseline)
+    if not ref.is_file():
+        print(f"\nAVISO: no existe la referencia {ref}: no hay comparación (no se inventa una).")
+        return 0
+    text, blocked = _compare_text(ref, json.loads(paths["results"].read_text(encoding="utf-8")), args)
+    (run_dir / "comparison.txt").write_text(text + "\n", encoding="utf-8")
+    print("\n== Comparación con la referencia ==\n" + text)
+    return 1 if (blocked and args.fail_on_regression) else 0
 
 
 def main() -> None:
@@ -1114,14 +1154,28 @@ def main() -> None:
     p.add_argument("--trace-file", default="", help="traza cruda (por defecto, dentro de la carpeta de la ejecución)")
     p.add_argument("--compare", nargs=2, metavar=("ANTES.json", "DESPUES.json"),
                    help="compara dos results.json y termina (no usa red ni base de datos)")
+    p.add_argument("--baseline", default="", metavar="results.json",
+                   help="al terminar, compara esta ejecución con una referencia guardada y escribe comparison.txt")
+    p.add_argument("--fail-on-regression", action="store_true",
+                   help="con --compare/--baseline, sale con código 1 si hay regresiones bloqueantes (por defecto solo informa)")
+    p.add_argument("--max-tokens-pct", type=float, default=None, help="umbral de incremento de tokens de entrada (%%, defecto 15; <0 = informativo)")
+    p.add_argument("--max-calls-pct", type=float, default=None, help="umbral de incremento de llamadas LLM (%%, defecto 10; <0 = informativo)")
+    p.add_argument("--max-latency-pct", type=float, default=None, help="umbral de latencia (%%, defecto: solo informativo)")
+    p.add_argument("--max-retries-increase", type=int, default=None, help="reintentos adicionales tolerados (defecto 3)")
+    p.add_argument("--allow-fewer-evaluable", action="store_true", help="no bloquear si baja el nº de casos evaluables")
+    p.add_argument("--list-runs", action="store_true", help="lista las ejecuciones guardadas en --report-dir y termina")
     p.add_argument("--sanitize-traces", nargs=2, metavar=("ENTRADA.jsonl", "SALIDA.jsonl"),
                    help="saneado de una traza para compartirla y termina")
     args = p.parse_args()
     if args.compare:
-        from futsal.agent.report import compare_runs
+        after = json.loads(Path(args.compare[1]).read_text(encoding="utf-8"))
+        text, blocked = _compare_text(Path(args.compare[0]), after, args)
+        print(text)
+        raise SystemExit(1 if (blocked and args.fail_on_regression) else 0)
+    if args.list_runs:
+        from futsal.agent.regression import list_runs, render_runs
 
-        a, b = (json.loads(Path(x).read_text(encoding="utf-8")) for x in args.compare)
-        print(compare_runs(a, b))
+        print(render_runs(list_runs(Path(args.report_dir))))
         raise SystemExit(0)
     if args.sanitize_traces:
         from futsal.agent.trace import sanitize_trace_file

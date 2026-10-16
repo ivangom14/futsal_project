@@ -142,3 +142,8 @@ con el commit final para cerrar la fase.
 
 Fase 11 cerrada (suite completa con `83d1472`): entrada real 158.715 (−7,8 % vs 172.078), 60 llamadas, 26 pass / 1 fail / 2 n.e.; único fallo =
 `list_teams` de más en `acta_arbitro` (variación del modelo). Prefijo −13 %/llamada, `limit` operativo, 0 reintentos. Informe: `docs/phase11-report.md`.
+
+Fase 13 (evaluación continua, solo offline): `agent/regression.py` (umbrales configurables, veredicto, `overall_status`, historial), `results.json`
+con `run_id`/`suite_version`/`commit_dirty`, estado global en el informe (`INCOMPLETA` si hay casos sin ejecutar), flags `--baseline`,
+`--fail-on-regression`, `--max-*-pct`, `--list-runs`; `--compare` conserva su salida y añade el veredicto. Detalle en `docs/agent.md`. Sin llamadas
+online; Fase 12 (llamadas redundantes) no implementada.
