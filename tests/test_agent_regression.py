@@ -256,3 +256,13 @@ def test_baseline_helper_writes_comparison_and_handles_missing_reference(tmp_pat
     ns.baseline = str(tmp_path / "no-existe.json")
     assert ev._compare_with_baseline(ns, paths, run) == 0
     assert "no se inventa una" in capsys.readouterr().out
+
+
+def test_unreachable_postgres_gives_actionable_message_without_secrets_or_traceback() -> None:
+    from sqlalchemy import create_engine
+
+    engine = create_engine("postgresql+psycopg://futsal:SuperSecreta99@127.0.0.1:1/futsal", connect_args={"connect_timeout": 1})
+    truth, msg = ev.load_truth_or_explain(engine)
+    assert truth is None and "No se puede conectar a PostgreSQL (127.0.0.1:1/futsal)" in msg
+    assert "docker compose up -d --wait db" in msg and "no se ha consumido cuota" in msg
+    assert "SuperSecreta99" not in msg and "Traceback" not in msg

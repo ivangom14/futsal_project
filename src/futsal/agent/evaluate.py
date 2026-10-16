@@ -20,6 +20,7 @@ from pathlib import Path
 from typing import Any
 
 from sqlalchemy import Engine
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from futsal.agent.agent import (
@@ -1026,9 +1027,9 @@ async def _main(args: argparse.Namespace) -> int:
         print("El modo live hace llamadas reales y de pago al LLM: añade --confirm-live. Antes, revisa la cuota con --plan.")
         return 2
     engine = make_engine()
-    truth = load_truth(engine)
+    truth, problem = load_truth_or_explain(engine)
     if truth is None:
-        print("Sin datos en PostgreSQL: no hay verdad con la que evaluar.")
+        print(problem)
         return 2
     with httpx.Client(base_url=api_base_url(), timeout=10) as client:
         same = verify_same_database(engine, client)
@@ -1092,6 +1093,24 @@ async def _main(args: argparse.Namespace) -> int:
         Path(args.output).write_text(paths["results"].read_text(encoding="utf-8"), encoding="utf-8")
     print(f"\nInforme: {paths['report']}\nPara compartir (sin claves): {paths['report']} y {run_dir / 'traces.sanitized.jsonl'}")
     return exit_code
+
+
+def load_truth_or_explain(engine: Engine) -> tuple[Truth | None, str]:
+    """`load_truth` sin trazas largas: si PostgreSQL no responde, dice qué hacer. Nunca imprime la contraseña ni la URL completa.
+    Ocurre ANTES de crear el cliente del LLM, así que un fallo aquí no consume cuota."""
+    try:
+        truth = load_truth(engine)
+    except SQLAlchemyError as exc:
+        url = engine.url
+        where = f"{url.host or 'socket local'}:{url.port or 5432}/{url.database or '?'}"
+        return None, (f"No se puede conectar a PostgreSQL ({where}): {type(exc.__cause__ or exc).__name__}.\n"
+                      "No se ha llamado al LLM (no se ha consumido cuota). Qué hacer:\n"
+                      "  1. Arranca la base:  docker compose up -d --wait db   (Docker Desktop debe estar abierto)\n"
+                      "  2. Comprueba el entorno:  python -m futsal.agent.preflight --for-live\n"
+                      "  3. Si usas otra base, revisa DATABASE_URL en .env (host, puerto, usuario).")
+    if truth is None:
+        return None, "Sin datos en PostgreSQL: no hay verdad con la que evaluar."
+    return truth, ""
 
 
 def _thresholds(args: argparse.Namespace) -> Any:
