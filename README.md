@@ -58,6 +58,10 @@ Resumen revisable: `examples/match-report-batch-summary.example.json`.
 Si el acta está cerrada y su marcador difiere del listado, prevalece el acta (el valor anterior queda en
 `match_observations`); `tipo_gol=102` es gol en propia meta y suma al rival.
 
+## Competiciones senior y juvenil (Fase 14)
+Descubrimiento, descarga por grupo, importación y verificación (CMD): `docs/phase14-catalog.md`.
+`python -m futsal.cli discover-catalog` -> `scrape-catalog --plan` -> `scrape-catalog` -> `import-catalog` -> `verify-catalog`.
+
 ## Agente: evaluación y trazas (Fase 8)
 ```
 python -m futsal.agent.evaluate                      # offline: sin LLM, solo lectura, necesita API y PostgreSQL

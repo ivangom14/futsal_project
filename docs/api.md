@@ -15,7 +15,8 @@ Todos devuelven JSON; los listados usan `{"items": [...], "count": N}`. IDs = ID
 | Método y ruta | Notas |
 |---|---|
 | `GET /health` | 200 `{"status":"ok","database":"ok"}`; 503 si falla PostgreSQL |
-| `GET /competitions` | filtro opcional `season_id` |
+| `GET /competitions` | filtro opcional `season_id`; cada competición incluye sus `groups` (`id`, `name`) |
+| `GET /teams?name=` | equipos de todos los grupos por nombre (`group_id`, `group`, `competition_id`, `competition`); `limit` 1-100 (def. 30), `count`/`shown` |
 | `GET /competitions/{id}/groups` | 404 si no existe la competición |
 | `GET /groups/{id}/rounds` | ordenadas por número |
 | `GET /groups/{id}/teams` | ordenados por nombre |

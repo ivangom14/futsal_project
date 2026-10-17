@@ -51,6 +51,12 @@ CONTEXT_HEADER = (
     "list_groups, list_rounds ni list_teams. Pero si el equipo, jugador o jornada que pide el usuario NO aparece en "
     "esta lista, compruébalo con list_teams, list_rounds o find_players antes de decir que no figura):\n"
 )
+CATALOG_HEADER = (
+    "\n\nContexto (solo para elegir IDs; los datos se consultan siempre con las tools). Hay varias competiciones y "
+    "grupos incorporados. Si la pregunta no indica competición y grupo, o un equipo figura en varios grupos "
+    "(find_teams), pide aclaración o muestra las opciones: no elijas una al azar. Equipos y jornadas de un grupo: "
+    "list_teams / list_rounds con su group_id:\n"
+)
 DEFAULT_MAX_TOOL_CALLS = 5
 DEFAULT_MAX_ROWS = 40
 MAX_CONTEXT_GROUPS = 3
@@ -173,12 +179,27 @@ class Agent:
         return [i for i in items if isinstance(i, dict)]
 
     async def _context(self) -> str:
-        """IDs de competición/grupo/jornadas/equipos, sin gastar tokens de LLM. Opcional: si falla, se omite."""
+        """IDs de competición/grupo/jornadas/equipos, sin gastar tokens de LLM. Opcional: si falla, se omite.
+
+        Con pocos grupos (<= MAX_CONTEXT_GROUPS) se detallan jornadas y equipos. Con más, solo el catálogo
+        competición->grupos (ningún grupo se elige por orden) y se indica pedir aclaración si el ámbito es ambiguo."""
         try:
+            comps = await self._items("list_competitions", {}, "competitions")
+            catalog: list[tuple[dict[str, Any], list[dict[str, Any]]]] = []
+            for comp in comps:
+                groups = comp.get("groups")
+                if not isinstance(groups, list):  # API anterior sin `groups` en la lista
+                    groups = await self._items("list_groups", {"competition_id": comp["id"]}, "groups")
+                catalog.append((comp, [g for g in groups if isinstance(g, dict) and "id" in g]))
+            total = sum(len(g) for _, g in catalog)
+            if total > MAX_CONTEXT_GROUPS:
+                return CATALOG_HEADER + "\n".join(
+                    f"- «{c['name']}» (competition_id={c['id']}): "
+                    + "; ".join(f"«{g.get('name')}» group_id={g['id']}" for g in groups)
+                    for c, groups in catalog if groups)
             lines: list[str] = []
-            for comp in (await self._items("list_competitions", {}, "competitions"))[:MAX_CONTEXT_GROUPS]:
-                groups = await self._items("list_groups", {"competition_id": comp["id"]}, "groups")
-                for grp in groups[:MAX_CONTEXT_GROUPS]:
+            for comp, groups in catalog:
+                for grp in groups:
                     rounds = await self._items("list_rounds", {"group_id": grp["id"]}, "rounds")
                     teams = (await self._items("list_teams", {"group_id": grp["id"]}, "teams"))[:MAX_CONTEXT_TEAMS]
                     pairs = _round_pairs(rounds)

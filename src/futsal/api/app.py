@@ -81,10 +81,30 @@ def create_app(engine: Engine | None = None) -> FastAPI:
                 .order_by(Competition.id))
         if season_id is not None:
             stmt = stmt.where(Competition.season_id == season_id)
+        by_comp: dict[int, list[dict[str, Any]]] = {}
+        for g in db.scalars(select(CompetitionGroup).order_by(CompetitionGroup.id)):
+            by_comp.setdefault(g.competition_id, []).append({"id": g.id, "name": g.name})
         return _items([
             {"id": c.id, "external_id": c.external_id, "name": c.name,
-             "season_id": c.season_id, "season": season}
+             "season_id": c.season_id, "season": season, "groups": by_comp.get(c.id, [])}
             for c, season in db.execute(stmt)])
+
+    @app.get("/teams")
+    def find_teams(db: Db, name: Annotated[str, Query(min_length=2, max_length=80)],
+                   limit: Annotated[int, Query(ge=1, le=100)] = 30) -> dict[str, Any]:
+        """Equipos por nombre en todos los grupos: permite resolver el grupo cuando la pregunta no lo indica."""
+        like = "%" + name.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%"
+        rows = [{"id": t.id, "name": t.name, "group_id": g.id, "group": g.name,
+                 "competition_id": c.id, "competition": c.name}
+                for t, g, c in db.execute(
+                    select(Team, CompetitionGroup, Competition)
+                    .join(CompetitionGroup, CompetitionGroup.id == Team.group_id)
+                    .join(Competition, Competition.id == CompetitionGroup.competition_id)
+                    .where(Team.name.ilike(like, escape="\\"))
+                    .order_by(Competition.id, CompetitionGroup.id, Team.name))]
+        if len(rows) > limit:
+            return {"items": rows[:limit], "count": len(rows), "shown": limit}
+        return _items(rows)
 
     @app.get("/competitions/{competition_id}/groups")
     def groups(competition_id: int, db: Db) -> dict[str, Any]:

@@ -32,7 +32,7 @@ from futsal.agent.mcp_client import SessionMcpClient
 from futsal.mcp_server.server import create_server
 
 TOOLS = {"list_competitions", "list_groups", "list_rounds", "list_teams", "list_matches",
-         "get_match", "get_match_report", "list_match_events", "top_scorers", "find_players"}
+         "get_match", "get_match_report", "list_match_events", "top_scorers", "find_players", "find_teams"}
 
 
 def _api(request: httpx.Request) -> httpx.Response:
@@ -604,3 +604,44 @@ def test_raw_text_is_kept_when_the_guardrail_replaces_it_and_wider_limit_phrases
     for text in ("No tengo esa información.", "No dispongo de los minutos de los cambios.", "No cuento con ese dato."):
         kept = _run(ScriptedLLM([LLMResponse(text, [])]), "¿En qué minuto entraron los suplentes?")
         assert kept.answer == text and kept.guardrail == "limitacion_sin_tools", text
+
+
+# --- Fase 14: contexto con muchas competiciones y grupos ---
+
+def _api_many_groups(request: httpx.Request) -> httpx.Response:
+    path = request.url.path
+    if path == "/competitions":
+        comps = [{"id": c, "name": f"COMP {c}", "groups": [{"id": c * 10 + g, "name": f"Grupo {g}"} for g in range(1, 5)]}
+                 for c in range(1, 6)]
+        return httpx.Response(200, json={"items": comps, "count": len(comps)})
+    return httpx.Response(500, json={"detail": "el catálogo no debe pedir jornadas ni equipos"})
+
+
+def test_context_with_many_groups_lists_all_of_them_and_asks_for_clarification() -> None:
+    llm = ScriptedLLM([LLMResponse(OFF_TOPIC_MESSAGE, [])])
+    server = create_server(httpx.Client(base_url="http://api", transport=httpx.MockTransport(_api_many_groups)))
+
+    async def go() -> AgentResult:
+        async with connect(server._mcp_server) as session:
+            return await Agent(llm, SessionMcpClient(session)).run("Cuéntame un chiste")
+
+    res = asyncio.run(go())
+    system = llm.systems[0]
+    assert res.tool_calls == 0
+    # los 20 grupos figuran, incluidos los de competiciones y posiciones que antes quedaban fuera
+    assert all(f"group_id={c * 10 + g}" in system for c in range(1, 6) for g in range(1, 5))
+    assert "pide aclaración" in system and "find_teams" in system
+    assert "team_id=nombre" not in system  # sin equipos ni jornadas de un grupo elegido por orden
+
+
+def test_context_small_universe_keeps_previous_format_with_api_without_inline_groups() -> None:
+    llm = ScriptedLLM([LLMResponse(OFF_TOPIC_MESSAGE, [])])
+    server = create_server(httpx.Client(base_url="http://api", transport=httpx.MockTransport(_api_with_context)))
+
+    async def go() -> None:
+        async with connect(server._mcp_server) as session:
+            await Agent(llm, SessionMcpClient(session)).run("Cuéntame un chiste")
+
+    asyncio.run(go())
+    assert "group_id=9" in llm.systems[0] and "4=C.D. DOSA" in llm.systems[0]
+    assert "pide aclaración" not in llm.systems[0]

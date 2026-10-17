@@ -10,7 +10,7 @@ import pytest
 from futsal.mcp_server.server import create_server
 
 TOOLS = {"list_competitions", "list_groups", "list_rounds", "list_teams", "list_matches",
-         "get_match", "get_match_report", "list_match_events", "top_scorers", "find_players"}
+         "get_match", "get_match_report", "list_match_events", "top_scorers", "find_players", "find_teams"}
 LISTING = {"items": [{"id": 1}], "count": 1}
 
 
@@ -180,3 +180,40 @@ def test_list_matches_limit_is_enforced_even_if_the_api_ignores_it() -> None:
     old_api = lambda req: httpx.Response(200, json={"items": [{"id": i} for i in range(19)], "count": 19})  # noqa: E731
     is_error, text = _run("list_matches", {"group_id": 1, "status": "finished", "limit": 1}, old_api)
     assert not is_error and json.loads(text) == {"matches": [{"id": 0}], "count": 19, "shown": 1}
+
+
+# --- Fase 14: ámbito de consulta (grupo / equipo entre grupos) ---
+
+def test_find_teams_forwards_name_and_keeps_group_scope() -> None:
+    seen: list[httpx.URL] = []
+    teams = {"items": [{"id": 1, "name": "FS A", "group_id": 3, "group": "Grupo 1", "competition_id": 2,
+                        "competition": "C"}, {"id": 9, "name": "FS A", "group_id": 4, "group": "Grupo 2",
+                                              "competition_id": 2, "competition": "C"}], "count": 2}
+
+    def handler(req: httpx.Request) -> httpx.Response:
+        seen.append(req.url)
+        return httpx.Response(200, json=teams)
+
+    is_error, text = _run("find_teams", {"name": "FS A"}, handler)
+    data = json.loads(text)
+    assert not is_error and seen[0].path == "/teams" and seen[0].params["name"] == "FS A"
+    assert [t["group_id"] for t in data["teams"]] == [3, 4] and data["count"] == 2  # mismo nombre, dos grupos
+
+
+def test_find_teams_rejects_short_name_and_reports_api_errors() -> None:
+    is_error, _ = _run("find_teams", {"name": "a"})
+    assert is_error
+    is_error, text = _run("find_teams", {"name": "ab"}, lambda r: httpx.Response(503))
+    assert is_error and "error_dependencia" in text
+
+
+def test_list_matches_uses_the_requested_group_not_a_default() -> None:
+    seen: list[str] = []
+
+    def handler(req: httpx.Request) -> httpx.Response:
+        seen.append(req.url.path)
+        return httpx.Response(200, json=LISTING)
+
+    _run("list_matches", {"group_id": 26}, handler)
+    _run("list_matches", {"group_id": 4}, handler)
+    assert seen == ["/groups/26/matches", "/groups/4/matches"]

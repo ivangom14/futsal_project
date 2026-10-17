@@ -65,7 +65,7 @@ def create_server(client: httpx.Client | None = None) -> FastMCP:
     def list_competitions(
         season_id: Annotated[int | None, Field(description="ID de temporada")] = None,
     ) -> dict[str, Any]:
-        """Competiciones (opcional: de una temporada); su `id` sirve para list_groups."""
+        """Competiciones con sus grupos (id y nombre); el `id` del grupo es el group_id del resto de tools."""
         return _listing("competitions", _get(http, "/competitions", "temporada", season_id=season_id))
 
     @mcp.tool()
@@ -77,6 +77,14 @@ def create_server(client: httpx.Client | None = None) -> FastMCP:
             "groups",
             _get(http, f"/competitions/{competition_id}/groups", f"competición {competition_id}"),
         )
+
+    @mcp.tool()
+    def find_teams(
+        name: Annotated[str, Field(min_length=2, max_length=80, description="Nombre o parte del nombre")],
+    ) -> dict[str, Any]:
+        """Busca equipos por nombre en todos los grupos (team_id, group_id, grupo y competición). Si salen
+        varios grupos y la pregunta no lo precisa, pregunta cuál en vez de elegir."""
+        return _listing("teams", _get(http, "/teams", "equipos", name=name))
 
     @mcp.tool()
     def list_rounds(

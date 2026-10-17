@@ -25,6 +25,7 @@ Los listados devuelven `{<clave>: [...], "count": N}`. IDs = IDs internos de BD.
 | `get_match_report` | `match_id`, `sections` (opc.: officials, goals, cards, players, staff) | `GET /matches/{id}/report` |
 | `list_match_events` | `group_id`, `team_id`, `against_team_id`, `round_id`, `match_id`, `player_id`, `event_type`, `limit` | `GET /groups/{id}/match-events` |
 | `top_scorers` | `group_id`, mismos filtros + `min_goals`, `limit` | `GET /groups/{id}/scorers` |
+| `find_teams` | `name` | `GET /teams?name=` (equipos de todos los grupos; `team_id`, `group_id`, grupo y competición) |
 | `find_players` | `group_id`, `name`, `team_id` (opc.) | `GET /groups/{id}/players` |
 
 Ejemplo: `list_matches(group_id=1, status="finished")` →
