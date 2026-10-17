@@ -77,5 +77,5 @@ python -m futsal.cli verify-catalog
 - `find_teams` no ignora acentos (usa `ILIKE`).
 - La evaluación online del agente y el preflight usan el grupo de menor `id` (el inicial). Con el contexto de catálogo
   cambia el comportamiento del agente: hay que recalibrar la línea base online (`--baseline`) antes de comparar.
-- Solo el grupo «Eliminatorias» de Copa Senior I fase previa se ha descargado de verdad (12 partidos, 24 equipos = `total_equipos`); el resto está descubierto, no descargado.
+- Resultado de la descarga real (3 pasadas): 12 grupos completos, 12 parciales (61 jornadas fallidas) y 1 sin jornadas; 2.982 partidos. La web devuelve a veces `results` vacío para una jornada (intermitente, cambia entre pasadas): repetir `scrape-catalog --resume --request-delay 5`. Informe por grupo: `docs/phase14-report.md`.
 - Un fallo temporal de la web se registra por grupo/jornada; no se cachea y se reintenta en la siguiente ejecución.

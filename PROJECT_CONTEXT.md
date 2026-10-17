@@ -152,5 +152,5 @@ Fase 14 (ingesta de 14 competiciones senior/juvenil FS, temporada 22; detalle e 
 `pageProps.competitions` y grupos desde `/api/groups?competicion=` (14/14 confirmadas, 25 grupos, sin migraciones). CLI `discover-catalog`,
 `scrape-catalog [--plan|--resume|--competition ID]`, `import-catalog`, `verify-catalog`; trabajo en `data/rffm/catalog/s22_t3/`. API: `groups` en
 `/competitions` y `GET /teams?name=`; MCP `find_teams`; el contexto del agente pasa a catálogo (sin equipos) con >3 grupos. Descubrimiento real
-hecho; solo se descargó 1 grupo de prueba. **Descarga completa (~518 peticiones) e importación en la BD real PENDIENTES de autorización.**
+hecho. Descarga real autorizada (3 pasadas): 12/25 grupos completos, 12 parciales, 1 sin jornadas, 2.982 partidos (`docs/phase14-report.md`); importada y verificada solo en una BD temporal (0 duplicados/huérfanos). **Pendiente: reanudar los grupos parciales e importar en la BD real del usuario.**
 Sin llamadas LLM. Pendiente: recalibrar la línea base online del agente tras la ingesta; actas solo del grupo inicial.
