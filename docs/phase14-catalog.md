@@ -79,3 +79,15 @@ python -m futsal.cli verify-catalog
   cambia el comportamiento del agente: hay que recalibrar la línea base online (`--baseline`) antes de comparar.
 - Resultado de la descarga real (3 pasadas): 12 grupos completos, 12 parciales (61 jornadas fallidas) y 1 sin jornadas; 2.982 partidos. La web devuelve a veces `results` vacío para una jornada (intermitente, cambia entre pasadas): repetir `scrape-catalog --resume --request-delay 5`. Informe por grupo: `docs/phase14-report.md`.
 - Un fallo temporal de la web se registra por grupo/jornada; no se cachea y se reintenta en la siguiente ejecución.
+
+## Contador de progreso y qué se vuelve a descargar
+`scrape-catalog` muestra en pantalla (stderr, una línea que se reescribe) el grupo actual, la jornada, las peticiones hechas frente a las
+previstas, el tiempo transcurrido y el restante, p. ej.:
+`[grupo 7/25] 26738246/26738247 PREFERENTE... | jornada 12/26 | peticiones 143/~437 (32 %) | transcurrido 06:21 | restante ~13:20`.
+El total es una estimación (jornadas esperadas menos snapshots locales); los reintentos y las jornadas vacías añaden peticiones, y el restante se calcula con
+el ritmo real medido, así que es orientativo. Si el terminal está redirigido a un fichero solo escribe una línea por grupo.
+
+Qué se descarga en cada ejecución: sin `--refresh`, **las jornadas que ya tienen snapshot no se piden otra vez** (se vuelven a leer del disco);
+solo se piden las que faltan o fallaron. `--resume` además se salta su reanálisis. `--refresh` vuelve a pedir TODAS las jornadas
+(necesario hoy para ver resultados nuevos).
+

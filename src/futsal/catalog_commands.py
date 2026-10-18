@@ -2,6 +2,7 @@
 
 import argparse
 import json
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -10,6 +11,7 @@ from futsal.ingestion.rffm.catalog import discover_catalog
 from futsal.ingestion.rffm.catalog_ingest import REPORT_NAME, estimate_requests, scrape_catalog
 from futsal.ingestion.rffm.client import PoliteFetcher
 from futsal.ingestion.rffm.league import Target
+from futsal.ingestion.rffm.progress import Progress
 
 CATALOG_DIR = Path("data/rffm/catalog")
 COMMANDS = ("discover-catalog", "scrape-catalog", "import-catalog", "verify-catalog")
@@ -77,8 +79,13 @@ def run(args: argparse.Namespace) -> int:
                 print(json.dumps(estimate_requests(inv, work, only), ensure_ascii=False))
                 return 0
             fetcher = PoliteFetcher(delay=args.request_delay, timeout=args.timeout)
+            plan = estimate_requests(inv, work, only)
+            progress = Progress(plan["estimated_requests"], plan["groups"], lambda: fetcher.requests)
+            print(f"Descarga: {plan['groups']} grupos, ~{plan['estimated_requests']} peticiones previstas "
+                  f"(pausa {args.request_delay:g} s entre peticiones).", file=sys.stderr)
             rep = scrape_catalog(inv, work, fetcher, only=only, refresh=args.refresh, resume=args.resume,
-                                 max_rounds=args.max_rounds, requests_made=lambda: fetcher.requests)
+                                 max_rounds=args.max_rounds, requests_made=lambda: fetcher.requests, progress=progress)
+            progress.finish()
             for g in rep["groups"]:
                 print(f"{g['competition_id']}/{g['group_id']} {g['status']} "
                       f"jornadas={g.get('rounds_discovered', '-')} partidos={g.get('matches_total', '-')} "

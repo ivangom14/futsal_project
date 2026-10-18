@@ -152,6 +152,7 @@ def scrape_league(
     max_rounds: int | None = None,
     now: Callable[[], datetime] = lambda: datetime.now(UTC),
     requests_made: Callable[[], int] = lambda: 0,
+    on_round: Callable[[int, int, bool, bool], None] | None = None,
 ) -> dict[str, Any]:
     started = now()
     rounds_dir = out_dir / "rounds"
@@ -191,7 +192,7 @@ def scrape_league(
     today = now().date()
     results: dict[str, RoundData] = {}
     cached = 0
-    for ref in selected:
+    for position, ref in enumerate(selected, start=1):
         rid = ref.external_round_id
         try:
             if resume and json_path(rid).exists() and html_path(rid).exists() and rid not in fetched_now:
@@ -213,9 +214,13 @@ def scrape_league(
         except (FetchError, RffmParseError, ValueError) as exc:
             failed[rid] = str(exc)[:200]
             issues.append(_issue("round_failed", str(exc)[:200], rid))
+            if on_round:
+                on_round(position, len(selected), False, True)
             continue
         cached += from_cache
         results[rid] = data
+        if on_round:
+            on_round(position, len(selected), from_cache, False)
 
     matches: list[dict[str, Any]] = []
     seen: dict[str, str] = {}

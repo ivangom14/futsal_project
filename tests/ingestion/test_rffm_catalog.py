@@ -22,6 +22,7 @@ from futsal.ingestion.rffm.catalog import (
     resolve_scope,
 )
 from futsal.ingestion.rffm.catalog_ingest import estimate_requests, scrape_catalog
+from futsal.ingestion.rffm.progress import Progress, fmt_duration
 from futsal.ingestion.rffm.client import FetchError, group_url, groups_url, round_url
 from futsal.ingestion.rffm.league import Target
 from futsal.ingestion.rffm.parser import RffmParseError
@@ -277,3 +278,68 @@ def test_estimate_counts_cached_rounds(tmp_path: Path) -> None:
     scrape_catalog(inv, tmp_path / "out", web, requests_made=lambda: web.requests)
     assert estimate_requests(inv, tmp_path / "out")["estimated_requests"] == 0
     assert estimate_requests(inv, tmp_path / "out", only={"nope"})["groups"] == 0
+
+
+# --- contador de progreso ------------------------------------------------------------------------------------------
+
+def test_progress_shows_position_percentage_and_remaining_time(tmp_path: Path) -> None:
+    import io
+
+    web = two_group_web()
+    inv = inventory(web, tmp_path)
+    plan = estimate_requests(inv, tmp_path / "out")
+    now = [100.0]
+
+    class Clock:
+        def __call__(self) -> float:
+            return now[0]
+
+    out = io.StringIO()
+    progress = Progress(plan["estimated_requests"], plan["groups"], lambda: web.requests, clock=Clock(), out=out, live=False)
+    base = web.requests
+
+    def ticking(url: str) -> str:
+        now[0] += 2.0  # cada petición tarda 2 s
+        return web(url)
+
+    ticking.requests = 0  # type: ignore[attr-defined]
+    rep = scrape_catalog(inv, tmp_path / "out", ticking, requests_made=lambda: web.requests, progress=progress)
+    progress.finish()
+    text = out.getvalue()
+    assert [g["status"] for g in rep["groups"]] == ["downloaded", "downloaded"]            # el contador no cambia el resultado
+    assert "[grupo 1/2]" in text and "[grupo 2/2]" in text and "jornada 2/2" in text
+    assert f"peticiones {web.requests - base}/~{plan['estimated_requests']}" in text
+    assert "restante ~" in text and "transcurrido" in text and "Descarga terminada" in text
+
+
+def test_progress_eta_and_formats() -> None:
+    assert fmt_duration(59.6) == "01:00" and fmt_duration(3725) == "1:02:05" and fmt_duration(-3) == "00:00"
+    now = [0.0]
+    done = [0]
+    p = Progress(100, 2, lambda: done[0], clock=lambda: now[0], out=__import__("io").StringIO(), live=False)
+    assert p.remaining_seconds() is None and "restante n/d" in p.line()                  # sin datos no se inventa un ETA
+    done[0], now[0] = 25, 50.0                                                           # 25 de 100 en 50 s: quedan 75 → 150 s
+    assert p.remaining_seconds() == 150.0 and "peticiones 25/~100 (25 %)" in p.line() and "restante ~02:30" in p.line()
+    done[0] = 130                                                                        # más peticiones que las previstas: tope 100 %
+    assert "(100 %)" in p.line() and p.remaining_seconds() == 0.0
+    counter = [0]
+    nothing = Progress(0, 1, lambda: counter[0], out=__import__("io").StringIO(), live=False)
+    counter[0] = 3
+    assert "peticiones 3" in nothing.line() and "%" not in nothing.line()
+
+
+def test_progress_live_mode_rewrites_one_line_and_cached_groups_need_no_requests(tmp_path: Path) -> None:
+    import io
+
+    web = two_group_web()
+    inv = inventory(web, tmp_path)
+    scrape_catalog(inv, tmp_path / "out", web, requests_made=lambda: web.requests)
+    plan = estimate_requests(inv, tmp_path / "out")
+    assert plan["estimated_requests"] == 0                                               # todo en caché: nada que pedir
+    out = io.StringIO()
+    progress = Progress(plan["estimated_requests"], plan["groups"], lambda: web.requests, out=out, live=True)
+    before = web.requests
+    scrape_catalog(inv, tmp_path / "out", web, requests_made=lambda: web.requests, progress=progress)
+    progress.finish()
+    assert web.requests == before and "\r" in out.getvalue() and out.getvalue().count("\n") >= 3   # un salto por grupo y el final
+

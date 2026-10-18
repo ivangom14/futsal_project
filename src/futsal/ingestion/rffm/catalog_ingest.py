@@ -11,6 +11,7 @@ from futsal.ingestion.rffm.catalog import CONFIRMED, GROUPS_OK
 from futsal.ingestion.rffm.client import FetchError, group_url
 from futsal.ingestion.rffm.league import Target, check_identity, scrape_league
 from futsal.ingestion.rffm.parser import RffmParseError, extract_page_props
+from futsal.ingestion.rffm.progress import Progress
 
 Fetch = Callable[[str], str]
 DOWNLOADED, PARTIAL, NO_ROUNDS, FAILED, PENDING = "downloaded", "partial", "no_rounds", "failed", "pending"
@@ -78,13 +79,14 @@ def estimate_requests(inventory: dict[str, Any], out_root: Path, only: set[str] 
 
 
 def _scrape_group(target: Target, gdir: Path, fetch: Fetch, expected_rounds: int | None, *, refresh: bool,
-                  resume: bool, max_rounds: int | None, requests_made: Callable[[], int]) -> dict[str, Any]:
+                  resume: bool, max_rounds: int | None, requests_made: Callable[[], int],
+                  on_round: Callable[[int, int, bool, bool], None] | None = None) -> dict[str, Any]:
     before = requests_made()
     base: dict[str, Any] = {"expected_rounds": expected_rounds, "league_path": None}
     try:
         seed = _seed(target, gdir, fetch, refresh)
         summary = scrape_league(target, gdir, fetch, seed, refresh=refresh, resume=resume,
-                                max_rounds=max_rounds, requests_made=requests_made)
+                                max_rounds=max_rounds, requests_made=requests_made, on_round=on_round)
     except NoRounds as exc:
         return {**base, "status": NO_ROUNDS, "error": str(exc), "http_requests": requests_made() - before}
     except (FetchError, RffmParseError, RuntimeError, ValueError) as exc:
@@ -109,22 +111,29 @@ def _scrape_group(target: Target, gdir: Path, fetch: Fetch, expected_rounds: int
 def scrape_catalog(inventory: dict[str, Any], out_root: Path, fetch: Fetch, *, only: set[str] | None = None,
                    refresh: bool = False, resume: bool = False, max_rounds: int | None = None,
                    requests_made: Callable[[], int] = lambda: 0,
-                   now: Callable[[], datetime] = lambda: datetime.now(UTC)) -> dict[str, Any]:
+                   now: Callable[[], datetime] = lambda: datetime.now(UTC),
+                   progress: Progress | None = None) -> dict[str, Any]:
     """Procesa cada grupo de forma aislada: un fallo no detiene los demás; el informe se guarda tras cada grupo."""
     target_ids = {"season": inventory["season"]["external_id"], "game_type": inventory["game_type"]}
     groups: list[dict[str, Any]] = []
     report: dict[str, Any] = {"season": inventory["season"], "game_type": inventory["game_type"],
                               "started_at": now().isoformat(), "groups": groups}
-    for comp, g in iter_groups(inventory, only):
+    pairs = iter_groups(inventory, only)
+    for index, (comp, g) in enumerate(pairs, start=1):
         target = Target(target_ids["season"], comp["external_id"], g["external_id"], target_ids["game_type"])
+        if progress:
+            progress.start_group(index, comp["external_id"], g["external_id"], g.get("name"))
         result = _scrape_group(target, group_dir(out_root, comp["external_id"], g["external_id"]), fetch,
                                g["expected_rounds"], refresh=refresh, resume=resume,
-                               max_rounds=max_rounds, requests_made=requests_made)
+                               max_rounds=max_rounds, requests_made=requests_made,
+                               on_round=progress.on_round if progress else None)
         result.update(competition_id=comp["external_id"], competition_name=comp["name"],
                       group_id=g["external_id"], group_name=g["name"], expected_teams=g["expected_teams"])
         if result.get("teams_in_matches") is not None and g["expected_teams"] is not None:
             result["teams_match_expected"] = result["teams_in_matches"] == g["expected_teams"]
         groups.append(result)
+        if progress:
+            progress.end_group(result)
         report["finished_at"] = now().isoformat()
         _write_report(out_root, report)
     report["finished_at"] = now().isoformat()
