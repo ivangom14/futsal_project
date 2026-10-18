@@ -91,3 +91,27 @@ Qué se descarga en cada ejecución: sin `--refresh`, **las jornadas que ya tien
 solo se piden las que faltan o fallaron. `--resume` además se salta su reanálisis. `--refresh` vuelve a pedir TODAS las jornadas
 (necesario hoy para ver resultados nuevos).
 
+
+## Actualización incremental: `scrape-catalog --update`
+Vuelve a pedir **solo** las jornadas ya descargadas que pueden haber cambiado y omite las cerradas. Se decide con los ficheros locales (sin red), por jornada:
+
+| Motivo | Cuándo se vuelve a pedir |
+|---|---|
+| `anomalia:<código>` | la primera pasada dejó un marcador a medias o no numérico, un acta cerrada sin marcador, un partido de fecha pasada sin marcador, estado desconocido, equipo vacío… (`check_quality`) |
+| `aplazado_o_suspendido` | algún partido está aplazado o suspendido, sea cual sea su fecha |
+| `pendiente_proximo` | tiene partidos por jugar y el primero cae en los próximos `--horizon-days` (14) |
+| `cerrada_reciente` | todo cerrado, pero el snapshot se tomó menos de `--settle-days` (3) después del último partido (correcciones de resultado) |
+| `lejano_caducado` / `sin_fecha` | partidos lejanos o sin fecha: como mucho cada `--max-age-days` (30), para detectar cambios de calendario |
+| (sin snapshot) | las jornadas que faltan o fallaron se piden siempre |
+
+Una jornada cuyo snapshot tiene menos de `--min-age-hours` (12) no se repite, para no insistir a la web. La semilla de cada grupo se renueva (1 petición por grupo)
+para detectar jornadas recién publicadas, salvo que sea muy reciente. Si la nueva petición **falla**, se conserva el snapshot anterior (no se pierde la
+jornada) y se anota `refetch_failed_kept_snapshot`. `--update` y `--refresh` son incompatibles. La edad del snapshot es la fecha de modificación del fichero HTML.
+
+```
+python -m futsal.cli scrape-catalog --update --plan      # qué revisaría y por qué, sin tocar la web
+python -m futsal.cli scrape-catalog --update             # lo ejecuta, con contador de progreso
+python -m futsal.cli import-catalog                       # idempotente: actualiza resultados en PostgreSQL
+python -m futsal.cli verify-catalog
+```
+Cada línea de grupo añade `revisadas=N omitidas=M` (y `conservadas_sin_actualizar=K` si alguna petición falló).

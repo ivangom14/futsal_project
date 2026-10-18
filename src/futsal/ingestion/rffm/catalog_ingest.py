@@ -9,9 +9,11 @@ from typing import Any
 
 from futsal.ingestion.rffm.catalog import CONFIRMED, GROUPS_OK
 from futsal.ingestion.rffm.client import FetchError, group_url
-from futsal.ingestion.rffm.league import Target, check_identity, scrape_league
+from futsal.ingestion.rffm.league import Target, check_identity, discover_rounds, scrape_league
+from futsal.ingestion.rffm.models import RoundData
 from futsal.ingestion.rffm.parser import RffmParseError, extract_page_props
 from futsal.ingestion.rffm.progress import Progress
+from futsal.ingestion.rffm.update_policy import UpdatePolicy, classify_round, snapshot_time
 
 Fetch = Callable[[str], str]
 DOWNLOADED, PARTIAL, NO_ROUNDS, FAILED, PENDING = "downloaded", "partial", "no_rounds", "failed", "pending"
@@ -64,6 +66,49 @@ def _seed(target: Target, gdir: Path, fetch: Fetch, refresh: bool) -> str:
     return rid
 
 
+def _seed_stale(path: Path, policy: UpdatePolicy, now: datetime) -> bool:
+    at = snapshot_time(path)
+    return at is None or (now - at).total_seconds() >= policy.min_age_hours * 3600
+
+
+def plan_update(inventory: dict[str, Any], out_root: Path, policy: UpdatePolicy, now: datetime,
+                only: set[str] | None = None) -> dict[str, Any]:
+    """Qué haría `--update` sin tocar la red: peticiones previstas y motivos, a partir de los snapshots locales."""
+    reasons: Counter[str] = Counter()
+    requests = skipped = without_seed = 0
+    for comp, g in iter_groups(inventory, only):
+        gdir = group_dir(out_root, comp["external_id"], g["external_id"])
+        seed_path = gdir / "seed.html"
+        requests += 1 if _seed_stale(seed_path, policy, now) else 0
+        target = Target(inventory["season"]["external_id"], comp["external_id"], g["external_id"], inventory["game_type"])
+        try:
+            refs = discover_rounds(seed_path.read_text(encoding="utf-8"), target)[0]
+        except (OSError, RffmParseError):
+            without_seed += 1
+            requests += g["expected_rounds"] or 0
+            reasons["sin_semilla (se pedirá todo el grupo)"] += 1
+            continue
+        for ref in refs:
+            rid = ref.external_round_id
+            js, ht = gdir / "rounds" / f"{rid}.json", gdir / "rounds" / f"{rid}.html"
+            if not (js.exists() and ht.exists()):
+                requests += 1
+                reasons["sin_snapshot"] += 1
+                continue
+            try:
+                why = classify_round(RoundData.model_validate_json(js.read_text(encoding="utf-8")),
+                                     ht.read_text(encoding="utf-8"), snapshot_time(ht), now, policy)
+            except (OSError, ValueError):
+                why = "json_ilegible"
+            if why:
+                requests += 1
+                reasons[why.split(":")[0] if why.startswith("anomalia") else why] += 1
+            else:
+                skipped += 1
+    return {"groups": len(iter_groups(inventory, only)), "estimated_requests": requests, "rounds_skipped_closed": skipped,
+            "by_reason": dict(sorted(reasons.items())), "groups_without_seed": without_seed}
+
+
 def estimate_requests(inventory: dict[str, Any], out_root: Path, only: set[str] | None = None) -> dict[str, Any]:
     """Peticiones HTTP previstas (aproximación): jornadas esperadas menos snapshots locales."""
     total, unknown = 0, 0
@@ -80,13 +125,16 @@ def estimate_requests(inventory: dict[str, Any], out_root: Path, only: set[str] 
 
 def _scrape_group(target: Target, gdir: Path, fetch: Fetch, expected_rounds: int | None, *, refresh: bool,
                   resume: bool, max_rounds: int | None, requests_made: Callable[[], int],
-                  on_round: Callable[[int, int, bool, bool], None] | None = None) -> dict[str, Any]:
+                  on_round: Callable[[int, int, bool, bool], None] | None = None,
+                  update: UpdatePolicy | None = None, now: Callable[[], datetime] = lambda: datetime.now(UTC)) -> dict[str, Any]:
     before = requests_made()
     base: dict[str, Any] = {"expected_rounds": expected_rounds, "league_path": None}
     try:
-        seed = _seed(target, gdir, fetch, refresh)
+        # --update: la semilla se renueva (detecta jornadas recién publicadas) salvo que sea muy reciente
+        seed = _seed(target, gdir, fetch, refresh or (update is not None and _seed_stale(gdir / "seed.html", update, now())))
         summary = scrape_league(target, gdir, fetch, seed, refresh=refresh, resume=resume,
-                                max_rounds=max_rounds, requests_made=requests_made, on_round=on_round)
+                                max_rounds=max_rounds, requests_made=requests_made, on_round=on_round,
+                                update=update, now=now)
     except NoRounds as exc:
         return {**base, "status": NO_ROUNDS, "error": str(exc), "http_requests": requests_made() - before}
     except (FetchError, RffmParseError, RuntimeError, ValueError) as exc:
@@ -105,6 +153,7 @@ def _scrape_group(target: Target, gdir: Path, fetch: Fetch, expected_rounds: int
         "teams_in_matches": len(teams), "expected_teams": None,
         "rounds_match_expected": None if expected_rounds is None else expected_rounds == summary["rounds_discovered"],
         "quality_issues": dict(codes), "http_requests": requests_made() - before,
+        "update": summary.get("update"),
     }
 
 
@@ -112,7 +161,7 @@ def scrape_catalog(inventory: dict[str, Any], out_root: Path, fetch: Fetch, *, o
                    refresh: bool = False, resume: bool = False, max_rounds: int | None = None,
                    requests_made: Callable[[], int] = lambda: 0,
                    now: Callable[[], datetime] = lambda: datetime.now(UTC),
-                   progress: Progress | None = None) -> dict[str, Any]:
+                   progress: Progress | None = None, update: UpdatePolicy | None = None) -> dict[str, Any]:
     """Procesa cada grupo de forma aislada: un fallo no detiene los demás; el informe se guarda tras cada grupo."""
     target_ids = {"season": inventory["season"]["external_id"], "game_type": inventory["game_type"]}
     groups: list[dict[str, Any]] = []
@@ -126,7 +175,7 @@ def scrape_catalog(inventory: dict[str, Any], out_root: Path, fetch: Fetch, *, o
         result = _scrape_group(target, group_dir(out_root, comp["external_id"], g["external_id"]), fetch,
                                g["expected_rounds"], refresh=refresh, resume=resume,
                                max_rounds=max_rounds, requests_made=requests_made,
-                               on_round=progress.on_round if progress else None)
+                               on_round=progress.on_round if progress else None, update=update, now=now)
         result.update(competition_id=comp["external_id"], competition_name=comp["name"],
                       group_id=g["external_id"], group_name=g["name"], expected_teams=g["expected_teams"])
         if result.get("teams_in_matches") is not None and g["expected_teams"] is not None:

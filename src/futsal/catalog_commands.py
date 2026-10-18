@@ -3,15 +3,17 @@
 import argparse
 import json
 import sys
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
 from futsal.config.targets import CATALOG_SCOPE, RFFM_TARGET
 from futsal.ingestion.rffm.catalog import discover_catalog
-from futsal.ingestion.rffm.catalog_ingest import REPORT_NAME, estimate_requests, scrape_catalog
+from futsal.ingestion.rffm.catalog_ingest import REPORT_NAME, estimate_requests, plan_update, scrape_catalog
 from futsal.ingestion.rffm.client import PoliteFetcher
 from futsal.ingestion.rffm.league import Target
 from futsal.ingestion.rffm.progress import Progress
+from futsal.ingestion.rffm.update_policy import UpdatePolicy
 
 CATALOG_DIR = Path("data/rffm/catalog")
 COMMANDS = ("discover-catalog", "scrape-catalog", "import-catalog", "verify-catalog")
@@ -35,6 +37,17 @@ def add_parsers(sub: "argparse._SubParsersAction[argparse.ArgumentParser]") -> N
     p.add_argument("--plan", action="store_true", help="solo estima peticiones; no descarga")
     p.add_argument("--resume", action="store_true", help="omitir jornadas ya completadas")
     p.add_argument("--max-rounds", type=int, default=None)
+    p.add_argument("--update", action="store_true",
+                   help="solo vuelve a pedir las jornadas ya descargadas con partidos sin resultado, aplazados o con errores, "
+                        "las próximas y las cerradas hace poco; omite las cerradas y asentadas")
+    p.add_argument("--horizon-days", type=int, default=UpdatePolicy.horizon_days,
+                   help="(--update) partidos por jugar dentro de estos días se revisan siempre (defecto 14)")
+    p.add_argument("--settle-days", type=int, default=UpdatePolicy.settle_days,
+                   help="(--update) una jornada cerrada se revisa hasta tener un snapshot de N días después de su último partido (3)")
+    p.add_argument("--max-age-days", type=int, default=UpdatePolicy.max_age_days,
+                   help="(--update) partidos lejanos: se revisan como mucho cada N días (30)")
+    p.add_argument("--min-age-hours", type=float, default=UpdatePolicy.min_age_hours,
+                   help="(--update) no se repite una jornada descargada hace menos de N horas (12)")
     p = sub.add_parser("import-catalog", help="importa en PostgreSQL los grupos descargados")
     common(p, network=False)
     p.add_argument("--dry-run", action="store_true")
@@ -75,21 +88,36 @@ def run(args: argparse.Namespace) -> int:
             return 0
         inv = _load(work / "inventory.json")
         if args.command == "scrape-catalog":
+            policy = None
+            if args.update:
+                if args.refresh:
+                    raise RuntimeError("--update y --refresh son incompatibles: --refresh vuelve a pedir TODO")
+                policy = UpdatePolicy(args.horizon_days, args.settle_days, args.max_age_days, args.min_age_hours)
             if args.plan:
-                print(json.dumps(estimate_requests(inv, work, only), ensure_ascii=False))
+                if policy is not None:
+                    print(json.dumps(plan_update(inv, work, policy, datetime.now().astimezone(), only), ensure_ascii=False))
+                else:
+                    print(json.dumps(estimate_requests(inv, work, only), ensure_ascii=False))
                 return 0
             fetcher = PoliteFetcher(delay=args.request_delay, timeout=args.timeout)
-            plan = estimate_requests(inv, work, only)
+            plan = (plan_update(inv, work, policy, datetime.now().astimezone(), only) if policy is not None
+                    else estimate_requests(inv, work, only))
             progress = Progress(plan["estimated_requests"], plan["groups"], lambda: fetcher.requests)
-            print(f"Descarga: {plan['groups']} grupos, ~{plan['estimated_requests']} peticiones previstas "
-                  f"(pausa {args.request_delay:g} s entre peticiones).", file=sys.stderr)
-            rep = scrape_catalog(inv, work, fetcher, only=only, refresh=args.refresh, resume=args.resume,
-                                 max_rounds=args.max_rounds, requests_made=lambda: fetcher.requests, progress=progress)
+            print(f"{'Actualización' if policy else 'Descarga'}: {plan['groups']} grupos, ~{plan['estimated_requests']} peticiones "
+                  f"previstas (pausa {args.request_delay:g} s entre peticiones)."
+                  + (f" Motivos: {plan['by_reason']}; jornadas cerradas omitidas: {plan['rounds_skipped_closed']}." if policy else ""),
+                  file=sys.stderr)
+            rep = scrape_catalog(inv, work, fetcher, only=only, refresh=args.refresh, resume=args.resume or policy is not None,
+                                 max_rounds=args.max_rounds, requests_made=lambda: fetcher.requests, progress=progress,
+                                 update=policy)
             progress.finish()
             for g in rep["groups"]:
+                up = g.get("update") or {}
+                extra = (f" revisadas={len(up.get('refetched', {}))} omitidas={up.get('skipped_closed', 0)}"
+                         + (f" conservadas_sin_actualizar={len(up['kept_stale'])}" if up.get("kept_stale") else "")) if up else ""
                 print(f"{g['competition_id']}/{g['group_id']} {g['status']} "
                       f"jornadas={g.get('rounds_discovered', '-')} partidos={g.get('matches_total', '-')} "
-                      f"peticiones={g['http_requests']}" + (f" error={g['error']}" if g.get("error") else ""))
+                      f"peticiones={g['http_requests']}{extra}" + (f" error={g['error']}" if g.get("error") else ""))
             return 0 if all(g["status"] == "downloaded" for g in rep["groups"]) else 1
         report = _load(work / REPORT_NAME)
         from futsal.db.session import make_engine

@@ -6,13 +6,16 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, date, datetime
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from pydantic import BaseModel
 
 from futsal.ingestion.rffm.client import FetchError, round_url
 from futsal.ingestion.rffm.models import RoundData
 from futsal.ingestion.rffm.parser import RffmParseError, extract_page_props, parse_round
+
+if TYPE_CHECKING:
+    from futsal.ingestion.rffm.update_policy import UpdatePolicy
 
 Fetch = Callable[[str], str]
 STATUSES = ("finished", "scheduled", "postponed", "suspended", "cancelled", "unknown")
@@ -153,12 +156,15 @@ def scrape_league(
     now: Callable[[], datetime] = lambda: datetime.now(UTC),
     requests_made: Callable[[], int] = lambda: 0,
     on_round: Callable[[int, int, bool, bool], None] | None = None,
+    update: "UpdatePolicy | None" = None,
 ) -> dict[str, Any]:
     started = now()
     rounds_dir = out_dir / "rounds"
     fetched_now: set[str] = set()
     issues: list[dict[str, str | None]] = []
     failed: dict[str, str] = {}
+    forced: dict[str, str] = {}  # --update: jornada ya descargada que se vuelve a pedir -> motivo
+    kept_stale: dict[str, str] = {}  # --update: la nueva petición falló y se conserva el snapshot anterior
 
     def html_path(rid: str) -> Path:
         return rounds_dir / f"{rid}.html"
@@ -169,7 +175,7 @@ def scrape_league(
     def get_html(rid: str) -> tuple[str, bool]:
         """(html, from_cache). Valida identidad antes de guardar un snapshot nuevo."""
         path = html_path(rid)
-        if path.exists() and not (refresh and rid not in fetched_now):
+        if path.exists() and not ((refresh or rid in forced) and rid not in fetched_now):
             return path.read_text(encoding="utf-8"), rid not in fetched_now
         url = round_url(target.season, target.competition, target.group, rid, target.game_type)
         html = fetch(url)
@@ -192,10 +198,28 @@ def scrape_league(
     today = now().date()
     results: dict[str, RoundData] = {}
     cached = 0
+    skipped_closed = 0
+    if update is not None:
+        from futsal.ingestion.rffm.update_policy import classify_round, snapshot_time  # import tardío: evita el ciclo con league
+
+        for ref in selected:
+            rid = ref.external_round_id
+            if json_path(rid).exists() and html_path(rid).exists() and rid not in fetched_now:
+                try:
+                    old = RoundData.model_validate_json(json_path(rid).read_text(encoding="utf-8"))
+                    why = classify_round(old, html_path(rid).read_text(encoding="utf-8"), snapshot_time(html_path(rid)),
+                                         now(), update)
+                except (OSError, ValueError):
+                    why = "json_ilegible"
+                if why:
+                    forced[rid] = why
+                else:
+                    skipped_closed += 1
     for position, ref in enumerate(selected, start=1):
         rid = ref.external_round_id
         try:
-            if resume and json_path(rid).exists() and html_path(rid).exists() and rid not in fetched_now:
+            if (resume or update is not None) and rid not in forced and json_path(rid).exists() \
+                    and html_path(rid).exists() and rid not in fetched_now:
                 data = RoundData.model_validate_json(json_path(rid).read_text(encoding="utf-8"))
                 if (data.season_external_id, data.competition_external_id, data.group_external_id) != (
                     target.season, target.competition, target.group
@@ -212,6 +236,18 @@ def scrape_league(
                 _write(json_path(rid), data.model_dump_json(indent=2) + "\n")
             issues += check_quality(data, html, today)
         except (FetchError, RffmParseError, ValueError) as exc:
+            if rid in forced and json_path(rid).exists():
+                try:  # la web no respondió bien: se conserva lo que ya había (no se pierde una jornada válida)
+                    data = RoundData.model_validate_json(json_path(rid).read_text(encoding="utf-8"))
+                    kept_stale[rid] = str(exc)[:200]
+                    issues.append(_issue("refetch_failed_kept_snapshot", f"{forced[rid]}: {str(exc)[:150]}", rid))
+                    results[rid] = data
+                    cached += 1
+                    if on_round:
+                        on_round(position, len(selected), True, False)
+                    continue
+                except (OSError, ValueError):
+                    pass
             failed[rid] = str(exc)[:200]
             issues.append(_issue("round_failed", str(exc)[:200], rid))
             if on_round:
@@ -272,6 +308,9 @@ def scrape_league(
         **{f"matches_{s}": counts.get(s, 0) for s in STATUSES},
         "duplicate_match_ids": sorted(set(duplicates)),
         "quality_issues": issues,
+        "update": None if update is None else {
+            "refetched": {r: why for r, why in forced.items() if r not in kept_stale and r not in failed},
+            "kept_stale": kept_stale, "skipped_closed": skipped_closed},
         "rounds": [
             {"external_round_id": r.external_round_id, "visible_round_label": r.visible_round_label,
              "scheduled_date": r.scheduled_date.isoformat() if r.scheduled_date else None,
