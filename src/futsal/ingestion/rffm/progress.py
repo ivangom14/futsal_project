@@ -20,7 +20,7 @@ def fmt_duration(seconds: float) -> str:
 class Progress:
     def __init__(self, total_requests: int, groups: int, requests_made: Callable[[], int], *,
                  clock: Callable[[], float] = time.monotonic, out: TextIO | None = None,
-                 live: bool | None = None) -> None:
+                 live: bool | None = None, group_word: str = "grupo", item_word: str = "jornada") -> None:
         self.total, self.groups, self._requests, self._clock = max(total_requests, 0), groups, requests_made, clock
         self.out = out if out is not None else sys.stderr
         self.live = (hasattr(self.out, "isatty") and self.out.isatty()) if live is None else live  # \r solo en terminal
@@ -31,6 +31,7 @@ class Progress:
         self.group_rounds: tuple[int, int] = (0, 0)
         self.finished_groups = 0
         self._width = 0
+        self.group_word, self.item_word = group_word, item_word
 
     # -- datos ------------------------------------------------------------------------------------------------------
     def done(self) -> int:
@@ -45,9 +46,9 @@ class Progress:
     def line(self) -> str:
         done = self.done()
         pos, tot = self.group_rounds
-        parts = [f"[grupo {self.group_index}/{self.groups}] {self.label}"]
+        parts = [f"[{self.group_word} {self.group_index}/{self.groups}] {self.label}"]
         if tot:
-            parts.append(f"jornada {pos}/{tot}")
+            parts.append(f"{self.item_word} {pos}/{tot}")
         if self.total:
             parts.append(f"peticiones {done}/~{self.total} ({min(done * 100 // self.total, 100)} %)")
         else:
@@ -60,6 +61,13 @@ class Progress:
     # -- eventos ---------------------------------------------------------------------------------------------------
     def start_group(self, index: int, competition_id: str, group_id: str, name: str | None) -> None:
         self.group_index, self.label, self.group_rounds = index, f"{competition_id}/{group_id} {name or ''}".strip(), (0, 0)
+        self._emit(self.line())
+
+    def begin(self, label: str, total_requests: int | None = None) -> None:
+        """Para lotes sin grupos (p. ej. actas): fija la etiqueta y, si se conoce, el total previsto de peticiones."""
+        self.group_index, self.label, self.group_rounds = 1, label, (0, 0)
+        if total_requests is not None:
+            self.total = max(total_requests, 0)
         self._emit(self.line())
 
     def on_round(self, position: int, total: int, from_cache: bool, failed: bool) -> None:

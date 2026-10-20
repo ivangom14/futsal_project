@@ -1,6 +1,7 @@
 """Procesamiento secuencial de actas de partidos finalizados: caché -> parseo -> JSON -> importación."""
 
-from collections.abc import Callable
+from collections import Counter
+from collections.abc import Callable, Sequence
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -12,6 +13,7 @@ from futsal.config.targets import RFFM_TARGET
 from futsal.importer.report_service import comparison_with_db, report_summary, run_report_import
 from futsal.ingestion.rffm.client import FetchError, match_report_url
 from futsal.ingestion.rffm.parser import RffmParseError
+from futsal.ingestion.rffm.progress import Progress
 from futsal.ingestion.rffm.report_parser import parse_match_report
 from futsal.repositories.match_reports import Candidate, select_candidates
 
@@ -58,16 +60,38 @@ def _process_one(engine: Engine, cand: Candidate, report_dir: Path, fetch: Calla
     return entry
 
 
+INITIAL_GROUPS: tuple[str, ...] = (RFFM_TARGET["group"],)
+
+
+def list_candidates(engine: Engine, groups: Sequence[str] | None, limit: int | None) -> list[Candidate]:
+    """Partidos finalizados sin acta de los grupos indicados (None = todos). Solo lee PostgreSQL."""
+    with Session(engine) as session:
+        return select_candidates(session, groups, limit)
+
+
+def plan_reports(engine: Engine, report_dir: Path, groups: Sequence[str] | None, limit: int | None) -> dict[str, Any]:
+    """Qué haría `process_reports` sin red: candidatos por grupo y peticiones previstas (los que ya tienen snapshot no piden)."""
+    cands = list_candidates(engine, groups, limit)
+    by_group = Counter(c.group_external_id for c in cands)
+    cached = sum(1 for c in cands if (report_dir / c.external_id / "raw.html").exists())
+    return {"candidates": len(cands), "by_group": dict(sorted(by_group.items())), "from_cache": cached,
+            "estimated_requests": len(cands) - cached}
+
+
 def process_reports(engine: Engine, report_dir: Path, fetch: Callable[[str], str], *,
                     limit: int | None, do_import: bool = True,
                     requests_made: Callable[[], int] = lambda: 0,
-                    now: Callable[[], datetime] = lambda: datetime.now(UTC)) -> dict[str, Any]:
+                    now: Callable[[], datetime] = lambda: datetime.now(UTC),
+                    groups: Sequence[str] | None = INITIAL_GROUPS,
+                    progress: Progress | None = None) -> dict[str, Any]:
+    """`groups`: IDs externos de grupo (por defecto solo el inicial); None = todos los grupos de la base."""
     started = now()
-    with Session(engine) as session:
-        candidates = select_candidates(session, RFFM_TARGET["group"], limit)
+    candidates = list_candidates(engine, groups, limit)
+    if progress:
+        progress.begin("actas", sum(1 for c in candidates if not (report_dir / c.external_id / "raw.html").exists()))
     entries: list[dict[str, Any]] = []
     consecutive, aborted = 0, None
-    for cand in candidates:
+    for position, cand in enumerate(candidates, start=1):
         try:
             entry = _process_one(engine, cand, report_dir, fetch, do_import)
             consecutive = 0
@@ -76,6 +100,8 @@ def process_reports(engine: Engine, report_dir: Path, fetch: Callable[[str], str
                      "source": None, "error": f"{type(exc).__name__}: {exc}"[:300]}
             consecutive = consecutive + 1 if isinstance(exc, FetchError) else 0
         entries.append(entry)
+        if progress:
+            progress.on_round(position, len(candidates), entry.get("source") == "cache", entry["status"] == "failed")
         if consecutive >= MAX_CONSECUTIVE_FETCH_FAILURES:
             aborted = f"{consecutive} fallos de descarga seguidos; se detiene sin insistir"
             break
@@ -84,6 +110,10 @@ def process_reports(engine: Engine, report_dir: Path, fetch: Callable[[str], str
         db.pop(k, None)
     return {
         "started_at": started.isoformat(), "finished_at": now().isoformat(),
+        "groups": "todos" if groups is None else list(groups),
+        "candidates_by_group": dict(sorted(Counter(c.group_external_id for c in candidates).items())),
+        "failed_by_group": dict(sorted(Counter(c.group_external_id for c, e in zip(candidates, entries, strict=False)
+                                               if e["status"] == "failed").items())),
         "candidates": len(candidates), "processed": len(entries),
         "downloaded": sum(1 for e in entries if e["source"] == "download"),
         "from_cache": sum(1 for e in entries if e["source"] == "cache"),

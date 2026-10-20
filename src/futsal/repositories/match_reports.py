@@ -1,6 +1,7 @@
 """Persistencia de actas: observaciones versionadas por hash y upsert idempotente de personas."""
 
 from collections import Counter
+from collections.abc import Sequence
 from dataclasses import dataclass, replace
 from datetime import datetime
 from typing import Any
@@ -66,8 +67,10 @@ class Loaded:
 
 
 def select_candidates(
-    session: Session, group_external_id: str, limit: int | None = None
+    session: Session, group_external_id: str | Sequence[str] | None, limit: int | None = None
 ) -> list[Candidate]:
+    """Partidos finalizados con marcador y sin acta. `group_external_id`: un grupo, varios, o None = todos los grupos."""
+    groups = [group_external_id] if isinstance(group_external_id, str) else group_external_id
     home, away = aliased(Team), aliased(Team)
     stmt = (
         select(Match, Round, home, away, CompetitionGroup, Competition, Season)
@@ -77,10 +80,11 @@ def select_candidates(
         .join(Competition, Competition.id == CompetitionGroup.competition_id)
         .join(Season, Season.id == Competition.season_id)
         .outerjoin(MatchReport, MatchReport.match_id == Match.id)
-        .where(CompetitionGroup.external_id == group_external_id, Match.status == "finished",
-               Match.home_score.is_not(None), Match.away_score.is_not(None),
+        .where(Match.status == "finished", Match.home_score.is_not(None), Match.away_score.is_not(None),
                MatchReport.id.is_(None))
-        .order_by(cast(Round.external_id, Integer), Match.external_id))
+        .order_by(CompetitionGroup.external_id, cast(Round.external_id, Integer), Match.external_id))
+    if groups is not None:
+        stmt = stmt.where(CompetitionGroup.external_id.in_(list(groups)))
     if limit is not None:
         stmt = stmt.limit(limit)
     return [Candidate(m.external_id, rnd.visible_label, h.name, a.name,

@@ -2,6 +2,7 @@
 
 import argparse
 import json
+import sys
 from pathlib import Path
 
 from sqlalchemy.exc import SQLAlchemyError
@@ -17,9 +18,10 @@ from futsal.importer.report_service import (
 )
 from futsal.ingestion.rffm.client import PoliteFetcher, match_report_url, read_or_fetch
 from futsal.ingestion.rffm.parser import RffmParseError
+from futsal.ingestion.rffm.progress import Progress
 from futsal.ingestion.rffm.report_parser import parse_match_report
 from futsal.ingestion.rffm.report_preview import render_preview
-from futsal.report_batch import process_reports
+from futsal.report_batch import INITIAL_GROUPS, plan_reports, process_reports
 from futsal.repositories.match_reports import ReportImportError, load_match, select_candidate
 
 REPORT_DIR = Path("data/rffm/match-reports")
@@ -48,6 +50,11 @@ def add_parsers(sub: "argparse._SubParsersAction[argparse.ArgumentParser]") -> N
     p.add_argument("--no-import", action="store_true", help="solo descarga y normaliza")
     p.add_argument("--report-dir", type=Path, default=REPORT_DIR)
     p.add_argument("--output", type=Path, default=None)
+    scope = p.add_mutually_exclusive_group()
+    scope.add_argument("--group", action="append", default=None, metavar="ID_GRUPO",
+                       help="ID externo de grupo RFFM (repetible). Sin --group ni --all-groups: solo el grupo inicial")
+    scope.add_argument("--all-groups", action="store_true", help="todos los grupos importados en PostgreSQL")
+    p.add_argument("--plan", action="store_true", help="solo lista candidatos por grupo y peticiones previstas (no descarga)")
     p = sub.add_parser("match-report-summary", help="recuentos agregados de actas")
     p.add_argument("--output", type=Path, default=None)
 
@@ -103,10 +110,20 @@ def run(args: argparse.Namespace) -> int:
             match_id, url = _resolve(args)
             return (_inspect if args.command == "inspect-match-report" else _scrape)(args, match_id, url)
         if args.command == "process-match-reports":
+            groups = None if args.all_groups else (tuple(args.group) if args.group else INITIAL_GROUPS)
+            scope_txt = "todos los grupos" if groups is None else "grupo(s) " + ", ".join(groups)
+            engine = make_engine()
+            if args.plan:
+                pending = plan_reports(engine, args.report_dir, groups, args.limit)
+                print(json.dumps({"ambito": scope_txt, **pending}, ensure_ascii=False))
+                return 0
             fetcher = PoliteFetcher(delay=args.request_delay, timeout=args.timeout)
-            summary = process_reports(make_engine(), args.report_dir, fetcher, limit=args.limit,
+            progress = Progress(0, 1, lambda: fetcher.requests, group_word="lote", item_word="acta")
+            print(f"Actas de {scope_txt} (pausa {args.request_delay:g} s entre peticiones).", file=sys.stderr)
+            summary = process_reports(engine, args.report_dir, fetcher, limit=args.limit,
                                       do_import=not args.no_import,
-                                      requests_made=lambda: fetcher.requests)
+                                      requests_made=lambda: fetcher.requests, groups=groups, progress=progress)
+            progress.finish()
             if args.output:
                 args.output.parent.mkdir(parents=True, exist_ok=True)
                 args.output.write_text(json.dumps(summary, ensure_ascii=False, indent=2) + "\n",
@@ -114,6 +131,9 @@ def run(args: argparse.Namespace) -> int:
             keys = ("candidates", "processed", "downloaded", "from_cache", "imported", "failed",
                     "http_requests", "aborted")
             print(" ".join(f"{k}={summary[k]}" for k in keys))
+            if groups is None or len(groups) > 1:
+                print("por grupo (candidatos): " + json.dumps(summary["candidates_by_group"], ensure_ascii=False)
+                      + ("; fallos: " + json.dumps(summary["failed_by_group"], ensure_ascii=False) if summary["failed_by_group"] else ""))
             return 1 if summary["failed"] else 0
         if args.command == "preview-match-report":
             report = read_report(args.input)

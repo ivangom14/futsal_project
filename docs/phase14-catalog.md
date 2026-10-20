@@ -115,3 +115,15 @@ python -m futsal.cli import-catalog                       # idempotente: actuali
 python -m futsal.cli verify-catalog
 ```
 Cada línea de grupo añade `revisadas=N omitidas=M` (y `conservadas_sin_actualizar=K` si alguna petición falló).
+
+## Actas de varios grupos: `process-match-reports`
+Por defecto sigue procesando **solo el grupo inicial** (`26738245`). Para las demás ligas:
+```
+python -m futsal.cli process-match-reports --all-groups --plan          # candidatos por grupo y peticiones previstas; no descarga
+python -m futsal.cli process-match-reports --group 26738244 --limit 5   # prueba pequeña en un grupo (ID externo de la RFFM, repetible)
+python -m futsal.cli process-match-reports --all-groups --request-delay 5
+```
+Candidatos = partidos `finished` con marcador y sin acta en PostgreSQL (hay que haber ejecutado `import-catalog`). Una petición por acta; las que ya tienen
+snapshot en `data/rffm/match-reports/<id>/raw.html` no se piden. Muestra un contador (`[lote 1/1] actas | acta 12/235 | peticiones 12/~235 | transcurrido… | restante ~…`),
+se detiene tras 3 fallos de descarga seguidos y al final indica candidatos y fallos por grupo. La identidad (partido, competición y grupo) se valida antes de guardar
+cada acta. Es idempotente: repetir el comando solo procesa lo que sigue sin acta.
