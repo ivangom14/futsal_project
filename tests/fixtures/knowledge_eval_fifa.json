@@ -1,0 +1,480 @@
+{
+ "document": "fifa-futsal-laws-2025-26",
+ "questions": [
+  {
+   "id": "max_jugadores",
+   "category": "literal",
+   "question": "¿Cuántos jugadores como máximo puede tener cada equipo?",
+   "expect": "answerable",
+   "evidence": [
+    {
+     "pages": [
+      31
+     ],
+     "rule": 3,
+     "section": "1",
+     "contains": "máximo de cinco jugadores"
+    }
+   ]
+  },
+  {
+   "id": "jugadores_pista",
+   "category": "colloquial",
+   "question": "¿cuántos jugadores puede haber en pista por equipo?",
+   "expect": "answerable",
+   "evidence": [
+    {
+     "pages": [
+      31
+     ],
+     "rule": 3,
+     "section": "1",
+     "contains": "máximo de cinco jugadores"
+    }
+   ],
+   "reformulated": "número de jugadores por equipo"
+  },
+  {
+   "id": "duracion_mitad",
+   "category": "literal",
+   "question": "¿Cuánto dura cada mitad del partido?",
+   "expect": "answerable",
+   "evidence": [
+    {
+     "pages": [
+      60
+     ],
+     "rule": 7,
+     "section": "1",
+     "contains": "dos mitades iguales de 20 minutos"
+    }
+   ],
+   "reformulated": "periodos de juego duración mitades"
+  },
+  {
+   "id": "duracion_total",
+   "category": "colloquial",
+   "question": "¿cuánto dura un partido de fútbol sala?",
+   "expect": "answerable",
+   "evidence": [
+    {
+     "pages": [
+      60
+     ],
+     "rule": 7,
+     "section": "1",
+     "contains": "dos mitades iguales de 20 minutos"
+    }
+   ],
+   "reformulated": "duración del partido periodos de juego"
+  },
+  {
+   "id": "tiempo_muerto",
+   "category": "literal",
+   "question": "¿Cuánto dura el tiempo muerto?",
+   "expect": "answerable",
+   "evidence": [
+    {
+     "pages": [
+      61
+     ],
+     "rule": 7,
+     "section": "3",
+     "contains": "un minuto de tiempo muerto"
+    }
+   ]
+  },
+  {
+   "id": "descanso",
+   "category": "literal",
+   "question": "¿Cuánto puede durar el descanso entre los dos periodos?",
+   "expect": "answerable",
+   "evidence": [
+    {
+     "pages": [
+      61
+     ],
+     "rule": 7,
+     "section": "4",
+     "contains": "no superior a 15 minutos"
+    }
+   ]
+  },
+  {
+   "id": "saque_banda_tiempo",
+   "category": "literal",
+   "question": "¿En cuánto tiempo hay que ejecutar un saque de banda?",
+   "expect": "answerable",
+   "evidence": [
+    {
+     "pages": [
+      113
+     ],
+     "rule": 15,
+     "section": "1",
+     "contains": "tiempo máximo de cuatro segundos"
+    }
+   ]
+  },
+  {
+   "id": "saque_banda_coloquial",
+   "category": "colloquial",
+   "question": "¿cuántos segundos tengo para sacar de banda?",
+   "expect": "answerable",
+   "evidence": [
+    {
+     "pages": [
+      113
+     ],
+     "rule": 15,
+     "section": "1",
+     "contains": "tiempo máximo de cuatro segundos"
+    }
+   ],
+   "reformulated": "saque de banda tiempo máximo cuatro segundos"
+  },
+  {
+   "id": "fuera_de_juego",
+   "category": "literal",
+   "question": "¿Existe la infracción de fuera de juego en futsal?",
+   "expect": "answerable",
+   "evidence": [
+    {
+     "pages": [
+      75
+     ],
+     "rule": 11,
+     "section": null,
+     "contains": "No existe la infracción de fuera de juego"
+    }
+   ]
+  },
+  {
+   "id": "fuera_de_juego_coloquial",
+   "category": "colloquial",
+   "question": "¿se pita el fuera de juego en fútbol sala?",
+   "expect": "answerable",
+   "evidence": [
+    {
+     "pages": [
+      75
+     ],
+     "rule": 11,
+     "section": null,
+     "contains": "No existe la infracción de fuera de juego"
+    }
+   ],
+   "reformulated": "fuera de juego"
+  },
+  {
+   "id": "sexta_falta",
+   "category": "literal",
+   "question": "¿Qué ocurre a partir de la sexta falta acumulada en un periodo?",
+   "expect": "answerable",
+   "evidence": [
+    {
+     "pages": [
+      99
+     ],
+     "rule": 13,
+     "section": "5",
+     "contains": "seis o más faltas acumuladas"
+    }
+   ]
+  },
+  {
+   "id": "sexta_falta_coloquial",
+   "category": "colloquial",
+   "question": "¿a las cuántas faltas del equipo te hacen tiro libre sin barrera?",
+   "expect": "answerable",
+   "evidence": [
+    {
+     "pages": [
+      99,
+      100
+     ],
+     "rule": 13,
+     "section": null,
+     "contains": "faltas acumuladas"
+    }
+   ],
+   "reformulated": "sexta falta acumulada tiro libre directo barrera"
+  },
+  {
+   "id": "corner",
+   "category": "colloquial",
+   "question": "¿cómo se saca un córner?",
+   "expect": "answerable",
+   "evidence": [
+    {
+     "pages": [
+      119
+     ],
+     "rule": 17,
+     "section": "1",
+     "contains": "cuadrante de esquina más cercano"
+    }
+   ],
+   "reformulated": "saque de esquina procedimiento"
+  },
+  {
+   "id": "esquina_defensor",
+   "category": "colloquial",
+   "question": "¿qué pasa si un defensor toca el balón y sale por la línea de fondo?",
+   "expect": "answerable",
+   "evidence": [
+    {
+     "pages": [
+      119
+     ],
+     "rule": 17,
+     "section": null,
+     "contains": "último en tocar el balón haya sido un jugador del equipo defensor"
+    }
+   ],
+   "reformulated": "saque de esquina balón línea de fondo equipo defensor"
+  },
+  {
+   "id": "gol_saque_banda",
+   "category": "exception",
+   "question": "¿Se puede marcar gol directamente de saque de banda?",
+   "expect": "answerable",
+   "evidence": [
+    {
+     "pages": [
+      113
+     ],
+     "rule": 15,
+     "section": null,
+     "contains": "No está permitido anotar gol directamente de saque de banda"
+    }
+   ],
+   "reformulated": "gol directamente de saque de banda"
+  },
+  {
+   "id": "gol_propia_esquina",
+   "category": "exception",
+   "question": "¿Qué pasa si el saque de esquina entra directamente en la portería del propio ejecutor?",
+   "expect": "answerable",
+   "evidence": [
+    {
+     "pages": [
+      119
+     ],
+     "rule": 17,
+     "section": null,
+     "contains": "si el balón entrara directamente en la portería del ejecutor del saque, se concederá saque de esquina al adversario"
+    }
+   ],
+   "reformulated": "saque de esquina portería del ejecutor del saque"
+  },
+  {
+   "id": "saque_meta_4s",
+   "category": "multi_chunk",
+   "question": "¿Qué ocurre si el guardameta no ejecuta el saque de meta en cuatro segundos?",
+   "expect": "answerable",
+   "evidence": [
+    {
+     "pages": [
+      117
+     ],
+     "rule": 16,
+     "section": null,
+     "contains": "dentro de los cuatro segundos preceptivos, se concederá un libre indirecto"
+    },
+    {
+     "pages": [
+      116
+     ],
+     "rule": 16,
+     "section": null,
+     "contains": "tiempo máximo de cuatro segundos"
+    }
+   ]
+  },
+  {
+   "id": "penal_sexta_falta",
+   "category": "multi_chunk",
+   "question": "¿Cuándo se concede un tiro penal por una falta acumulada?",
+   "expect": "answerable",
+   "evidence": [
+    {
+     "pages": [
+      100
+     ],
+     "rule": 13,
+     "section": null,
+     "contains": "se cometiera dentro del área del infractor, se concederá un tiro penal"
+    },
+    {
+     "pages": [
+      99
+     ],
+     "rule": 13,
+     "section": null,
+     "contains": "seis o más faltas acumuladas"
+    }
+   ]
+  },
+  {
+   "id": "amonestacion_expulsion",
+   "category": "distinguish",
+   "question": "¿Qué diferencia hay entre una amonestación y una expulsión?",
+   "expect": "answerable",
+   "evidence": [
+    {
+     "pages": [
+      82
+     ],
+     "rule": 12,
+     "section": "3",
+     "contains": "La tarjeta amarilla se utiliza para comunicar una amonestación y la tarjeta roja, para comunicar una expulsión"
+    }
+   ]
+  },
+  {
+   "id": "libre_directo_indirecto",
+   "category": "distinguish",
+   "question": "¿En qué casos se concede un libre indirecto?",
+   "expect": "answerable",
+   "evidence": [
+    {
+     "pages": [
+      79
+     ],
+     "rule": 12,
+     "section": "2",
+     "contains": "Se concederá un libre indirecto si un jugador"
+    }
+   ],
+   "reformulated": "libre indirecto se concederá si un jugador"
+  },
+  {
+   "id": "roja_coloquial",
+   "category": "colloquial",
+   "question": "¿cuándo te sacan tarjeta roja por una mano?",
+   "expect": "answerable",
+   "evidence": [
+    {
+     "pages": [
+      85,
+      86
+     ],
+     "rule": 12,
+     "section": "3",
+     "contains": "expulsar al jugador o suplente que cometa alguna de las siguientes infracciones"
+    }
+   ],
+   "reformulated": "expulsión infracción por mano ocasión manifiesta de gol"
+  },
+  {
+   "id": "sustituciones",
+   "category": "colloquial",
+   "question": "¿cuántos cambios se pueden hacer durante el partido?",
+   "expect": "answerable",
+   "evidence": [
+    {
+     "pages": [
+      31
+     ],
+     "rule": 3,
+     "section": "2",
+     "contains": "número ilimitado de sustituciones"
+    }
+   ],
+   "reformulated": "número de sustituciones"
+  },
+  {
+   "id": "gol_valido",
+   "category": "literal",
+   "question": "¿Cuándo es válido un gol?",
+   "expect": "answerable",
+   "evidence": [
+    {
+     "pages": [
+      70
+     ],
+     "rule": 10,
+     "section": "1",
+     "contains": "Se considerará válido un gol cuando el balón haya atravesado completamente la línea de meta"
+    }
+   ]
+  },
+  {
+   "id": "portero_mano_fuera",
+   "category": "colloquial",
+   "question": "¿qué pasa si el portero toca el balón con la mano fuera de su área?",
+   "expect": "answerable",
+   "evidence": [
+    {
+     "pages": [
+      79
+     ],
+     "rule": 12,
+     "section": null,
+     "contains": "El guardameta está sujeto a las mismas restricciones que cualquier otro jugador en cuanto a tocar el balón con la mano fuera de su propia área"
+    }
+   ],
+   "reformulated": "guardameta toca el balón con la mano fuera de su área"
+  },
+  {
+   "id": "segundo_punto",
+   "category": "literal",
+   "question": "¿A qué distancia se marca el segundo punto de penalti?",
+   "expect": "answerable",
+   "evidence": [
+    {
+     "pages": [
+      19
+     ],
+     "rule": 1,
+     "section": "5",
+     "contains": "Se marcará un segundo punto a 10 m"
+    }
+   ]
+  },
+  {
+   "id": "sin_evidencia_salario",
+   "category": "unanswerable",
+   "question": "¿Cuánto cobra un árbitro de futsal por partido?",
+   "expect": "no_evidence",
+   "evidence": []
+  },
+  {
+   "id": "sin_evidencia_mundial",
+   "category": "unanswerable",
+   "question": "¿Quién ganó el último Mundial de futsal?",
+   "expect": "no_evidence",
+   "evidence": []
+  },
+  {
+   "id": "sin_evidencia_ajeno",
+   "category": "unanswerable",
+   "question": "¿Cuál es la capital de Francia?",
+   "expect": "no_evidence",
+   "evidence": []
+  },
+  {
+   "id": "sancion_rffm",
+   "category": "out_of_scope",
+   "question": "¿Cuántos partidos de sanción corresponden a una tarjeta roja directa en Tercera División Futsal de la RFFM?",
+   "expect": "no_evidence",
+   "evidence": []
+  },
+  {
+   "id": "acumulacion_amarillas_rfef",
+   "category": "out_of_scope",
+   "question": "Según las bases de la RFEF, ¿cuántas tarjetas amarillas acumuladas suponen un partido de sanción?",
+   "expect": "no_evidence",
+   "evidence": []
+  },
+  {
+   "id": "horario_competicion",
+   "category": "out_of_scope",
+   "question": "¿A qué hora juega mi equipo el sábado según las bases de competición de la liga?",
+   "expect": "no_evidence",
+   "evidence": []
+  }
+ ],
+ "note": "evidence.contains verificado contra el texto del PDF original (pdftotext). 'reformulated' es una reformulación manual con el vocabulario del reglamento: simula, sin LLM, lo que haría el agente al llamar a la herramienta."
+}

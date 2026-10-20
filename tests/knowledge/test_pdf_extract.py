@@ -1,4 +1,5 @@
 """Extracción de PDF: PDF mínimo generado en el test y, si existe, el PDF real de FIFA."""
+from collections.abc import Callable
 import json
 from pathlib import Path
 
@@ -12,29 +13,10 @@ from futsal.knowledge.profiles import FIFA_FUTSAL_LAWS
 from futsal.knowledge.quality import assess
 from futsal.knowledge.structure import build_structure
 
-
-def make_pdf(pages: list[str]) -> bytes:
-    objs = ["<< /Type /Catalog /Pages 2 0 R >>",
-            f"<< /Type /Pages /Kids [{' '.join(f'{3 + 2 * i} 0 R' for i in range(len(pages)))}] "
-            f"/Count {len(pages)} >>"]
-    for i, text in enumerate(pages):
-        stream = f"BT /F1 12 Tf 50 700 Td ({text}) Tj ET"
-        objs.append(f"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Contents {4 + 2 * i} 0 R "
-                    f"/Resources << /Font << /F1 << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> >> >> >>")
-        objs.append(f"<< /Length {len(stream)} >>\nstream\n{stream}\nendstream")
-    out = b"%PDF-1.4\n"
-    offsets = []
-    for n, body in enumerate(objs, 1):
-        offsets.append(len(out))
-        out += f"{n} 0 obj\n{body}\nendobj\n".encode()
-    xref = len(out)
-    out += f"xref\n0 {len(objs) + 1}\n0000000000 65535 f \n".encode()
-    out += b"".join(f"{o:010d} 00000 n \n".encode() for o in offsets)
-    out += f"trailer\n<< /Size {len(objs) + 1} /Root 1 0 R >>\nstartxref\n{xref}\n%%EOF".encode()
-    return out
+PdfMaker = Callable[[list[str]], bytes]
 
 
-def test_extracts_pages_in_order_with_numbers(tmp_path: Path) -> None:
+def test_extracts_pages_in_order_with_numbers(tmp_path: Path, make_pdf: PdfMaker) -> None:
     f = tmp_path / "a.pdf"
     f.write_bytes(make_pdf(["Primera pagina", "Segunda pagina"]))
     doc = get_extractor(f).extract(f)
@@ -68,7 +50,7 @@ class _FakeStream:
 
 
 def test_fetch_records_provenance_reuses_file_and_rejects_non_pdf(
-        tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch, make_pdf: PdfMaker) -> None:
     calls: list[str] = []
 
     def fake(method: str, url: str, **kw: object) -> _FakeStream:
