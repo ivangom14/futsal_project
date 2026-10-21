@@ -24,7 +24,7 @@ from futsal.config.settings import api_base_url, database_url, env_value
 
 EXPECTED_TOOLS = frozenset({
     "list_competitions", "list_groups", "list_rounds", "list_teams", "list_matches", "get_match",
-    "get_match_report", "list_match_events", "top_scorers", "find_players"})
+    "get_match_report", "list_match_events", "top_scorers", "find_players", "find_teams", "search_rules"})
 MARKER = Path("data/agent/preflight.json")
 Status = Literal["ok", "warn", "fail", "info"]
 

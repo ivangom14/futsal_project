@@ -20,6 +20,7 @@ from futsal.db.models import (
     Season,
     Team,
 )
+from futsal.api.knowledge import knowledge_router
 from futsal.api.reports import reports_router
 from futsal.db.session import make_engine
 
@@ -193,6 +194,7 @@ def create_app(engine: Engine | None = None) -> FastAPI:
         return data
 
     app.include_router(reports_router(get_session))
+    app.include_router(knowledge_router(get_engine))
     return app
 
 

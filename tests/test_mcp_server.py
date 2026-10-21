@@ -10,7 +10,8 @@ import pytest
 from futsal.mcp_server.server import create_server
 
 TOOLS = {"list_competitions", "list_groups", "list_rounds", "list_teams", "list_matches",
-         "get_match", "get_match_report", "list_match_events", "top_scorers", "find_players", "find_teams"}
+         "get_match", "get_match_report", "list_match_events", "top_scorers", "find_players", "find_teams",
+         "search_rules"}
 LISTING = {"items": [{"id": 1}], "count": 1}
 
 
@@ -38,6 +39,11 @@ def _run(name: str, args: dict[str, Any], handler: Any = _handler) -> tuple[bool
             return res.isError, res.content[0].text  # type: ignore[union-attr]
 
     return asyncio.run(go())
+
+
+def _description(name: str) -> str:
+    tools = asyncio.run(create_server().list_tools())
+    return next(t.description or "" for t in tools if t.name == name)
 
 
 def test_tools_registered_with_descriptions() -> None:
@@ -217,3 +223,25 @@ def test_list_matches_uses_the_requested_group_not_a_default() -> None:
     _run("list_matches", {"group_id": 26}, handler)
     _run("list_matches", {"group_id": 4}, handler)
     assert seen == ["/groups/26/matches", "/groups/4/matches"]
+
+
+def test_search_rules_forwards_query_and_filters_and_describes_the_reformulation() -> None:
+    seen: list[httpx.URL] = []
+
+    def handler(req: httpx.Request) -> httpx.Response:
+        seen.append(req.url)
+        return httpx.Response(200, json={"query": "saque de esquina", "method": "fts", "count": 0, "hits": [], "note": "x"})
+
+    is_error, text = _run("search_rules", {"query": "saque de esquina", "limit": 3, "rule": 17}, handler)
+    assert not is_error and json.loads(text)["method"] == "fts"
+    assert seen[0].path == "/knowledge/search" and dict(seen[0].params) == {"q": "saque de esquina", "limit": "3", "rule": "17"}
+    assert "reformula" in _description("search_rules") and "saque de esquina" in _description("search_rules")
+
+
+def test_search_rules_validates_input_and_maps_api_errors() -> None:
+    assert _run("search_rules", {"query": "x"})[0] is True                                    # demasiado corta: validación del esquema
+    assert _run("search_rules", {"query": "regla", "limit": 99})[0] is True
+    unavailable = _run("search_rules", {"query": "fuera de juego"}, lambda r: httpx.Response(503, json={"detail": "sin kb"}))
+    assert unavailable[0] is True and "error_dependencia" in unavailable[1]
+    bad = _run("search_rules", {"query": "fuera de juego"}, lambda r: httpx.Response(400, json={"detail": "mala"}))
+    assert bad[0] is True and "error_validacion" in bad[1]

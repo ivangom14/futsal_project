@@ -178,6 +178,18 @@ def create_server(client: httpx.Client | None = None) -> FastMCP:
         """Jugadores de las actas por nombre (devuelve player_id). Sin resultados: no consta."""
         return _get(http, f"/groups/{group_id}/players", f"grupo {group_id}", name=name, team_id=team_id)
 
+    @mcp.tool()
+    def search_rules(
+        query: Annotated[str, Field(min_length=2, max_length=500, description="Palabras clave del reglamento")],
+        limit: Annotated[int, Field(ge=1, le=10)] = 5,
+        rule: Annotated[int | None, Field(ge=1, description="Solo esta regla (número)")] = None,
+    ) -> dict[str, Any]:
+        """Reglas del juego (reglamento oficial de fútbol sala, texto literal). Búsqueda por palabras: reformula con el
+        vocabulario del reglamento (córner→saque de esquina, pista→terreno de juego, roja→expulsión, cambios→sustituciones,
+        portero→guardameta) y prueba otra si no aparece. Devuelve fragmentos con regla y página: cítalas y no afirmes nada que
+        no esté en ellos. Sin resultados útiles: dilo."""
+        return _get(http, "/knowledge/search", "reglamento", q=query, limit=limit, rule=rule)
+
     return mcp
 
 
