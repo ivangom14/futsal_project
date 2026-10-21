@@ -32,10 +32,13 @@ from futsal.agent.agent import (
     Agent,
 )
 from futsal.agent.criteria import (
+    PAGE_REF_RE,
+    RULE_REF_RE,
     answer_warns,
     card_color_claims,
     clarifies,
     has_any_score,
+    hit_pages,
     leaks_prompt,
     mentioned_players,
     missing_warnings,
@@ -44,7 +47,9 @@ from futsal.agent.criteria import (
     says_not_played,
     substitution_minute_claims,
     unsupported_coverage_counts,
+    unsupported_digits,
     unsupported_players,
+    unsupported_rule_citations,
     unsupported_scores,
 )
 from futsal.agent.llm import LLMClient, LLMResponse, Message, ToolCall, Usage
@@ -219,6 +224,9 @@ class Fact:
     status: str | None = None  # para "count": cuenta filas de partidos finished / pending en la evidencia
     exclude: str = ""  # equipo por el que se pregunta: basta con que la respuesta nombre al rival
     scores: tuple[tuple[int, int], ...] = ()  # discrepancy: (marcador previo, marcador actual)
+    rule: int | None = None  # rule_cited: regla, páginas y texto que debe traer algún fragmento de search_rules
+    pages: tuple[int, ...] = ()
+    contains: str = ""
 
 
 def _items(payloads: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -234,8 +242,11 @@ def _items(payloads: list[dict[str, Any]]) -> list[dict[str, Any]]:
 def evidence_ok(f: Fact, payloads: list[dict[str, Any]]) -> bool:
     """¿Contienen los resultados de tools (ya compactados) la cifra correcta?"""
     items = _items(payloads)
-    if f.kind in ("limitation", "refusal"):
+    if f.kind in ("limitation", "refusal", "no_evidence_rules"):
         return True
+    if f.kind == "rule_cited":
+        return any(h.get("rule") == f.rule and hit_pages(h) & set(f.pages) and norm(f.contains) in norm(str(h.get("text", "")))
+                   for p in payloads for h in p.get("hits", []) if isinstance(h, dict))
     if f.kind in ("match", "match_any"):
         def has(m: M) -> bool:
             for i in items:
@@ -307,6 +318,13 @@ def answer_ok(f: Fact, text: str) -> bool:
         return text.strip() == OFF_TOPIC_MESSAGE
     if f.kind == "limitation":
         return text.strip() != OFF_TOPIC_MESSAGE and any(p in low for p in LIMIT_PHRASES)
+    if f.kind == "no_evidence_rules":  # sin fragmento que lo respalde: debe decir que no consta, no inventar
+        return text.strip() != OFF_TOPIC_MESSAGE and any(p in low for p in LIMIT_PHRASES)
+    if f.kind == "rule_cited":
+        cited = {int(m.group(1)) for m in RULE_REF_RE.finditer(text)}
+        pages = {int(g) for m in PAGE_REF_RE.finditer(text) for g in m.groups() if g}
+        figure = (f.number is not None and has_number(text, f.number)) or any(norm(n) in low for n in f.names)
+        return figure and (f.rule in cited or bool(pages & set(f.pages)))
     if f.kind in ("match", "match_any"):
         def ok(m: M) -> bool:
             keys = [key(n) for n in (m.home, m.away) if not (f.exclude and key(n) == key(f.exclude))]
@@ -492,7 +510,10 @@ SMOKE = frozenset({"equipo_resultados", "acta_goleadores_ultimo", "partido_futur
 
 def build_cases(t: Truth) -> list[EvalCase]:
     """Los 21 casos de las fases 8-9 (intactos) + los nuevos de la fase 10, con etiquetas de uso de tools y suite."""
-    cases = _base_cases(t) + _new_cases(t, t.team_id("DOSA"))
+    # importación tardía: rule_cases usa Fact/EvalCase de este módulo
+    from futsal.agent.rule_cases import rule_cases
+
+    cases = _base_cases(t) + _new_cases(t, t.team_id("DOSA")) + rule_cases()
     for c in cases:
         c.required = REQUIRED.get(c.id, c.required)
         c.allowed_tools = c.allowed_tools | EXTRA_ALLOWED.get(c.id, frozenset())
@@ -772,7 +793,9 @@ def describe(facts: list[Fact] | None) -> str:
             "team_ambiguous": f"no elige: muestra ≥2 equipos o pregunta cuál ({', '.join(f.names)})",
             "cards": f"{f.number} tarjetas, sin traducir el código a color ({ms})",
             "partial_coverage": "advierte de que la cobertura de actas es parcial",
-            "no_sub_minutes": "dice que los minutos de los cambios no constan, sin inventarlos"}.get(f.kind, f.kind))
+            "no_sub_minutes": "dice que los minutos de los cambios no constan, sin inventarlos",
+            "rule_cited": f"{f.label}: cifra correcta y cita regla {f.rule} o página {'-'.join(map(str, f.pages))}",
+            "no_evidence_rules": "dice que el reglamento no lo recoge, sin dar cifras ni sanciones"}.get(f.kind, f.kind))
     return "; ".join(out)
 
 
@@ -807,6 +830,9 @@ def invention_claims(case: EvalCase, answer: str, truth: Truth, payloads: list[d
     claims += [f"afirma color de tarjeta: «{c[:80]}»" for c in card_color_claims(answer)]
     if case.forbid_scores and has_any_score(answer):
         claims.append("da un marcador donde no hay partido jugado ni dato")
+    if any(f.kind in ("rule_cited", "no_evidence_rules") for f in case.facts or []):
+        claims += [f"cita «{c}», que no figura en los fragmentos recuperados" for c in unsupported_rule_citations(answer, payloads)]
+        claims += [f"da la cifra {n}, que no figura en los fragmentos recuperados" for n in unsupported_digits(answer, payloads, case.question)]
     if any(f.kind == "no_sub_minutes" for f in case.facts or []):
         claims += [f"da minutos de cambios que no constan: «{c[:80]}»" for c in substitution_minute_claims(answer)]
     return claims
@@ -859,7 +885,7 @@ async def run_case(case: EvalCase, mcp: McpClient, mode: str, llm: LLMClient | N
     res.token_source, res.llm_retries, res.tool_calls = t["token_source"], t["llm_retries"], t["tool_calls"]
     res.latency_ms, res.tool_ms, res.run_id, res.answer = t["latency_ms"], t["tool_ms"], rec.run_id, run.answer
     facts = case.facts
-    structural = all(f.kind in ("limitation", "refusal") for f in facts)
+    structural = all(f.kind in ("limitation", "refusal", "no_evidence_rules") for f in facts)
     # capa 1: DATOS (¿devolvieron las tools la cifra correcta?)
     res.evidence_ok = True if structural else all(evidence_ok(f, payloads) for f in facts)
     # capa 2: USO DE HERRAMIENTAS
@@ -890,7 +916,10 @@ async def run_case(case: EvalCase, mcp: McpClient, mode: str, llm: LLMClient | N
         res.status, res.detail = "not_run", f"infraestructura (LLM): {run.error}"
     elif run.error:
         res.status, res.detail = "fail", run.error
-    elif structural and facts[0].kind == "limitation" and mode == "offline":
+    elif any(f.kind == "rule_cited" for f in facts) and not any(p.get("hits") for p in payloads) \
+            and any(p.get("count") == 0 for p in payloads):
+        res.status, res.detail = "not_evaluable", "la base de conocimiento no tiene el reglamento ingerido"
+    elif structural and facts[0].kind in ("limitation", "no_evidence_rules") and mode == "offline":
         res.status, res.detail = "not_evaluable", f"requiere LLM real ({case.reason})"
     else:
         res.status = "fail" if failed else "pass"

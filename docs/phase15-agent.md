@@ -25,7 +25,7 @@ La opción B (`pgvector`) queda abierta y solo se justificaría si A no basta co
 
 ## Qué NO está demostrado
 - Que Gemini reformule bien, llame a `search_rules` cuando debe y no la llame cuando no, ni que cite correctamente o admita «no consta» en las 6 preguntas sin evidencia.
-  Requiere una evaluación online que no se ha lanzado (cuota). El evaluador del agente todavía no tiene casos de reglamento.
+  Requiere una evaluación online que no se ha lanzado (cuota). Los casos de reglamento ya existen en el evaluador (Entrega 4) pero solo se han ejecutado offline.
 - La calidad de las respuestas del agente sobre reglas (solo está medida la recuperación).
 
 ## Coste en tokens (importante)
@@ -44,3 +44,24 @@ python -m futsal.knowledge ...             # ingesta/inspección (Entrega 2)
 uvicorn futsal.api.app:app_factory --factory --port 8000
 curl "http://localhost:8000/knowledge/search?q=saque%20de%20esquina&limit=3"
 ```
+
+## Entrega 4: casos de reglamento en el evaluador y decisión A/B
+*Interpretación:* «Entrega 4» no estaba definida en el repositorio; se ha tomado como «medir el agente sobre reglamento y dejar el criterio de decisión A (léxica + reformulación) frente a B (pgvector)». Sin ejecuciones online.
+
+**Casos** (`src/futsal/agent/rule_cases.py`, suite `all`; preguntas y evidencia de `tests/fixtures/knowledge_eval_fifa.json`):
+- `regla_duracion_mitad` (literal fallida, solo funciona reformulada), `regla_tiempo_muerto`, `regla_sexta_falta` (coloquial), `regla_roja_mano` (coloquial): deben usar `search_rules`, dar la cifra correcta y citar regla o página.
+- `regla_sin_evidencia_sancion_rffm`, `regla_sin_evidencia_salario`: deben decir que el reglamento no lo recoge, sin cifras ni sanciones.
+- Capas nuevas: datos (algún fragmento trae la regla, página y texto esperados), respuesta (`rule_cited`, `no_evidence_rules`) e invención (`unsupported_rule_citations`: regla/página que no devolvió la herramienta; `unsupported_digits`: cifras ausentes de los fragmentos y de la pregunta).
+- Offline: los 4 respondibles pasan con un LLM guionizado que ya reformula (miden API+MCP+criterios, no a Gemini); los 2 sin evidencia son «no evaluables» (requieren LLM real). Suite completa offline: 27 pass, 0 fail, 8 no evaluables.
+- Si el documento no está ingerido (la búsqueda devuelve 0 resultados), los respondibles quedan «no evaluables» en vez de fallar.
+- Hallazgo: cada caso respondible cuesta ≈ 7.200 tokens de entrada (2 llamadas): 5 fragmentos de hasta 1.200 caracteres en el resultado. Candidato a ajustar (`limit` por defecto 3) tras la medición online.
+
+**Criterio de decisión A frente a B** (tras la ejecución online de los 6 casos): se mantiene A si los 4 respondibles pasan y los 2 sin evidencia dicen «no consta»; se considera B si fallan por recuperación
+(capa de datos, el agente reformuló y aun así no llegó el fragmento) en ≥ 2 de los 4. Si fallan por respuesta/cita, se corrige el prompt, no la recuperación.
+
+**Ejecución online (NO lanzada; requiere tu autorización expresa, consume cuota)**, Windows CMD, con `GEMINI_API_KEY`, `LLM_PROVIDER=gemini` y la API en marcha:
+```
+python -m futsal.agent.evaluate --mode live --suite all --plan --only regla_duracion_mitad,regla_tiempo_muerto,regla_sexta_falta,regla_roja_mano,regla_sin_evidencia_sancion_rffm,regla_sin_evidencia_salario
+python -m futsal.agent.evaluate --mode live --confirm-live --suite all --max-requests 40 --only regla_duracion_mitad,regla_tiempo_muerto,regla_sexta_falta,regla_roja_mano,regla_sin_evidencia_sancion_rffm,regla_sin_evidencia_salario
+```
+El primero no llama al LLM (estimación: ≈ 8 llamadas y ≈ 29.000 tokens de entrada; subestima los 2 sin evidencia, que `--plan` no cuenta al no tener ruta guionizada, +≈ 4 llamadas). Como `suite_version` cambia, la comparación con líneas base anteriores marcará casos nuevos (esperado).

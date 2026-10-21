@@ -156,6 +156,39 @@ def unsupported_coverage_counts(text: str, payloads: list[dict[str, Any]]) -> li
         return []
     return [m.group(0) for m in COVERAGE_COUNT_RE.finditer(text) if (int(m.group(1)), int(m.group(2))) not in valid]
 
+RULE_REF_RE = re.compile(r"\bregla\s+(\d{1,2})\b", re.I)
+PAGE_REF_RE = re.compile(r"\b(?:páginas?|págs?\.?|pp?\.)\s*(\d{1,3})(?:\s*(?:-|–|y|a)\s*(\d{1,3}))?", re.I)
+_NUMBER_RE = re.compile(r"(?<![\w/])\d+(?:[.,]\d+)?(?![\w/])")
+
+
+def _rule_hits(payloads: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return [h for p in payloads if isinstance(p.get("hits"), list) for h in p["hits"] if isinstance(h, dict)]
+
+
+def hit_pages(hit: dict[str, Any]) -> set[int]:
+    nums = [int(n) for n in re.findall(r"\d+", str(hit.get("pages", "")))]
+    return set(range(nums[0], nums[-1] + 1)) if nums else set()
+
+
+def unsupported_rule_citations(text: str, payloads: list[dict[str, Any]]) -> list[str]:
+    """Reglas o páginas citadas que no figuran en los fragmentos devueltos por `search_rules`."""
+    hits = _rule_hits(payloads)
+    rules = {int(h["rule"]) for h in hits if isinstance(h.get("rule"), int)}
+    pages = set().union(*(hit_pages(h) for h in hits)) if hits else set()
+    out = [m.group(0) for m in RULE_REF_RE.finditer(text) if int(m.group(1)) not in rules]
+    for m in PAGE_REF_RE.finditer(text):
+        if not {int(g) for g in m.groups() if g} <= pages:
+            out.append(m.group(0))
+    return out
+
+
+def unsupported_digits(text: str, payloads: list[dict[str, Any]], question: str = "") -> list[str]:
+    """Cifras de la respuesta que no aparecen en los fragmentos recuperados ni en la pregunta (se ignoran regla y página citadas)."""
+    support = " ".join(str(h.get("text", "")) for h in _rule_hits(payloads)) + " " + question
+    known = set(_NUMBER_RE.findall(support))
+    cleaned = PAGE_REF_RE.sub(" ", RULE_REF_RE.sub(" ", text))
+    return sorted({n for n in _NUMBER_RE.findall(cleaned) if n not in known})
+
 
 def leaks_prompt(text: str, prompt: str, allowed: str | tuple[str, ...] = "", window: int = 7) -> bool:
     """¿Copia la respuesta una secuencia de `window` palabras seguidas de las instrucciones del sistema?

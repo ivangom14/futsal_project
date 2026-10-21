@@ -156,5 +156,8 @@ hecho. Descarga real autorizada (3 pasadas): 12/25 grupos completos, 12 parciale
 Sin llamadas LLM. Pendiente: recalibrar la línea base online del agente tras la ingesta; actas solo del grupo inicial.
 
 Fase 15 Entrega 3 (opción A, léxica; `docs/phase15-agent.md`): `GET /knowledge/search`, tool MCP `search_rules` (descripción con glosario de reformulación) y prompt del agente
-con reglas del juego; preflight espera `find_teams`/`search_rules`. Offline: API = capa de recuperación en las 25 preguntas (PDF real); 368 tests. **No validado con LLM real** (sin casos de reglamento en el
-evaluador). Coste: ≈ +300 tokens/llamada (~+18 % offline sobre el conjunto de 29 casos; hay que recalibrar la línea base online). Decisión pendiente: aceptar/acortar/exponer condicionalmente.
+con reglas del juego; preflight espera `find_teams`/`search_rules`. Offline: API = capa de recuperación en las 25 preguntas (PDF real); 368 tests. **No validado con LLM real**. Coste: ≈ +300 tokens/llamada (~+18 % offline sobre el conjunto de 29 casos; hay que recalibrar la línea base online). Decisión pendiente: aceptar/acortar/exponer condicionalmente.
+
+Fase 15 Entrega 4 (interpretada como: casos de reglamento + criterio A/B; `docs/phase15-agent.md`): `agent/rule_cases.py` (4 respondibles + 2 sin evidencia), hechos `rule_cited`/`no_evidence_rules`
+y criterios `unsupported_rule_citations`/`unsupported_digits`. Offline: suite completa 27 pass, 0 fail, 8 no evaluables. **Pendiente (requiere autorización)**: ejecución `--mode live` de los 6 casos (comandos en el doc) y decidir A/B,
+más el coste de `search_rules` (≈ +300 tokens/llamada; ≈ 7.200 tokens de entrada por caso de reglamento).

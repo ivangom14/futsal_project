@@ -62,3 +62,5 @@ Latencia mediana 6,5 ms, máx. 70 ms. *La reformulación es manual: simula lo qu
 A. Mantener la búsqueda léxica y que el agente reformule con el vocabulario del reglamento (la descripción de la herramienta lo pedirá). Coste: ninguno; riesgo: depende del modelo; se mide offline con la columna «reformulada» y online solo con tu autorización.
 B. Híbrido con `pgvector`: requiere imagen Docker con la extensión (p. ej. `pgvector/pgvector:pg16`) y un modelo de embeddings (local ~cientos de MB o API con cuota).
    Solo se justificaría si A no basta; la columna de embeddings se añadiría en una migración 0005 sin tocar lo existente.
+
+Criterio de decisión A/B y comandos de la medición online: `docs/phase15-agent.md` (Entrega 4). Sin ejecutar todavía.
