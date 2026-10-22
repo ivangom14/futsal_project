@@ -39,6 +39,7 @@ from futsal.agent.criteria import (
     clarifies,
     has_any_score,
     hit_pages,
+    invented_quantities,
     leaks_prompt,
     mentioned_players,
     missing_warnings,
@@ -107,6 +108,7 @@ class Truth:
     player_names: list[str] = field(default_factory=list)  # todos los jugadores con id RFFM (para detectar invenciones)
     cards: dict[int, int] = field(default_factory=dict)  # partido -> nº de tarjetas en la última observación
     unclosed: set[int] = field(default_factory=set)  # partidos cuya acta almacenada no está cerrada
+    rules_indexed: bool = False  # hay un reglamento indexado en la base de conocimiento (casos de reglamento evaluables)
 
     def team_id(self, token: str) -> int | None:
         return next((i for i, n in self.teams.items() if token.lower() in n.lower()), None)
@@ -118,6 +120,18 @@ class Truth:
         if status == "pending":
             return [m for m in rows if m.status != "finished"]
         return rows
+
+
+def _rules_indexed(db: Session) -> bool:
+    from sqlalchemy import text
+    from sqlalchemy.exc import SQLAlchemyError
+
+    try:
+        return bool(db.execute(text("SELECT EXISTS (SELECT 1 FROM kb_chunks c JOIN kb_document_versions v ON v.id = c.version_id "
+                                    "WHERE v.is_current AND v.index_status = 'indexed')")).scalar())
+    except SQLAlchemyError:  # migración 0004 sin aplicar
+        db.rollback()
+        return False
 
 
 def load_truth(engine: Engine) -> Truth | None:
@@ -138,7 +152,7 @@ def load_truth(engine: Engine) -> Truth | None:
         matches = [M(m.id, n or 0, m.home_team_id, m.away_team_id, teams.get(m.home_team_id, ""),
                      teams.get(m.away_team_id, ""), m.home_score, m.away_score, m.status,
                      m.scheduled_date, m.venue) for m, n in rows]
-        truth = Truth(group.id, teams, rounds, matches)
+        truth = Truth(group.id, teams, rounds, matches, rules_indexed=_rules_indexed(db))
         _load_report_truth(db, truth)
         return truth
 
@@ -321,10 +335,7 @@ def answer_ok(f: Fact, text: str) -> bool:
     if f.kind == "no_evidence_rules":  # sin fragmento que lo respalde: debe decir que no consta, no inventar
         return text.strip() != OFF_TOPIC_MESSAGE and any(p in low for p in LIMIT_PHRASES)
     if f.kind == "rule_cited":
-        cited = {int(m.group(1)) for m in RULE_REF_RE.finditer(text)}
-        pages = {int(g) for m in PAGE_REF_RE.finditer(text) for g in m.groups() if g}
-        figure = (f.number is not None and has_number(text, f.number)) or any(norm(n) in low for n in f.names)
-        return figure and (f.rule in cited or bool(pages & set(f.pages)))
+        return rule_answer_issue(f, text) is None
     if f.kind in ("match", "match_any"):
         def ok(m: M) -> bool:
             keys = [key(n) for n in (m.home, m.away) if not (f.exclude and key(n) == key(f.exclude))]
@@ -365,6 +376,18 @@ def answer_ok(f: Fact, text: str) -> bool:
     if f.kind == "no_sub_minutes":
         return any(p in low for p in LIMIT_PHRASES) and not substitution_minute_claims(text)
     return False
+
+
+def rule_answer_issue(f: Fact, text: str) -> str | None:
+    """Respuesta de reglamento: separa el fallo de contenido (cifra) del de cita (regla/página esperadas)."""
+    low = norm(text)
+    if not ((f.number is not None and has_number(text, f.number)) or any(norm(n) in low for n in f.names)):
+        return f"no da la cifra correcta ({f.label})"
+    cited = {int(m.group(1)) for m in RULE_REF_RE.finditer(text)}
+    pages = {int(g) for m in PAGE_REF_RE.finditer(text) for g in m.groups() if g}
+    if f.rule not in cited and not pages & set(f.pages):
+        return f"no cita la regla {f.rule} ni la página {'-'.join(map(str, f.pages))}"
+    return None
 
 
 def presentation_ok(text: str) -> bool:
@@ -519,6 +542,8 @@ def build_cases(t: Truth) -> list[EvalCase]:
         c.allowed_tools = c.allowed_tools | EXTRA_ALLOWED.get(c.id, frozenset())
         c.forbid_scores = c.forbid_scores or c.id in FORBID_SCORES
         c.smoke = c.id in SMOKE
+        if c.category.startswith("reglamento") and not t.rules_indexed:  # sin documento no hay verdad: no se gasta cuota
+            c.facts, c.plan, c.reason = None, None, "el reglamento no está ingerido en la base de conocimiento"
     return cases
 
 
@@ -832,7 +857,12 @@ def invention_claims(case: EvalCase, answer: str, truth: Truth, payloads: list[d
         claims.append("da un marcador donde no hay partido jugado ni dato")
     if any(f.kind in ("rule_cited", "no_evidence_rules") for f in case.facts or []):
         claims += [f"cita «{c}», que no figura en los fragmentos recuperados" for c in unsupported_rule_citations(answer, payloads)]
-        claims += [f"da la cifra {n}, que no figura en los fragmentos recuperados" for n in unsupported_digits(answer, payloads, case.question)]
+        no_data = any(f.kind == "no_evidence_rules" for f in case.facts or [])
+        # sin evidencia, ninguna cifra se respalda (ni con los fragmentos tangenciales que devuelva la búsqueda)
+        claims += [f"da la cifra {n}, que no figura en los fragmentos recuperados"
+                   for n in unsupported_digits(answer, [] if no_data else payloads, case.question)]
+        if no_data:
+            claims += [f"inventa un importe o sanción: «{q}»" for q in invented_quantities(answer)]
     if any(f.kind == "no_sub_minutes" for f in case.facts or []):
         claims += [f"da minutos de cambios que no constan: «{c[:80]}»" for c in substitution_minute_claims(answer)]
     return claims
@@ -903,10 +933,15 @@ async def run_case(case: EvalCase, mcp: McpClient, mode: str, llm: LLMClient | N
         res.warning_ok = not res.missing_warnings
         res.presentation_ok = presentation_ok(run.answer)
         res.provenance_ok = _provenance(run.answer, facts) if case.category != "alcance" else None
-    layers = [("datos: evidencia incompleta (¿resultado recortado?)", res.evidence_ok),
+    is_rule = any(f.kind in ("rule_cited", "no_evidence_rules") for f in facts)
+    rule_issues = [i for f in facts if f.kind == "rule_cited" and run.answer
+                   for i in [rule_answer_issue(f, run.answer)] if i]
+    layers = [("recuperación: search_rules no devolvió el fragmento esperado (regla, página y texto)" if is_rule
+               else "datos: evidencia incompleta (¿resultado recortado?)", res.evidence_ok),
               ("herramientas: " + "; ".join(res.tool_issues), res.tools_ok),
-              ("respuesta incorrecta", res.answer_ok),
-              ("invención: " + "; ".join(res.claims), res.invention_ok),
+              ("respuesta: " + ("; ".join(rule_issues) or "no recoge que el dato no consta") if is_rule
+               else "respuesta incorrecta", res.answer_ok),
+              (("citas y cifras: " if is_rule else "invención: ") + "; ".join(res.claims), res.invention_ok),
               ("falta advertir: " + ", ".join(res.missing_warnings), res.warning_ok)]
     failed = [msg for msg, ok in layers if ok is False]
     if infra:

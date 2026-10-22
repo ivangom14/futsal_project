@@ -190,6 +190,18 @@ def unsupported_digits(text: str, payloads: list[dict[str, Any]], question: str 
     return sorted({n for n in _NUMBER_RE.findall(cleaned) if n not in known})
 
 
+_NUMBER_WORDS = ("un", "uno", "una", "dos", "tres", "cuatro", "cinco", "seis", "siete", "ocho", "nueve", "diez", "once", "doce",
+                 "quince", "veinte", "treinta", "cuarenta", "cincuenta", "cien", "mil")
+_QUANTITY_RE = re.compile(
+    r"(?<![\w])(?:\d+(?:[.,]\d+)?|" + "|".join(_NUMBER_WORDS) + r")\s+(?:partidos?|encuentros?|jornadas?|euros?|€|sesiones|"
+    r"meses|a[ñn]os|d[ií]as|semanas|multas?|sanciones)\b|€|\beuros?\b", re.I)
+
+
+def invented_quantities(text: str) -> list[str]:
+    """Importes o duraciones de sanción («dos partidos», «60 euros», «€») que un reglamento sin ese dato no puede respaldar."""
+    return sorted({m.group(0).strip() for m in _QUANTITY_RE.finditer(text)})
+
+
 def leaks_prompt(text: str, prompt: str, allowed: str | tuple[str, ...] = "", window: int = 7) -> bool:
     """¿Copia la respuesta una secuencia de `window` palabras seguidas de las instrucciones del sistema?
     `allowed` (el aviso de alcance, que sí se cita) se descuenta antes de comparar."""
