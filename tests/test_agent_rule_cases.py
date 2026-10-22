@@ -1,4 +1,8 @@
-from futsal.agent.criteria import invented_quantities, unsupported_digits, unsupported_rule_citations
+from futsal.agent.criteria import (
+    invented_quantities,
+    unsupported_digits,
+    unsupported_rule_citations,
+)
 from futsal.agent.evaluate import (
     Truth,
     answer_ok,
