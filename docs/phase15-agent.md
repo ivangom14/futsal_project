@@ -40,7 +40,7 @@ vocabulario de reglas (menos coste, pero riesgo de no ofrecerla en preguntas col
 
 ## Uso
 ```
-python -m futsal.knowledge ...             # ingesta/inspección (Entrega 2)
+python -m futsal.cli knowledge-ingest --source fifa-futsal-laws-2025-26   # ingesta (Entrega 2); también knowledge-status / knowledge-search
 uvicorn futsal.api.app:app_factory --factory --port 8000
 curl "http://localhost:8000/knowledge/search?q=saque%20de%20esquina&limit=3"
 ```
@@ -82,15 +82,102 @@ Preguntas y evidencia de `tests/fixtures/knowledge_eval_fifa.json` (verificadas 
 ### Criterio de decisión A frente a B (tras la ejecución online)
 Se mantiene A si los 4 respondibles pasan y los 2 sin evidencia dicen «no consta». Se plantea B si fallan por **recuperación** en ≥ 2 de los 4 (el agente reformuló y aun así no llegó el fragmento). Si fallan por respuesta, cita o herramientas, se corrige el prompt o la descripción de la herramienta, no la recuperación.
 
-### Procedimiento de ejecución online (NO ejecutado; requiere autorización expresa, consume cuota)
-Windows CMD, API en marcha (`uvicorn futsal.api.app:create_app --factory --port 8000`) sobre la misma base, con el reglamento ya ingerido y las variables `LLM_PROVIDER=gemini`, `GEMINI_MODEL` y `GEMINI_API_KEY` (no se guardan en informes):
-1. Comprobar la base sin gastar cuota (los casos deben salir «evaluables: 4» y la base «misma que la API»); si salen no evaluables, falta ingerir el reglamento:
+### Procedimiento de ejecución online en Windows CMD (NO ejecutado; consume cuota solo el paso 7)
+Decisiones vigentes: `search_rules` con `limit=5` por defecto y coste de tokens aceptado; la herramienta se ofrece siempre (sin filtrar por palabras clave de reglamento).
+Los comandos están comprobados contra el código (nombres de módulos, opciones y variables); **no se han probado en tu Windows**, solo la lógica equivalente en el entorno de Claude (Linux).
+Claude no tiene ni ha pedido tu `GEMINI_API_KEY`. Usa **dos ventanas CMD**, ambas en la carpeta del proyecto y con el entorno virtual activado.
+
+**Paso 0 · Carpeta, rama y entorno (ventana 1)**
+```bat
+cd ruta\a\futsal_project
+dir pyproject.toml
+.venv\Scripts\activate.bat
+where python
+git branch --show-current
+git fetch origin claude/tender-rubin-rsz9uv
+git status -sb
+git log -1 --oneline
 ```
-python -m futsal.agent.evaluate --mode live --suite all --plan --only regla_duracion_mitad,regla_tiempo_muerto,regla_sexta_falta,regla_roja_mano,regla_sin_evidencia_sancion_rffm,regla_sin_evidencia_salario
+Debe verse `pyproject.toml`; `where python` debe listar primero `...\futsal_project\.venv\Scripts\python.exe`; la rama, `claude/tender-rubin-rsz9uv`; `git status -sb` sin cambios locales ni «behind». Si estás por detrás: `git pull origin claude/tender-rubin-rsz9uv` y `pip install -e ".[dev]"`. No hagas merge a `main`.
+
+**Paso 1 · Base de datos y reglamento indexado (ventana 1)**
+```bat
+docker compose up -d --wait db
+alembic upgrade head
+python -m futsal.cli knowledge-status
 ```
-2. Ejecución online (única orden que consume cuota):
+`knowledge-status` debe mostrar `fifa-futsal-laws-2025-26 ... índice=indexed ... fragmentos=267`. Si no aparece (o falla por tablas inexistentes), `alembic upgrade head` aplica la migración 0004 y la ingesta es idempotente:
+```bat
+python -m futsal.cli knowledge-ingest --source fifa-futsal-laws-2025-26
 ```
+(Necesita el PDF en `data\knowledge\fifa-futsal-laws-2025-26\original.pdf`, ignorado por Git; si falta, `python -m futsal.cli knowledge-fetch --help`.) Esto escribe solo en las tablas `kb_*`, nunca en las deportivas.
+
+**Paso 2 · Variables de entorno sin revelar la clave (ventana 1)**
+Las lee `futsal.config.settings.env_value`: primero el entorno de la sesión y, si falta, `.env`. Comprobación sin imprimir la clave (solo «definida»/«NO definida»):
+```bat
+python -m futsal.agent.preflight --for-live --no-docker
+```
+Muestra `LLM_PROVIDER`, `GEMINI_API_KEY` (definida/NO), el modelo, el host de `DATABASE_URL` sin contraseña y si la API responde (esta última fallará hasta el paso 3; es normal). Alternativa solo de sesión: `if defined GEMINI_API_KEY (echo definida) else (echo NO definida)`. **No uses** `echo %GEMINI_API_KEY%`, `set GEMINI_API_KEY` sin argumentos, `set` a secas, `type .env` ni `findstr GEMINI .env`: mostrarían la clave.
+
+Variables que falten, solo para esta ventana (se pierden al cerrarla):
+```bat
+set LLM_PROVIDER=gemini
+set GEMINI_MODEL=gemini-3.5-flash-lite
+```
+(`gemini-3.5-flash-lite` es el modelo por defecto del código; puedes omitir `GEMINI_MODEL`.) La clave, por orden de preferencia:
+1. **`.env` local** (método ya usado en la Fase 10; `.env` está en `.gitignore` y no está versionado): `notepad .env` y añade la línea `GEMINI_API_KEY=...`. Nada queda en el historial de CMD ni se versiona.
+2. **Solo la sesión**: `set /p GEMINI_API_KEY=Clave: `. No queda en el comando, pero lo que escribes **se ve en pantalla** mientras lo tecleas, y no he verificado si CMD lo conserva en el historial de la ventana (F7): al terminar, pulsa **Alt+F7** para borrarlo y cierra la ventana. No pongas la clave en `set GEMINI_API_KEY=valor`, scripts, `.bat` ni archivos del repositorio.
+
+**Paso 3 · Arrancar la API (ventana 2, mismo directorio y entorno)**
+```bat
+cd ruta\a\futsal_project
+.venv\Scripts\activate.bat
+uvicorn futsal.api.app:app_factory --factory --port 8000
+```
+Debe decir `Uvicorn running on http://127.0.0.1:8000`. La API usa tu `DATABASE_URL` (la misma que la ventana 1); no necesita la clave de Gemini. Verificación desde la ventana 1:
+```bat
+curl.exe -s "http://127.0.0.1:8000/knowledge/search?q=tiempo+muerto&limit=1"
+```
+Debe devolver JSON con `"count":1` y la regla 7. Si la API estaba arrancada antes de hacer `git pull`, páprala (Ctrl+C) y reiníciala.
+
+**Paso 4 · Plan de cuota (ventana 1; no llama al LLM ni consume cuota)**
+```bat
+python -m futsal.agent.evaluate --mode live --suite all --plan --max-requests 40 --only regla_duracion_mitad,regla_tiempo_muerto,regla_sexta_falta,regla_roja_mano,regla_sin_evidencia_sancion_rffm,regla_sin_evidencia_salario
+```
+Verificado en el código: con `--plan` el programa imprime el plan y termina antes de construir ningún cliente de LLM (`create_llm` solo se llama sin `--plan`), por lo que no necesita la clave. Comprueba en la salida:
+- `Base de datos: misma que la API (demostrado)` (si dice «NO demostrada», la ejecución live queda bloqueada: reinicia la API y revisa `DATABASE_URL`).
+- `Reglamento: indexado en la base de conocimiento` (si dice NO indexado, los 6 casos quedan no evaluables: vuelve al paso 1).
+- `Casos seleccionados: 6 (evaluables: 4)`; `Llamadas al LLM previstas: 8`; `Presupuesto duro de peticiones (--max-requests): 40`; tokens de entrada ≈ 29.300 (estimación).
+- Los 2 casos sin evidencia aparecen en «No evaluables en esta base (no consumen cuota)»: **en live sí se ejecutan y consumen cuota** (≈ +2-4 llamadas). Presupuesto realista total: ≈ 10-12 llamadas, ≈ 40.000-45.000 tokens de entrada; con 4 s entre peticiones, 1-2 minutos.
+
+**Paso 5 · (opcional, sin cuota) Preflight completo**
+```bat
+python -m futsal.agent.preflight --for-live
+```
+Debe indicar `GEMINI_API_KEY definida`, la API respondiendo y las 12 herramientas MCP esperadas, incluida `search_rules`. Sale con código 2 si algo bloquea.
+
+**Paso 6 · Antes de gastar cuota** (checklist): rama correcta y sin cambios locales; `knowledge-status` indexado; API en marcha y con el código actual; plan con base «misma que la API», reglamento indexado y 6 casos; clave definida (preflight); aceptas ≈ 10-12 llamadas. El comando de abajo es el único que consume cuota.
+
+**Paso 7 · Ejecución online (SOLO TÚ, ventana 1; Claude no la ejecuta)**
+```bat
 python -m futsal.agent.evaluate --mode live --confirm-live --suite all --max-requests 40 --only regla_duracion_mitad,regla_tiempo_muerto,regla_sexta_falta,regla_roja_mano,regla_sin_evidencia_sancion_rffm,regla_sin_evidencia_salario
 ```
-3. Revisar `report.md` (compartible; las trazas saneadas están en `traces.sanitized.jsonl`): estado global, capa que falla en cada caso y las 2 respuestas sin evidencia a mano.
-Como `suite_version` cambia, comparar con líneas base anteriores marcará los casos como nuevos (esperado); esta ejecución no es comparable con la línea base de las Fases 11/13.
+Sin `--confirm-live` el programa se niega a llamar al LLM. Usa `--min-interval 4` por defecto entre peticiones, 2 reintentos por llamada solo en 429/5xx/red y se detiene al llegar a 40 peticiones. Un 429 deja el caso como `not_run` (no `fail`).
+
+**Paso 8 · Interpretar el informe**
+- La salida imprime la tabla por caso y al final la ruta `data\agent\eval\<fecha>-live-all\`. Contiene `report.md` (léelo), `results.json`, `traces.sanitized.jsonl` (compartible) y `traces.raw.jsonl` (**no lo compartas**).
+- En `report.md`: estado global (SUPERADA / CON FALLOS / INCOMPLETA / SIN CASOS EVALUABLES; los no evaluables nunca cuentan como superados), tabla por capa y, en «Detalle para revisión humana», la pregunta, la ruta de herramientas, el criterio y **la respuesta literal del agente** de cada caso. Para ir a un caso: `findstr /n "regla_sin_evidencia" data\agent\eval\<carpeta>\report.md`.
+- Dónde falla cada caso (etiqueta en `detail`): `recuperación:` (el fragmento esperado no llegó; lo que alimenta A/B), `herramientas:`, `respuesta:` (cifra o cita ausente), `citas y cifras:` (regla/página/cifra no respaldadas).
+- **Revisión manual de los 2 casos sin evidencia** (lo que el evaluador no puede juzgar): lee la respuesta literal de `regla_sin_evidencia_sancion_rffm` y `regla_sin_evidencia_salario` y comprueba que (a) dice claramente que el reglamento no lo recoge, (b) no da cifras, importes ni sanciones, (c) no presenta un fragmento tangencial (p. ej. la regla 12 sobre tarjetas) como si respondiera a la pregunta, y (d) no sugiere un dato sin cifra («suele ser de varios partidos»). Si la respuesta es correcta pero el evaluador la marcó (o al revés), anótalo: los criterios son léxicos.
+- Un caso `not_run` por 429 o error de red es de infraestructura: repite solo ese caso con `--only` tras esperar.
+- Para decidir A/B aplica el criterio de arriba. Comparar con líneas base de fases anteriores avisará «suite distinta» (esperado).
+
+**Paso 9 · Detener y limpiar**
+Ventana 2: **Ctrl+C** para parar `uvicorn`. Si la clave estaba solo en la sesión, cierra ambas ventanas (o `set GEMINI_API_KEY=` para vaciarla). Para parar la base: `docker compose stop db` (opcional).
+
+**Si algo falla**
+- *Faltan credenciales* (`GEMINI_API_KEY no definida`, `No se puede iniciar el LLM`): no se ha llamado al LLM; define la clave (paso 2) y repite el paso 7. `LLM_PROVIDER` debe ser `gemini`.
+- *Falla la conexión a PostgreSQL* («No se puede conectar a PostgreSQL»): Docker Desktop abierto y `docker compose up -d --wait db`; revisa `DATABASE_URL` en `.env`. No se consumió cuota.
+- *La API no responde* (`ConnectError`, «NO demostrada igual a la API»): ventana 2 sin arrancar o en otro puerto/base; reinicia `uvicorn` y vuelve al paso 4. Con base no demostrada la ejecución live se bloquea por diseño (`--allow-unverified-db` existe pero no se recomienda).
+- *El reglamento no está indexado*: el plan lo indica; repite el paso 1 (`knowledge-ingest`). Los casos de reglamento saldrían `not_evaluable`, nunca aprobados.
+- *Tablas `kb_*` inexistentes*: `alembic upgrade head`.

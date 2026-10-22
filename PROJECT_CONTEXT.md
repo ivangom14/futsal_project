@@ -161,3 +161,8 @@ con reglas del juego; preflight espera `find_teams`/`search_rules`. Offline: API
 Fase 15 Entrega 4 (interpretada como: casos de reglamento + criterio A/B; `docs/phase15-agent.md`): `agent/rule_cases.py` (4 respondibles + 2 sin evidencia), hechos `rule_cited`/`no_evidence_rules`
 y criterios `unsupported_rule_citations`/`unsupported_digits`. Offline: suite completa 27 pass, 0 fail, 8 no evaluables. **Pendiente (requiere autorización)**: ejecución `--mode live` de los 6 casos (comandos en el doc) y decidir A/B,
 más el coste de `search_rules` (≈ +300 tokens/llamada; ≈ 7.200 tokens de entrada por caso de reglamento).
+
+Fase 15 cierre offline: decisiones del usuario: `search_rules` con `limit=5` y coste de tokens aceptado, siempre disponible (sin filtro por palabras clave); se mantiene la opción A. Suite offline completa: 27 pass, 0 fail, 8 no evaluables;
+`--plan` de los 6 casos de reglamento (8 llamadas, ≈ 29.300 tokens de entrada; ≈ 10-12 llamadas reales) sin LLM. El evaluador imprime «Reglamento: indexado / NO indexado». Procedimiento Windows CMD (dos ventanas) en
+`docs/phase15-agent.md`; **la ejecución `--mode live` la hace el usuario en su equipo** (no verificado en Windows ni con Gemini).
+

@@ -1099,6 +1099,7 @@ async def _main(args: argparse.Namespace) -> int:
         same = verify_same_database(engine, client)
     print(f"Base de datos: {'misma que la API (demostrado)' if same.verdict == 'same' else 'NO demostrada igual a la API'}"
           f" — {same.detail}")
+    print(f"Reglamento: {'indexado en la base de conocimiento' if truth.rules_indexed else 'NO indexado (los casos de reglamento quedan no evaluables)'}")
     if live and not args.plan:
         ok, msg = live_gate(same.verdict, args.allow_unverified_db)
         if msg:
