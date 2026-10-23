@@ -9,9 +9,11 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from futsal.knowledge.search import KnowledgeSearch, SearchError, SearchResult
 
-NOTE = ("Fragmentos literales de los documentos indexados (campo document: Reglas de Juego FIFA o Circular 27 de la RFEF). "
-        "La puntuación NO mide relevancia (no hay umbral): lee el texto y comprueba que responde; si no, dilo. Cita documento, "
-        "regla y página. Una circular que comunica las reglas no es normativa de competición ni de la RFFM.")
+NOTE = ("Fragmentos literales de los documentos indexados (campo document: reglas FIFA o circulares de la RFEF). La puntuación "
+        "NO mide relevancia (no hay umbral): lee el texto y comprueba que responde; si no, dilo. Cita documento, regla y página. "
+        "Una circular solo rige lo que su texto dice (p. ej. competiciones de la RFEF): no es normativa de la RFFM ni de otra "
+        "competición salvo que lo indique. Si dos documentos difieren, preséntalos por separado sin decidir cuál prevalece, "
+        "salvo que el texto lo diga.")
 NO_HITS = "Sin resultados: reformula con el vocabulario del reglamento (otras palabras) o dilo si sigue sin aparecer."
 
 

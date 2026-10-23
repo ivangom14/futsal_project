@@ -14,16 +14,20 @@ from futsal.agent.llm import ToolCall
 _TOOLS = frozenset({"search_rules"})
 FIFA = frozenset({"fifa-futsal-laws-2025-26"})
 C27 = frozenset({"rfef-circular-27-2025-26"})
+C10 = frozenset({"rfef-circular-10-rectificativa-2026-27"})
 
 
-def _plan(query: str) -> Any:
+def _plan(*queries: str) -> Any:
+    """Ruta de referencia: una búsqueda por consulta (preguntas que comparan dos documentos necesitan dos)."""
     def plan(step: int, _p: list[dict[str, Any]]) -> list[ToolCall] | None:
-        return _call("search_rules", query=query, limit=5) if step == 0 else None
+        return _call("search_rules", query=queries[step], limit=5) if step < len(queries) else None
     return plan
 
 
-def _answerable(case_id: str, question: str, query: str, facts: Fact | list[Fact], docs: frozenset[str] = FIFA) -> EvalCase:
-    return EvalCase(case_id, "reglamento", question, facts if isinstance(facts, list) else [facts], _TOOLS, _plan(query),
+def _answerable(case_id: str, question: str, query: str | tuple[str, ...], facts: Fact | list[Fact],
+                docs: frozenset[str] = FIFA) -> EvalCase:
+    return EvalCase(case_id, "reglamento", question, facts if isinstance(facts, list) else [facts], _TOOLS,
+                    _plan(*((query,) if isinstance(query, str) else query)),
                     "el agente debe reformular y citar", required=_TOOLS, max_calls=3, kb_docs=docs)
 
 
@@ -53,6 +57,7 @@ def rule_cases() -> list[EvalCase]:
                      "¿Cuántos partidos de sanción corresponden a una tarjeta roja directa en Tercera División Futsal de la RFFM?"),
         _no_evidence("regla_sin_evidencia_salario", "¿Cuánto cobra un árbitro de futsal por partido?"),
         *_circular27_cases(),
+        *_circular10_cases(),
     ]
 
 
@@ -84,4 +89,42 @@ def _circular27_cases() -> list[EvalCase]:
                           contains="Zúrich, 5 de septiembre de 2025")], C27),
         _no_evidence("circular27_sin_evidencia_rffm",
                      "¿Qué sanción impone la RFFM a un club que alinee a un jugador sin licencia en Tercera División Futsal?", C27),
+    ]
+
+
+def _circular10_cases() -> list[EvalCase]:
+    """Circular 10 rectificativa de la CTAFS de la RFEF, 2026/27 (12 p. físicas, un solo documento sin anexos)."""
+    return [
+        _answerable("circular10_anula", "¿Qué circular anula y sustituye la Circular 10 rectificativa de la RFEF para 2026/2027?",
+                    "circular 10 rectificativa anula sustituye circular 9 queda sin efecto",
+                    Fact("rule_cited", "anula la Circular 9 de 17 de agosto de 2026", names=("circular n.º 9", "circular 9"), pages=(1,),
+                         contains="sustituyen el contenido de la circular N.º 9"), C10),
+        _answerable("circular10_saque_meta_coloquial", "¿Puede el portero tirar el balón de un lado al otro del campo desde el saque de meta?",
+                    "saque de meta guardameta línea de medio campo tiro libre indirecto",
+                    Fact("rule_cited", "no puede pasar la línea de medio campo directamente; tiro libre indirecto", names=("indirecto",),
+                         pages=(1,), contains="no podrá pasar con el balón directamente la línea de medio campo"), C10),
+        _answerable("circular10_protestas_banquillo",
+                    "¿Las tarjetas por protestas a los miembros del banquillo cuentan como faltas acumulables?",
+                    "tarjetas protestas miembros banquillo faltas acumulables",
+                    Fact("rule_cited", "las tarjetas por protestas del banquillo acumulan falta", names=("acumul",), pages=(1, 2),
+                         contains="que sean por protestar, acumularán una falta"), C10),
+        _answerable("circular10_video_solicitudes",
+                    "¿Cuántas solicitudes de revisión de vídeo tiene cada equipo cuando se ratifica la decisión inicial?",
+                    "solicitudes soporte de vídeo por equipo y período",
+                    Fact("rule_cited", "1 solicitud por equipo y período", number=1, pages=(7,),
+                         contains="cada equipo dispondrá de 1 solicitud por equipo y período"), C10),
+        _answerable("circular10_penal_no_acumulable", "¿Una falta que se castiga con penalti cuenta como falta acumulada?",
+                    "falta tiro penal no se registrará como acumulada",
+                    Fact("rule_cited", "con tiro penal la falta no se acumula", names=("no se acumula", "no cuenta", "no se registra", "no es acumulable"),
+                         pages=(2,), contains="la falta no se registrará como acumulada"), C10),
+        _answerable("circular10_distingue_fifa", "¿Qué ocurre si el guardameta lanza el balón más allá del medio campo desde un saque de meta?",
+                    ("saque de meta guardameta línea de medio campo tiro libre indirecto",
+                     "reglas nacionales futsal juvenil veteranos guardameta línea central saque de meta"),
+                    [Fact("rule_cited", "Circular 10 (RFEF 2026/27): tiro libre indirecto", names=("indirecto",), pages=(1,),
+                          contains="se concederá un tiro libre indirecto al equipo adversario"),
+                     Fact("rule_cited", "Reglas FIFA 2025/26: solo donde las reglas nacionales lo prohíban", names=("nacional",),
+                          pages=(12,), contains="prohíban que el guardameta lance el balón más allá de la línea central")],
+                    FIFA | C10),
+        _no_evidence("circular10_sin_evidencia_sancion_rffm", "¿Qué sanción económica impone la RFFM por protestar al árbitro?", C10),
+        _no_evidence("circular10_sin_evidencia_circular9", "¿Qué establecía la Circular 9 de 17 de agosto de 2026 de la RFEF?", C10),
     ]

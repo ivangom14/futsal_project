@@ -26,6 +26,8 @@ class StructureProfile:
     part_dividers: tuple[tuple[re.Pattern[str], str], ...] = ()
     # Línea completa que abre una parte: (patrón, título de la parte).
     part_headings: tuple[tuple[re.Pattern[str], str], ...] = ()
+    # Línea completa que abre una parte y es su propio título (p. ej. «II. MEDIDAS PARA LA DINAMIZACIÓN DEL JUEGO»).
+    part_heading_line: re.Pattern[str] | None = None
     # Línea que abre una regla dentro del texto («Regla 12. Faltas…»): grupo (número). La línea se conserva.
     rule_inline: re.Pattern[str] | None = None
     # Apartado numerado: grupos (número, título); el número debe ser correlativo.
@@ -206,8 +208,9 @@ def build_structure(doc: ExtractedDocument, profile: StructureProfile,
                 skip -= 1
                 continue
             s = ln.strip()
-            new_part = next((t for p, t in profile.part_headings if started and p.fullmatch(s)),
-                            None)
+            new_part = next((t for p, t in profile.part_headings if started and p.fullmatch(s)), None)
+            if new_part is None and started and profile.part_heading_line and profile.part_heading_line.fullmatch(s):
+                new_part = _norm(s)
             sec = profile.section_heading.fullmatch(s) if profile.section_heading else None
             if new_part:
                 flush()

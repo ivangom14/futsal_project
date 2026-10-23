@@ -65,3 +65,4 @@ B. Híbrido con `pgvector`: requiere imagen Docker con la extensión (p. ej. `pg
 
 Segunda fuente (Circular 27 de la RFEF, sin duplicar el anexo idéntico al reglamento FIFA): `docs/phase15-circular27.md`.
 Criterio de decisión A/B y comandos de la medición online: `docs/phase15-agent.md` (Entrega 4). Sin ejecutar todavía.
+Tercera fuente (Circular 10 rectificativa de la CTAFS-RFEF 2026/27): `docs/phase15-circular10.md`.

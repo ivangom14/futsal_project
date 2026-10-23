@@ -175,3 +175,7 @@ p. 24-220 idénticas página a página al PDF FIFA ya indexado: no se indexan, m
 (circular ≠ normativa RFFM). Retrieval sin perjuicio al FIFA (text@5 0,60/0,88 iguales; MRR −0,02) y circular 4/6 literal, 6/6 reformulada. Evaluador: 6 casos `circular27_*`, no evaluables sin el documento. **Pendiente del usuario**: ingestar en su base local
 (comandos en el doc), y cualquier evaluación live del agente (no ejecutada). Limitaciones: cursiva/tachado no conservados, ranking léxico.
 
+Fase 15, Circular 10 rectificativa CTAFS-RFEF 2026/27 (`docs/phase15-circular10.md`): tercer documento (`rfef-circular-10-rectificativa-2026-27`, 12 p., 28 fragmentos, texto propio sin anexos ni solapamiento relevante: 12 % en 6-gramas; se indexa entero). Anula la Circular 9 (no está en la base) y se declara
+aplicable a competiciones de la RFEF (no dice nada de la RFFM). Cambio mínimo: `part_heading_line` y perfil `rfef-ctafs-circular` (partes I-VIII y apartados numerados); `note`/descripción genéricas («circulares de la RFEF», sin jerarquía normativa). Retrieval: FIFA y Circular 27 idénticos
+antes/después; circular 10 literal 4/8, reformulada 8/8. Evaluador: 8 casos `circular10_*` (suite offline 38 pass, 0 fail, 11 no evaluables con los tres documentos). **Pendiente del usuario**: ingestar en su base local (comandos en el doc) y cualquier evaluación live.
+

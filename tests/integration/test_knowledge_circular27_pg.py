@@ -97,7 +97,7 @@ def test_api_exposes_part_and_document_for_circular_hits_only(kb: Engine, tmp_pa
     base = client.get("/knowledge/search", params={"q": "guardameta pase intencionado", "limit": 1}).json()["hits"][0]
     assert base["doc_key"] == "reglas"
     note = client.get("/knowledge/search", params={"q": "RFEF"}).json()["note"]
-    assert "RFFM" in note and "Circular 27" in note                         # alcance de la evidencia para el agente
+    assert "RFFM" in note and "circulares de la RFEF" in note and "sin decidir cuál prevalece" in note  # alcance de la evidencia
 
 
 C27 = Path("data/knowledge/rfef-circular-27-2025-26/original.pdf")

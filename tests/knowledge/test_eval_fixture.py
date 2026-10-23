@@ -68,3 +68,29 @@ def test_circular27_annex_is_page_by_page_identical_to_the_fifa_document() -> No
     c27 = {p.number: p.text for p in PdfExtractor().extract(C27_PDF).pages}
     assert len(fifa) == 197 and len(c27) == 220
     assert all(fifa[k] == c27[k + 23] for k in fifa)
+
+
+C10_FIXTURE = Path("tests/fixtures/knowledge_eval_circular10.json")
+C10_PDF = Path("data/knowledge/rfef-circular-10-rectificativa-2026-27/original.pdf")
+C10_KEY = "rfef-circular-10-rectificativa-2026-27"
+
+
+def test_circular10_fixture_shape() -> None:
+    qs = load_questions(C10_FIXTURE)
+    assert len({q["id"] for q in qs}) == len(qs)
+    assert {q["expect"] for q in qs} == {"answerable", "no_evidence"}
+    assert {"colloquial", "short_chunk", "distinguish", "out_of_scope", "unanswerable"} <= {q["category"] for q in qs}
+    for q in qs:
+        assert q["expected_answer"] and (q["expect"] == "answerable") == bool(q["evidence"])
+        for ev in q["evidence"]:
+            assert ev["pages"] and ev["contains"] and ev["doc_key"] in (C10_KEY, FIFA_KEY)
+
+
+@pytest.mark.skipif(not (C10_PDF.exists() and PDF.exists()), reason="PDF de la Circular 10 o de FIFA no descargado")
+def test_circular10_evidence_is_in_the_original_pages() -> None:
+    sources = {C10_KEY: C10_PDF, FIFA_KEY: PDF}
+    pages = {k: {p.number: _n(p.text) for p in PdfExtractor().extract(v).pages} for k, v in sources.items()}
+    assert len(pages[C10_KEY]) == 12
+    for q in load_questions(C10_FIXTURE):
+        for ev in q["evidence"]:
+            assert any(_n(ev["contains"]) in pages[ev["doc_key"]][p] for p in ev["pages"]), (q["id"], ev["doc_key"])

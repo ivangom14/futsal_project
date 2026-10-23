@@ -51,4 +51,21 @@ KNOWLEDGE_SOURCES: dict[str, KnowledgeSource] = {
                         skip_reason="texto idéntico al documento fifa-futsal-laws-2025-26 (p. 24-220 = p. 1-197)"),
         ),
     )),
+    # Circular de la CTAFS de la RFEF para 2026/27 (12 páginas, texto propio; no contiene anexos ni repite otros documentos).
+    # Anula y sustituye a la Circular 9 (17-ago-2026), que no está en la base. Ver docs/phase15-circular10.md.
+    "rfef-circular-10-rectificativa-2026-27": KnowledgeSource(DocumentSpec(
+        doc_key="rfef-circular-10-rectificativa-2026-27",
+        title="Circular n.º 10 (rectificativa) de la CTAFS de la RFEF: Reglas de Juego y criterios arbitrales 2026/2027",
+        doc_type="circular",
+        language="es",
+        structure_profile="rfef-ctafs-circular",
+        source_url="https://rfef.es/sites/default/files/circular_10_rectificativa_ctafs_rfef_2026-2027_"
+                   "reglas_de_juego_y_criterios_arbitrales_modificacion_26-08-2026_1.pdf?cb=d02708b3",
+        issuer="Comité Técnico de Árbitros de Fútbol Sala (CTAFS) de la Real Federación Española de Fútbol (RFEF)",
+        publication_date=date(2026, 8, 26),  # firma «Las Rozas de Madrid, 26 de agosto de 2026»
+        effective_date=None,  # solo dice «aplicables en la temporada 2026/2027»
+        version_label="Circular 10 rectificativa · 2026/27",
+        season_label="2026/27",
+        page_sections=(PageSection(1, 12, "Circular 10 rectificativa (CTAFS, RFEF) 2026/2027"),),
+    )),
 }

@@ -60,3 +60,25 @@ def test_apply_sections_drops_skipped_pages_but_keeps_numbering() -> None:
 def test_apply_sections_rejects_invalid_ranges(sections: tuple[PageSection, ...]) -> None:
     with pytest.raises(ValueError):
         apply_sections(_doc("1", "2", "3", "4", "5"), sections)
+
+
+CTAFS = PROFILES["rfef-ctafs-circular"]
+
+
+def test_ctafs_profile_detects_roman_parts_and_numbered_sections_but_not_list_steps() -> None:
+    doc = _doc(_body(
+        "TEMPORADA 2026/2027", LONG, "Fin.",
+        "I. MODIFICACIONES A LAS REGLAS DE JUEGO", "1. Restricción en saque de meta", LONG, "Fin.",
+        "2. Tarjetas por protestas a miembros de banquillo", LONG, "Fin.",
+        "II. MEDIDAS PARA LA DINAMIZACIÓN DEL JUEGO", "1. Reducción del tiempo de revisión", LONG, "Fin.",
+        "1. Preguntarán al lesionado si requiere asistencia externa.",       # paso de lista: termina en punto
+        "2. Respuesta negativa, continúa el juego sin más.",                 # paso de lista: lleva coma
+        "2. Señalización de tarjetas por intercomunicador", LONG, "Fin."))
+    st = build_structure(doc, CTAFS, (PageSection(1, 1, "Circular"),))
+    got = [(s.part, s.section_number, s.section_title) for s in st.segments]
+    assert got == [("Circular", None, None),
+                   ("I. MODIFICACIONES A LAS REGLAS DE JUEGO", "1", "Restricción en saque de meta"),
+                   ("I. MODIFICACIONES A LAS REGLAS DE JUEGO", "2", "Tarjetas por protestas a miembros de banquillo"),
+                   ("II. MEDIDAS PARA LA DINAMIZACIÓN DEL JUEGO", "1", "Reducción del tiempo de revisión"),
+                   ("II. MEDIDAS PARA LA DINAMIZACIÓN DEL JUEGO", "2", "Señalización de tarjetas por intercomunicador")]
+    assert "Preguntarán al lesionado" in st.segments[3].text and "Respuesta negativa" in st.segments[3].text

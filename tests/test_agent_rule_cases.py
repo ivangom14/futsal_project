@@ -23,9 +23,9 @@ def _case(case_id: str):
 
 def test_cases_cover_answerable_and_no_evidence():
     kinds = [c.facts[0].kind for c in rule_cases()]
-    assert kinds.count("rule_cited") == 4 + 5 and kinds.count("no_evidence_rules") == 2 + 1
+    assert kinds.count("rule_cited") == 4 + 5 + 6 and kinds.count("no_evidence_rules") == 2 + 1 + 2
     assert all(c.required == {"search_rules"} for c in rule_cases())
-    assert [c.plan is None for c in rule_cases() if c.facts[0].kind == "no_evidence_rules"] == [True, True, True]
+    assert [c.plan is None for c in rule_cases() if c.facts[0].kind == "no_evidence_rules"] == [True] * 5
 
 
 def test_evidence_requires_expected_rule_page_and_text():
@@ -59,10 +59,11 @@ def test_unsupported_citations_and_digits():
 
 
 FIFA_KEY, C27_KEY = "fifa-futsal-laws-2025-26", "rfef-circular-27-2025-26"
+C10_KEY = "rfef-circular-10-rectificativa-2026-27"
 
 
 def _truth(indexed: bool | frozenset[str]) -> Truth:
-    docs = frozenset({FIFA_KEY, C27_KEY}) if indexed is True else (frozenset() if indexed is False else indexed)
+    docs = frozenset({FIFA_KEY, C27_KEY, C10_KEY}) if indexed is True else (frozenset() if indexed is False else indexed)
     return Truth(1, {}, {}, [], kb_docs=docs)
 
 
@@ -92,7 +93,7 @@ def test_rule_failures_are_told_apart():
 
 def test_missing_document_is_not_evaluable_not_a_pass():
     cases = [c for c in build_cases(_truth(False)) if c.category.startswith("reglamento")]
-    assert len(cases) == 12 and all(c.facts is None and c.plan is None for c in cases)
+    assert len(cases) == 20 and all(c.facts is None and c.plan is None for c in cases)
     assert all("no está ingerido" in c.reason for c in cases)
     assert all(c.facts for c in build_cases(_truth(True)) if c.category.startswith("reglamento"))
 
@@ -150,3 +151,27 @@ def test_circular27_without_evidence_rejects_attributing_sanctions_to_the_federa
     assert answer_ok(case.facts[0], "La Circular 27 no recoge sanciones de la RFFM; no consta ese dato.")
     claims = invention_claims(case, "La RFFM sanciona con dos partidos de suspensión y 300 euros de multa.", _truth(True), hits)
     assert any("importe" in c for c in claims) and any("300" in c for c in claims)
+
+
+def test_circular10_cases_need_their_document_and_the_comparison_needs_both() -> None:
+    no_c10 = {c.id: c for c in build_cases(_truth(frozenset({FIFA_KEY, C27_KEY}))) if c.category.startswith("reglamento")}
+    c10 = [c for k, c in no_c10.items() if k.startswith("circular10_")]
+    assert len(c10) == 8 and all(c.facts is None and C10_KEY in c.reason for c in c10)
+    assert all(c.facts for k, c in no_c10.items() if not k.startswith("circular10_"))        # el resto sigue evaluable
+    only_c10 = {c.id: c for c in build_cases(_truth(frozenset({C10_KEY}))) if c.category.startswith("reglamento")}
+    assert only_c10["circular10_anula"].facts and only_c10["circular10_distingue_fifa"].facts is None
+
+
+def test_circular10_scope_and_fifa_comparison_contracts() -> None:
+    case = _case("circular10_distingue_fifa")
+    circ, fifa = case.facts
+    both = "Circular 10 (página 1): tiro libre indirecto. Reglas FIFA (página 12): solo si las reglas nacionales lo prohíben."
+    assert rule_answer_issue(circ, both) is None and rule_answer_issue(fifa, both) is None
+    only_circ = "Según la Circular 10 (página 1) se concede un tiro libre indirecto."
+    assert rule_answer_issue(circ, only_circ) is None
+    assert rule_answer_issue(fifa, only_circ) is not None             # falta el contraste con el reglamento FIFA (dato y cita)
+    nothing = _case("circular10_sin_evidencia_circular9")
+    hits = [{"hits": [{"rule": None, "pages": "1", "text": "sustituyen el contenido de la circular N.º 9 de 17 de agosto de 2026, que queda sin efecto"}]}]
+    assert answer_ok(nothing.facts[0], "Solo consta que la Circular 9 queda sin efecto; su contenido no figura en los documentos.")
+    claims = invention_claims(nothing, "La Circular 9 fijaba 3 partidos de sanción.", _truth(True), hits)
+    assert any("3" in c for c in claims) and any("partidos" in c for c in claims)

@@ -57,7 +57,16 @@ RFEF_CIRCULAR = StructureProfile(
     ),
 )
 
+# Circular del Comité Técnico de Árbitros de Fútbol Sala de la RFEF (un solo documento): partes «I. TÍTULO EN MAYÚSCULAS» y
+# apartados «1. Título» sin coma ni punto final (las listas de pasos terminan en punto o llevan comas; además la
+# numeración debe ser correlativa dentro de cada parte).
+RFEF_CTAFS_CIRCULAR = StructureProfile(
+    part_heading_line=_c(rf"(?:I|II|III|IV|V|VI|VII|VIII|IX|X)\.\s+[{_UP}][{_UP} ,/()\-]+"),
+    section_heading=_c(rf"(\d{{1,2}})\.\s+([{_UP}a-záéíóúñ][^.,:;]{{2,78}})"),
+)
+
 PROFILES: dict[str, StructureProfile] = {
+    "rfef-ctafs-circular": RFEF_CTAFS_CIRCULAR,
     "rfef-circular": RFEF_CIRCULAR,
     "fifa-futsal-laws": FIFA_FUTSAL_LAWS,
     "plain": StructureProfile(),

@@ -1,0 +1,185 @@
+{
+ "document": "rfef-circular-10-rectificativa-2026-27",
+ "note": "Evidencia verificada sobre el PDF original (páginas físicas). 'expected_answer' es lo que debe decir la respuesta; los casos sin evidencia deben terminar en 'no consta'.",
+ "questions": [
+  {
+   "id": "c10_anula",
+   "category": "literal",
+   "question": "¿Qué circular anula y sustituye la Circular 10 rectificativa de la RFEF para 2026/2027?",
+   "expect": "answerable",
+   "evidence": [
+    {
+     "doc_key": "rfef-circular-10-rectificativa-2026-27",
+     "pages": [
+      1
+     ],
+     "rule": null,
+     "section": "Circular 10 rectificativa",
+     "contains": "sustituyen el contenido de la circular N.º 9"
+    }
+   ],
+   "reformulated": "circular 10 rectificativa anula sustituye circular 9 queda sin efecto",
+   "expected_answer": "La Circular n.º 9 (reglas de juego y criterios arbitrales 2026-2027, de 17 de agosto de 2026), que queda sin efecto."
+  },
+  {
+   "id": "c10_saque_meta",
+   "category": "literal",
+   "question": "¿Qué restricción tiene el guardameta en el saque de meta según la Circular 10 de 2026/2027?",
+   "expect": "answerable",
+   "evidence": [
+    {
+     "doc_key": "rfef-circular-10-rectificativa-2026-27",
+     "pages": [
+      1
+     ],
+     "rule": null,
+     "section": "I.1",
+     "contains": "no podrá pasar con el balón directamente la línea de medio campo"
+    }
+   ],
+   "reformulated": "saque de meta guardameta línea de medio campo tiro libre indirecto",
+   "expected_answer": "No puede pasar el balón directamente más allá de la línea de medio campo sin que antes lo toque otro jugador o toque la superficie en su propia mitad; si lo hace, tiro libre indirecto para el adversario desde donde el balón cruzó la línea central, sin ventaja."
+  },
+  {
+   "id": "c10_saque_meta_coloquial",
+   "category": "colloquial",
+   "question": "¿Puede el portero tirar el balón de un lado al otro del campo desde el saque de meta?",
+   "expect": "answerable",
+   "evidence": [
+    {
+     "doc_key": "rfef-circular-10-rectificativa-2026-27",
+     "pages": [
+      1
+     ],
+     "rule": null,
+     "section": "I.1",
+     "contains": "no podrá pasar con el balón directamente la línea de medio campo"
+    }
+   ],
+   "reformulated": "saque de meta guardameta línea de medio campo tiro libre indirecto",
+   "expected_answer": "No directamente: según la Circular 10 (RFEF 2026/27) no puede pasar la línea de medio campo sin que otro jugador toque el balón o este toque el suelo en su mitad; si no, tiro libre indirecto."
+  },
+  {
+   "id": "c10_protestas_banquillo",
+   "category": "literal",
+   "question": "¿Las tarjetas por protestas a los miembros del banquillo cuentan como faltas acumulables?",
+   "expect": "answerable",
+   "evidence": [
+    {
+     "doc_key": "rfef-circular-10-rectificativa-2026-27",
+     "pages": [
+      1,
+      2
+     ],
+     "rule": null,
+     "section": "I.2",
+     "contains": "que sean por protestar, acumularán una falta"
+    }
+   ],
+   "reformulated": "tarjetas protestas miembros banquillo faltas acumulables",
+   "expected_answer": "Sí: las tarjetas (amarillas o rojas) a miembros del banquillo por protestar acumulan una falta al equipo."
+  },
+  {
+   "id": "c10_video_solicitudes",
+   "category": "literal",
+   "question": "¿Cuántas solicitudes de revisión de vídeo tiene cada equipo cuando se ratifica la decisión inicial?",
+   "expect": "answerable",
+   "evidence": [
+    {
+     "doc_key": "rfef-circular-10-rectificativa-2026-27",
+     "pages": [
+      7
+     ],
+     "rule": null,
+     "section": "III.2",
+     "contains": "cada equipo dispondrá de 1 solicitud por equipo y período"
+    }
+   ],
+   "reformulated": "solicitudes soporte de vídeo por equipo y período",
+   "expected_answer": "1 solicitud por equipo y período (no acumulable); sin límite si la revisión provoca la rectificación; en tiempo suplementario, 1 nueva para todo el tiempo suplementario."
+  },
+  {
+   "id": "c10_penal_no_acumulable",
+   "category": "short_chunk",
+   "question": "¿Una falta que se castiga con penalti cuenta como falta acumulada?",
+   "expect": "answerable",
+   "evidence": [
+    {
+     "doc_key": "rfef-circular-10-rectificativa-2026-27",
+     "pages": [
+      2
+     ],
+     "rule": null,
+     "section": "I.3",
+     "contains": "la falta no se registrará como acumulada"
+    }
+   ],
+   "reformulated": "falta tiro penal no se registrará como acumulada",
+   "expected_answer": "No: cuando se concede un tiro penal, la falta no se registra como acumulada (el resto de infracciones de tiro libre directo sí cuentan)."
+  },
+  {
+   "id": "c10_ambito",
+   "category": "distinguish",
+   "question": "¿A qué competiciones se aplica la Circular 10 rectificativa de 2026/2027?",
+   "expect": "answerable",
+   "evidence": [
+    {
+     "doc_key": "rfef-circular-10-rectificativa-2026-27",
+     "pages": [
+      1
+     ],
+     "rule": null,
+     "section": "Circular 10 rectificativa",
+     "contains": "aplicables a todas las competiciones organizadas por la Real Federación Española de Fútbol"
+    }
+   ],
+   "reformulated": "modificaciones aplicables competiciones organizadas por la Real Federación Española de Fútbol temporada 2026/2027",
+   "expected_answer": "A las competiciones organizadas por la RFEF en la temporada 2026/2027. El texto no menciona competiciones de la RFFM ni otras federaciones territoriales: el agente no debe afirmar que se les aplique."
+  },
+  {
+   "id": "c10_distingue_fifa",
+   "category": "distinguish",
+   "question": "¿Qué ocurre si el guardameta lanza el balón más allá del medio campo desde un saque de meta?",
+   "expect": "answerable",
+   "evidence": [
+    {
+     "doc_key": "rfef-circular-10-rectificativa-2026-27",
+     "pages": [
+      1
+     ],
+     "rule": null,
+     "section": "I.1",
+     "contains": "se concederá un tiro libre indirecto al equipo adversario"
+    },
+    {
+     "doc_key": "fifa-futsal-laws-2025-26",
+     "pages": [
+      12
+     ],
+     "rule": null,
+     "section": "Observaciones: limitaciones al lanzamiento del balón por el guardameta",
+     "contains": "prohíban que el guardameta lance el balón más allá de la línea central"
+    }
+   ],
+   "reformulated": "saque de meta guardameta línea de medio campo tiro libre indirecto",
+   "expected_answer": "Según la Circular 10 de la RFEF (2026/27), tiro libre indirecto desde donde cruzó la línea central. En las Reglas FIFA 2025/26 (Observaciones p. 12 y Regla 16 p. 116-117) esa limitación solo existe donde las reglas nacionales del futsal juvenil, veteranos, discapacidad y base la prohíban. Citar cada documento sin decidir cuál prevalece.",
+   "note": "Dos documentos: una sola consulta no trae ambos; el agente puede necesitar dos búsquedas. En la Regla 16 (p. 116-117) la frase queda fuera de los 1200 caracteres visibles; la p. 12 sí la muestra."
+  },
+  {
+   "id": "c10_sancion_rffm",
+   "category": "out_of_scope",
+   "question": "¿Qué sanción económica impone la RFFM por protestar al árbitro?",
+   "expect": "no_evidence",
+   "evidence": [],
+   "expected_answer": "No consta: la circular solo dice que las tarjetas por protestas a miembros del banquillo acumulan falta; no fija sanciones económicas ni de la RFFM."
+  },
+  {
+   "id": "c10_circular9",
+   "category": "unanswerable",
+   "question": "¿Qué establecía la Circular 9 de 17 de agosto de 2026 de la RFEF?",
+   "expect": "no_evidence",
+   "evidence": [],
+   "expected_answer": "No consta: la Circular 10 solo informa de que anula y sustituye a la Circular 9 (17-ago-2026), que queda sin efecto; el contenido de la 9 no está en la base."
+  }
+ ]
+}
