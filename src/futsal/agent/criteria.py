@@ -231,6 +231,12 @@ def card_color_claims(text: str) -> list[str]:
             if any(c in norm(s).split() for c in CARD_COLORS) and not _negated(s)]
 
 
+def unsupported_card_colors(text: str, payloads: list[dict[str, Any]]) -> list[str]:
+    """Reglamento: el color de tarjeta es legítimo (lo dice el texto de la regla), pero debe figurar en lo recuperado."""
+    support = set(norm(" ".join(str(h.get("text", "")) for h in _rule_hits(payloads))).split())
+    return sorted({c for c in norm(text).split() if c in CARD_COLORS and c not in support})
+
+
 def substitution_minute_claims(text: str) -> list[str]:
     """Frases que dan un minuto para un cambio/sustitución sin negarlo (no constan en el acta)."""
     return [s.strip() for s in sentences(text)

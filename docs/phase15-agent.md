@@ -181,3 +181,20 @@ Ventana 2: **Ctrl+C** para parar `uvicorn`. Si la clave estaba solo en la sesió
 - *La API no responde* (`ConnectError`, «NO demostrada igual a la API»): ventana 2 sin arrancar o en otro puerto/base; reinicia `uvicorn` y vuelve al paso 4. Con base no demostrada la ejecución live se bloquea por diseño (`--allow-unverified-db` existe pero no se recomienda).
 - *El reglamento no está indexado*: el plan lo indica; repite el paso 1 (`knowledge-ingest`). Los casos de reglamento saldrían `not_evaluable`, nunca aprobados.
 - *Tablas `kb_*` inexistentes*: `alembic upgrade head`.
+
+## Primera medición online (2026-10-23, ejecutada por el usuario; `gemini-3.5-flash-lite`)
+Una primera ejecución con la base sin reglamento indexado dio 6 casos no evaluables, 0 llamadas y 0 tokens (la protección funcionó). La segunda, con el reglamento indexado: 3 pass, 3 fail, 12 llamadas LLM, 6 de herramientas,
+45.115 tokens de entrada y 418 de salida (reales, informados por el proveedor), 0 reintentos, base idéntica a la API. Coincide con la estimación (10-12 llamadas, 40.000-45.000 tokens).
+
+| caso | resultado | lectura |
+|---|---|---|
+| `regla_tiempo_muerto`, `regla_sexta_falta` | pass | busca, cifra correcta, cita regla y página |
+| `regla_sin_evidencia_sancion_rffm` | pass | busca y responde «No dispongo de ese dato en mis herramientas» (sin cifras) |
+| `regla_duracion_mitad` | fail (recuperación) | **real**: respuesta correcta (20 min, regla 7, p. 60), pero ninguna de sus dos consultas trajo el fragmento directo («dos mitades iguales de 20 minutos», 168 caracteres, id 84; tampoco con `limit=10`). El «20» salió de otra frase de la misma página («han transcurrido los 20 minutos de juego») |
+| `regla_roja_mano` | fail (recuperación + citas) | **parcialmente defecto del evaluador**: la respuesta es correcta y está respaldada por la tabla resumen de la p. 90 (regla 12), que el caso no admitía como evidencia (esperaba p. 85-86). El fallo «afirma color de tarjeta» era un criterio de actas aplicado a reglamento: **corregido** (ahora se exige que el color figure en los fragmentos recuperados) |
+| `regla_sin_evidencia_salario` | fail (herramientas) | **real**: no llamó a `search_rules`; el guardarraíl `limitacion_sin_tools` dejó «No dispongo de ese dato…». Honesto, pero declara la limitación sin consultar el reglamento |
+
+Consecuencias (sin cambiar aún la recuperación ni el prompt):
+- Lectura estricta del criterio A/B: 2 de 4 fallos de recuperación → «se plantea B». Lectura tras revisar los fragmentos: 1 fallo claro (`regla_duracion_mitad`) y 1 por evidencia esperada demasiado estrecha (`regla_roja_mano`, si se admitiera la p. 90). Con 4 casos no es concluyente.
+- La causa del fallo claro no parece semántica sino de fragmentación/ranking léxico: un fragmento de una sola frase pierde frente a fragmentos largos de la misma regla. Antes de pgvector hay opciones más baratas (fusionar fragmentos muy cortos con su vecino, ajustar la normalización de `ts_rank_cd`); requieren reindexar y se decidirán con el usuario.
+- Hallazgo de comportamiento: Gemini reformula y cita bien cuando decide buscar, pero no busca si la pregunta no parece de reglamento (salario del árbitro). Opciones: aceptarlo, o reforzar el prompt/la descripción («antes de decir que no dispones de un dato sobre reglas, árbitros o sanciones, consulta `search_rules`»; coste: unos tokens más por llamada).

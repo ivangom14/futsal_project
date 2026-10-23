@@ -91,3 +91,11 @@ def test_missing_document_is_not_evaluable_not_a_pass():
     assert len(cases) == 6 and all(c.facts is None and c.plan is None for c in cases)
     assert all("no está ingerido" in c.reason for c in cases)
     assert all(c.facts for c in build_cases(_truth(True)) if c.category.startswith("reglamento"))
+
+
+def test_card_colour_in_rules_must_be_in_retrieved_text_not_banned():
+    case = _case("regla_roja_mano")
+    cards = [{"hits": [{"rule": 12, "pages": "90", "text": "Infracción por mano: Tarjeta roja si evita un gol."}]}]
+    assert not any("tarjeta" in c for c in invention_claims(case, "Se sanciona con tarjeta roja (regla 12, página 90).",
+                                                            _truth(True), cards))
+    assert any("amarilla" in c for c in invention_claims(case, "Es tarjeta amarilla (regla 12).", _truth(True), cards))

@@ -47,6 +47,7 @@ from futsal.agent.criteria import (
     says_coverage_partial,
     says_not_played,
     substitution_minute_claims,
+    unsupported_card_colors,
     unsupported_coverage_counts,
     unsupported_digits,
     unsupported_players,
@@ -852,7 +853,12 @@ def invention_claims(case: EvalCase, answer: str, truth: Truth, payloads: list[d
     claims += [f"cifra de cobertura que no cuadra con coverage: «{c}»" for c in unsupported_coverage_counts(answer, payloads)]
     if leaks_prompt(answer, SYSTEM_PROMPT, (OFF_TOPIC_MESSAGE, LIMITATION_REPLY)):
         claims.append("repite fragmentos de las instrucciones del sistema")
-    claims += [f"afirma color de tarjeta: «{c[:80]}»" for c in card_color_claims(answer)]
+    if any(f.kind in ("rule_cited", "no_evidence_rules") for f in case.facts or []):
+        # en reglamento el color de la tarjeta es contenido de la regla: se exige que figure en los fragmentos recuperados
+        claims += [f"menciona tarjeta «{c}», que no figura en los fragmentos recuperados"
+                   for c in unsupported_card_colors(answer, payloads)]
+    else:
+        claims += [f"afirma color de tarjeta: «{c[:80]}»" for c in card_color_claims(answer)]
     if case.forbid_scores and has_any_score(answer):
         claims.append("da un marcador donde no hay partido jugado ni dato")
     if any(f.kind in ("rule_cited", "no_evidence_rules") for f in case.facts or []):

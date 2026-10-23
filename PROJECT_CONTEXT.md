@@ -166,3 +166,7 @@ Fase 15 cierre offline: decisiones del usuario: `search_rules` con `limit=5` y c
 `--plan` de los 6 casos de reglamento (8 llamadas, ≈ 29.300 tokens de entrada; ≈ 10-12 llamadas reales) sin LLM. El evaluador imprime «Reglamento: indexado / NO indexado». Procedimiento Windows CMD (dos ventanas) en
 `docs/phase15-agent.md`; **la ejecución `--mode live` la hace el usuario en su equipo** (no verificado en Windows ni con Gemini).
 
+Fase 15, primera medición online (usuario, 2026-10-23, Gemini): 3 pass / 3 fail; 12 llamadas, 45.115 tokens de entrada (reales). Un fallo de recuperación real (`regla_duracion_mitad`: fragmento de una frase no recuperado), uno por evidencia esperada estrecha
+y criterio de color de tarjeta mal aplicado a reglamento (corregido), y uno de comportamiento (`regla_sin_evidencia_salario`: no busca). Detalle y opciones en `docs/phase15-agent.md`. Pendiente de decisión del usuario: ensanchar la evidencia de `regla_roja_mano`,
+fusionar fragmentos cortos / ajustar ranking (reindexado), reforzar el prompt para que consulte antes de declarar «no consta». Opción A se mantiene; sin pgvector.
+
