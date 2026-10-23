@@ -63,4 +63,5 @@ A. Mantener la búsqueda léxica y que el agente reformule con el vocabulario de
 B. Híbrido con `pgvector`: requiere imagen Docker con la extensión (p. ej. `pgvector/pgvector:pg16`) y un modelo de embeddings (local ~cientos de MB o API con cuota).
    Solo se justificaría si A no basta; la columna de embeddings se añadiría en una migración 0005 sin tocar lo existente.
 
+Segunda fuente (Circular 27 de la RFEF, sin duplicar el anexo idéntico al reglamento FIFA): `docs/phase15-circular27.md`.
 Criterio de decisión A/B y comandos de la medición online: `docs/phase15-agent.md` (Entrega 4). Sin ejecutar todavía.

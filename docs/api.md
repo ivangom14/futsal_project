@@ -25,7 +25,7 @@ Todos devuelven JSON; los listados usan `{"items": [...], "count": N}`. IDs = ID
 | `GET /matches/{id}/report` | acta de UN partido; `sections` = `officials,goals` (def.), `cards`, `players`, `staff`. Sin acta: 200 con `report_available=false` y `reason`; partido inexistente: 404. Incluye `consistency` y `not_in_source` |
 | `GET /groups/{id}/match-events` | eventos de las actas (def. `goal`,`own_goal`; `event_type=card`). Filtros `team_id`, `against_team_id`, `round_id`, `match_id`, `player_id`, `limit` (1-200, def. 40). `total`/`truncated` y `coverage` |
 | `GET /groups/{id}/scorers` | goles agrupados por jugador en SQL (`min_goals`, mismos filtros, `limit` def. 20); `own_goals` aparte; `coverage` |
-| `GET /knowledge/search` | fragmentos del reglamento (`q` 2-500, `limit` 1-10, `rule`, `doc_key`, `include_history`); sin umbral de relevancia; 503 si no hay base de conocimiento |
+| `GET /knowledge/search` | fragmentos de los documentos indexados (reglamento FIFA, Circular 27 de la RFEF; `q` 2-500, `limit` 1-10, `rule`, `doc_key`, `include_history`); sin umbral de relevancia; 503 si no hay base de conocimiento |
 | `GET /groups/{id}/players?name=` | jugadores vistos en actas del grupo (sin acentos/mayúsculas, todas las palabras); devuelve `player_id` |
 | `GET /matches/{id}` | partido + `venue`, `timezone`, `observations` (`match_observations`) |
 

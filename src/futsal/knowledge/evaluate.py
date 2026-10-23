@@ -33,6 +33,8 @@ class QuestionResult:
 
 
 def _covers(hit: SearchHit, ev: dict[str, Any]) -> tuple[bool, bool]:
+    if ev.get("doc_key") and hit.doc_key != ev["doc_key"]:  # evidencia de un documento concreto (varios indexados)
+        return False, False
     page = any(hit.page_start <= p <= hit.page_end for p in ev["pages"])
     return page, _norm(ev["contains"]) in _norm(hit.text)
 

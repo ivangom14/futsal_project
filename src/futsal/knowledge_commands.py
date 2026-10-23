@@ -11,7 +11,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from futsal.config.knowledge_sources import KNOWLEDGE_SOURCES
 from futsal.db.session import make_engine
 from futsal.knowledge.chunking import ChunkConfig, chunk_segments
-from futsal.knowledge.ingest import DocumentSpec, ingest_document
+from futsal.knowledge.ingest import DocumentSpec, apply_sections, ingest_document
 from futsal.knowledge.search import KnowledgeSearch, SearchError
 from futsal.knowledge.extract import ExtractionError, get_extractor
 from futsal.knowledge.fetch import FetchError, fetch_document
@@ -91,7 +91,8 @@ def _db(args: argparse.Namespace) -> int:
             cfg = ChunkConfig(args.target_chars, args.max_chars, args.min_chars, args.overlap_chars)
             if args.dry_run:
                 doc = get_extractor(path).extract(path)
-                st = build_structure(doc, PROFILES[spec.structure_profile])
+                st = build_structure(apply_sections(doc, spec.page_sections), PROFILES[spec.structure_profile],
+                                     spec.page_sections)
                 chunks = chunk_segments(st.segments, cfg)
                 print(f"[dry-run] {spec.doc_key}: {len(doc.pages)} páginas, {len(chunks)} fragmentos")
                 return 0

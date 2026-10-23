@@ -10,6 +10,7 @@ import hashlib
 import shutil
 from dataclasses import dataclass, field
 from datetime import UTC, date, datetime
+from itertools import pairwise
 from pathlib import Path
 
 from sqlalchemy import Engine, delete, func, select, update
@@ -18,6 +19,7 @@ from sqlalchemy.orm import Session
 from futsal.db.kb_models import KbChunk, KbDocument, KbDocumentVersion, KbIngestionRun
 from futsal.knowledge.chunking import ChunkConfig, chunk_segments
 from futsal.knowledge.extract import ExtractionError, get_extractor
+from futsal.knowledge.models import ExtractedDocument, PageSection
 from futsal.knowledge.profiles import PROFILES
 from futsal.knowledge.quality import assess
 from futsal.knowledge.structure import build_structure
@@ -40,6 +42,8 @@ class DocumentSpec:
     effective_date: date | None = None
     version_label: str | None = None
     season_label: str | None = None
+    # PDF compuesto: tramos de páginas con su parte; los que traen `skip_reason` no se indexan (se documenta el motivo).
+    page_sections: tuple[PageSection, ...] = ()
 
 
 @dataclass
@@ -112,6 +116,22 @@ def _mark_failed(engine: Engine, spec: DocumentSpec, path: Path) -> None:
             s.commit()
 
 
+def apply_sections(doc: ExtractedDocument, sections: tuple[PageSection, ...]) -> ExtractedDocument:
+    """Valida los tramos declarados y devuelve el documento sin las páginas excluidas (la numeración no cambia)."""
+    ordered = sorted(sections, key=lambda s: s.first)
+    for a, b in pairwise(ordered):
+        if b.first <= a.last:
+            raise ValueError(f"tramos de páginas solapados: {a.first}-{a.last} y {b.first}-{b.last}")
+    for s in ordered:
+        if not 1 <= s.first <= s.last <= len(doc.pages):
+            raise ValueError(f"tramo fuera del documento ({len(doc.pages)} páginas): {s.first}-{s.last}")
+    skipped = [s for s in ordered if s.skip_reason]
+    if not skipped:
+        return doc
+    pages = [p for p in doc.pages if not any(s.first <= p.number <= s.last for s in skipped)]
+    return ExtractedDocument(pages, doc.metadata, doc.warnings)
+
+
 def _apply_metadata(doc: KbDocument, spec: DocumentSpec) -> None:
     doc.title, doc.doc_type, doc.language = spec.title, spec.doc_type, spec.language
     doc.structure_profile, doc.source_url, doc.issuer = (
@@ -149,8 +169,9 @@ def _ingest(engine: Engine, spec: DocumentSpec, path: Path, cfg: ChunkConfig, st
     extractor = get_extractor(path)
     extracted = extractor.extract(path)
     profile = PROFILES[spec.structure_profile]
-    structured = build_structure(extracted, profile)
-    report = assess(extracted, structured, profile)
+    work = apply_sections(extracted, spec.page_sections)
+    structured = build_structure(work, profile, spec.page_sections)
+    report = assess(work, structured, profile)
     chunks = chunk_segments(structured.segments, cfg)
     if not chunks:
         raise ExtractionError("el documento no contiene texto extraíble")
@@ -159,6 +180,7 @@ def _ingest(engine: Engine, spec: DocumentSpec, path: Path, cfg: ChunkConfig, st
         warnings.append(f"páginas sin texto: {report.flagged['sin_texto']}")
     if report.rules_start_mismatch:
         warnings.append(f"discrepancias con el índice: {report.rules_start_mismatch}")
+    warnings += [f"páginas {s.first}-{s.last} no indexadas: {s.skip_reason}" for s in spec.page_sections if s.skip_reason]
     stored = _store(path, spec.doc_key, digest, storage)
 
     with Session(engine) as s, s.begin():
@@ -184,6 +206,10 @@ def _ingest(engine: Engine, spec: DocumentSpec, path: Path, cfg: ChunkConfig, st
         ver.extraction_status = "partial" if extracted.warnings else "ok"
         ver.chunk_config, ver.is_current = cfg.as_dict(), False
         ver.quality = {k: v for k, v in report.to_dict().items() if k != "pages"}
+        if spec.page_sections:
+            ver.quality["page_sections"] = [
+                {"first": s.first, "last": s.last, "part": s.part, "skip_reason": s.skip_reason}
+                for s in spec.page_sections]
         s.flush()
         s.add_all(KbChunk(
             version_id=ver.id, ordinal=c.ordinal, part=c.part, rule_number=c.rule_number,

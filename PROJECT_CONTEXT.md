@@ -170,3 +170,8 @@ Fase 15, primera medición online (usuario, 2026-10-23, Gemini): 3 pass / 3 fail
 y criterio de color de tarjeta mal aplicado a reglamento (corregido), y uno de comportamiento (`regla_sin_evidencia_salario`: no busca). Detalle y opciones en `docs/phase15-agent.md`. Pendiente de decisión del usuario: ensanchar la evidencia de `regla_roja_mano`,
 fusionar fragmentos cortos / ajustar ranking (reindexado), reforzar el prompt para que consulte antes de declarar «no consta». Opción A se mantiene; sin pgvector.
 
+Fase 15, Circular 27 de la RFEF (`docs/phase15-circular27.md`): segundo documento de la base de conocimiento (`rfef-circular-27-2025-26`, PDF de 220 p.; se indexan p. 1-23 = carta RFEF, circular FIFA 1941 y resumen de cambios, 44 fragmentos;
+p. 24-220 idénticas página a página al PDF FIFA ya indexado: no se indexan, motivo guardado en `quality.page_sections`). Mecanismo mínimo: `DocumentSpec.page_sections`, perfil `rfef-circular`, `part` en el hit de la API, `note` con alcance
+(circular ≠ normativa RFFM). Retrieval sin perjuicio al FIFA (text@5 0,60/0,88 iguales; MRR −0,02) y circular 4/6 literal, 6/6 reformulada. Evaluador: 6 casos `circular27_*`, no evaluables sin el documento. **Pendiente del usuario**: ingestar en su base local
+(comandos en el doc), y cualquier evaluación live del agente (no ejecutada). Limitaciones: cursiva/tachado no conservados, ranking léxico.
+

@@ -66,7 +66,7 @@ Preguntas y evidencia de `tests/fixtures/knowledge_eval_fifa.json` (verificadas 
 - **Respuesta** (`respuesta: no da la cifra correcta` / `no cita la regla N ni la página P`): contenido y cita obligatoria.
 - **Citas y cifras** (`citas y cifras:`): cita una regla o página que la herramienta no devolvió; da una cifra que no está en los fragmentos ni en la pregunta.
 - **Sin evidencia** (comprobación automática, también en live): la respuesta debe contener una fórmula de «no consta/no recoge»; **cualquier** cifra (aunque aparezca en un fragmento tangencial) y cualquier importe o duración de sanción («dos partidos», «60 euros», «€») se marcan como invención.
-- **No evaluable ≠ éxito**: si no hay reglamento indexado en la base (`Truth.rules_indexed` es falso: tablas vacías o migración 0004 sin aplicar) los 6 casos quedan `not_evaluable` **antes** de llamar a nada (no consume cuota). Si durante la ejecución la búsqueda devuelve 0 resultados, el caso respondible también queda no evaluable. Un resumen con casos no evaluables nunca es «SUPERADA» por ellos (`overall_status`).
+- **No evaluable ≠ éxito**: cada caso declara los documentos que necesita (`EvalCase.kb_docs`; `Truth.kb_docs` los lee de la base). Si falta alguno (tablas vacías, migración 0004 sin aplicar o documento sin ingerir, p. ej. la Circular 27) el caso queda `not_evaluable` **antes** de llamar a nada (no consume cuota). Si durante la ejecución la búsqueda devuelve 0 resultados, el caso respondible también queda no evaluable. Un resumen con casos no evaluables nunca es «SUPERADA» por ellos (`overall_status`).
 
 ### Límites del evaluador offline (qué queda pendiente de un LLM real)
 - Offline el LLM es guionizado y ya reformula: se comprueban API, MCP, criterios y `evidence_ok`, **no** que Gemini llame a `search_rules`, reformule ni cite bien. Las capas de respuesta/citas/cifras solo se ejecutan en live (se prueban con respuestas de ejemplo en `tests/test_agent_rule_cases.py`, que valida los criterios, no al modelo).
@@ -146,7 +146,7 @@ python -m futsal.agent.evaluate --mode live --suite all --plan --max-requests 40
 ```
 Verificado en el código: con `--plan` el programa imprime el plan y termina antes de construir ningún cliente de LLM (`create_llm` solo se llama sin `--plan`), por lo que no necesita la clave. Comprueba en la salida:
 - `Base de datos: misma que la API (demostrado)` (si dice «NO demostrada», la ejecución live queda bloqueada: reinicia la API y revisa `DATABASE_URL`).
-- `Reglamento: indexado en la base de conocimiento` (si dice NO indexado, los 6 casos quedan no evaluables: vuelve al paso 1).
+- `Base de conocimiento: fifa-futsal-laws-2025-26` (y, si la has ingerido, `rfef-circular-27-2025-26`; si dice «NO hay documentos indexados», los casos quedan no evaluables: vuelve al paso 1). Los casos `circular27_*` de la sección siguiente solo son evaluables con la circular ingerida (`docs/phase15-circular27.md`).
 - `Casos seleccionados: 6 (evaluables: 4)`; `Llamadas al LLM previstas: 8`; `Presupuesto duro de peticiones (--max-requests): 40`; tokens de entrada ≈ 29.300 (estimación).
 - Los 2 casos sin evidencia aparecen en «No evaluables en esta base (no consumen cuota)»: **en live sí se ejecutan y consumen cuota** (≈ +2-4 llamadas). Presupuesto realista total: ≈ 10-12 llamadas, ≈ 40.000-45.000 tokens de entrada; con 4 s entre peticiones, 1-2 minutos.
 

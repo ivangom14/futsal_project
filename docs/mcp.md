@@ -27,7 +27,7 @@ Los listados devuelven `{<clave>: [...], "count": N}`. IDs = IDs internos de BD.
 | `top_scorers` | `group_id`, mismos filtros + `min_goals`, `limit` | `GET /groups/{id}/scorers` |
 | `find_teams` | `name` | `GET /teams?name=` (equipos de todos los grupos; `team_id`, `group_id`, grupo y competición) |
 | `find_players` | `group_id`, `name`, `team_id` (opc.) | `GET /groups/{id}/players` |
-| `search_rules` | `query`, `limit` (1-10, def. 5), `rule` (opc.) | `GET /knowledge/search` (reglamento; búsqueda léxica, citar regla y página) |
+| `search_rules` | `query`, `limit` (1-10, def. 5), `rule` (opc.) | `GET /knowledge/search` (reglamento FIFA y Circular 27 de la RFEF; búsqueda léxica, citar documento, regla y página) |
 
 Ejemplo: `list_matches(group_id=1, status="finished")` →
 `{"matches":[{"id":2,"round_number":1,"home_team":"PARQUE NORTE F.S. - RODILLITO 'B'","home_score":3,

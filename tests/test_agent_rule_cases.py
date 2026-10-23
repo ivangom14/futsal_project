@@ -23,9 +23,9 @@ def _case(case_id: str):
 
 def test_cases_cover_answerable_and_no_evidence():
     kinds = [c.facts[0].kind for c in rule_cases()]
-    assert kinds.count("rule_cited") == 4 and kinds.count("no_evidence_rules") == 2
+    assert kinds.count("rule_cited") == 4 + 5 and kinds.count("no_evidence_rules") == 2 + 1
     assert all(c.required == {"search_rules"} for c in rule_cases())
-    assert [c.plan is None for c in rule_cases() if c.facts[0].kind == "no_evidence_rules"] == [True, True]
+    assert [c.plan is None for c in rule_cases() if c.facts[0].kind == "no_evidence_rules"] == [True, True, True]
 
 
 def test_evidence_requires_expected_rule_page_and_text():
@@ -58,8 +58,12 @@ def test_unsupported_citations_and_digits():
     assert unsupported_digits("Cobra 60 euros.", PAYLOADS, "¿Cuánto cobra?") == ["60"]
 
 
-def _truth(indexed: bool) -> Truth:
-    return Truth(1, {}, {}, [], rules_indexed=indexed)
+FIFA_KEY, C27_KEY = "fifa-futsal-laws-2025-26", "rfef-circular-27-2025-26"
+
+
+def _truth(indexed: bool | frozenset[str]) -> Truth:
+    docs = frozenset({FIFA_KEY, C27_KEY}) if indexed is True else (frozenset() if indexed is False else indexed)
+    return Truth(1, {}, {}, [], kb_docs=docs)
 
 
 def test_no_evidence_flags_invented_amounts_and_sanctions_but_accepts_admission():
@@ -88,7 +92,7 @@ def test_rule_failures_are_told_apart():
 
 def test_missing_document_is_not_evaluable_not_a_pass():
     cases = [c for c in build_cases(_truth(False)) if c.category.startswith("reglamento")]
-    assert len(cases) == 6 and all(c.facts is None and c.plan is None for c in cases)
+    assert len(cases) == 12 and all(c.facts is None and c.plan is None for c in cases)
     assert all("no está ingerido" in c.reason for c in cases)
     assert all(c.facts for c in build_cases(_truth(True)) if c.category.startswith("reglamento"))
 
@@ -99,3 +103,50 @@ def test_card_colour_in_rules_must_be_in_retrieved_text_not_banned():
     assert not any("tarjeta" in c for c in invention_claims(case, "Se sanciona con tarjeta roja (regla 12, página 90).",
                                                             _truth(True), cards))
     assert any("amarilla" in c for c in invention_claims(case, "Es tarjeta amarilla (regla 12).", _truth(True), cards))
+
+
+def test_each_document_is_required_separately_missing_circular_is_not_evaluable() -> None:
+    only_fifa = {c.id: c for c in build_cases(_truth(frozenset({FIFA_KEY}))) if c.category.startswith("reglamento")}
+    assert all(c.facts for k, c in only_fifa.items() if k.startswith("regla_"))                 # el reglamento FIFA sigue evaluable
+    circ = [c for k, c in only_fifa.items() if k.startswith("circular27_")]
+    assert len(circ) == 6 and all(c.facts is None and C27_KEY in c.reason for c in circ)     # la circular no ingerida: no evaluable
+    only_c27 = {c.id: c for c in build_cases(_truth(frozenset({C27_KEY}))) if c.category.startswith("reglamento")}
+    assert only_c27["regla_duracion_mitad"].facts is None and only_c27["circular27_comunica"].facts
+    assert only_c27["circular27_cesped_coloquial"].facts is None                                 # necesita ambos documentos
+
+
+C27_HIT = {"rule": None, "pages": "1", "text": "la RFEF desea comunicar a todos sus afiliados el contenido de la Circular N.º 1941 de la FIFA"}
+
+
+def test_circular27_cases_check_content_citation_and_source_separately() -> None:
+    comunica = _case("circular27_comunica")
+    fact = comunica.facts[0]
+    assert evidence_ok(fact, [{"hits": [{"pages": "1", "text": C27_HIT["text"]}]}])             # circular sin regla: rule ausente = None
+    assert not evidence_ok(fact, [{"hits": [{"pages": "2", "text": C27_HIT["text"]}]}])         # página equivocada
+    assert rule_answer_issue(fact, "Comunica la Circular FIFA 1941 de la temporada 2025/2026 (página 1).") is None
+    assert "página 1" in (rule_answer_issue(fact, "Comunica la Circular FIFA 1941 de la temporada 2025/2026.") or "")
+    assert "cifra" in (rule_answer_issue(fact, "Comunica la circular de la FIFA (página 1).") or "")
+    payloads = [{"hits": [C27_HIT]}]
+    assert invention_claims(comunica, "Comunica la circular 1941 (temporada 2025/2026, página 1).", _truth(True), payloads) == []
+    bad = invention_claims(comunica, "Es la circular 1942 de 2026, página 7.", _truth(True), payloads)
+    assert any("1942" in c for c in bad) and any("página 7" in c for c in bad)
+
+
+def test_circular27_dates_need_both_dates_and_each_page() -> None:
+    case = _case("circular27_fechas_rfef_fifa")
+    rfef, fifa = case.facts
+    ok = "La RFEF la comunicó el 8 de septiembre de 2025 (página 1) y la FIFA la emitió el 5 de septiembre de 2025 (página 2)."
+    assert rule_answer_issue(rfef, ok) is None and rule_answer_issue(fifa, ok) is None
+    swapped = "La RFEF la comunicó el 5 de septiembre (página 1) y la FIFA el 8 de septiembre (página 2)."
+    # limitación léxica conocida: con las fechas intercambiadas ambas figuran y el criterio no lo ve (revisión humana del informe)
+    assert rule_answer_issue(rfef, swapped) is None and rule_answer_issue(fifa, swapped) is None
+    only_one = "Se comunicó el 8 de septiembre de 2025 (página 1)."
+    assert rule_answer_issue(rfef, only_one) is None and "dato correcto" in (rule_answer_issue(fifa, only_one) or "")
+
+
+def test_circular27_without_evidence_rejects_attributing_sanctions_to_the_federation() -> None:
+    case = _case("circular27_sin_evidencia_rffm")
+    hits = [{"hits": [{"rule": None, "pages": "2", "text": "Circular FIFA n.º 1941 Reglas de Juego del Futsal 2025/2026"}]}]
+    assert answer_ok(case.facts[0], "La Circular 27 no recoge sanciones de la RFFM; no consta ese dato.")
+    claims = invention_claims(case, "La RFFM sanciona con dos partidos de suspensión y 300 euros de multa.", _truth(True), hits)
+    assert any("importe" in c for c in claims) and any("300" in c for c in claims)

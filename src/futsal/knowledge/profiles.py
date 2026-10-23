@@ -40,7 +40,25 @@ FIFA_FUTSAL_LAWS = StructureProfile(
     section_heading=_c(rf"(\d{{1,2}})\s+([{_UP}][{_UP}0-9 ,/\-.()]{{2,}})"),
 )
 
+# Circular de la RFEF que adjunta circular FIFA, resumen de cambios y reglas: los tramos de páginas los declara el
+# `DocumentSpec`; aquí solo la cabecera de la FIFA (repetida en cada hoja) y las reglas citadas en el resumen de cambios.
+RFEF_CIRCULAR = StructureProfile(
+    running_headers=(_c(r"Fédération Internationale de Football Association"), _c(r"FIFA-Strasse 20")),
+    rule_inline=_c(r"(?i)Regla\s+(\d{1,2})\.\s+\S"),
+    strip_edge_numbers=True,
+    # Subapartados del resumen de cambios: abren su propia parte para que no hereden la regla anterior.
+    part_headings=(
+        (_c(r"Protocolo de"),
+         "Resumen de cambios 2025/26 (FIFA; sin cursiva ni tachado) · Protocolo de sistemas de revisión en vídeo"),
+        (_c(r"Directrices"),
+         "Resumen de cambios 2025/26 (FIFA; sin cursiva ni tachado) · Directrices prácticas para árbitros"),
+        (_c(r"Interpretación de"),
+         "Resumen de cambios 2025/26 (FIFA; sin cursiva ni tachado) · Interpretación de las reglas y otras recomendaciones"),
+    ),
+)
+
 PROFILES: dict[str, StructureProfile] = {
+    "rfef-circular": RFEF_CIRCULAR,
     "fifa-futsal-laws": FIFA_FUTSAL_LAWS,
     "plain": StructureProfile(),
 }

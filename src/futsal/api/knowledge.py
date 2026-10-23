@@ -9,8 +9,9 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from futsal.knowledge.search import KnowledgeSearch, SearchError, SearchResult
 
-NOTE = ("Fragmentos literales del reglamento. La puntuación NO mide relevancia (no hay umbral): lee el texto y comprueba que "
-        "responde; si no, dilo. Cita regla y página.")
+NOTE = ("Fragmentos literales de los documentos indexados (campo document: Reglas de Juego FIFA o Circular 27 de la RFEF). "
+        "La puntuación NO mide relevancia (no hay umbral): lee el texto y comprueba que responde; si no, dilo. Cita documento, "
+        "regla y página. Una circular que comunica las reglas no es normativa de competición ni de la RFFM.")
 NO_HITS = "Sin resultados: reformula con el vocabulario del reglamento (otras palabras) o dilo si sigue sin aparecer."
 
 
@@ -21,6 +22,8 @@ def _hit(h: Any, with_history: bool) -> dict[str, Any]:
         "document": h.document_title, "doc_key": h.doc_key, "version": h.version_label, "rule": h.rule_number,
         "rule_title": h.rule_title, "section": section, "subsection": h.subsection_title, "pages": pages,
         "score": h.score, "text": h.text, "truncated": h.truncated or None}
+    if h.part and h.part != f"Regla {h.rule_number}":
+        out["part"] = h.part  # procedencia dentro del documento (p. ej. «Circular FIFA n.º 1941»); la regla ya figura en `rule`
     if with_history:
         out["is_current"] = h.is_current
     return {k: v for k, v in out.items() if v is not None}  # sin nulos: menos tokens para el LLM

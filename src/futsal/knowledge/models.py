@@ -17,6 +17,16 @@ class PageText:
 
 
 @dataclass(frozen=True)
+class PageSection:
+    """Tramo de páginas físicas de un PDF compuesto (varios documentos en un mismo archivo)."""
+
+    first: int
+    last: int
+    part: str
+    skip_reason: str | None = None  # si consta, el tramo no se indexa (p. ej. texto idéntico al de otro documento)
+
+
+@dataclass(frozen=True)
 class ExtractedDocument:
     pages: list[PageText]
     metadata: dict[str, str] = field(default_factory=dict)

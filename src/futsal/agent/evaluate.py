@@ -109,7 +109,11 @@ class Truth:
     player_names: list[str] = field(default_factory=list)  # todos los jugadores con id RFFM (para detectar invenciones)
     cards: dict[int, int] = field(default_factory=dict)  # partido -> nº de tarjetas en la última observación
     unclosed: set[int] = field(default_factory=set)  # partidos cuya acta almacenada no está cerrada
-    rules_indexed: bool = False  # hay un reglamento indexado en la base de conocimiento (casos de reglamento evaluables)
+    kb_docs: frozenset[str] = frozenset()  # documentos indexados (versión actual) en la base de conocimiento
+
+    @property
+    def rules_indexed(self) -> bool:
+        return bool(self.kb_docs)
 
     def team_id(self, token: str) -> int | None:
         return next((i for i, n in self.teams.items() if token.lower() in n.lower()), None)
@@ -123,16 +127,18 @@ class Truth:
         return rows
 
 
-def _rules_indexed(db: Session) -> bool:
+def _indexed_docs(db: Session) -> frozenset[str]:
     from sqlalchemy import text
     from sqlalchemy.exc import SQLAlchemyError
 
     try:
-        return bool(db.execute(text("SELECT EXISTS (SELECT 1 FROM kb_chunks c JOIN kb_document_versions v ON v.id = c.version_id "
-                                    "WHERE v.is_current AND v.index_status = 'indexed')")).scalar())
+        return frozenset(str(k) for k in db.execute(text(
+            "SELECT DISTINCT d.doc_key FROM kb_documents d JOIN kb_document_versions v ON v.document_id = d.id "
+            "WHERE v.is_current AND v.index_status = 'indexed' "
+            "AND EXISTS (SELECT 1 FROM kb_chunks c WHERE c.version_id = v.id)")).scalars())
     except SQLAlchemyError:  # migración 0004 sin aplicar
         db.rollback()
-        return False
+        return frozenset()
 
 
 def load_truth(engine: Engine) -> Truth | None:
@@ -153,7 +159,7 @@ def load_truth(engine: Engine) -> Truth | None:
         matches = [M(m.id, n or 0, m.home_team_id, m.away_team_id, teams.get(m.home_team_id, ""),
                      teams.get(m.away_team_id, ""), m.home_score, m.away_score, m.status,
                      m.scheduled_date, m.venue) for m, n in rows]
-        truth = Truth(group.id, teams, rounds, matches, rules_indexed=_rules_indexed(db))
+        truth = Truth(group.id, teams, rounds, matches, kb_docs=_indexed_docs(db))
         _load_report_truth(db, truth)
         return truth
 
@@ -242,6 +248,7 @@ class Fact:
     rule: int | None = None  # rule_cited: regla, páginas y texto que debe traer algún fragmento de search_rules
     pages: tuple[int, ...] = ()
     contains: str = ""
+    all_of: tuple[str, ...] = ()  # rule_cited: todas estas expresiones deben figurar en la respuesta
 
 
 def _items(payloads: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -382,12 +389,15 @@ def answer_ok(f: Fact, text: str) -> bool:
 def rule_answer_issue(f: Fact, text: str) -> str | None:
     """Respuesta de reglamento: separa el fallo de contenido (cifra) del de cita (regla/página esperadas)."""
     low = norm(text)
-    if not ((f.number is not None and has_number(text, f.number)) or any(norm(n) in low for n in f.names)):
+    if f.all_of and not all(norm(n) in low for n in f.all_of):
+        return f"no da el dato correcto ({f.label})"
+    if not f.all_of and not ((f.number is not None and has_number(text, f.number)) or any(norm(n) in low for n in f.names)):
         return f"no da la cifra correcta ({f.label})"
     cited = {int(m.group(1)) for m in RULE_REF_RE.finditer(text)}
     pages = {int(g) for m in PAGE_REF_RE.finditer(text) for g in m.groups() if g}
-    if f.rule not in cited and not pages & set(f.pages):
-        return f"no cita la regla {f.rule} ni la página {'-'.join(map(str, f.pages))}"
+    if not (f.rule is not None and f.rule in cited) and not pages & set(f.pages):
+        return (f"no cita la regla {f.rule} ni la página {'-'.join(map(str, f.pages))}" if f.rule is not None
+                else f"no cita la página {'-'.join(map(str, f.pages))}")
     return None
 
 
@@ -414,6 +424,7 @@ class EvalCase:
     max_calls: int = 4  # máximo razonable de llamadas a tools para este caso
     forbid_scores: bool = False  # negativo: la respuesta no puede dar ningún marcador (no hay partido jugado/dato)
     smoke: bool = False  # pertenece a la suite reducida `smoke`
+    kb_docs: frozenset[str] = frozenset()  # documentos que deben estar indexados (vacío: cualquiera)
 
 
 def _call(tool: str, /, **args: Any) -> list[ToolCall]:
@@ -543,8 +554,10 @@ def build_cases(t: Truth) -> list[EvalCase]:
         c.allowed_tools = c.allowed_tools | EXTRA_ALLOWED.get(c.id, frozenset())
         c.forbid_scores = c.forbid_scores or c.id in FORBID_SCORES
         c.smoke = c.id in SMOKE
-        if c.category.startswith("reglamento") and not t.rules_indexed:  # sin documento no hay verdad: no se gasta cuota
-            c.facts, c.plan, c.reason = None, None, "el reglamento no está ingerido en la base de conocimiento"
+        if c.category.startswith("reglamento") and (not t.rules_indexed or not c.kb_docs <= t.kb_docs):
+            # sin el documento no hay verdad que comprobar: no se gasta cuota ni se aprueba por defecto
+            missing = sorted(c.kb_docs - t.kb_docs) or ["reglamento"]
+            c.facts, c.plan, c.reason = None, None, f"no está ingerido en la base de conocimiento: {', '.join(missing)}"
     return cases
 
 
@@ -820,7 +833,8 @@ def describe(facts: list[Fact] | None) -> str:
             "cards": f"{f.number} tarjetas, sin traducir el código a color ({ms})",
             "partial_coverage": "advierte de que la cobertura de actas es parcial",
             "no_sub_minutes": "dice que los minutos de los cambios no constan, sin inventarlos",
-            "rule_cited": f"{f.label}: cifra correcta y cita regla {f.rule} o página {'-'.join(map(str, f.pages))}",
+            "rule_cited": f"{f.label}: dato correcto y cita " + (f"regla {f.rule} o " if f.rule is not None else "")
+            + f"página {'-'.join(map(str, f.pages))}",
             "no_evidence_rules": "dice que el reglamento no lo recoge, sin dar cifras ni sanciones"}.get(f.kind, f.kind))
     return "; ".join(out)
 
@@ -1105,7 +1119,8 @@ async def _main(args: argparse.Namespace) -> int:
         same = verify_same_database(engine, client)
     print(f"Base de datos: {'misma que la API (demostrado)' if same.verdict == 'same' else 'NO demostrada igual a la API'}"
           f" — {same.detail}")
-    print(f"Reglamento: {'indexado en la base de conocimiento' if truth.rules_indexed else 'NO indexado (los casos de reglamento quedan no evaluables)'}")
+    print("Base de conocimiento: " + (", ".join(sorted(truth.kb_docs)) if truth.kb_docs
+          else "NO hay documentos indexados (los casos de reglamento quedan no evaluables)"))
     if live and not args.plan:
         ok, msg = live_gate(same.verdict, args.allow_unverified_db)
         if msg:

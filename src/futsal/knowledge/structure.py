@@ -7,7 +7,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 
-from futsal.knowledge.models import ExtractedDocument, Paragraph, Segment
+from futsal.knowledge.models import ExtractedDocument, PageSection, Paragraph, Segment
 
 _BULLET = re.compile(r"^(•|-|–|\d{1,2}[.)]|[a-z]\))\s")
 
@@ -26,10 +26,14 @@ class StructureProfile:
     part_dividers: tuple[tuple[re.Pattern[str], str], ...] = ()
     # Línea completa que abre una parte: (patrón, título de la parte).
     part_headings: tuple[tuple[re.Pattern[str], str], ...] = ()
+    # Línea que abre una regla dentro del texto («Regla 12. Faltas…»): grupo (número). La línea se conserva.
+    rule_inline: re.Pattern[str] | None = None
     # Apartado numerado: grupos (número, título); el número debe ser correlativo.
     section_heading: re.Pattern[str] | None = None
     # Entrada del índice para verificar la estructura: grupos (número de regla, página).
     toc_rule_entry: re.Pattern[str] | None = None
+    # La numeración impresa no coincide con la página física (PDF compuesto): se descarta igualmente el número suelto del borde.
+    strip_edge_numbers: bool = False
     header_lines: int = 4
     footer_lines: int = 2
     divider_max_chars: int = 90
@@ -80,7 +84,7 @@ def _clean_lines(text: str, number: int, profile: StructureProfile
         if edge:
             if s.isdigit() and len(s) <= 3:
                 printed = int(s)
-                if printed == number:
+                if printed == number or profile.strip_edge_numbers:
                     continue
             if profile.rule_header and (m := profile.rule_header.match(s)):
                 header_rule = (int(m.group(1)), _norm(m.group(2)))
@@ -123,7 +127,8 @@ def _join(par: list[str]) -> str:
     return _norm(text)
 
 
-def build_structure(doc: ExtractedDocument, profile: StructureProfile) -> StructuredDocument:
+def build_structure(doc: ExtractedDocument, profile: StructureProfile,
+                    sections: tuple[PageSection, ...] = ()) -> StructuredDocument:
     result = StructuredDocument()
     part = "Introducción"
     rule_no: int | None = None
@@ -133,6 +138,7 @@ def build_structure(doc: ExtractedDocument, profile: StructureProfile) -> Struct
     section_title: str | None = None
     sub_title: str | None = None
     seg: Segment | None = None
+    range_part: str | None = None  # tramo de páginas vigente (PDF compuesto)
 
     def new_segment() -> Segment:
         nonlocal seg
@@ -142,6 +148,12 @@ def build_structure(doc: ExtractedDocument, profile: StructureProfile) -> Struct
         return seg
 
     for page in doc.pages:
+        tramo = next((s for s in sections if s.first <= page.number <= s.last), None)
+        if tramo is not None and tramo.part != range_part:
+            range_part = tramo.part
+            part, rule_no, rule_title, section_no, section_title, sub_title, seg = (
+                tramo.part, None, None, None, None, None, None)
+            started = True
         lines, printed, header_rule = _clean_lines(page.text, page.number, profile)
         flat = _norm(" ".join(lines))
         divider = False
@@ -202,6 +214,11 @@ def build_structure(doc: ExtractedDocument, profile: StructureProfile) -> Struct
                 part, rule_no, rule_title, section_no, section_title, seg = (
                     new_part, None, None, None, None, None)
                 sub_title = None
+            elif started and profile.rule_inline and (rm := profile.rule_inline.match(s)):
+                flush()
+                rule_no, rule_title, section_no, section_title, seg, sub_title = (
+                    int(rm.group(1)), None, None, None, None, None)
+                pending.append(ln)
             elif sec and int(sec.group(1)) == (section_no or 0) + 1:
                 flush()
                 title = _norm(sec.group(2))

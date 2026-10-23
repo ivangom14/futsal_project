@@ -1,0 +1,159 @@
+{
+ "document": "rfef-circular-27-2025-26",
+ "note": "Evidencia verificada sobre el PDF original (páginas físicas). 'expected_answer' es lo que debe decir la respuesta; los casos sin evidencia deben terminar en 'no consta'.",
+ "questions": [
+  {
+   "id": "c27_comunica",
+   "category": "literal",
+   "question": "¿Qué comunica la Circular 27 de la RFEF y a qué temporada corresponde?",
+   "expect": "answerable",
+   "evidence": [
+    {
+     "doc_key": "rfef-circular-27-2025-26",
+     "pages": [
+      1
+     ],
+     "rule": null,
+     "section": "Comunicación de la RFEF",
+     "contains": "la RFEF desea comunicar a todos sus afiliados el contenido de la Circular"
+    }
+   ],
+   "expected_answer": "Comunica a los afiliados el contenido de la Circular FIFA n.º 1941 (nueva edición de las Reglas de Juego del Futsal); temporada 2025/2026."
+  },
+  {
+   "id": "c27_modificaciones",
+   "category": "literal",
+   "question": "¿Qué modificaciones se han aprobado en las Reglas de Juego del Futsal 2025/2026?",
+   "expect": "answerable",
+   "evidence": [
+    {
+     "doc_key": "rfef-circular-27-2025-26",
+     "pages": [
+      2
+     ],
+     "rule": null,
+     "section": "Circular FIFA n.º 1941",
+     "contains": "el Bureau del Consejo ha aprobado una serie de modificaciones"
+    },
+    {
+     "doc_key": "rfef-circular-27-2025-26",
+     "pages": [
+      3
+     ],
+     "rule": 1,
+     "section": "Resumen de cambios",
+     "contains": "resumen de los principales cambios"
+    }
+   ],
+   "expected_answer": "El Bureau del Consejo de la FIFA aprobó una serie de modificaciones, unas específicas del futsal y otras para reflejar cambios recientes del fútbol; la circular adjunta un resumen de los principales cambios."
+  },
+  {
+   "id": "c27_cesped",
+   "category": "literal",
+   "question": "Según el resumen de modificaciones, ¿cuándo se permiten las superficies de césped artificial?",
+   "expect": "answerable",
+   "evidence": [
+    {
+     "doc_key": "rfef-circular-27-2025-26",
+     "pages": [
+      3
+     ],
+     "rule": 1,
+     "section": "Resumen de cambios",
+     "contains": "se permitirán las superficies de césped artificial"
+    }
+   ],
+   "expected_answer": "Excepcionalmente, solo en competiciones nacionales y siempre que lo especifique el reglamento de la competición (Regla 1, apartado 1; en cursiva en el original: «y siempre que se especifique en el reglamento de la competición»).",
+   "reformulated": "césped artificial competiciones nacionales"
+  },
+  {
+   "id": "c27_cesped_coloquial",
+   "category": "colloquial",
+   "question": "¿Se puede jugar un partido de futsal en una pista de césped sintético?",
+   "expect": "answerable",
+   "evidence": [
+    {
+     "doc_key": "fifa-futsal-laws-2025-26",
+     "pages": [
+      15
+     ],
+     "rule": 1,
+     "section": "1",
+     "contains": "se permitirán las superficies de césped artificial"
+    },
+    {
+     "doc_key": "rfef-circular-27-2025-26",
+     "pages": [
+      3
+     ],
+     "rule": 1,
+     "section": "Resumen de cambios",
+     "contains": "se permitirán las superficies de césped artificial"
+    }
+   ],
+   "reformulated": "superficies de césped artificial terreno de juego competiciones nacionales",
+   "expected_answer": "Solo de forma excepcional, en competiciones nacionales y si el reglamento de la competición lo especifica (Regla 1, apartado 1)."
+  },
+  {
+   "id": "c27_fechas_rfef_fifa",
+   "category": "distinguish",
+   "question": "¿En qué fecha comunicó la RFEF la circular y en qué fecha la emitió la FIFA?",
+   "expect": "answerable",
+   "evidence": [
+    {
+     "doc_key": "rfef-circular-27-2025-26",
+     "pages": [
+      1
+     ],
+     "rule": null,
+     "section": "Comunicación de la RFEF",
+     "contains": "Las Rozas de Madrid, a 8 de septiembre de 2025"
+    },
+    {
+     "doc_key": "rfef-circular-27-2025-26",
+     "pages": [
+      2
+     ],
+     "rule": null,
+     "section": "Circular FIFA n.º 1941",
+     "contains": "Zúrich, 5 de septiembre de 2025"
+    }
+   ],
+   "expected_answer": "La RFEF la comunicó el 8 de septiembre de 2025 (Las Rozas de Madrid); la Circular FIFA n.º 1941 es del 5 de septiembre de 2025 (Zúrich). Dos documentos distintos: no confundir las fechas."
+  },
+  {
+   "id": "c27_firma",
+   "category": "distinguish",
+   "question": "¿Quién firma la Circular 27 de la RFEF?",
+   "expect": "answerable",
+   "evidence": [
+    {
+     "doc_key": "rfef-circular-27-2025-26",
+     "pages": [
+      1
+     ],
+     "rule": null,
+     "section": "Comunicación de la RFEF",
+     "contains": "Secretario General"
+    }
+   ],
+   "expected_answer": "Álvaro de Miguel Casanueva, Secretario General de la RFEF (la circular FIFA adjunta la firma Mattias Grafström, secretario general de la FIFA)."
+  },
+  {
+   "id": "c27_sancion_rffm",
+   "category": "out_of_scope",
+   "question": "¿Qué sanción impone la RFFM a un club que alinee a un jugador sin licencia en Tercera División Futsal?",
+   "expect": "no_evidence",
+   "evidence": [],
+   "expected_answer": "No consta: la circular (y las Reglas FIFA) no regulan sanciones de la RFFM ni de competiciones concretas; el agente debe decirlo y no inventar."
+  },
+  {
+   "id": "c27_sancion_rfef_circular",
+   "category": "out_of_scope",
+   "question": "¿Qué sanciones disciplinarias establece la Circular 27 para los clubes que incumplan las nuevas reglas?",
+   "expect": "no_evidence",
+   "evidence": [],
+   "expected_answer": "No consta: la circular solo comunica las Reglas de Juego; no fija sanciones a los clubes."
+  }
+ ]
+}
