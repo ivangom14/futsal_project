@@ -110,6 +110,8 @@ class Truth:
     cards: dict[int, int] = field(default_factory=dict)  # partido -> nº de tarjetas en la última observación
     unclosed: set[int] = field(default_factory=set)  # partidos cuya acta almacenada no está cerrada
     kb_docs: frozenset[str] = frozenset()  # documentos indexados (versión actual) en la base de conocimiento
+    official_standings: dict[int, list[dict[str, Any]]] = field(default_factory=dict)  # jornada -> filas oficiales (última captura)
+    official_scorers: list[dict[str, Any]] = field(default_factory=list)  # tabla oficial de goleadores (última captura)
 
     @property
     def rules_indexed(self) -> bool:
@@ -125,6 +127,29 @@ class Truth:
         if status == "pending":
             return [m for m in rows if m.status != "finished"]
         return rows
+
+
+def _load_table_truth(db: Session, t: Truth) -> None:
+    """Verdad de las tablas oficiales: lo que publicó la RFFM y guarda la última captura (sin recalcular nada)."""
+    from sqlalchemy import select
+    from sqlalchemy.exc import SQLAlchemyError
+
+    from futsal.db.table_models import ScorerRow, ScorerSnapshot, StandingsRow, StandingsSnapshot
+
+    try:
+        snaps = db.scalars(select(StandingsSnapshot).where(StandingsSnapshot.group_id == t.group_id, StandingsSnapshot.status == "ok")
+                           .order_by(StandingsSnapshot.round_number, StandingsSnapshot.last_seen_at, StandingsSnapshot.id)).all()
+        for snap in snaps:  # la última captura de cada jornada prevalece
+            rows = db.scalars(select(StandingsRow).where(StandingsRow.snapshot_id == snap.id).order_by(StandingsRow.position)).all()
+            t.official_standings[snap.round_number] = [
+                {"position": r.position, "team": r.team_name, "points": r.points, "played": r.played} for r in rows]
+        sc = db.scalar(select(ScorerSnapshot).where(ScorerSnapshot.group_id == t.group_id, ScorerSnapshot.status == "ok")
+                       .order_by(ScorerSnapshot.last_seen_at.desc(), ScorerSnapshot.id.desc()).limit(1))
+        if sc is not None:
+            t.official_scorers = [{"player": r.player_name, "team": r.team_name, "goals": r.goals} for r in db.scalars(
+                select(ScorerRow).where(ScorerRow.snapshot_id == sc.id).order_by(ScorerRow.row_order))]
+    except SQLAlchemyError:  # migración 0005 sin aplicar: los casos de tablas quedan no evaluables
+        db.rollback()
 
 
 def _indexed_docs(db: Session) -> frozenset[str]:
@@ -161,6 +186,7 @@ def load_truth(engine: Engine) -> Truth | None:
                      m.scheduled_date, m.venue) for m, n in rows]
         truth = Truth(group.id, teams, rounds, matches, kb_docs=_indexed_docs(db))
         _load_report_truth(db, truth)
+        _load_table_truth(db, truth)
         return truth
 
 
@@ -266,6 +292,11 @@ def evidence_ok(f: Fact, payloads: list[dict[str, Any]]) -> bool:
     items = _items(payloads)
     if f.kind in ("limitation", "refusal", "no_evidence_rules"):
         return True
+    if f.kind == "table_row":  # fila oficial devuelta por get_standings / get_scorer_table: nombre + valor publicado
+        name_key, value_key = (f.status or "team:points").split(":")
+        return any(norm(str(i.get(name_key, ""))) == norm(f.names[0]) and i.get(value_key) == f.number for i in items)
+    if f.kind == "table_round":
+        return any(isinstance(p.get("source"), dict) and p["source"].get("round") == f.number for p in payloads)
     if f.kind == "rule_cited":
         return any(h.get("rule") == f.rule and hit_pages(h) & set(f.pages) and norm(f.contains) in norm(str(h.get("text", "")))
                    for p in payloads for h in p.get("hits", []) if isinstance(h, dict))
@@ -342,6 +373,10 @@ def answer_ok(f: Fact, text: str) -> bool:
         return text.strip() != OFF_TOPIC_MESSAGE and any(p in low for p in LIMIT_PHRASES)
     if f.kind == "no_evidence_rules":  # sin fragmento que lo respalde: debe decir que no consta, no inventar
         return text.strip() != OFF_TOPIC_MESSAGE and any(p in low for p in LIMIT_PHRASES)
+    if f.kind == "table_row":
+        return key(f.names[0]) in low and f.number is not None and has_number(text, f.number)
+    if f.kind == "table_round":
+        return f.number is not None and has_number(text, f.number)
     if f.kind == "rule_cited":
         return rule_answer_issue(f, text) is None
     if f.kind in ("match", "match_any"):
@@ -548,7 +583,7 @@ def build_cases(t: Truth) -> list[EvalCase]:
     # importación tardía: rule_cases usa Fact/EvalCase de este módulo
     from futsal.agent.rule_cases import rule_cases
 
-    cases = _base_cases(t) + _new_cases(t, t.team_id("DOSA")) + rule_cases()
+    cases = _base_cases(t) + _new_cases(t, t.team_id("DOSA")) + rule_cases() + _table_cases(t)
     for c in cases:
         c.required = REQUIRED.get(c.id, c.required)
         c.allowed_tools = c.allowed_tools | EXTRA_ALLOWED.get(c.id, frozenset())
@@ -558,6 +593,57 @@ def build_cases(t: Truth) -> list[EvalCase]:
             # sin el documento no hay verdad que comprobar: no se gasta cuota ni se aprueba por defecto
             missing = sorted(c.kb_docs - t.kb_docs) or ["reglamento"]
             c.facts, c.plan, c.reason = None, None, f"no está ingerido en la base de conocimiento: {', '.join(missing)}"
+    return cases
+
+
+def _table_cases(t: Truth) -> list[EvalCase]:
+    """Fase 16: clasificación y goleadores OFICIALES. Se usan get_standings / get_scorer_table y nunca resultados ni actas."""
+    g = t.group_id
+    std, sco = frozenset({"get_standings"}), frozenset({"get_scorer_table"})
+
+    def need(ok: bool, why: str) -> str:
+        return "" if ok else why
+
+    cases: list[EvalCase] = []
+    rounds = sorted(t.official_standings)
+    last = rounds[-1] if rounds else None
+    rows = t.official_standings.get(last, []) if last is not None else []
+    lead = rows[0] if rows else None
+    cases.append(EvalCase(
+        "tabla_clasificacion_lider", "tablas", "¿Quién lidera la clasificación del grupo y con cuántos puntos?",
+        [Fact("table_row", "líder oficial", names=(lead["team"],), number=lead["points"], status="team:points"),
+         Fact("table_round", "jornada de la tabla", number=last)] if lead and last is not None else None,
+        std, lambda s, p: _call("get_standings", group_id=g) if s == 0 else None,
+        need(bool(lead), "no hay clasificación oficial ingerida (ingest-standings)"), required=std, max_calls=2))
+    old = rounds[0] if len(rounds) > 1 else None
+    old_lead = t.official_standings[old][0] if old is not None and t.official_standings[old] else None
+    cases.append(EvalCase(
+        "tabla_clasificacion_jornada_pasada", "tablas", f"¿Cómo estaba la clasificación tras la jornada {old}? ¿Quién lideraba y con cuántos puntos?"
+        if old is not None else "¿Cómo estaba la clasificación tras la jornada 1?",
+        [Fact("table_row", "líder oficial de esa jornada", names=(old_lead["team"],), number=old_lead["points"], status="team:points"),
+         Fact("table_round", "jornada pedida", number=old)] if old_lead and old is not None else None,
+        std, lambda s, p: _call("get_standings", group_id=g, round=old) if s == 0 else None,
+        need(old_lead is not None, "solo hay una jornada ingerida (ingest-standings --all-rounds)"), required=std, max_calls=2))
+    top = t.official_scorers[0]["goals"] if t.official_scorers else None
+    leaders = [r for r in t.official_scorers if r["goals"] == top][:4]
+    cases.append(EvalCase(
+        "tabla_goleadores_maximo", "tablas", "¿Quién es el máximo goleador del grupo y cuántos goles lleva?",
+        [Fact("table_row", "máximo goleador oficial", names=(r["player"],), number=r["goals"], status="player:goals") for r in leaders]
+        if leaders else None,
+        sco, lambda s, p: _call("get_scorer_table", group_id=g, limit=10) if s == 0 else None,
+        need(bool(leaders), "no hay tabla oficial de goleadores ingerida (ingest-scorers)"), required=sco, max_calls=2))
+    mid = next((r for r in t.official_scorers[len(leaders):] if sum(1 for x in t.official_scorers if x["player"] == r["player"]) == 1), None)
+    surname = (mid["player"].split(",")[0] if mid else "").strip()
+    cases.append(EvalCase(
+        "tabla_goleadores_jugador", "tablas", f"¿Cuántos goles lleva {mid['player']} según la tabla de goleadores?" if mid else "¿Cuántos goles lleva un jugador?",
+        [Fact("table_row", "goles del jugador", names=(mid["player"],), number=mid["goals"], status="player:goals")] if mid else None,
+        sco, lambda s, p: _call("get_scorer_table", group_id=g, name=surname) if s == 0 else None,
+        need(mid is not None, "no hay tabla oficial de goleadores ingerida (ingest-scorers)"), required=sco, max_calls=2))
+    cases.append(EvalCase(
+        "tabla_goleador_no_figura", "tablas", "¿Cuántos goles lleva FANTASMA PEREZ, JUAN en la tabla de goleadores del grupo?",
+        [Fact("limitation", "jugador sin goles en la tabla")] if t.official_scorers else None,
+        sco, reason=need(bool(t.official_scorers), "no hay tabla oficial de goleadores ingerida") or "el jugador no figura en la tabla",
+        required=sco, max_calls=2, forbid_scores=False))
     return cases
 
 
@@ -835,7 +921,9 @@ def describe(facts: list[Fact] | None) -> str:
             "no_sub_minutes": "dice que los minutos de los cambios no constan, sin inventarlos",
             "rule_cited": f"{f.label}: dato correcto y cita " + (f"regla {f.rule} o " if f.rule is not None else "")
             + f"página {'-'.join(map(str, f.pages))}",
-            "no_evidence_rules": "dice que el reglamento no lo recoge, sin dar cifras ni sanciones"}.get(f.kind, f.kind))
+            "no_evidence_rules": "dice que el reglamento no lo recoge, sin dar cifras ni sanciones",
+            "table_row": f"{f.label}: «{f.names[0] if f.names else ''}» con {f.number} ({(f.status or '').split(':')[-1]}) según la tabla oficial",
+            "table_round": f"indica la jornada {f.number} de la tabla oficial"}.get(f.kind, f.kind))
     return "; ".join(out)
 
 

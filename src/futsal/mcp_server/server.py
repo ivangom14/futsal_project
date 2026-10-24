@@ -164,10 +164,33 @@ def create_server(client: httpx.Client | None = None) -> FastMCP:
         min_goals: Annotated[int, Field(ge=1, le=100)] = 1,
         limit: Annotated[int, Field(ge=1, le=200)] = 20,
     ) -> dict[str, Any]:
-        """Goles por jugador de más a menos (sin propia meta), mismos filtros, con coverage."""
+        """Goles por jugador de las ACTAS (filtros rival/jornada/partido), con coverage. No es la tabla oficial."""
         return _get(http, f"/groups/{group_id}/scorers", f"grupo {group_id}", team_id=team_id,
                     against_team_id=against_team_id, round_id=round_id, match_id=match_id,
                     player_id=player_id, min_goals=min_goals, limit=limit)
+
+    @mcp.tool()
+    def get_standings(
+        group_id: int,
+        round: Annotated[int | None, Field(ge=1, le=200)] = None,
+    ) -> dict[str, Any]:
+        """Clasificación OFICIAL RFFM de la jornada `round` (sin él, la última); no la calcules. Indica jornada y captura."""
+        return _get(http, f"/groups/{group_id}/standings", f"grupo {group_id}", round=round)
+
+    @mcp.tool()
+    def get_scorer_table(
+        group_id: int | None = None,
+        competition_id: int | None = None,
+        name: Annotated[str | None, Field(min_length=2, max_length=80)] = None,
+        limit: Annotated[int, Field(ge=1, le=50)] = 10,
+    ) -> dict[str, Any]:
+        """Goleadores OFICIAL RFFM (no uses actas): solo jugadores con goles, empates con mismo rank. group_id; o competition_id para
+        el máximo de cada grupo; name busca un jugador."""
+        if group_id is not None:
+            return _get(http, f"/groups/{group_id}/scorer-table", f"grupo {group_id}", name=name, limit=limit)
+        if competition_id is None:
+            raise ToolError("error_validacion: indica group_id o competition_id")
+        return _get(http, f"/competitions/{competition_id}/scorer-table", f"competición {competition_id}", limit=limit)
 
     @mcp.tool()
     def find_players(

@@ -179,3 +179,9 @@ Fase 15, Circular 10 rectificativa CTAFS-RFEF 2026/27 (`docs/phase15-circular10.
 aplicable a competiciones de la RFEF (no dice nada de la RFFM). Cambio mínimo: `part_heading_line` y perfil `rfef-ctafs-circular` (partes I-VIII y apartados numerados); `note`/descripción genéricas («circulares de la RFEF», sin jerarquía normativa). Retrieval: FIFA y Circular 27 idénticos
 antes/después; circular 10 literal 4/8, reformulada 8/8. Evaluador: 8 casos `circular10_*` (suite offline 38 pass, 0 fail, 11 no evaluables con los tres documentos). **Pendiente del usuario**: ingestar en su base local (comandos en el doc) y cualquier evaluación live.
 
+Fase 16, clasificaciones y goleadores oficiales (`docs/phase16-tables.md`): se ingieren las tablas que publica la RFFM (no se calculan). Ambas páginas llevan los datos en `__NEXT_DATA__` (`standings`, `scorers`); la
+clasificación admite `jornada=N` (una jornada futura/inexistente devuelve la actual en silencio: se valida), los goleadores solo la tabla actual (solo jugadores con goles, sin posición, sin paginación observada). La web devuelve a veces `null`
+(se reintenta; nunca es «vacía»). Migración 0005 (`standings_snapshots/rows`, `scorer_snapshots/rows`, `table_ingest_attempts`), CLI `ingest-standings`, `ingest-scorers`, `tables-report`, API `/groups/{id}/standings|scorer-table`, `/competitions/{id}/scorer-table`,
+`/tables/coverage`, MCP `get_standings` y `get_scorer_table` (+≈320 tokens por llamada), 5 casos `tabla_*` del evaluador. Cobertura real (copia de la base): 18/25 clasificaciones y 22/25 goleadores `ok`; 6 grupos de eliminatorias `not_applicable`, 2 goleadores `empty`
+(válidos), 1 grupo sin jornadas fuera de la base (`no_group_in_db`). **Pendiente del usuario**: `alembic upgrade head` e ingestar en su base local (comandos en el doc); evaluación live del agente con las tools nuevas (no ejecutada).
+

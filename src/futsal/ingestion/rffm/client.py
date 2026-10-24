@@ -30,6 +30,21 @@ def group_url(season: str, competition: str, group: str, game_type: str) -> str:
     return f"{BASE_URL}?{urlencode(query)}"
 
 
+def standings_url(season: str, competition: str, group: str, game_type: str, round_number: int | str | None = None) -> str:
+    """Clasificación del grupo. Sin `jornada` la web devuelve la actual; con `jornada=N`, la acumulada tras N si existe."""
+    query: dict[str, str | int] = {"temporada": season, "competicion": competition, "grupo": group}
+    if round_number is not None:
+        query["jornada"] = round_number
+    query["tipojuego"] = game_type
+    return f"https://www.rffm.es/competicion/clasificaciones?{urlencode(query)}"
+
+
+def scorers_url(season: str, competition: str, group: str, game_type: str) -> str:
+    """Tabla de goleadores del grupo (sin `jornada`: la web solo publica la tabla actual)."""
+    query = {"temporada": season, "competicion": competition, "grupo": group, "tipojuego": game_type}
+    return f"https://www.rffm.es/competicion/goleadores?{urlencode(query)}"
+
+
 def groups_url(competition: str) -> str:
     """Endpoint JSON que usa la propia web para listar los grupos de una competición."""
     return f"{API_GROUPS_URL}?{urlencode({'competicion': competition})}"

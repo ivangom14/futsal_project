@@ -216,7 +216,7 @@ def leaks_prompt(text: str, prompt: str, allowed: str | tuple[str, ...] = "", wi
 
 DOMAIN_WORDS = frozenset({"jornada", "jornadas", "partido", "partidos", "equipo", "equipos", "gol", "goles", "goleador",
                           "goleadores", "resultado", "resultados", "acta", "actas", "arbitro", "arbitros", "tarjeta",
-                          "tarjetas", "jugador", "jugadores", "grupo", "grupos", "marcador", "clasificacion", "regla", "reglas",
+                          "tarjetas", "jugador", "jugadores", "grupo", "grupos", "marcador", "clasificacion", "clasificaciones", "regla", "reglas",
                           "reglamento", "falta", "faltas", "infraccion", "penalti", "saque"})
 
 

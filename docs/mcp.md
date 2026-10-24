@@ -24,7 +24,9 @@ Los listados devuelven `{<clave>: [...], "count": N}`. IDs = IDs internos de BD.
 | `list_matches` (+ `has_report`) | filtro opcional de acta disponible | `GET /groups/{id}/matches` |
 | `get_match_report` | `match_id`, `sections` (opc.: officials, goals, cards, players, staff) | `GET /matches/{id}/report` |
 | `list_match_events` | `group_id`, `team_id`, `against_team_id`, `round_id`, `match_id`, `player_id`, `event_type`, `limit` | `GET /groups/{id}/match-events` |
-| `top_scorers` | `group_id`, mismos filtros + `min_goals`, `limit` | `GET /groups/{id}/scorers` |
+| `top_scorers` | `group_id`, mismos filtros + `min_goals`, `limit` | `GET /groups/{id}/scorers` (goles de las actas; no es la tabla oficial) |
+| `get_standings` | `group_id`, `round` (opc.) | `GET /groups/{id}/standings` (clasificación oficial RFFM) |
+| `get_scorer_table` | `group_id` o `competition_id`, `name` (opc.), `limit` | `GET /groups/{id}/scorer-table` / `GET /competitions/{id}/scorer-table` (goleadores oficiales RFFM) |
 | `find_teams` | `name` | `GET /teams?name=` (equipos de todos los grupos; `team_id`, `group_id`, grupo y competición) |
 | `find_players` | `group_id`, `name`, `team_id` (opc.) | `GET /groups/{id}/players` |
 | `search_rules` | `query`, `limit` (1-10, def. 5), `rule` (opc.) | `GET /knowledge/search` (reglamento FIFA y Circular 27 de la RFEF; búsqueda léxica, citar documento, regla y página) |

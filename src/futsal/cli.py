@@ -4,7 +4,7 @@ import argparse
 import re
 from pathlib import Path
 
-from futsal import catalog_commands, knowledge_commands, report_commands
+from futsal import catalog_commands, knowledge_commands, report_commands, table_commands
 from futsal.config.targets import RFFM_INITIAL_ROUND, RFFM_TARGET
 from futsal.ingestion.rffm.client import PoliteFetcher, read_or_fetch, round_url
 from futsal.ingestion.rffm.export import write_json
@@ -129,11 +129,14 @@ def main(argv: list[str] | None = None) -> int:
     report_commands.add_parsers(sub)
     catalog_commands.add_parsers(sub)
     knowledge_commands.add_parsers(sub)
+    table_commands.add_parsers(sub)
     args = parser.parse_args(argv)
     if args.command in catalog_commands.COMMANDS:
         return catalog_commands.run(args)
     if args.command in knowledge_commands.COMMANDS:
         return knowledge_commands.run(args)
+    if args.command in table_commands.COMMANDS:
+        return table_commands.run(args)
     if args.command in report_commands.COMMANDS:
         return report_commands.run(args)
     if args.command in ("preview-import", "import-league", "db-summary"):

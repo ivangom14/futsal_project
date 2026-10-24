@@ -22,6 +22,7 @@ from futsal.db.models import (
 )
 from futsal.api.knowledge import knowledge_router
 from futsal.api.reports import reports_router
+from futsal.api.tables import tables_router
 from futsal.db.session import make_engine
 
 STATUSES = ("scheduled", "finished", "postponed", "suspended", "cancelled", "unknown")
@@ -194,6 +195,7 @@ def create_app(engine: Engine | None = None) -> FastAPI:
         return data
 
     app.include_router(reports_router(get_session))
+    app.include_router(tables_router(get_session))
     app.include_router(knowledge_router(get_engine))
     return app
 
