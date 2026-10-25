@@ -7,7 +7,12 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
 
-from futsal.agent.criteria import mentions_domain, states_tool_limit
+from futsal.agent.criteria import (
+    asks_scope_clarification,
+    mentions_domain,
+    scope_identified,
+    states_tool_limit,
+)
 from futsal.agent.llm import LLMClient, LLMError, Message, ToolCall, ToolResult
 from futsal.agent.mcp_client import McpClient
 from futsal.agent.trace import LlmCallRecord, RunRecord, ToolCallRecord, redact, write_jsonl
@@ -172,6 +177,7 @@ class Agent:
         self._system: str | None = None
         self._ctx_calls = 0
         self._ctx_ms = 0.0
+        self._catalog: list[tuple[str, list[str]]] = []  # competición -> nombres de sus grupos (contexto precargado)
 
     async def _items(self, tool: str, args: dict[str, Any], key: str) -> list[dict[str, Any]]:
         self._ctx_calls += 1
@@ -195,6 +201,7 @@ class Agent:
                     groups = await self._items("list_groups", {"competition_id": comp["id"]}, "groups")
                 catalog.append((comp, [g for g in groups if isinstance(g, dict) and "id" in g]))
             total = sum(len(g) for _, g in catalog)
+            self._catalog = [(str(c.get('name', '')), [str(g.get('name', '')) for g in gs]) for c, gs in catalog]
             if total > MAX_CONTEXT_GROUPS:
                 return CATALOG_HEADER + "\n".join(
                     f"- «{c['name']}» (competition_id={c['id']}): "
@@ -213,6 +220,11 @@ class Agent:
             return CONTEXT_HEADER + "\n".join(lines) if lines else ""
         except Exception:  # noqa: BLE001 - el contexto es una optimización, nunca un requisito
             return ""
+
+    def _ambiguous_scope(self, question: str) -> bool:
+        """Pregunta de la competición, con más de un grupo disponible y sin competición/grupo identificados."""
+        return (mentions_domain(question) and sum(len(g) for _, g in self._catalog) > 1
+                and not scope_identified(question, self._catalog))
 
     async def _system_prompt(self, rec: RunRecord) -> str:
         if self._system is None:
@@ -279,6 +291,12 @@ class Agent:
                 retry_wait_ms=round(sum(a.waited_s for a in resp.attempts) * 1000, 1),
                 token_source="unreported" if u is None else "estimated" if u.estimated else "provider",
                 cached_input_tokens=u.cached_input_tokens if u else None, paced_ms=paced_ms))
+            if (not resp.tool_calls and result.tool_calls == 0 and self._ambiguous_scope(question)
+                    and asks_scope_clarification(resp.text, self._catalog)):
+                # Aclaración legítima: la pregunta es de la competición, hay varios grupos y no indica cuál. Se conserva tal cual.
+                result.answer, result.guardrail = resp.text, "aclaracion_ambito"
+                log("GUARDRAIL\n→ el modelo pide competición/grupo/temporada sin dar datos: se conserva la aclaración")
+                return
             if (not resp.tool_calls and result.tool_calls == 0 and not nudged and mentions_domain(question)
                     and (resp.text.strip() == OFF_TOPIC_MESSAGE or not states_tool_limit(resp.text))):
                 # La pregunta habla de la competición: se pide UNA vez consultar las tools antes de darla por ajena.

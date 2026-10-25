@@ -277,6 +277,34 @@ def clarifies(text: str) -> bool:
     return any(p in low for p in CLARIFY_PHRASES)
 
 
+SCOPE_WORDS = frozenset({"competicion", "competiciones", "grupo", "grupos", "temporada", "temporadas", "categoria"})
+REQUEST_PHRASES = ("indic", "especific", "aclar", "cual", "que competicion", "que grupo", "que temporada", "a que ", "de que ", "dime", "puedes", "podrias",
+                   "podria", "necesito", "precis", "concret", "te refieres", "se refiere")
+MAX_CLARIFICATION_CHARS = 600
+
+
+def scope_identified(question: str, catalog: list[tuple[str, list[str]]]) -> bool:
+    """¿La pregunta ya nombra una competición del catálogo y, si tiene varios grupos, también el grupo?"""
+    low = f" {norm(question)} "
+    return any(f" {norm(comp)} " in low and (len(groups) <= 1 or any(f" {norm(g)} " in low for g in groups))
+               for comp, groups in catalog)
+
+
+def asks_scope_clarification(text: str, catalog: list[tuple[str, list[str]]]) -> bool:
+    """¿Es la respuesta SOLO una petición de competición, grupo o temporada, sin datos?
+
+    Debe usar vocabulario de ámbito (competición, grupo, temporada), formular una petición, ser breve y no contener cifras ni
+    marcadores (salvo los números de los nombres del catálogo, p. ej. «Grupo 2»). Una frase interrogativa por sí sola no basta.
+    """
+    if not text.strip() or len(text) > MAX_CLARIFICATION_CHARS or has_any_score(text):
+        return False
+    low = f" {norm(text)} "
+    for name in sorted({norm(n) for c, gs in catalog for n in (c, *gs) if n}, key=len, reverse=True):
+        low = re.sub(rf"(?<!\w){re.escape(name)}(?!\w)", " ", low)
+    return (not re.search(r"\d", low) and any(w in SCOPE_WORDS for w in low.split())
+            and any(p in low for p in REQUEST_PHRASES))
+
+
 # ----------------------------------------------------------------------------- advertencias
 def needs_warning(payloads: list[dict[str, Any]]) -> list[str]:
     """Motivos por los que la respuesta DEBE advertir, deducidos solo de la evidencia recuperada."""
