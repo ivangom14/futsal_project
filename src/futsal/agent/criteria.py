@@ -10,6 +10,7 @@ No se juzga el estilo del modelo: se comprueba que la respuesta no afirme nada q
 Son heurísticas léxicas deterministas: acotan la invención, no la descartan en todos los casos (ver docs/agent.md).
 """
 
+import json
 import re
 import unicodedata
 from typing import Any
@@ -190,6 +191,17 @@ def unsupported_digits(text: str, payloads: list[dict[str, Any]], question: str 
     return sorted({n for n in _NUMBER_RE.findall(cleaned) if n not in known})
 
 
+def figures_without_table(text: str, payloads: list[dict[str, Any]], question: str = "") -> list[str]:
+    """Cifras que da la respuesta cuando ninguna tool devolvió filas de clasificación o goleadores (error, grupo sin tabla, sin ingerir).
+
+    Se ignoran las que figuran en la pregunta o en lo devuelto (p. ej. la jornada que cita el aviso de la tool): lo demás es inventado.
+    """
+    if any(isinstance(p.get(k), list) and p[k] for p in payloads for k in ("standings", "scorers")):
+        return []
+    known = set(_NUMBER_RE.findall(question + " " + json.dumps(payloads, ensure_ascii=False)))
+    return sorted({n for n in _NUMBER_RE.findall(text) if n not in known})
+
+
 _NUMBER_WORDS = ("un", "uno", "una", "dos", "tres", "cuatro", "cinco", "seis", "siete", "ocho", "nueve", "diez", "once", "doce",
                  "quince", "veinte", "treinta", "cuarenta", "cincuenta", "cien", "mil")
 _QUANTITY_RE = re.compile(
@@ -307,3 +319,14 @@ def missing_warnings(text: str, reasons: list[str]) -> list[str]:
     """Motivos (de `needs_warning`) cuya advertencia específica NO aparece en la respuesta."""
     low = _padded(text)
     return [r for r in reasons if not any(p in low for p in REASON_PHRASES.get(r, WARN_PHRASES))]
+
+
+ORDINALS = ("", "primer", "segund", "tercer", "cuart", "quint", "sext", "septim", "octav", "noven", "decim")
+
+
+def claims_position(text: str, n: int) -> bool:
+    """¿Afirma la respuesta que el equipo ocupa el puesto `n`? Más estricto que citar el número (los puntos también son números)."""
+    low = _padded(text)  # norm convierte «2.º» en «2 o»
+    return (re.search(rf"(?:puesto|posicion|lugar|plaza)\D{{0,25}}(?<!\d){n}(?!\d)", low) is not None
+            or re.search(rf"(?<!\d){n} ?o\b", low) is not None
+            or (n < len(ORDINALS) and ORDINALS[n] in low) or (n == 1 and " lider" in low))

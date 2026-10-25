@@ -8,6 +8,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from futsal.agent.audit import audit_summary, render_audit
 from futsal.agent.evaluate import CaseResult, summarize_results
 from futsal.agent.regression import UNAVAILABLE_METRICS, overall_status
 
@@ -98,6 +99,12 @@ def _prefix_line(p: dict[str, int]) -> str:
             f"(total {sum(p.values())})")
 
 
+def _prices(meta: dict[str, Any]) -> tuple[float, float] | None:
+    """Precios (USD por millón de tokens) aportados por el usuario con --price-in/--price-out; nunca se suponen."""
+    raw = (meta.get("args") or {}).get("price_per_mtok")
+    return (float(raw[0]), float(raw[1])) if raw else None
+
+
 def render_markdown(meta: dict[str, Any], results: list[CaseResult]) -> str:
     s = summarize_results(results)
     pre = meta.get("preflight") or {}
@@ -114,6 +121,7 @@ def render_markdown(meta: dict[str, Any], results: list[CaseResult]) -> str:
            f"· de la entrada, servidos desde caché {s['cached_tokens']} — origen: {', '.join(SOURCE_LABEL[x] for x in s['token_sources']) or 'n/d'}",
            f"- Latencia (sin pausas de ritmo): total {s['latency_ms']} ms (herramientas {s['tool_ms']} ms) · pausas de ritmo {s.get('paced_ms', 0)} ms",
            f"- Prefijo fijo por llamada (caracteres): {_prefix_line(s.get('prefix_chars') or {})}", "",
+           *render_audit(audit_summary(results, _prices(meta)), meta["mode"]),
            "## Veredictos por capa", "", "| Capa | OK | Fallo |", "|---|---|---|"]
     label = {"invencion": "invención", "presentacion": "presentación"}
     out += [f"| {label.get(name, name)} | {v['pass']} | {v['fail']} |" for name, v in s["layers"].items()]
@@ -159,7 +167,7 @@ def render_markdown(meta: dict[str, Any], results: list[CaseResult]) -> str:
 
 def results_payload(meta: dict[str, Any], results: list[CaseResult]) -> dict[str, Any]:
     return {"meta": meta, "mode": meta["mode"], "summary": summarize_results(results),
-            "cases": [asdict(r) for r in results]}
+            "audit": audit_summary(results, _prices(meta)), "cases": [asdict(r) for r in results]}
 
 
 def write_report(run_dir: Path, meta: dict[str, Any], results: list[CaseResult]) -> dict[str, Path]:

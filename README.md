@@ -79,3 +79,11 @@ python -m futsal.agent.evaluate --plan --suite smoke               # llamadas y 
 python -m futsal.agent.evaluate --mode live --confirm-live --suite smoke --max-requests 25   # consume cuota de Gemini
 python -m futsal.agent.evaluate --compare ANTES\results.json DESPUES\results.json
 ```
+
+## Evaluación integral y auditoría de fiabilidad (Fase 17)
+```
+python -m futsal.agent.evaluate --output data/agent/eval-fase17-offline.json   # offline, sin LLM; el informe incluye la auditoría
+python -m futsal.agent.evaluate --plan --only ID1,ID2                           # cuota prevista, sin llamar a ningún LLM
+```
+Casos por categoría A-G, errores críticos, comandos para Windows CMD y evaluación live acotada: `docs/phase17-evaluation.md`.
+

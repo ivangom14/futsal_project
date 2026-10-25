@@ -31,12 +31,15 @@ from futsal.agent.agent import (
     SYSTEM_PROMPT,
     Agent,
 )
+from futsal.agent.audit import OFFICIAL_PREFIXES, critical_reasons, expectation
 from futsal.agent.criteria import (
     PAGE_REF_RE,
     RULE_REF_RE,
     answer_warns,
     card_color_claims,
+    claims_position,
     clarifies,
+    figures_without_table,
     has_any_score,
     hit_pages,
     invented_quantities,
@@ -97,6 +100,18 @@ class RGoal:
 
 
 @dataclass
+class TableGroup:
+    """Estado de las tablas oficiales de UN grupo, derivado con SQL propio de las capturas (independiente de la API)."""
+    group_id: int
+    competition: str
+    name: str
+    standings_status: str  # ok | incomplete | empty | not_ingested | not_applicable | failed
+    standings: dict[int, list[dict[str, Any]]] = field(default_factory=dict)  # jornada -> filas de la última captura
+    scorers_status: str = "not_ingested"
+    scorers: list[dict[str, Any]] = field(default_factory=list)
+
+
+@dataclass
 class Truth:
     group_id: int
     teams: dict[int, str]
@@ -112,6 +127,10 @@ class Truth:
     kb_docs: frozenset[str] = frozenset()  # documentos indexados (versión actual) en la base de conocimiento
     official_standings: dict[int, list[dict[str, Any]]] = field(default_factory=dict)  # jornada -> filas oficiales (última captura)
     official_scorers: list[dict[str, Any]] = field(default_factory=list)  # tabla oficial de goleadores (última captura)
+    table_groups: list[TableGroup] = field(default_factory=list)  # tablas oficiales de todos los grupos importados (Fase 17)
+    other: "Truth | None" = None  # otro grupo (de otra competición si es posible) con partidos: detecta confusión de grupos
+    competition: str = ""
+    group_name: str = ""
 
     @property
     def rules_indexed(self) -> bool:
@@ -119,6 +138,10 @@ class Truth:
 
     def team_id(self, token: str) -> int | None:
         return next((i for i, n in self.teams.items() if token.lower() in n.lower()), None)
+
+    def main_team(self) -> int | None:
+        """Equipo de los casos de equipo: «DOSA» si existe (historial de la suite); si no, el primero con partidos jugados y pendientes."""
+        return self.team_id("DOSA") or next((i for i in self.teams if self.of_team(i, "finished") and self.of_team(i, "pending")), None)
 
     def of_team(self, team: int, status: str | None = None) -> list[M]:
         rows = [m for m in self.matches if team in (m.home_id, m.away_id)]
@@ -148,8 +171,52 @@ def _load_table_truth(db: Session, t: Truth) -> None:
         if sc is not None:
             t.official_scorers = [{"player": r.player_name, "team": r.team_name, "goals": r.goals} for r in db.scalars(
                 select(ScorerRow).where(ScorerRow.snapshot_id == sc.id).order_by(ScorerRow.row_order))]
+        _load_table_groups(db, t)
     except SQLAlchemyError:  # migración 0005 sin aplicar: los casos de tablas quedan no evaluables
         db.rollback()
+
+
+def _load_table_groups(db: Session, t: Truth) -> None:
+    """Estado de ambas tablas en CADA grupo importado, con los mismos estados que publica la API (`ok`, `empty`, `not_applicable`…)."""
+    from sqlalchemy import select
+
+    from futsal.db.models import Competition, CompetitionGroup
+    from futsal.db.table_models import (
+        ScorerRow,
+        ScorerSnapshot,
+        StandingsRow,
+        StandingsSnapshot,
+        TableIngestAttempt,
+    )
+
+    def missing(group_id: int, kind: str) -> str:
+        last = db.scalar(select(TableIngestAttempt).where(TableIngestAttempt.group_id == group_id, TableIngestAttempt.kind == kind)
+                         .order_by(TableIngestAttempt.attempted_at.desc(), TableIngestAttempt.id.desc()).limit(1))
+        if last is not None and last.outcome == "not_applicable":
+            return "not_applicable"
+        return "failed" if last is not None and last.outcome in ("failed", "round_unavailable") else "not_ingested"
+
+    for g in db.scalars(select(CompetitionGroup).order_by(CompetitionGroup.id)):
+        comp = db.get(Competition, g.competition_id)
+        tg = TableGroup(g.id, (comp.name if comp else "") or "", g.name or "", "not_ingested")
+        snaps = db.scalars(select(StandingsSnapshot).where(StandingsSnapshot.group_id == g.id)
+                           .order_by(StandingsSnapshot.round_number, StandingsSnapshot.last_seen_at, StandingsSnapshot.id)).all()
+        for snap in snaps:  # la última captura de cada jornada prevalece; el estado es el de la jornada más reciente
+            tg.standings[snap.round_number] = [
+                {"position": r.position, "team": r.team_name, "team_id": r.team_id, "points": r.points, "played": r.played}
+                for r in db.scalars(select(StandingsRow).where(StandingsRow.snapshot_id == snap.id).order_by(StandingsRow.position))]
+            tg.standings_status = snap.status
+        if not snaps:
+            tg.standings_status = missing(g.id, "standings")
+        sc = db.scalar(select(ScorerSnapshot).where(ScorerSnapshot.group_id == g.id)
+                       .order_by(ScorerSnapshot.last_seen_at.desc(), ScorerSnapshot.id.desc()).limit(1))
+        if sc is None:
+            tg.scorers_status = missing(g.id, "scorers")
+        else:
+            tg.scorers_status = sc.status
+            tg.scorers = [{"player": r.player_name, "team": r.team_name, "team_id": r.team_id, "goals": r.goals} for r in db.scalars(
+                select(ScorerRow).where(ScorerRow.snapshot_id == sc.id).order_by(ScorerRow.row_order))]
+        t.table_groups.append(tg)
 
 
 def _indexed_docs(db: Session) -> frozenset[str]:
@@ -166,27 +233,59 @@ def _indexed_docs(db: Session) -> frozenset[str]:
         return frozenset()
 
 
+def _group_truth(db: Session, group: Any) -> Truth:
+    """Equipos, jornadas y partidos de un grupo (SELECT)."""
+    from sqlalchemy import select
+
+    from futsal.db.models import Competition, Match, Round, Team
+
+    teams = {t.id: t.name or "" for t in db.scalars(select(Team).where(Team.group_id == group.id))}
+    rounds = {r.visible_number: r.id for r in db.scalars(select(Round).where(Round.group_id == group.id))
+              if r.visible_number is not None}
+    rows = db.execute(
+        select(Match, Round.visible_number).join(Round, Round.id == Match.round_id)
+        .where(Match.group_id == group.id).order_by(Round.visible_number, Match.scheduled_at, Match.id))
+    matches = [M(m.id, n or 0, m.home_team_id, m.away_team_id, teams.get(m.home_team_id, ""),
+                 teams.get(m.away_team_id, ""), m.home_score, m.away_score, m.status,
+                 m.scheduled_date, m.venue) for m, n in rows]
+    comp = db.get(Competition, group.competition_id)
+    return Truth(group.id, teams, rounds, matches, competition=(comp.name if comp else "") or "", group_name=group.name or "")
+
+
+def _target_group(db: Session) -> Any:
+    """Grupo objetivo del proyecto (`config.targets`, por código externo); si no está importado, el de menor id.
+
+    Con el catálogo de 14 competiciones el «primer grupo por id» dependía del orden de importación.
+    """
+    from sqlalchemy import select
+
+    from futsal.config.targets import RFFM_TARGET
+    from futsal.db.models import CompetitionGroup
+
+    wanted = db.scalars(select(CompetitionGroup).where(CompetitionGroup.external_id == RFFM_TARGET["group"])).first()
+    return wanted or db.scalars(select(CompetitionGroup).order_by(CompetitionGroup.id)).first()
+
+
 def load_truth(engine: Engine) -> Truth | None:
     from sqlalchemy import select
 
-    from futsal.db.models import CompetitionGroup, Match, Round, Team
+    from futsal.db.models import CompetitionGroup
 
     with Session(engine) as db:
-        group = db.scalars(select(CompetitionGroup).order_by(CompetitionGroup.id)).first()
+        group = _target_group(db)
         if group is None:
             return None
-        teams = {t.id: t.name or "" for t in db.scalars(select(Team).where(Team.group_id == group.id))}
-        rounds = {r.visible_number: r.id for r in db.scalars(select(Round).where(Round.group_id == group.id))
-                  if r.visible_number is not None}
-        rows = db.execute(
-            select(Match, Round.visible_number).join(Round, Round.id == Match.round_id)
-            .where(Match.group_id == group.id).order_by(Round.visible_number, Match.scheduled_at, Match.id))
-        matches = [M(m.id, n or 0, m.home_team_id, m.away_team_id, teams.get(m.home_team_id, ""),
-                     teams.get(m.away_team_id, ""), m.home_score, m.away_score, m.status,
-                     m.scheduled_date, m.venue) for m, n in rows]
-        truth = Truth(group.id, teams, rounds, matches, kb_docs=_indexed_docs(db))
+        truth = _group_truth(db, group)
+        truth.kb_docs = _indexed_docs(db)
         _load_report_truth(db, truth)
         _load_table_truth(db, truth)
+        # otro grupo con partidos jugados, de otra competición si es posible: un caso de resultados que detecta confundir grupos
+        others = [g for g in db.scalars(select(CompetitionGroup).order_by(CompetitionGroup.id)) if g.id != group.id]
+        for g in sorted(others, key=lambda x: x.competition_id == group.competition_id):
+            cand = _group_truth(db, g)
+            if any(m.status == "finished" for m in cand.matches):
+                truth.other = cand
+                break
         return truth
 
 
@@ -260,7 +359,7 @@ def has_number(text: str, n: int) -> bool:
 # ----------------------------------------------------------------------------- hechos
 @dataclass(frozen=True)
 class Fact:
-    kind: str  # match | match_any | count | names | venue | limitation | refusal
+    kind: str  # match | match_any | count | names | venue | limitation | refusal | table_row | table_round | table_status
     # actas: people (nombres que deben figurar) | no_report | no_player | empty_scope | discrepancy
     label: str
     matches: tuple[M, ...] = ()
@@ -297,6 +396,11 @@ def evidence_ok(f: Fact, payloads: list[dict[str, Any]]) -> bool:
         return any(norm(str(i.get(name_key, ""))) == norm(f.names[0]) and i.get(value_key) == f.number for i in items)
     if f.kind == "table_round":
         return any(isinstance(p.get("source"), dict) and p["source"].get("round") == f.number for p in payloads)
+    if f.kind == "table_status":  # la tool debe declarar el estado real de ESTE grupo (competición y grupo por nombre: el agente no ve ids)
+        # una jornada sin captura se declara `round_not_ingested`, o `failed` si el último intento de esa jornada falló: ambas = no consta
+        accepted = {"round_not_ingested", "failed"} if f.status == "round_not_ingested" else {f.status}
+        return any(p.get("status") in accepted and (norm(str(p.get("competition", ""))), norm(str(p.get("group", "")))) ==
+                   (norm(f.names[0]), norm(f.names[1])) for p in payloads)
     if f.kind == "rule_cited":
         return any(h.get("rule") == f.rule and hit_pages(h) & set(f.pages) and norm(f.contains) in norm(str(h.get("text", "")))
                    for p in payloads for h in p.get("hits", []) if isinstance(h, dict))
@@ -373,8 +477,14 @@ def answer_ok(f: Fact, text: str) -> bool:
         return text.strip() != OFF_TOPIC_MESSAGE and any(p in low for p in LIMIT_PHRASES)
     if f.kind == "no_evidence_rules":  # sin fragmento que lo respalde: debe decir que no consta, no inventar
         return text.strip() != OFF_TOPIC_MESSAGE and any(p in low for p in LIMIT_PHRASES)
+    if f.kind == "table_row" and f.status == "team:position":
+        return key(f.names[0]) in low and f.number is not None and claims_position(text, f.number)
     if f.kind == "table_row":
         return key(f.names[0]) in low and f.number is not None and has_number(text, f.number)
+    if f.kind == "table_status":  # no hay tabla: reconoce que no consta (o que es parcial), sin dar posiciones ni puntos
+        if f.status == "incomplete":
+            return says_coverage_partial(text) or any(p in low for p in LIMIT_PHRASES)
+        return text.strip() != OFF_TOPIC_MESSAGE and any(p in low for p in LIMIT_PHRASES)
     if f.kind == "table_round":
         return f.number is not None and has_number(text, f.number)
     if f.kind == "rule_cited":
@@ -460,6 +570,7 @@ class EvalCase:
     forbid_scores: bool = False  # negativo: la respuesta no puede dar ningún marcador (no hay partido jugado/dato)
     smoke: bool = False  # pertenece a la suite reducida `smoke`
     kb_docs: frozenset[str] = frozenset()  # documentos que deben estar indexados (vacío: cualquiera)
+    expect: str = ""  # situación que comprueba (ver audit.EXPECT_LABEL); vacío = se deduce de los hechos
 
 
 def _call(tool: str, /, **args: Any) -> list[ToolCall]:
@@ -468,7 +579,7 @@ def _call(tool: str, /, **args: Any) -> list[ToolCall]:
 
 def _base_cases(t: Truth) -> list[EvalCase]:  # noqa: C901 - catálogo declarativo (Fases 8-9, sin cambios)
     g = t.group_id
-    dosa = t.team_id("DOSA")
+    dosa = t.main_team()
     cases: list[EvalCase] = []
     lm = frozenset({"list_matches"})
 
@@ -579,11 +690,12 @@ SMOKE = frozenset({"equipo_resultados", "acta_goleadores_ultimo", "partido_futur
 
 
 def build_cases(t: Truth) -> list[EvalCase]:
-    """Los 21 casos de las fases 8-9 (intactos) + los nuevos de la fase 10, con etiquetas de uso de tools y suite."""
+    """Casos de las fases 8-16 (intactos) + los de la Fase 17 (`audit_cases`), con etiquetas de uso de tools y suite."""
     # importación tardía: rule_cases usa Fact/EvalCase de este módulo
+    from futsal.agent.audit_cases import audit_cases
     from futsal.agent.rule_cases import rule_cases
 
-    cases = _base_cases(t) + _new_cases(t, t.team_id("DOSA")) + rule_cases() + _table_cases(t)
+    cases = _base_cases(t) + _new_cases(t, t.main_team()) + rule_cases() + _table_cases(t) + audit_cases(t)
     for c in cases:
         c.required = REQUIRED.get(c.id, c.required)
         c.allowed_tools = c.allowed_tools | EXTRA_ALLOWED.get(c.id, frozenset())
@@ -893,6 +1005,8 @@ class CaseResult:
     prefix_chars: dict[str, int] = field(default_factory=dict)  # prefijo fijo por llamada: sistema/contexto/herramientas
     run_id: str = ""
     answer: str = ""
+    expect: str = ""  # situación comprobada (Fase 17): complete | partial | no_data | not_ingested | query_error | unverifiable
+    critical: list[str] = field(default_factory=list)  # fallos que ninguna media compensa (invención, fuente oficial sustituida)
 
 
 def describe(facts: list[Fact] | None) -> str:
@@ -923,7 +1037,8 @@ def describe(facts: list[Fact] | None) -> str:
             + f"página {'-'.join(map(str, f.pages))}",
             "no_evidence_rules": "dice que el reglamento no lo recoge, sin dar cifras ni sanciones",
             "table_row": f"{f.label}: «{f.names[0] if f.names else ''}» con {f.number} ({(f.status or '').split(':')[-1]}) según la tabla oficial",
-            "table_round": f"indica la jornada {f.number} de la tabla oficial"}.get(f.kind, f.kind))
+            "table_round": f"indica la jornada {f.number} de la tabla oficial",
+            "table_status": f"{f.label}: la tool declara «{f.status}» y el agente reconoce que no consta, sin reconstruirlo"}.get(f.kind, f.kind))
     return "; ".join(out)
 
 
@@ -971,6 +1086,8 @@ def invention_claims(case: EvalCase, answer: str, truth: Truth, payloads: list[d
                    for n in unsupported_digits(answer, [] if no_data else payloads, case.question)]
         if no_data:
             claims += [f"inventa un importe o sanción: «{q}»" for q in invented_quantities(answer)]
+    if case.category.startswith(OFFICIAL_PREFIXES):  # error de tool o grupo sin tabla convertido en cifras de una tabla que no se vio
+        claims += [f"da la cifra {n}, pero ninguna herramienta devolvió filas de la tabla oficial" for n in figures_without_table(answer, payloads, case.question)]
     if any(f.kind == "no_sub_minutes" for f in case.facts or []):
         claims += [f"da minutos de cambios que no constan: «{c[:80]}»" for c in substitution_minute_claims(answer)]
     return claims
@@ -986,7 +1103,8 @@ def _provenance(answer: str, facts: list[Fact]) -> bool:
 async def run_case(case: EvalCase, mcp: McpClient, mode: str, llm: LLMClient | None, max_tool_calls: int,
                    max_rows: int, trace_path: Path | None, strip_args: frozenset[str] = frozenset(),
                    truth: Truth | None = None) -> CaseResult:
-    res = CaseResult(case.id, case.category, case.question, "not_evaluable", criteria=describe(case.facts))
+    res = CaseResult(case.id, case.category, case.question, "not_evaluable", criteria=describe(case.facts),
+                     expect=expectation(case))
     if case.facts is None:
         res.detail = case.reason
         return res
@@ -1067,6 +1185,7 @@ async def run_case(case: EvalCase, mcp: McpClient, mode: str, llm: LLMClient | N
     else:
         res.status = "fail" if failed else "pass"
         res.detail = " | ".join(failed)
+    res.critical = critical_reasons(case.category, res.status, res.unexpected_tools, res.claims, res.invention_ok)
     return res
 
 
@@ -1139,6 +1258,7 @@ def format_table(results: list[CaseResult]) -> str:
     src = "/".join(s["token_sources"]) or "n/d"
     rows.append(f"TOTAL: {s['pass']} pass, {s['fail']} fail, {s['not_evaluable']} no evaluables"
                 + (f", {s['not_run']} sin ejecutar" if s["not_run"] else "")
+                + (f", {sum(bool(r.critical) for r in results)} CRÍTICOS" if any(r.critical for r in results) else "")
                 + f" | tokens in={s['input_tokens']} out={s['output_tokens']} (origen: {src}) | "
                   f"{s['llm_calls']} llamadas LLM, {s['llm_retries']} reintentos")
     return "\n".join(rows)
@@ -1253,7 +1373,8 @@ async def _main(args: argparse.Namespace) -> int:
     meta = build_meta(
         mode=args.mode, suite=suite, provider=getattr(llm, "provider", "offline"), model=getattr(llm, "model", "policy"),
         args={"max_tool_calls": args.max_tool_calls, "max_rows": args.max_rows, "max_requests": max_requests,
-              "llm_max_retries": retries, "min_interval_s": getattr(llm, "_min", None), "only": sorted(only) if only else None, "limit": args.limit},
+              "llm_max_retries": retries, "min_interval_s": getattr(llm, "_min", None), "only": sorted(only) if only else None, "limit": args.limit,
+              "price_per_mtok": [args.price_in, args.price_out] if args.price_in is not None and args.price_out is not None else None},
         preflight={"same_database": same.verdict, "detail": same.detail,
                    "db": {k: v for k, v in same.db.items() if k != "empty"}}, run_id=run_id, case_ids=case_ids)
     paths = write_report(run_dir, meta, results)
@@ -1345,6 +1466,9 @@ def main() -> None:
     p.add_argument("--report-dir", default="data/agent/eval", help="carpeta donde se crea una subcarpeta por ejecución")
     p.add_argument("--output", default="data/agent/eval-last.json", help="copia del results.json de la última ejecución")
     p.add_argument("--trace-file", default="", help="traza cruda (por defecto, dentro de la carpeta de la ejecución)")
+    p.add_argument("--price-in", type=float, default=None, metavar="USD", help="precio por millón de tokens de entrada (aportado por ti; "
+                   "sin precios no se estima coste)")
+    p.add_argument("--price-out", type=float, default=None, metavar="USD", help="precio por millón de tokens de salida")
     p.add_argument("--compare", nargs=2, metavar=("ANTES.json", "DESPUES.json"),
                    help="compara dos results.json y termina (no usa red ni base de datos)")
     p.add_argument("--baseline", default="", metavar="results.json",

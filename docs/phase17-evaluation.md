@@ -1,0 +1,106 @@
+# Fase 17 — Evaluación integral, robustez y regresión del agente
+
+Objetivo: poder decir, con datos reproducibles, **cuándo el agente acierta, cuándo usa una fuente incorrecta, cuándo carece de evidencia y cuánto cuesta una consulta**, sin duplicar el evaluador de las fases 8-16 y sin llamar a ningún LLM.
+Todo lo de esta página se ejecutó **offline** (LLM guionizado / sin LLM). **No se ha evaluado la calidad real de Gemini ni de Claude**: los casos que dependen del texto del modelo se juzgan solo en `--mode live`, que no se ha ejecutado.
+
+## Auditoría del estado de partida
+Rama `claude/tender-rubin-rsz9uv`, HEAD `9d3b853` (Fase 16). Evaluador existente: `agent/evaluate.py` (46 casos, verdad = SELECT a PostgreSQL), criterios anti-invención (`criteria.py`), informe/regresión (`report.py`, `regression.py`), modos `offline`/`live` con `--plan`, `--max-requests`, `--confirm-live`. Línea base medida antes de tocar nada: 332 tests pasan y 118 se omiten (sin PostgreSQL), Ruff y mypy limpios; con un PostgreSQL local temporal pasan 448 y se omiten 2 (los `live`).
+
+Huecos verificados:
+1. **El grupo evaluado dependía del orden de importación**: `load_truth` tomaba el grupo de menor `id`. Con el catálogo de 25 grupos (Fase 14) podía no ser el del proyecto (`config/targets.py`): en la base reconstruida para esta fase eso dejaba **0 actas** y un fallo espurio (`acta_jugador_ambiguo`). Ahora se elige por código externo del objetivo, con el de menor `id` como respaldo.
+2. Los casos de tablas solo cubrían **un grupo**, no había comparación entre equipos, otro grupo/competición, tablas vacías, grupos de eliminatorias, no ingeridos, con fallo o parciales, ni consultas que **combinen** clasificación/goleadores con partidos.
+3. El informe no distinguía «sin datos», «no ingerido» y «error», ni separaba los **fallos críticos** (invención, fuente oficial sustituida) de la media, ni daba llamadas medias/máximas, cobertura por fuente o causas de fallo.
+4. Un error de tool convertido en cifras de una tabla no se detectaba salvo que además fueran incorrectas respecto a la verdad.
+5. Los casos de equipo asumían un equipo llamado «DOSA»; sin él desaparecían (ahora hay un respaldo derivado de los datos).
+6. Sin tests de robustez de `get_standings`/`get_scorer_table` en el MCP (404, 5xx, timeout, contrato de parámetros).
+
+## Qué se añadió
+| Pieza | Contenido |
+|---|---|
+| `agent/audit.py` | Taxonomía de situaciones (correcto y completo / parcial / sin datos / no ingerido / error de ingesta o consulta / fuente no verificable / no evaluable), categorías A-G, **errores críticos**, resumen (aprobación sobre evaluables, llamadas medias/máximas, repetidas, sobre el límite, con error, fuente no permitida, latencia, tokens, coste, RAG, causas de fallo) y recomendaciones priorizadas deterministas |
+| `agent/audit_cases.py` | 18 casos nuevos (ver abajo). Identificadores siempre derivados de la base; sin precondición el caso es **no evaluable** con el motivo |
+| `agent/evaluate.py` | Grupo objetivo por código externo; `TableGroup` (estado de ambas tablas en cada grupo, con SQL propio e independiente de la API); hechos `table_status` y `team:position`; `EvalCase.expect`; `CaseResult.expect/critical`; `--price-in/--price-out` |
+| `agent/criteria.py` | `claims_position` (el puesto, no cualquier número) y `figures_without_table` (cifras de una tabla que ninguna tool devolvió) |
+| `agent/report.py` | Sección «Auditoría de fiabilidad (Fase 17)» en `report.md` y clave `audit` en `results.json` |
+
+Casos nuevos (categoría → letra del plan):
+- **A**: `resultados_otro_grupo` (último partido de un equipo de OTRA competición: detecta confundir grupos).
+- **B**: `tabla_clasificacion_posicion_equipo`, `_comparacion`, `_otro_grupo`; estados: `_eliminatorias` (`not_applicable`), `_no_ingerida`, `_fallo_ingesta`, `_incompleta`, `_jornada_no_ingerida`.
+- **C**: `tabla_goleadores_top_n`, `_otro_grupo`, `_nombre_repetido`, `_vacia`, `_no_ingerida`, y `_por_jornada_no_verificable` (la RFFM no publica histórico de goleadores: «fuente no verificable»).
+- **F**: `combinada_lider_ultimo_resultado`, `combinada_lider_proximo_partido`, `combinada_goleador_y_puesto_de_su_equipo` (enlaza goleadores y clasificación por `team_id`, porque el nombre del equipo se escribe distinto en ambas tablas).
+
+Las categorías **D** (actas) y **E** (reglamento/RAG) ya estaban cubiertas por las fases 9-15 (14 y 20 casos; incluyen sin evidencia, circulares RFEF y distinción FIFA/RFEF); no se duplicaron. No hay caso de «pregunta normativa ambigua que exige precisar el ámbito» (pendiente: necesita un criterio de aclaración para reglamento).
+
+### Qué es un fallo crítico
+Un caso `fail` que además (a) da afirmaciones sin respaldo (marcadores, jugadores, citas, cifras: `invention_ok = False`) o (b) usa una herramienta no permitida en una pregunta de **tabla oficial** (reconstruir la clasificación o los goleadores con resultados o actas). Se listan aparte y encabezan el informe y las recomendaciones; no se compensan con la media. Un error de MCP/API seguido de cifras de una tabla no vista es invención crítica.
+
+## Verdad de referencia
+| Pregunta | Fuente de verdad | Comparación |
+|---|---|---|
+| Resultados y calendario | `matches`/`rounds` | marcador, equipos, fecha, recuentos |
+| Clasificación | última captura de `standings_snapshots/rows` por jornada | equipo, puesto, puntos, jornada |
+| Goleadores | última captura de `scorer_snapshots/rows` | jugador, goles, empates completos |
+| Actas | última observación de cada acta | goles, tarjetas (código), árbitros |
+| Normativa | fragmentos recuperados por `search_rules` | regla/página/texto esperados |
+| Estados (vacía, no ingerida, error…) | SQL propio sobre capturas e intentos | la tool debe declarar el estado del grupo correcto (por competición y nombre de grupo) |
+
+Casos sin verdad fiable → `facts=None`, estado `not_evaluable` y motivo. La respuesta del agente nunca es su propia referencia.
+
+## Resultados medidos (offline, 2026-10-25)
+**Entorno**: base PostgreSQL local temporal **reconstruida desde las cachés HTML ya descargadas** (catálogo de 25 grupos, 13 actas del grupo inicial, clasificaciones y goleadores de la caché, 3 documentos RAG indexados con la CLI). **No es tu base** y no contiene resultados posteriores a los snapshots. Evaluación offline = rutas de referencia guionizadas por el MCP/API reales (tokens **estimados**).
+
+| | Antes (HEAD `9d3b853`, misma base) | Después |
+|---|---|---|
+| Casos generados | 46 | 72 (18 nuevos + 8 que antes no se generaban porque el grupo evaluado era otro) |
+| Pass / fail / no evaluables | 29 / 1 espurio (grupo equivocado) / 16 | **55 / 0 / 17** |
+| Errores críticos | n/d | 0 |
+| Llamadas a tools por consulta (evaluables) | n/d | media 1,2 · máx. 2 · 0 repetidas · 0 errores |
+| Tokens de entrada (estimados) | 238.588 | 451.272 (más casos) |
+
+Por categoría (aprobados/evaluables): A 12/12 · B 7/7 · C 6/6 · D 11/11 · E 15/15 · F 3/3 · G 1/1. **100 % no significa calidad del modelo**: en offline solo demuestra que las tools devuelven la evidencia correcta y que la ruta de referencia basta. Recuperación RAG: 15/15 casos con el fragmento esperado; validez de citas: **no medida** (necesita texto real de un LLM).
+
+No evaluables (17): 10 requieren LLM real (`equipo_inexistente`, `jornada_inexistente`, `acta_dato_no_almacenado`, 5 «sin evidencia» de reglamento, `tabla_goleador_no_figura`, `tabla_goleadores_por_jornada_no_verificable`), 7 por precondiciones ausentes en esta base (`tabla_*_no_ingerida/fallo_ingesta/incompleta`, `equipo_ambiguo`, `acta_discrepancia_resultado`, `acta_goleadores_ultimo`; los estados se cubren con la BD sembrada de los tests de integración).
+Latencia por consulta (local, sin LLM): media 36 ms, máxima 56 ms. Coste en dinero: **no medido** (sin LLM real; con `--price-in/--price-out` y tokens de proveedor se calcula, nunca con tokens estimados).
+
+### Hallazgos de datos (no del agente)
+- El nombre de equipo difiere entre la tabla de goleadores y la de clasificación (`RODILLITO B` / `RODILLITO 'B'`): hay que enlazar por `team_id`, nunca por nombre.
+- Empate triple en el máximo goleador del grupo inicial (5 goles): el agente debe dar todos (el caso lo exige).
+- Los grupos de eliminatorias devuelven `not_applicable` en clasificación; Copa fase final tiene goleadores `empty`.
+
+## Qué cubren los tests nuevos (sin LLM ni red)
+- `tests/test_agent_audit.py` (unitarios): letras, expectativas, críticos, resumen y tasa sobre evaluables, métricas de herramientas, coste, aviso offline, recomendaciones, `claims_position`, hecho `table_status`.
+- `tests/test_robustness_tables.py`: errores de API (404/500/503/timeout/conexión) → error controlado, nunca datos; contrato y reenvío de parámetros de `get_standings`/`get_scorer_table`; `figures_without_table`.
+- `tests/integration/test_agent_audit_pg.py` (PostgreSQL temporal sembrado con todos los estados): los 17 casos pasan offline; precondiciones ausentes → no evaluable; grupo objetivo por código externo; reconstruir con resultados = crítico; cifras inventadas para un grupo de eliminatorias = crítico y respuesta honesta = pass; puesto vs número suelto; error de API convertido en cifras = crítico; llamadas repetidas y bucle; el informe y `results.json` llevan la auditoría.
+
+## Comandos (Windows CMD, desde la raíz del repositorio)
+```bat
+.venv\Scripts\activate.bat
+python -m pytest -q
+ruff check .
+python -m mypy
+python -m pytest tests\test_agent_audit.py tests\test_robustness_tables.py -q
+python -m pytest tests\integration\test_agent_audit_pg.py -q
+```
+Los tests de integración necesitan PostgreSQL (`docker compose up -d --wait db`); sin él se **omiten** (no fallan). Evaluación offline sobre tu base (API en otra ventana: `uvicorn futsal.api.app:app_factory --factory --port 8000`):
+```bat
+python -m futsal.agent.evaluate --output data\agent\eval-fase17-offline.json
+```
+Usa siempre `--output` con un nombre propio: **por defecto sobrescribe `data\agent\eval-last.json`**. El informe (`report.md`, con la sección de auditoría) queda en `data\agent\eval\<run>\`.
+
+### Evaluación live (NO ejecutada; consume cuota; la lanzas tú)
+Primero la previsión, que no llama a ningún LLM (el plan no cuenta como «evaluables» los casos que solo se juzgan con LLM real, así que la cuota real será algo mayor):
+```bat
+python -m futsal.agent.evaluate --plan --only tabla_clasificacion_posicion_equipo,tabla_clasificacion_otro_grupo,tabla_clasificacion_eliminatorias,tabla_goleadores_top_n,tabla_goleadores_vacia,combinada_lider_ultimo_resultado,combinada_goleador_y_puesto_de_su_equipo,resultados_otro_grupo --max-requests 40
+```
+(En la base reconstruida: 8 casos, 18 llamadas previstas, ≈ 63.500 tokens de entrada estimados.) Ejecución acotada, tras revisar el plan y con tu autorización:
+```bat
+python -m futsal.agent.evaluate --mode live --confirm-live --only <ids> --max-requests 40 --price-in <USD por Mtok> --price-out <USD por Mtok> --output data\agent\eval-fase17-live.json
+```
+Los precios los pones tú (no se suponen). Compara con una ejecución live anterior solo si es del mismo proveedor/modelo (`--compare`); las mediciones live de las fases 10-11 (Gemini, 29 casos) **no son comparables** con esta suite de 72 casos ni con tokens estimados.
+
+## Limitaciones y pendiente
+- Sin evaluación live: calidad del texto, elección de herramientas, citas RAG y los 10 casos «solo live» siguen sin medir.
+- Los criterios de respuesta son léxicos deterministas (acotan la invención, no la descartan). `figures_without_table` solo actúa cuando no hay filas de tabla; con filas, cifras derivadas incorrectas solo las atrapa la comparación con la verdad.
+- `acta_dato_no_almacenado` y otros casos de la Fase 10 siguen siendo `not_evaluable` offline; el plan subestima la cuota de esos casos.
+- Faltan casos de jugador que cambia de equipo (no observado en los datos) y de paginación de goleadores (no observada) y de pregunta normativa ambigua.
+- Se sobrescribió `data/agent/eval-last.json` (fichero local ignorado por Git, de una ejecución previa) al evaluar con la salida por defecto; si lo necesitabas como referencia histórica no es recuperable desde el repositorio.
