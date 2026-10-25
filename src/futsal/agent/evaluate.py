@@ -71,7 +71,7 @@ LIMIT_PHRASES = ["no incluyen", "no incluye", "no dispongo", "no disponible", "n
                  "no hay", "no consta", "no se encuentra", "solo puedo responder", "no es posible", "sin acta",
                  "aun no", "todavia no", "ningun", "no se ha", "no figura", "no recoge", "no recogen",
                  "no constan", "no figuran", "no aparecen", "no registra", "no detalla", "no especifica",
-                 "no proporciona", "no se recoge", "no esta disponible"]
+                 "no proporciona", "no se recoge", "no esta disponible", "no dispone", "no publica"]
 
 
 # ----------------------------------------------------------------------------- verdad (solo SELECT)

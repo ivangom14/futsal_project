@@ -25,6 +25,8 @@ LETTERS = {"A": "Resultados y calendario", "B": "Clasificaciones oficiales", "C"
 SOURCES = {"A": "resultados", "B": "clasificaciones", "C": "goleadores", "D": "actas", "E": "rag", "F": "combinadas", "G": "alcance"}
 FORCED_A = frozenset({"partido_mas_goles", "equipo_jornada_5", "proximo_campo"})  # etiquetadas «combinada» en la Fase 8 pero de una sola fuente
 OFFICIAL_PREFIXES = ("tablas", "combinada_fuentes")  # categorías donde la fuente de verdad es la tabla oficial
+# herramientas con las que se podría RECONSTRUIR una tabla oficial (resultados y actas); descubrir grupos o equipos no es reconstruir
+RECONSTRUCTION_TOOLS = frozenset({"list_matches", "get_match", "get_match_report", "list_match_events", "top_scorers"})
 
 
 def letter(case_id: str, category: str) -> str:
@@ -67,8 +69,9 @@ def critical_reasons(category: str, status: str, unexpected_tools: list[str], cl
     reasons: list[str] = []
     if invention_ok is False:
         reasons.append("invención: " + ("; ".join(claims) or "afirmaciones sin respaldo en la evidencia"))
-    if unexpected_tools and category.startswith(OFFICIAL_PREFIXES):
-        reasons.append("fuente incorrecta: usó " + ", ".join(unexpected_tools) + " en una pregunta de tabla oficial (no se reconstruye)")
+    rebuilt = sorted(set(unexpected_tools) & RECONSTRUCTION_TOOLS)
+    if rebuilt and category.startswith(OFFICIAL_PREFIXES):
+        reasons.append("fuente incorrecta: usó " + ", ".join(rebuilt) + " en una pregunta de tabla oficial (no se reconstruye)")
     return reasons
 
 

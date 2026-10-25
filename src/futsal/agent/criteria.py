@@ -326,7 +326,7 @@ ORDINALS = ("", "primer", "segund", "tercer", "cuart", "quint", "sext", "septim"
 
 def claims_position(text: str, n: int) -> bool:
     """¿Afirma la respuesta que el equipo ocupa el puesto `n`? Más estricto que citar el número (los puntos también son números)."""
-    low = _padded(text)  # norm convierte «2.º» en «2 o»
+    low = _padded(text)  # norm convierte «2.º» en «2 o», «2º» en «2o» y «2ª» en «2a»
     return (re.search(rf"(?:puesto|posicion|lugar|plaza)\D{{0,25}}(?<!\d){n}(?!\d)", low) is not None
-            or re.search(rf"(?<!\d){n} ?o\b", low) is not None
+            or re.search(rf"(?<!\d){n}(?: o\b|[oa]\b)", low) is not None
             or (n < len(ORDINALS) and ORDINALS[n] in low) or (n == 1 and " lider" in low))

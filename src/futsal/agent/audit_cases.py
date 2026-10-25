@@ -35,19 +35,19 @@ def _table_cases(t: Truth) -> list[EvalCase]:  # noqa: C901 - catálogo declarat
     mid = rows[len(rows) // 2] if len(rows) >= 3 and uniq(rows[len(rows) // 2]) else None
     cases.append(EvalCase(
         "tabla_clasificacion_posicion_equipo", "tablas_multigrupo",
-        f"¿En qué posición de la clasificación está {mid['team']} y cuántos puntos tiene?" if mid else "",
+        f"En {_where(main)}, ¿en qué posición de la clasificación está {mid['team']} y cuántos puntos tiene?" if mid and main else "",
         [Fact("table_row", "puesto oficial", names=(str(mid["team"]),), number=int(str(mid["position"])), status="team:position"),
          Fact("table_row", "puntos oficiales", names=(str(mid["team"]),), number=int(str(mid["points"])), status="team:points")] if mid else None,
-        STD, lambda s, p: _call("get_standings", group_id=g) if s == 0 else None,
+        STD | DISCOVERY, lambda s, p: _call("get_standings", group_id=g) if s == 0 else None,
         "" if mid else "no hay clasificación oficial ingerida con equipos distinguibles", required=STD, max_calls=2))
     pair = (rows[1], rows[-1]) if len(rows) >= 4 and uniq(rows[1]) and uniq(rows[-1]) else None
     cases.append(EvalCase(
         "tabla_clasificacion_comparacion", "tablas_multigrupo",
-        f"Compara en la clasificación a {pair[0]['team']} y {pair[1]['team']}: ¿qué puesto y cuántos puntos tiene cada uno?" if pair else "",
+        f"En {_where(main)}, compara en la clasificación a {pair[0]['team']} y {pair[1]['team']}: ¿qué puesto y cuántos puntos tiene cada uno?" if pair and main else "",
         [f for r in pair for f in (Fact("table_row", "puesto", names=(str(r["team"]),), number=int(str(r["position"])), status="team:position"),
                                     Fact("table_row", "puntos", names=(str(r["team"]),), number=int(str(r["points"])), status="team:points"))]
         if pair else None,
-        STD, lambda s, p: _call("get_standings", group_id=g) if s == 0 else None,
+        STD | DISCOVERY, lambda s, p: _call("get_standings", group_id=g) if s == 0 else None,
         "" if pair else "no hay clasificación oficial ingerida con al menos 4 equipos", required=STD, max_calls=2))
     other = next((x for x in sorted(t.table_groups, key=lambda x: x.competition == (main.competition if main else ""))
                   if x.group_id != g and x.standings_status == "ok" and x.standings), None)
@@ -96,10 +96,10 @@ def _table_cases(t: Truth) -> list[EvalCase]:  # noqa: C901 - catálogo declarat
     n_top = next((n for n in (5, 4, 3) if len(sc) > n and sc[n - 1]["goals"] > sc[n]["goals"] or len(sc) == n), None) if sc else None
     cases.append(EvalCase(
         "tabla_goleadores_top_n", "tablas_multigrupo",
-        f"¿Quiénes son los {n_top} máximos goleadores del grupo y cuántos goles lleva cada uno?" if n_top else "",
+        f"En {_where(main)}, ¿quiénes son los {n_top} máximos goleadores y cuántos goles lleva cada uno?" if n_top and main else "",
         [Fact("table_row", "goleador oficial", names=(str(r["player"]),), number=int(str(r["goals"])), status="player:goals") for r in sc[:n_top]]
         if n_top else None,
-        SCO, lambda s, p: _call("get_scorer_table", group_id=g, limit=n_top) if s == 0 and n_top else None,
+        SCO | DISCOVERY, lambda s, p: _call("get_scorer_table", group_id=g, limit=n_top) if s == 0 and n_top else None,
         "" if n_top else "no hay tabla oficial de goleadores con un corte limpio (sin empate en el último puesto)", required=SCO, max_calls=2))
     o_sc = next((x for x in sorted(t.table_groups, key=lambda x: x.competition == (main.competition if main else ""))
                  if x.group_id != g and x.scorers_status == "ok" and x.scorers), None)
@@ -145,15 +145,15 @@ def _table_cases(t: Truth) -> list[EvalCase]:  # noqa: C901 - catálogo declarat
             [second] if s == 1 and second is not None else None)
 
     cases.append(EvalCase(
-        "combinada_lider_ultimo_resultado", "combinada_fuentes", "¿Quién lidera el grupo y cuál fue su último resultado?",
+        "combinada_lider_ultimo_resultado", "combinada_fuentes", f"En {_where(main)}, ¿quién lidera el grupo y cuál fue su último resultado?" if main else "",
         lead_facts + [Fact("match", "último partido del líder", (fin[-1],), need_score=True, exclude=str(lead_row["team"]))] if fin and lead_row else None,
-        STD | LM | frozenset({"get_match", "list_teams"}),
+        STD | LM | DISCOVERY | frozenset({"get_match", "list_teams"}),
         two_steps(ToolCall("c-list_matches", "list_matches", {"group_id": g, "team_id": lid, "status": "finished"})) if fin else None,
         "" if fin else "no hay clasificación oficial ingerida o el líder no tiene partidos finalizados", required=STD | LM, max_calls=3))
     cases.append(EvalCase(
-        "combinada_lider_proximo_partido", "combinada_fuentes", "¿Cuál es el próximo partido del líder del grupo?",
+        "combinada_lider_proximo_partido", "combinada_fuentes", f"En {_where(main)}, ¿cuál es el próximo partido del líder del grupo?" if main else "",
         lead_facts + [Fact("match", "próximo partido del líder", (pend[0],), need_date=True, exclude=str(lead_row["team"]))] if pend and lead_row else None,
-        STD | LM | frozenset({"get_match", "list_teams"}),
+        STD | LM | DISCOVERY | frozenset({"get_match", "list_teams"}),
         two_steps(ToolCall("c-list_matches", "list_matches", {"group_id": g, "team_id": lid, "status": "scheduled"})) if pend else None,
         "" if pend else "no hay clasificación oficial ingerida o el líder no tiene partidos programados con fecha", required=STD | LM, max_calls=3))
     # el nombre del equipo se escribe distinto en ambas tablas («RODILLITO B» / «RODILLITO 'B'»): se enlaza por team_id
@@ -164,11 +164,11 @@ def _table_cases(t: Truth) -> list[EvalCase]:  # noqa: C901 - catálogo declarat
     linked = bool(tops) and len(team_rows) == len({r.get("team_id") for r in tops})
     cases.append(EvalCase(
         "combinada_goleador_y_puesto_de_su_equipo", "combinada_fuentes",
-        "¿Quién es el máximo goleador del grupo y en qué puesto de la clasificación está su equipo?",
+        f"En {_where(main)}, ¿quién es el máximo goleador del grupo y en qué puesto de la clasificación está su equipo?" if main else "",
         [Fact("table_row", "máximo goleador oficial", names=(str(r["player"]),), number=int(str(r["goals"])), status="player:goals") for r in tops]
         + [Fact("table_row", "puesto oficial de su equipo", names=(str(v["team"]),), number=int(str(v["position"])), status="team:position")
            for v in team_rows.values()] if linked else None,
-        STD | SCO, lambda s, p: (_call("get_scorer_table", group_id=g, limit=5) if s == 0 else
+        STD | SCO | DISCOVERY, lambda s, p: (_call("get_scorer_table", group_id=g, limit=5) if s == 0 else
                                  _call("get_standings", group_id=g) if s == 1 else None),
         "" if linked else "hace falta clasificación y goleadores oficiales ingeridos y enlazados por equipo",
         required=STD | SCO, max_calls=3))

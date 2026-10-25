@@ -42,6 +42,7 @@ def test_critical_only_for_failures_of_invention_or_wrong_official_source() -> N
     assert critical_reasons("tablas", "pass", ["list_matches"], [], True) == []                    # un acierto nunca es crítico
     assert "fuente incorrecta" in critical_reasons("tablas_multigrupo", "fail", ["list_matches"], [], None)[0]
     assert "fuente incorrecta" in critical_reasons("combinada_fuentes", "fail", ["top_scorers"], [], None)[0]
+    assert critical_reasons("tablas", "fail", ["find_teams", "list_competitions"], [], None) == []        # descubrir grupos/equipos no es reconstruir
     assert critical_reasons("resultados", "fail", ["get_match"], [], None) == []                    # herramienta extra de solo lectura en resultados: no crítico
     assert "invención" in critical_reasons("reglamento", "fail", [], ["cita «regla 99»"], False)[0]
     assert critical_reasons("tablas", "not_run", ["x"], ["y"], False) == []                        # infraestructura: no se juzga
@@ -95,6 +96,7 @@ def test_recommendations_distinguish_missing_preconditions_from_live_only_cases(
 def test_claims_position_needs_the_rank_not_any_number() -> None:
     assert claims_position("Está en el puesto 3 con 9 puntos", 3) and claims_position("Es el 2.º clasificado", 2)
     assert claims_position("Es segundo", 2) and claims_position("Lidera la tabla", 1) and claims_position("Ocupa la posición 7", 7)
+    assert claims_position("ocupa la **8ª posición** con 6 puntos", 8) and claims_position("es el 8º", 8)
     assert not claims_position("Tiene 3 puntos", 3) and not claims_position("Lleva 5 victorias", 5)
     assert not claims_position("Está en el puesto 13", 3)
 
@@ -103,6 +105,7 @@ def test_table_status_fact_checks_the_declared_state_of_that_group_and_that_the_
     f = Fact("table_status", "grupo de eliminatorias", names=("COPA X", "Eliminatorias"), status="not_applicable")
     ok = {"status": "not_applicable", "competition": "COPA X", "group": "Eliminatorias"}
     assert evidence_ok(f, [ok]) and not evidence_ok(f, [{**ok, "group": "Grupo 1"}]) and not evidence_ok(f, [{**ok, "status": "ok"}])
+    assert answer_ok(f, "El grupo no dispone de tabla de clasificación: la RFFM no publica clasificación.")
     assert answer_ok(f, "En eliminatorias no consta clasificación.") and not answer_ok(f, "Lidera el Club A con 9 puntos.")
     rnd = Fact("table_status", "jornada", names=("COPA X", "Eliminatorias"), status="round_not_ingested")
     assert evidence_ok(rnd, [{**ok, "status": "failed"}]) and evidence_ok(rnd, [{**ok, "status": "round_not_ingested"}])
