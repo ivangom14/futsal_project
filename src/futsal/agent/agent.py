@@ -22,6 +22,10 @@ OFF_TOPIC_MESSAGE = (
     "(competiciones, grupos, jornadas, equipos, partidos, resultados, clasificaciones y actas: goleadores, "
     "árbitros y tarjetas) y sobre las reglas del juego, con los datos de mis herramientas."
 )
+LIMIT_REACHED_MESSAGE = (
+    "No he podido completar la consulta: he alcanzado el límite de consultas a mis herramientas sin obtener una "
+    "respuesta verificada. Prueba a concretar la pregunta (competición, grupo, equipo o jornada)."
+)  # sin datos ni cifras: se usa solo cuando se agota el límite sin respuesta final
 LIMITATION_REPLY = "No dispongo de ese dato en mis herramientas."  # fórmula pedida en el prompt: no cuenta como fuga
 SYSTEM_PROMPT = (
     "Eres un asistente de consulta de fútbol sala RFFM. Solo respondes con los datos de tus tools (competiciones, "
@@ -323,6 +327,8 @@ class Agent:
                 return
             if result.tool_calls + len(resp.tool_calls) > self._max:
                 result.error = f"límite de {self._max} tool calls alcanzado"
+                # El texto del modelo que acompaña a las tools pendientes no está verificado: no se muestra.
+                result.answer, result.guardrail = LIMIT_REACHED_MESSAGE, "limite_herramientas"
                 log(f"ERROR\n{result.error}; se detiene el ciclo sin ejecutar más tools")
                 return
             messages.append(Message("assistant", resp.text, resp.tool_calls))

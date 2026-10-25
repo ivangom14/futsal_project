@@ -10,6 +10,7 @@ from mcp.shared.memory import create_connected_server_and_client_session as conn
 
 from futsal.agent.agent import (
     DROP_KEYS,
+    LIMIT_REACHED_MESSAGE,
     OFF_TOPIC_MESSAGE,
     SYSTEM_PROMPT,
     Agent,
@@ -111,7 +112,8 @@ def test_no_tool_question_runs_no_tools() -> None:
 def test_max_tool_calls_stops_infinite_loop() -> None:
     llm = ScriptedLLM([])  # pide get_match indefinidamente
     res = _run(llm, "bucle", max_calls=3)
-    assert res.tool_calls == 3 and res.error and "límite" in res.error and res.answer == ""
+    assert res.tool_calls == 3 and res.error and "límite" in res.error
+    assert res.answer == LIMIT_REACHED_MESSAGE and res.guardrail == "limite_herramientas"  # nunca una cadena vacía
     assert len(llm.calls) == 4
 
 
