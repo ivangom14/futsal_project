@@ -4,6 +4,7 @@ El total es una ESTIMACIÓN de peticiones HTTP (jornadas esperadas menos snapsho
 y las jornadas vacías que devuelve la web pueden añadir peticiones, así que el tiempo restante es orientativo.
 """
 
+import shutil
 import sys
 import time
 from collections.abc import Callable
@@ -92,6 +93,8 @@ class Progress:
 
     def _emit(self, text: str, final: bool = False) -> None:
         if self.live:
+            # una línea más ancha que la terminal se parte y `\r` solo vuelve al inicio de la última: quedaría texto duplicado
+            text = text[: max(shutil.get_terminal_size((10_000, 24)).columns - 1, 20)]
             pad = " " * max(self._width - len(text), 0)
             self.out.write("\r" + text + pad)
             self._width = max(self._width, len(text))

@@ -159,3 +159,15 @@ def test_http_errors_are_retried_by_the_polite_fetcher_and_then_the_page_is_used
         httpx.HTTPStatusError("x", request=httpx.Request("GET", "https://www.rffm.es/x"), response=httpx.Response(404))))
     bad = fetch_table("standings", TARGET, always_404, cache_path(tmp_path / "n", COMP, GROUP, "standings"), now=lambda: NOW)
     assert bad.error_code == "download" and "HTTP 404" in (bad.error or "") and always_404.requests == 1   # un 404 no se reintenta
+
+
+def test_live_progress_line_never_exceeds_the_terminal_width(monkeypatch: pytest.MonkeyPatch) -> None:
+    import io
+    import os
+
+    from futsal.ingestion.rffm.progress import Progress
+
+    monkeypatch.setattr("shutil.get_terminal_size", lambda fallback=(80, 24): os.terminal_size((60, 24)))
+    out = io.StringIO()
+    Progress(10, 2, lambda: 3, out=out, live=True).start_group(1, "26738221", "26771028", "Grupo con un nombre muy largo para forzar el ancho")
+    assert max(len(chunk) for chunk in out.getvalue().split("\r")) <= 59                              # sin texto duplicado en CMD

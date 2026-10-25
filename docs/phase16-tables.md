@@ -111,3 +111,21 @@ Fixtures sintéticas con la estructura real en `tests\fixtures\rffm_tables\` (se
 - Falta contrastar clasificación y goleadores con resultados y actas (discrepancias): los datos están en la base para hacerlo.
 - `no_group_in_db` para grupos sin jornadas (Copa Juvenil fase final) hasta que existan en el catálogo importado.
 - No se ha medido el comportamiento de Gemini con las tools nuevas (requiere tu autorización y cuota).
+
+## Si algo falla (ejecución real del usuario, 2026-10-25)
+En la primera ejecución sobre la base local: 16 grupos `ok`, 3 grupos de copa `failed` (`standings=null` tras 3 intentos), 5 `no_group_in_db` y 1 `not_applicable`. Cómo interpretarlo y qué hacer:
+- **`failed` con «standings=null (fallo intermitente)»** en grupos de *Eliminatorias*: la web devolvió `null` en los tres intentos (con respuestas lentas, ~40 s por grupo). Los grupos de copa no tienen clasificación (serían `not_applicable`), así que no se pierde ningún dato. Repetir solo lo pendiente (los `ok` se omiten y los fallos se reintentan):
+```bat
+python -m futsal.cli ingest-standings --resume
+```
+  Si persiste, subir los reintentos: `--null-retries 4`.
+- **`no_group_in_db`**: el grupo está en el catálogo pero no en PostgreSQL, y las tablas necesitan el grupo (no se crean grupos vacíos desde esta ingesta). Comprobar y completar con los comandos de la Fase 14, y repetir la ingesta de tablas:
+```bat
+python -m futsal.cli verify-catalog
+python -m futsal.cli scrape-catalog --resume --competition <ID de la competición>
+python -m futsal.cli import-catalog --competition <ID de la competición>
+python -m futsal.cli ingest-standings --resume
+```
+  `import-catalog` solo importa grupos descargados (`downloaded` o `partial`) y el informe `data\rffm\catalog\s22_t3\catalog-import-report.json` dice por qué se omitió cada uno.
+- **Línea de progreso repetida en CMD**: la línea era más ancha que la ventana y `\r` no la sobrescribía bien; ahora se recorta al ancho de la terminal (solo presentación).
+- El código de salida es 1 mientras haya grupos `failed`, `incomplete` o `no_group_in_db`: es intencionado (una ingesta parcial no se marca como completa).
