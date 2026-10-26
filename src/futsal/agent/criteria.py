@@ -160,6 +160,7 @@ def unsupported_coverage_counts(text: str, payloads: list[dict[str, Any]]) -> li
 RULE_REF_RE = re.compile(r"\bregla\s+(\d{1,2})\b", re.I)
 PAGE_REF_RE = re.compile(r"\b(?:páginas?|págs?\.?|pp?\.)\s*(\d{1,3})(?:\s*(?:-|–|y|a)\s*(\d{1,3}))?", re.I)
 _NUMBER_RE = re.compile(r"(?<![\w/])\d+(?:[.,]\d+)?(?![\w/])")
+QUOTE_RE = re.compile(r"[«\"“]([^»\"”]{20,})[»\"”]")
 # «páginas 85, 90 y 177-178»: una cita con varias páginas (PAGE_REF_RE solo ve la primera pareja)
 PAGE_LIST_RE = re.compile(r"\b(?:páginas?|págs?\.?|pp?\.)\s*(\d{1,3}(?:\s*(?:-|–|,|y|e|a)\s*\d{1,3})*)", re.I)
 
@@ -183,7 +184,10 @@ def unsupported_rule_citations(text: str, payloads: list[dict[str, Any]]) -> lis
     hits = _rule_hits(payloads)
     rules = {int(h["rule"]) for h in hits if isinstance(h.get("rule"), int)}
     pages = set().union(*(hit_pages(h) for h in hits)) if hits else set()
-    out = [m.group(0) for m in RULE_REF_RE.finditer(text) if int(m.group(1)) not in rules]
+    # «…según la Regla 3, la Regla 4…»: una cita LITERAL de un fragmento recuperado no es una cita de esas reglas por parte del modelo
+    corpus = norm(" ".join(str(h.get("text", "")) for h in hits))
+    unquoted = QUOTE_RE.sub(lambda m: " " if len(norm(m.group(1))) >= 20 and norm(m.group(1)) in corpus else m.group(0), text)
+    out = [m.group(0) for m in RULE_REF_RE.finditer(unquoted) if int(m.group(1)) not in rules]
     for m in PAGE_LIST_RE.finditer(text):
         if not {int(n) for n in re.findall(r"\d+", m.group(1))} <= pages:  # cada página de la lista debe figurar en lo recuperado
             out.append(m.group(0))

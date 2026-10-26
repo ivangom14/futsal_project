@@ -162,3 +162,22 @@ def test_scoped_questions_and_discovery_tools_for_old_cases_with_several_groups(
     # con un solo grupo las preguntas históricas no cambian
     single = Truth(1, {}, {}, [], competition="LIGA UNO FS", group_name="Grupo 2", groups_total=1)
     assert next(c for c in build_cases(single) if c.id == "tabla_clasificacion_lider").question == "¿Quién lidera la clasificación del grupo y con cuántos puntos?"
+
+
+def test_a_literal_quote_of_a_retrieved_fragment_is_not_a_citation_of_the_rules_it_mentions() -> None:
+    from futsal.agent.criteria import unsupported_rule_citations
+
+    hit = [{"hits": [{"text": "Son aquellas sancionadas con un libre directo según lo estipulado en la Regla 3, la Regla 4 y la Regla 12.",
+                      "pages": "99", "rule": 13}]}]
+    literal = "Regla 13, página 99: «son aquellas sancionadas con un libre directo según lo estipulado en la Regla 3, la Regla 4 y la Regla 12»."
+    assert unsupported_rule_citations(literal, hit) == []
+    altered = "Regla 13, página 99: «son aquellas sancionadas con un libre directo y lo estipulado en la Regla 7 del reglamento»."
+    assert unsupported_rule_citations(altered, hit) == ["Regla 7"]                       # una cita que no está en el fragmento se sigue detectando
+    assert unsupported_rule_citations(literal + " Además la Regla 12 lo prohíbe.", hit) == ["Regla 12"]   # fuera de la cita literal, también
+
+
+def test_partial_coverage_case_asks_about_the_actas_and_the_player_ambiguity_case_accepts_the_official_table() -> None:
+    from futsal.agent.evaluate import EXTRA_ALLOWED
+
+    assert "get_scorer_table" in EXTRA_ALLOWED["acta_jugador_ambiguo"]
+    assert "get_scorer_table" not in EXTRA_ALLOWED.get("cobertura_parcial_advertencia", frozenset())  # esa vía sigue siendo la de las actas

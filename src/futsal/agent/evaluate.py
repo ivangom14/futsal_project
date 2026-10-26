@@ -683,6 +683,7 @@ REQUIRED: dict[str, frozenset[str]] = {k: frozenset(v) for k, v in {
 EXTRA_ALLOWED: dict[str, frozenset[str]] = {  # herramientas de solo lectura igual de válidas para el mismo dato
     "enfrentamiento_ganador": frozenset({"get_match", "get_match_report"}),
     "acta_goleadores_contra_equipo": frozenset({"list_match_events", "list_teams", "find_players"}),
+    "acta_jugador_ambiguo": frozenset({"get_scorer_table"}),  # los goles de un jugador también están en la tabla oficial (Fase 16)
     "acta_dato_no_almacenado": frozenset({"get_match_report", "list_matches"}),
     "equipo_inexistente": frozenset({"list_teams", "list_matches", "find_players"}),
     "jornada_inexistente": frozenset({"list_rounds", "list_matches"})}
@@ -854,7 +855,7 @@ def _new_cases(t: Truth, dosa: int | None) -> list[EvalCase]:  # noqa: C901 - ca
     # 6. cobertura parcial: la respuesta debe advertirlo (solo si en esta base de verdad es parcial)
     partial = any(m.status == "finished" and m.id not in t.reported for m in t.matches) or bool(t.unclosed)
     cases.append(EvalCase(
-        "cobertura_parcial_advertencia", "actas", "¿Quiénes son los máximos goleadores del grupo?",
+        "cobertura_parcial_advertencia", "actas", "Según las actas importadas, ¿quiénes son los máximos goleadores del grupo?",
         [Fact("partial_coverage", "cobertura parcial")] if partial else None, frozenset({"top_scorers"}),
         (lambda s, p: _call("top_scorers", group_id=g) if s == 0 else None) if partial else None,
         "" if partial else "cobertura completa en esta base: no hay parcialidad que advertir (se cubre con fixtures)"))
