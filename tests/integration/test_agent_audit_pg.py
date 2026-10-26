@@ -257,3 +257,14 @@ def test_repeated_and_looping_tool_calls_are_detected(engine: Engine) -> None:
     assert dup.status == "fail" and any("llamada repetida" in i for i in dup.tool_issues)
     loop = _run(engine, "live", _Script([same] * 8, "Va primero."), only={"tabla_clasificacion_lider"})[1][0]
     assert loop.status == "fail" and "límite" in loop.detail
+
+
+def test_progress_lines_report_each_case_and_do_not_change_the_results(engine: Engine) -> None:
+    seed(engine)
+    lines: list[str] = []
+    only = {"tabla_clasificacion_lider", "tabla_clasificacion_eliminatorias"}
+    _, with_progress = _run(engine, "offline", only=only, on_progress=lines.append)
+    _, silent = _run(engine, "offline", only=only)
+    assert [(r.case_id, r.status) for r in with_progress] == [(r.case_id, r.status) for r in silent]
+    assert lines[0].startswith("[1/2] ") and lines[2].startswith("[2/2] ") and len(lines) == 4
+    assert "-> PASS" in lines[1] and "llamadas LLM" in lines[1] and "peticiones al LLM usadas" in lines[0]

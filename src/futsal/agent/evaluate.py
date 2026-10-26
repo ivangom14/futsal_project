@@ -12,6 +12,7 @@ import argparse
 import asyncio
 import json
 import re
+import time
 import unicodedata
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -1220,11 +1221,17 @@ async def evaluate(truth: Truth, mcp: McpClient, mode: str, llm: LLMClient | Non
                    only: set[str] | None = None, limit: int | None = None, suite: str = "all",
                    max_requests: int | None = None, max_tool_calls: int = DEFAULT_MAX_TOOL_CALLS,
                    max_rows: int = DEFAULT_MAX_ROWS, trace_path: Path | None = None,
-                   strip_args: frozenset[str] = frozenset()) -> list[CaseResult]:
+                   strip_args: frozenset[str] = frozenset(),
+                   on_progress: Callable[[str], None] | None = None) -> list[CaseResult]:
+    """Ejecuta los casos. `on_progress` recibe líneas de avance (caso en curso y resultado); no altera nada de la evaluación."""
     cases = select_cases(build_cases(truth), suite=suite, only=only, limit=limit)
     results: list[CaseResult] = []
     requests = 0  # peticiones HTTP al LLM (llamadas + reintentos): la unidad que consume cuota
-    for c in cases:
+    started = time.perf_counter()
+    say = on_progress or (lambda _msg: None)
+    for n, c in enumerate(cases, 1):
+        budget = f"/{max_requests}" if max_requests is not None else ""
+        say(f"[{n}/{len(cases)}] {c.id}  (peticiones al LLM usadas: {requests}{budget} · {time.perf_counter() - started:.0f} s)")
         if max_requests is not None and requests >= max_requests:
             results.append(CaseResult(c.id, c.category, c.question, "not_run", criteria=describe(c.facts),
                                       detail=f"presupuesto de {max_requests} peticiones agotado"))
@@ -1232,6 +1239,10 @@ async def evaluate(truth: Truth, mcp: McpClient, mode: str, llm: LLMClient | Non
         r = await run_case(c, mcp, mode, llm, max_tool_calls, max_rows, trace_path, strip_args, truth)
         requests += r.llm_calls + r.llm_retries
         results.append(r)
+        say(f"    -> {r.status.upper()}" + (" CRÍTICO" if r.critical else "")
+            + (f" · {r.llm_calls} llamadas LLM · {r.tool_calls} tools · {r.input_tokens} tok entrada · {r.latency_ms / 1000:.1f} s"
+               if r.llm_calls else "")
+            + (f" · {r.detail[:110]}" if r.detail and r.status != "pass" else ""))
     return results
 
 
@@ -1368,7 +1379,7 @@ async def _main(args: argparse.Namespace) -> int:
                                      max_requests=max_requests, max_tool_calls=args.max_tool_calls,
                                      max_rows=args.max_rows, trace_path=trace,
                                      strip_args=frozenset({"team_id"}) if args.baseline_no_team_filter
-                                     else frozenset())
+                                     else frozenset(), on_progress=lambda m: print(m, flush=True))
     print(format_table(results))
     meta = build_meta(
         mode=args.mode, suite=suite, provider=getattr(llm, "provider", "offline"), model=getattr(llm, "model", "policy"),
