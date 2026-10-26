@@ -296,7 +296,7 @@ class Agent:
                 token_source="unreported" if u is None else "estimated" if u.estimated else "provider",
                 cached_input_tokens=u.cached_input_tokens if u else None, paced_ms=paced_ms))
             if (not resp.tool_calls and result.tool_calls == 0 and self._ambiguous_scope(question)
-                    and asks_scope_clarification(resp.text, self._catalog)):
+                    and asks_scope_clarification(resp.text, self._catalog, question)):
                 # Aclaración legítima: la pregunta es de la competición, hay varios grupos y no indica cuál. Se conserva tal cual.
                 result.answer, result.guardrail = resp.text, "aclaracion_ambito"
                 log("GUARDRAIL\n→ el modelo pide competición/grupo/temporada sin dar datos: se conserva la aclaración")

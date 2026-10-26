@@ -101,3 +101,12 @@ def test_legitimate_data_limitations_are_still_accepted() -> None:
     res = _run(Script([LLMResponse("No dispongo de los minutos de los cambios en mis herramientas.", [])]),
                "¿En qué minuto entraron los suplentes del partido de la jornada 3 en LIGA UNO FS (Grupo 1)?")
     assert res.guardrail == "limitacion_sin_tools"
+
+
+def test_clarification_that_repeats_the_round_number_of_the_question_is_kept() -> None:
+    text = "Para decirte cómo quedaron los partidos de la jornada 2, necesito que me indiques a qué competición y grupo te refieres."
+    res = _run(Script([LLMResponse(text, [])]), "¿Cómo quedaron los partidos de la jornada 2?")
+    assert res.answer == text and res.guardrail == "aclaracion_ambito"
+    invented = "En la jornada 2 ganó el Club A por 3 goles. ¿A qué grupo te refieres?"
+    res2 = _run(Script([LLMResponse(invented, []), LLMResponse(invented, [])]), "¿Cómo quedaron los partidos de la jornada 2?")
+    assert res2.guardrail == "sin_datos_de_tools" and res2.answer == OFF_TOPIC_MESSAGE

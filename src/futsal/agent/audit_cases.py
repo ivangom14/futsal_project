@@ -152,7 +152,8 @@ def _table_cases(t: Truth) -> list[EvalCase]:  # noqa: C901 - catálogo declarat
         "" if fin else "no hay clasificación oficial ingerida o el líder no tiene partidos finalizados", required=STD | LM, max_calls=3))
     cases.append(EvalCase(
         "combinada_lider_proximo_partido", "combinada_fuentes", f"En {_where(main)}, ¿cuál es el próximo partido del líder del grupo?" if main else "",
-        lead_facts + [Fact("match", "próximo partido del líder", (pend[0],), need_date=True, exclude=str(lead_row["team"]))] if pend and lead_row else None,
+        # la pregunta no pide los puntos del líder: basta que el partido nombre a su equipo (el líder se comprueba con la tool obligatoria)
+        [Fact("match", "próximo partido del líder", (pend[0],), need_date=True)] if pend and lead_row else None,
         STD | LM | DISCOVERY | frozenset({"get_match", "list_teams"}),
         two_steps(ToolCall("c-list_matches", "list_matches", {"group_id": g, "team_id": lid, "status": "scheduled"})) if pend else None,
         "" if pend else "no hay clasificación oficial ingerida o el líder no tiene partidos programados con fecha", required=STD | LM, max_calls=3))

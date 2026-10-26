@@ -124,3 +124,16 @@ Los precios los pones tú (no se suponen). Compara con una ejecución live anter
 
 ## Progreso durante la ejecución (Fase 17.3)
 `evaluate` imprime ahora, mientras corre, una línea por caso al empezar (`[n/total] id (peticiones al LLM usadas: x/tope · segundos)`) y otra al terminar (`-> PASS|FAIL|NOT_EVALUABLE|NOT_RUN`, llamadas LLM, tools, tokens de entrada, segundos y el motivo si no pasa; `CRÍTICO` si procede). Solo es salida por pantalla (`on_progress`): no cambia resultados, informes ni cuota.
+
+## Correcciones del evaluador tras la primera pasada live completa (Fase 17.4)
+La pasada live de los 72 casos (Gemini `gemini-3.5-flash-lite`, 21 pass / 44 fail / 7 no evaluables) mezclaba fallos del agente con defectos del evaluador y de la formulación de los casos. Se corrigieron solo estos últimos; **ningún criterio se relajó para ocultar un fallo del agente**.
+| Defecto | Corrección |
+|---|---|
+| `asks_scope_clarification` rechazaba una aclaración válida que repetía «jornada 2» de la pregunta (el guardarraíl la sustituía por el aviso de alcance) | Se permiten los números que ya figuran en la pregunta; cualquier otra cifra sigue rechazándose |
+| Los 3 «críticos» de reglamento: el criterio de cifras no entendía listas de páginas («p. 85, 90 y 177-178») ni el número de la circular | Las páginas de cada lista se validan una a una contra lo recuperado (`unsupported_rule_citations`, ahora más estricto: una página no recuperada **sí** se señala) y el título/clave del documento cuenta como evidencia del número de circular (`unsupported_digits`) |
+| Respuestas correctas que fallaban por usar `find_teams`, `list_competitions`, `list_groups` o `list_rounds` (de solo lectura; necesarias para localizar un equipo entre 25 grupos) | Permitidas en todos los casos salvo rechazos de alcance y reglamento (`DISCOVERY_TOOLS`); siguen sin poder reconstruir tablas |
+| `combinada_lider_proximo_partido` exigía los puntos del líder, que la pregunta no pide | Solo se exige el partido (y la herramienta de clasificación sigue siendo obligatoria) |
+| Preguntas anteriores a la Fase 14 sin competición ni grupo («el grupo», «el C.D. DOSA»), ambiguas con 25 grupos: el agente pedía aclaración con razón | Con más de un grupo importado se antepone «En <competición> (<grupo>), » (`SCOPED_IDS`, 31 casos); verdad y criterios no cambian |
+Además: `--only` y `--only-failed` implican `--suite all` si no se indica otra (antes, en live, la suite `smoke` por defecto dejaba la selección vacía), y `--only-failed RESULTS.json` repite solo los casos `fail` o `not_run` de una ejecución anterior.
+**Siguen sin tocar (fallos reales del agente observados):** no consulta `search_rules` antes de declarar «no consta» (4 casos), afirma «no figura en el grupo» tras un error de herramienta, usa `find_teams` con un nombre de jugador, 3 fallos de recuperación del RAG y `combinada_lider_ultimo_resultado` agota el límite.
+Repetir solo lo fallido: `python -m futsal.agent.evaluate --mode live --confirm-live --only-failed data\agent\eval-fase17-live-all.json --max-requests 100 --price-in 0.30 --price-out 2.50 --output data\agent\eval-fase17-live-2.json`. Los resultados de la primera pasada **no son comparables caso a caso** con la repetición (cambian preguntas y criterios en los casos corregidos).

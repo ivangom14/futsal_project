@@ -160,6 +160,13 @@ def unsupported_coverage_counts(text: str, payloads: list[dict[str, Any]]) -> li
 RULE_REF_RE = re.compile(r"\bregla\s+(\d{1,2})\b", re.I)
 PAGE_REF_RE = re.compile(r"\b(?:páginas?|págs?\.?|pp?\.)\s*(\d{1,3})(?:\s*(?:-|–|y|a)\s*(\d{1,3}))?", re.I)
 _NUMBER_RE = re.compile(r"(?<![\w/])\d+(?:[.,]\d+)?(?![\w/])")
+# «páginas 85, 90 y 177-178»: una cita con varias páginas (PAGE_REF_RE solo ve la primera pareja)
+PAGE_LIST_RE = re.compile(r"\b(?:páginas?|págs?\.?|pp?\.)\s*(\d{1,3}(?:\s*(?:-|–|,|y|e|a)\s*\d{1,3})*)", re.I)
+
+
+def page_numbers(text: str) -> set[int]:
+    """Todas las páginas que cita el texto, también en listas y rangos."""
+    return {int(n) for m in PAGE_LIST_RE.finditer(text) for n in re.findall(r"\d+", m.group(1))}
 
 
 def _rule_hits(payloads: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -177,17 +184,18 @@ def unsupported_rule_citations(text: str, payloads: list[dict[str, Any]]) -> lis
     rules = {int(h["rule"]) for h in hits if isinstance(h.get("rule"), int)}
     pages = set().union(*(hit_pages(h) for h in hits)) if hits else set()
     out = [m.group(0) for m in RULE_REF_RE.finditer(text) if int(m.group(1)) not in rules]
-    for m in PAGE_REF_RE.finditer(text):
-        if not {int(g) for g in m.groups() if g} <= pages:
+    for m in PAGE_LIST_RE.finditer(text):
+        if not {int(n) for n in re.findall(r"\d+", m.group(1))} <= pages:  # cada página de la lista debe figurar en lo recuperado
             out.append(m.group(0))
     return out
 
 
 def unsupported_digits(text: str, payloads: list[dict[str, Any]], question: str = "") -> list[str]:
     """Cifras de la respuesta que no aparecen en los fragmentos recuperados ni en la pregunta (se ignoran regla y página citadas)."""
-    support = " ".join(str(h.get("text", "")) for h in _rule_hits(payloads)) + " " + question
+    # el título y la clave del documento también son evidencia: «Circular n.º 27» se cita desde ahí
+    support = " ".join(f"{h.get('text', '')} {h.get('document', '')} {h.get('doc_key', '')}" for h in _rule_hits(payloads)) + " " + question
     known = set(_NUMBER_RE.findall(support))
-    cleaned = PAGE_REF_RE.sub(" ", RULE_REF_RE.sub(" ", text))
+    cleaned = PAGE_LIST_RE.sub(" ", RULE_REF_RE.sub(" ", text))  # las páginas se validan aparte (unsupported_rule_citations)
     return sorted({n for n in _NUMBER_RE.findall(cleaned) if n not in known})
 
 
@@ -290,18 +298,20 @@ def scope_identified(question: str, catalog: list[tuple[str, list[str]]]) -> boo
                for comp, groups in catalog)
 
 
-def asks_scope_clarification(text: str, catalog: list[tuple[str, list[str]]]) -> bool:
+def asks_scope_clarification(text: str, catalog: list[tuple[str, list[str]]], question: str = "") -> bool:
     """¿Es la respuesta SOLO una petición de competición, grupo o temporada, sin datos?
 
     Debe usar vocabulario de ámbito (competición, grupo, temporada), formular una petición, ser breve y no contener cifras ni
-    marcadores (salvo los números de los nombres del catálogo, p. ej. «Grupo 2»). Una frase interrogativa por sí sola no basta.
+    marcadores (salvo los números de los nombres del catálogo, p. ej. «Grupo 2», y los que ya figuran en la pregunta, p. ej. «jornada 2»).
+    Una frase interrogativa por sí sola no basta.
     """
     if not text.strip() or len(text) > MAX_CLARIFICATION_CHARS or has_any_score(text):
         return False
     low = f" {norm(text)} "
     for name in sorted({norm(n) for c, gs in catalog for n in (c, *gs) if n}, key=len, reverse=True):
         low = re.sub(rf"(?<!\w){re.escape(name)}(?!\w)", " ", low)
-    return (not re.search(r"\d", low) and any(w in SCOPE_WORDS for w in low.split())
+    new_figures = set(re.findall(r"\d+", low)) - set(re.findall(r"\d+", question))
+    return (not new_figures and any(w in SCOPE_WORDS for w in low.split())
             and any(p in low for p in REQUEST_PHRASES))
 
 

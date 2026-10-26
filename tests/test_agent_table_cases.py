@@ -29,7 +29,9 @@ def test_leader_case_checks_team_points_and_round_from_the_official_table() -> N
     assert not evidence_ok(row, [{"source": {"round": 1}, "standings": STANDINGS[1]}])           # otra jornada: otro líder
     assert answer_ok(row, "Lidera F.S. DOS con 10 puntos.") and answer_ok(rnd, "Tras la jornada 4 lidera F.S. DOS con 10 puntos.")
     assert not answer_ok(row, "Lidera F.S. DOS con 9 puntos.") and not answer_ok(row, "Lidera C.D. UNO con 10 puntos.")
-    assert case.required == {"get_standings"} and case.allowed_tools == {"get_standings"}      # reconstruir con resultados/actas = herramienta no esperada
+    assert case.required == {"get_standings"} and "get_standings" in case.allowed_tools
+    # reconstruir con resultados/actas = herramienta no esperada (descubrir grupos o equipos sí se permite)
+    assert not case.allowed_tools & {"list_matches", "get_match", "get_match_report", "list_match_events", "top_scorers"}
 
 
 def test_past_round_case_asks_for_the_first_captured_round() -> None:

@@ -34,7 +34,6 @@ from futsal.agent.agent import (
 )
 from futsal.agent.audit import OFFICIAL_PREFIXES, critical_reasons, expectation
 from futsal.agent.criteria import (
-    PAGE_REF_RE,
     RULE_REF_RE,
     answer_warns,
     card_color_claims,
@@ -46,6 +45,7 @@ from futsal.agent.criteria import (
     invented_quantities,
     leaks_prompt,
     mentioned_players,
+    page_numbers,
     missing_warnings,
     needs_warning,
     says_coverage_partial,
@@ -132,6 +132,7 @@ class Truth:
     other: "Truth | None" = None  # otro grupo (de otra competición si es posible) con partidos: detecta confusión de grupos
     competition: str = ""
     group_name: str = ""
+    groups_total: int = 1  # grupos importados: con más de uno, «el grupo» o «el C.D. DOSA» son ambiguos para el agente
 
     @property
     def rules_indexed(self) -> bool:
@@ -268,7 +269,7 @@ def _target_group(db: Session) -> Any:
 
 
 def load_truth(engine: Engine) -> Truth | None:
-    from sqlalchemy import select
+    from sqlalchemy import func, select
 
     from futsal.db.models import CompetitionGroup
 
@@ -278,6 +279,7 @@ def load_truth(engine: Engine) -> Truth | None:
             return None
         truth = _group_truth(db, group)
         truth.kb_docs = _indexed_docs(db)
+        truth.groups_total = int(db.scalar(select(func.count(CompetitionGroup.id))) or 1)
         _load_report_truth(db, truth)
         _load_table_truth(db, truth)
         # otro grupo con partidos jugados, de otra competición si es posible: un caso de resultados que detecta confundir grupos
@@ -540,7 +542,7 @@ def rule_answer_issue(f: Fact, text: str) -> str | None:
     if not f.all_of and not ((f.number is not None and has_number(text, f.number)) or any(norm(n) in low for n in f.names)):
         return f"no da la cifra correcta ({f.label})"
     cited = {int(m.group(1)) for m in RULE_REF_RE.finditer(text)}
-    pages = {int(g) for m in PAGE_REF_RE.finditer(text) for g in m.groups() if g}
+    pages = page_numbers(text)
     if not (f.rule is not None and f.rule in cited) and not pages & set(f.pages):
         return (f"no cita la regla {f.rule} ni la página {'-'.join(map(str, f.pages))}" if f.rule is not None
                 else f"no cita la página {'-'.join(map(str, f.pages))}")
@@ -684,6 +686,30 @@ EXTRA_ALLOWED: dict[str, frozenset[str]] = {  # herramientas de solo lectura igu
     "acta_dato_no_almacenado": frozenset({"get_match_report", "list_matches"}),
     "equipo_inexistente": frozenset({"list_teams", "list_matches", "find_players"}),
     "jornada_inexistente": frozenset({"list_rounds", "list_matches"})}
+# Herramientas de solo lectura para localizar competición, grupo, equipo o jornada: con varios grupos importados son un paso legítimo
+# (no reconstruyen ninguna tabla ni dato). No se permiten en rechazos de alcance ni en reglamento.
+DISCOVERY_TOOLS = frozenset({"find_teams", "list_competitions", "list_groups", "list_rounds"})
+NO_DISCOVERY_CATEGORIES = ("alcance", "reglamento")
+# Casos anteriores a la Fase 14 cuya pregunta no nombra competición ni grupo («el grupo», «el C.D. DOSA»): con 25 grupos son
+# ambiguos y el agente pide aclaración con razón. Se les antepone el ámbito; criterios y verdad no cambian.
+SCOPED_IDS = frozenset({
+    "equipo_resultados", "equipo_proximo_partido", "equipo_recuento", "equipo_jornada_5", "enfrentamiento_ganador", "proximo_campo",
+    "jornada_2_resultados", "partido_mas_goles", "recuento_global", "equipos_del_grupo", "acta_goleadores_ultimo",
+    "acta_partido_sin_acta", "acta_arbitro", "acta_jugador_inexistente", "acta_jornada_sin_resultados", "acta_goles_agrupados",
+    "acta_goleadores_contra_equipo", "equipo_inexistente", "jornada_inexistente", "partido_futuro_resultado",
+    "acta_finalizado_sin_acta", "acta_jugador_ambiguo", "acta_tarjetas_codigo", "cobertura_parcial_advertencia",
+    "tabla_clasificacion_lider", "tabla_clasificacion_jornada_pasada", "tabla_goleadores_maximo", "tabla_goleadores_jugador",
+    "tabla_goleador_no_figura", "tabla_clasificacion_jornada_no_ingerida", "tabla_goleadores_por_jornada_no_verificable"})
+
+
+def scoped_question(t: Truth, question: str) -> str:
+    """Antepone «En <competición> (<grupo>), » a una pregunta (y baja la inicial de la pregunta)."""
+    if not question:
+        return question
+    scope = f"En {t.competition} ({t.group_name}), "
+    return scope + (question[0] + question[1].lower() + question[2:] if question[0] == "¿" else question[0].lower() + question[1:])
+
+
 FORBID_SCORES = frozenset({"acta_partido_sin_acta", "acta_jugador_inexistente", "acta_jornada_sin_resultados",
                            "equipo_inexistente", "jornada_inexistente"})
 SMOKE = frozenset({"equipo_resultados", "acta_goleadores_ultimo", "partido_futuro_resultado", "acta_jugador_ambiguo",
@@ -702,6 +728,10 @@ def build_cases(t: Truth) -> list[EvalCase]:
         c.allowed_tools = c.allowed_tools | EXTRA_ALLOWED.get(c.id, frozenset())
         c.forbid_scores = c.forbid_scores or c.id in FORBID_SCORES
         c.smoke = c.id in SMOKE
+        if not c.category.startswith(NO_DISCOVERY_CATEGORIES):
+            c.allowed_tools = c.allowed_tools | DISCOVERY_TOOLS
+        if t.groups_total > 1 and t.competition and c.id in SCOPED_IDS:
+            c.question = scoped_question(t, c.question)
         if c.category.startswith("reglamento") and (not t.rules_indexed or not c.kb_docs <= t.kb_docs):
             # sin el documento no hay verdad que comprobar: no se gasta cuota ni se aprueba por defecto
             missing = sorted(c.kb_docs - t.kb_docs) or ["reglamento"]
@@ -1246,6 +1276,12 @@ async def evaluate(truth: Truth, mcp: McpClient, mode: str, llm: LLMClient | Non
     return results
 
 
+def failed_case_ids(results_json: Path) -> set[str]:
+    """Casos `fail` o `not_run` de un `results.json` anterior (para repetir solo lo pendiente)."""
+    data = json.loads(results_json.read_text(encoding="utf-8"))
+    return {c["case_id"] for c in data["cases"] if c["status"] in ("fail", "not_run")}
+
+
 def select_cases(cases: list[EvalCase], *, suite: str = "all", only: set[str] | None = None,
                  limit: int | None = None) -> list[EvalCase]:
     if suite == "smoke":
@@ -1323,8 +1359,20 @@ async def _main(args: argparse.Namespace) -> int:
 
     quiet_logs()
     live = args.mode == "live"
-    suite = args.suite or ("smoke" if live else "all")
-    only = set(args.only.split(",")) if args.only else None
+    only = {i.strip() for i in args.only.split(",") if i.strip()} if args.only else None
+    if args.only_failed:
+        try:
+            previous = failed_case_ids(Path(args.only_failed))
+        except (OSError, ValueError, KeyError) as exc:
+            print(f"No se puede leer {args.only_failed}: {exc}")
+            return 2
+        if not previous:
+            print(f"{args.only_failed}: ningún caso fallido o sin ejecutar que repetir.")
+            return 0
+        only = (only or set()) | previous
+    # elegir casos concretos (--only / --only-failed) sin indicar suite busca en todos: con la suite reducida por defecto en live
+    # la selección quedaba vacía sin avisar
+    suite = args.suite or ("all" if only else "smoke" if live else "all")
     retries = RetryPolicy.from_env().max_retries
     if live and not args.plan and not args.confirm_live:
         print("El modo live hace llamadas reales y de pago al LLM: añade --confirm-live. Antes, revisa la cuota con --plan.")
@@ -1469,6 +1517,8 @@ def main() -> None:
     p.add_argument("--min-interval", type=float, default=None,
                    help="segundos mínimos entre peticiones al LLM en modo live (por defecto 4; 0 = sin pausa)")
     p.add_argument("--only", default="", help="ids de caso separados por comas")
+    p.add_argument("--only-failed", default="", metavar="RESULTS.json",
+                   help="repite solo los casos fallidos o sin ejecutar de un results.json anterior (se suma a --only)")
     p.add_argument("--limit", type=int, default=None)
     p.add_argument("--max-tool-calls", type=int, default=DEFAULT_MAX_TOOL_CALLS)
     p.add_argument("--max-rows", type=int, default=DEFAULT_MAX_ROWS)

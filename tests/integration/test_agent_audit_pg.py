@@ -268,3 +268,19 @@ def test_progress_lines_report_each_case_and_do_not_change_the_results(engine: E
     assert [(r.case_id, r.status) for r in with_progress] == [(r.case_id, r.status) for r in silent]
     assert lines[0].startswith("[1/2] ") and lines[2].startswith("[2/2] ") and len(lines) == 4
     assert "-> PASS" in lines[1] and "llamadas LLM" in lines[1] and "peticiones al LLM usadas" in lines[0]
+
+
+def test_with_several_groups_old_questions_name_the_scope_and_discovery_tools_are_allowed(engine: Engine) -> None:
+    seed(engine)
+    truth = load_truth(engine)
+    assert truth is not None and truth.groups_total > 1
+    cases = {c.id: c for c in build_cases(truth)}
+    scope = f"En {truth.competition} ({truth.group_name}), "
+    assert cases["tabla_clasificacion_lider"].question == scope + "¿quién lidera la clasificación del grupo y con cuántos puntos?"
+    assert cases["equipo_resultados"].question.startswith(scope)
+    assert "find_teams" in cases["tabla_clasificacion_lider"].allowed_tools and "find_teams" not in cases["fuera_de_alcance"].allowed_tools
+    # el caso del próximo partido del líder ya no exige los puntos, que la pregunta no pide
+    facts = cases["combinada_lider_proximo_partido"].facts
+    assert facts is not None and [f.kind for f in facts] == ["match"]
+    _, results = _run(engine, "offline", only={"tabla_clasificacion_lider", "combinada_lider_proximo_partido"})
+    assert [r.status for r in results] == ["pass", "pass"]

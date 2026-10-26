@@ -111,3 +111,54 @@ def test_table_status_fact_checks_the_declared_state_of_that_group_and_that_the_
     assert evidence_ok(rnd, [{**ok, "status": "failed"}]) and evidence_ok(rnd, [{**ok, "status": "round_not_ingested"}])
     inc = Fact("table_status", "parcial", names=("COPA X", "Eliminatorias"), status="incomplete")
     assert answer_ok(inc, "La clasificación es parcial: faltan equipos.") and not answer_ok(inc, "Lidera el Club A.")
+
+
+# --- Fase 17.4: correcciones del evaluador tras la primera pasada live completa -------------------------------------
+def test_page_lists_are_validated_page_by_page_and_the_circular_number_comes_from_the_document() -> None:
+    from futsal.agent.criteria import page_numbers, unsupported_digits, unsupported_rule_citations
+
+    hits = [{"hits": [{"text": "mano", "pages": "85-86", "rule": 12, "document": "Circular n.º 27 de la RFEF", "doc_key": "rfef-circular-27-2025-26"},
+                      {"text": "mas", "pages": "90", "rule": 12}]}]
+    ok = "Regla 12, páginas 85, 90 y 86; Circular n.º 27 de la RFEF."
+    assert page_numbers("pág. 60; páginas 85, 90 y 177-178; p. 9-10") == {60, 85, 90, 177, 178, 9, 10}
+    assert unsupported_digits(ok, hits) == [] and unsupported_rule_citations(ok, hits) == []
+    bad = "Regla 12, páginas 85, 90 y 177-178."                  # 177-178 no se recuperó: ahora SÍ se detecta como cita sin respaldo
+    assert unsupported_rule_citations(bad, hits) == ["páginas 85, 90 y 177-178"]
+    assert unsupported_digits("Circular n.º 99 de la RFEF.", hits) == ["99"]  # un número de circular que ningún fragmento respalda sigue siendo invención
+
+
+def test_a_scope_clarification_may_repeat_the_numbers_of_the_question_but_not_add_new_ones() -> None:
+    from futsal.agent.criteria import asks_scope_clarification
+
+    catalog = [("LIGA", ["Grupo 1", "Grupo 2"])]
+    text = "Necesito que me indiques a qué competición y grupo te refieres para la jornada 2."
+    assert asks_scope_clarification(text, catalog, "¿Cómo quedaron los partidos de la jornada 2?")
+    assert not asks_scope_clarification(text, catalog, "¿Cómo quedaron los partidos?")                     # el 2 no venía de la pregunta
+    assert not asks_scope_clarification(text + " Van 12 goles.", catalog, "¿Cómo quedaron los partidos de la jornada 2?")
+
+
+def test_failed_case_ids_reads_fail_and_not_run_only(tmp_path) -> None:  # type: ignore[no-untyped-def]
+    import json
+
+    from futsal.agent.evaluate import failed_case_ids
+
+    path = tmp_path / "r.json"
+    path.write_text(json.dumps({"cases": [{"case_id": "a", "status": "pass"}, {"case_id": "b", "status": "fail"},
+                                          {"case_id": "c", "status": "not_run"}, {"case_id": "d", "status": "not_evaluable"}]}), encoding="utf-8")
+    assert failed_case_ids(path) == {"b", "c"}
+
+
+def test_scoped_questions_and_discovery_tools_for_old_cases_with_several_groups() -> None:
+    from futsal.agent.evaluate import DISCOVERY_TOOLS, Truth, build_cases, scoped_question
+
+    t = Truth(1, {}, {}, [], competition="LIGA UNO FS", group_name="Grupo 2", groups_total=25)
+    assert scoped_question(t, "¿Qué resultados ha tenido el C.D. DOSA?") == "En LIGA UNO FS (Grupo 2), ¿qué resultados ha tenido el C.D. DOSA?"
+    assert scoped_question(t, "") == ""
+    cases = {c.id: c for c in build_cases(t)}
+    assert DISCOVERY_TOOLS <= cases["tabla_clasificacion_lider"].allowed_tools
+    assert not DISCOVERY_TOOLS & cases["fuera_de_alcance"].allowed_tools if "fuera_de_alcance" in cases else True
+    rule = next(c for c in cases.values() if c.category.startswith("reglamento"))
+    assert not DISCOVERY_TOOLS & rule.allowed_tools
+    # con un solo grupo las preguntas históricas no cambian
+    single = Truth(1, {}, {}, [], competition="LIGA UNO FS", group_name="Grupo 2", groups_total=1)
+    assert next(c for c in build_cases(single) if c.id == "tabla_clasificacion_lider").question == "¿Quién lidera la clasificación del grupo y con cuántos puntos?"
