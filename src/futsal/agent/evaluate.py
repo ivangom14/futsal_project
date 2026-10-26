@@ -1067,7 +1067,8 @@ def describe(facts: list[Fact] | None) -> str:
             "no_sub_minutes": "dice que los minutos de los cambios no constan, sin inventarlos",
             "rule_cited": f"{f.label}: dato correcto y cita " + (f"regla {f.rule} o " if f.rule is not None else "")
             + f"página {'-'.join(map(str, f.pages))}",
-            "no_evidence_rules": "dice que el reglamento no lo recoge, sin dar cifras ni sanciones",
+            "no_evidence_rules": "dice que el reglamento no lo recoge, sin dar cifras ni sanciones"
+            + (f" ({f.label})" if f.label != "sin evidencia" else ""),
             "table_row": f"{f.label}: «{f.names[0] if f.names else ''}» con {f.number} ({(f.status or '').split(':')[-1]}) según la tabla oficial",
             "table_round": f"indica la jornada {f.number} de la tabla oficial",
             "table_status": f"{f.label}: la tool declara «{f.status}» y el agente reconoce que no consta, sin reconstruirlo"}.get(f.kind, f.kind))
@@ -1113,9 +1114,10 @@ def invention_claims(case: EvalCase, answer: str, truth: Truth, payloads: list[d
     if any(f.kind in ("rule_cited", "no_evidence_rules") for f in case.facts or []):
         claims += [f"cita «{c}», que no figura en los fragmentos recuperados" for c in unsupported_rule_citations(answer, payloads)]
         no_data = any(f.kind == "no_evidence_rules" for f in case.facts or [])
-        # sin evidencia, ninguna cifra se respalda (ni con los fragmentos tangenciales que devuelva la búsqueda)
+        # sin evidencia, ninguna cifra se respalda con el TEXTO de los fragmentos tangenciales de la búsqueda; solo la cita del documento
+        # (título, sección…) es legítima
         claims += [f"da la cifra {n}, que no figura en los fragmentos recuperados"
-                   for n in unsupported_digits(answer, [] if no_data else payloads, case.question)]
+                   for n in unsupported_digits(answer, payloads, case.question, metadata_only=no_data)]
         if no_data:
             claims += [f"inventa un importe o sanción: «{q}»" for q in invented_quantities(answer)]
     if case.category.startswith(OFFICIAL_PREFIXES):  # error de tool o grupo sin tabla convertido en cifras de una tabla que no se vio

@@ -194,10 +194,18 @@ def unsupported_rule_citations(text: str, payloads: list[dict[str, Any]]) -> lis
     return out
 
 
-def unsupported_digits(text: str, payloads: list[dict[str, Any]], question: str = "") -> list[str]:
-    """Cifras de la respuesta que no aparecen en los fragmentos recuperados ni en la pregunta (se ignoran regla y página citadas)."""
-    # el título y la clave del documento también son evidencia: «Circular n.º 27» se cita desde ahí
-    support = " ".join(f"{h.get('text', '')} {h.get('document', '')} {h.get('doc_key', '')}" for h in _rule_hits(payloads)) + " " + question
+HIT_METADATA = ("document", "doc_key", "version", "rule_title", "section", "subsection", "part")
+
+
+def unsupported_digits(text: str, payloads: list[dict[str, Any]], question: str = "", metadata_only: bool = False) -> list[str]:
+    """Cifras de la respuesta que no aparecen en los fragmentos recuperados ni en la pregunta (se ignoran regla y página citadas).
+
+    Los metadatos del fragmento (título y clave del documento, versión, sección, título de la regla…) respaldan lo que se cita desde
+    ellos: «Circular n.º 27», «sección 2 FINALIZACIÓN DE LOS PERIODOS». Con `metadata_only` (casos sin evidencia) el TEXTO de los
+    fragmentos, aunque sea tangencial, no respalda ninguna cifra; solo la cita del propio documento.
+    """
+    support = " ".join((str(h.get("text", "")) if not metadata_only else "") + " " + " ".join(str(h.get(k, "")) for k in HIT_METADATA)
+                       for h in _rule_hits(payloads)) + " " + question
     known = set(_NUMBER_RE.findall(support))
     cleaned = PAGE_LIST_RE.sub(" ", RULE_REF_RE.sub(" ", text))  # las páginas se validan aparte (unsupported_rule_citations)
     return sorted({n for n in _NUMBER_RE.findall(cleaned) if n not in known})

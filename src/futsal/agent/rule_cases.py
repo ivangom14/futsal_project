@@ -31,8 +31,8 @@ def _answerable(case_id: str, question: str, query: str | tuple[str, ...], facts
                     "el agente debe reformular y citar", required=_TOOLS, max_calls=3, kb_docs=docs)
 
 
-def _no_evidence(case_id: str, question: str, docs: frozenset[str] = FIFA) -> EvalCase:
-    return EvalCase(case_id, "reglamento_sin_evidencia", question, [Fact("no_evidence_rules", "sin evidencia")], _TOOLS,
+def _no_evidence(case_id: str, question: str, docs: frozenset[str] = FIFA, note: str = "") -> EvalCase:
+    return EvalCase(case_id, "reglamento_sin_evidencia", question, [Fact("no_evidence_rules", note or "sin evidencia")], _TOOLS,
                     None, "los documentos indexados no contienen el dato", required=_TOOLS, max_calls=3, forbid_scores=True,
                     kb_docs=docs)
 
@@ -126,5 +126,6 @@ def _circular10_cases() -> list[EvalCase]:
                           pages=(12,), contains="prohíban que el guardameta lance el balón más allá de la línea central")],
                     FIFA | C10),
         _no_evidence("circular10_sin_evidencia_sancion_rffm", "¿Qué sanción económica impone la RFFM por protestar al árbitro?", C10),
-        _no_evidence("circular10_sin_evidencia_circular9", "¿Qué establecía la Circular 9 de 17 de agosto de 2026 de la RFEF?", C10),
+        _no_evidence("circular10_sin_evidencia_circular9", "¿Qué establecía la Circular 9 de 17 de agosto de 2026 de la RFEF?", C10,
+                     "el contenido de la Circular 9 no consta; puede añadir que la Circular 10 la anula y sustituye"),
     ]

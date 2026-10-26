@@ -126,3 +126,38 @@ def test_rules_questions_do_not_ask_for_a_group_but_competition_questions_still_
 def test_prompt_names_circulars_as_in_scope_and_asks_to_attribute_each_fact_to_its_document() -> None:
     assert "reglas del juego y circulares" in SYSTEM_PROMPT and "cita documento, regla y página" in SYSTEM_PROMPT
     assert "sin atribuir a un organismo (FIFA, RFEF) lo que dice otro" in SYSTEM_PROMPT
+
+
+# --- Fase 17.7: criterios de cifras con metadatos del fragmento y caso de la Circular 9 --------------------------------
+SECTION_HIT = [{"hits": [{"text": "Los árbitros confirmarán que han transcurrido los 20 minutos de juego.", "pages": "60", "rule": 7,
+                          "document": "Reglas de Juego del Futsal 2025/26", "section": "2 FINALIZACIÓN DE LOS PERIODOS", "rule_title": "La duración del partido"}]}]
+C10_HIT = [{"hits": [{"text": "Anula y sustituye a la Circular N.º 9.", "pages": "1", "document": "Circular n.º 10 (rectificativa) de la CTAFS",
+                      "doc_key": "rfef-circular-10-rectificativa-2026-27"}]}]
+
+
+def test_digits_from_hit_metadata_are_supported_but_invented_ones_are_not() -> None:
+    cited = "Regla 7 «La duración del partido», sección «2 FINALIZACIÓN DE LOS PERIODOS», página 60: 20 minutos."
+    assert unsupported_digits(cited, SECTION_HIT) == []
+    assert unsupported_digits(cited + " Con 3 periodos de prórroga.", SECTION_HIT) == ["3"]
+
+
+def test_without_evidence_only_the_documents_own_name_supports_figures_not_the_fragment_text() -> None:
+    assert unsupported_digits("Según la Circular n.º 10, la Circular 9 queda sin efecto.", C10_HIT, "¿Qué establecía la Circular 9?", metadata_only=True) == []
+    # el texto tangencial de un fragmento no respalda cifras en un caso sin evidencia: «20 minutos» sigue siendo invención aquí
+    assert unsupported_digits("Son 20 minutos.", SECTION_HIT, "¿Cuánto cuesta?", metadata_only=True) == ["20"]
+
+
+def test_circular_9_case_accepts_admitting_the_content_is_missing_and_rejects_answering_as_if_it_were_known() -> None:
+    from futsal.agent.evaluate import Fact, Truth, answer_ok, describe, invention_claims
+    from futsal.agent.rule_cases import rule_cases
+
+    case = next(c for c in rule_cases() if c.id == "circular10_sin_evidencia_circular9")
+    fact = case.facts[0]  # type: ignore[index]
+    assert isinstance(fact, Fact) and "puede añadir que la Circular 10 la anula" in describe(case.facts)
+    ideal = "Solo consta que la Circular n.º 10 (página 1) anula y sustituye a la Circular 9; su contenido no figura en lo recuperado."
+    assert answer_ok(fact, ideal) and invention_claims(case, ideal, Truth(1, {}, {}, []), C10_HIT) == []
+    observed = "La Circular n.º 10 establece que la Circular n.º 9, de 17 de agosto de 2026, queda sin efecto, anulada y sustituida por la Circular n.º 10."
+    assert not answer_ok(fact, observed)                       # responde como si lo supiera: sigue fallando por la respuesta…
+    assert invention_claims(case, observed, Truth(1, {}, {}, []), C10_HIT) == []   # …pero ya no como invención crítica
+    invented = ideal + " Imponía 3 puntos de sanción."
+    assert any("3" in c for c in invention_claims(case, invented, Truth(1, {}, {}, []), C10_HIT))
