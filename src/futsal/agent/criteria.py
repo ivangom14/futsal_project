@@ -244,6 +244,22 @@ DOMAIN_WORDS = frozenset({"jornada", "jornadas", "partido", "partidos", "equipo"
                           "reglamento", "falta", "faltas", "infraccion", "penalti", "saque"})
 
 
+# Vocabulario de consultas al reglamento o a circulares/sanciones. Solo decide si se pide UNA consulta a `search_rules` antes de aceptar
+# un rechazo o una limitación sin herramientas; no hace válida ninguna respuesta («FIFA» o «RFEF» solos no cuentan).
+RULES_WORDS = frozenset({"regla", "reglas", "reglamento", "reglamentos", "circular", "circulares", "normativa", "sancion", "sanciones",
+                         "sancionar"})
+
+
+def mentions_rules(question: str) -> bool:
+    """¿Parece una pregunta sobre reglamento, circulares o sanciones? (la responde `search_rules`, no los datos de competición)"""
+    return any(w in RULES_WORDS for w in norm(question).split())
+
+
+def mentions_competition(question: str) -> bool:
+    """¿Usa vocabulario de datos de competición (partidos, equipos, clasificaciones…)? Las palabras de reglamento no cuentan."""
+    return any(w in DOMAIN_WORDS and w not in RULES_WORDS for w in norm(question).split())
+
+
 def mentions_domain(question: str) -> bool:
     """¿La pregunta usa vocabulario de la competición? (para no darla por ajena sin consultar las tools)"""
     return any(w in DOMAIN_WORDS for w in norm(question).split())
