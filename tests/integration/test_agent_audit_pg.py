@@ -130,13 +130,15 @@ class _Script:
 
     provider, model = "fake", "fake"
 
-    def __init__(self, calls: list[tuple[str, dict[str, Any]]], text: str) -> None:
-        self._calls, self._text, self._done = calls, text, False
+    def __init__(self, calls: list[tuple[str, dict[str, Any]]], text: str, discover: tuple[str, dict[str, Any]] | None = None) -> None:
+        # `discover`: llamada previa en su propio turno (Fase 19: un team_id/round_id solo vale si una tool lo mostró antes)
+        self._batches = ([[discover]] if discover else []) + ([calls] if calls else [])
+        self._text = text
 
     def complete(self, system, messages, tools):  # type: ignore[no-untyped-def]
-        if not self._done and self._calls:
-            self._done = True
-            return LLMResponse("", [ToolCall(f"c{i}", n, a) for i, (n, a) in enumerate(self._calls)], Usage(500, 20, 0, None))
+        if self._batches:
+            batch = self._batches.pop(0)
+            return LLMResponse("", [ToolCall(f"c{i}", n, a) for i, (n, a) in enumerate(batch)], Usage(500, 20, 0, None))
         return LLMResponse(self._text, [], Usage(900, 60, 0, None))
 
 
@@ -288,12 +290,17 @@ def test_with_several_groups_old_questions_name_the_scope_and_discovery_tools_ar
 
 # --- resultados_otro_grupo: get_match_report permitido SOLO en ese caso (comprobación del acta del último partido) -----------------
 def _other_group_call(truth: Truth) -> tuple[Any, list[tuple[str, dict[str, Any]]], Any]:
+    """Las llamadas del caso; el equipo se descubre antes con list_teams (ver `_discover_other`)."""
     case = next(c for c in build_cases(truth) if c.id == "resultados_otro_grupo")
     m = case.facts[0].matches[0]  # type: ignore[index]
     team = m.home_id
     calls = [("list_matches", {"group_id": truth.other.group_id, "team_id": team, "status": "finished"}),  # type: ignore[union-attr]
              ("get_match_report", {"match_id": m.id})]
     return case, calls, m
+
+
+def _discover_other(truth: Truth) -> tuple[str, dict[str, Any]]:
+    return ("list_teams", {"group_id": truth.other.group_id})  # type: ignore[union-attr]
 
 
 def test_other_group_case_accepts_the_acta_check_only_when_the_functional_answer_is_right(engine: Engine) -> None:
@@ -303,12 +310,12 @@ def test_other_group_case_accepts_the_acta_check_only_when_the_functional_answer
     case, calls, m = _other_group_call(truth)
     assert "get_match_report" in case.allowed_tools and case.max_calls == 4
     warned = f"Terminó {m.home} {m.hs} - {m.aws} {m.away}. El acta aún no está descargada."
-    ok = _run(engine, "live", _Script(calls, warned), only={case.id})[1][0]
+    ok = _run(engine, "live", _Script(calls, warned, _discover_other(truth)), only={case.id})[1][0]
     assert ok.status == "pass" and ok.tools_ok is True and ok.tool_issues == [], (ok.detail, ok.tool_issues, ok.claims, ok.answer)
     # el control de advertencia sigue activo: con la tool del acta y el acta sin importar, no avisar es un fallo aunque el marcador sea correcto
-    silent = _run(engine, "live", _Script(calls, f"Terminó {m.home} {m.hs} - {m.aws} {m.away}."), only={case.id})[1][0]
+    silent = _run(engine, "live", _Script(calls, f"Terminó {m.home} {m.hs} - {m.aws} {m.away}.", _discover_other(truth)), only={case.id})[1][0]
     assert silent.status == "fail" and silent.answer_ok is True and silent.warning_ok is False and silent.tools_ok is True
-    wrong = _run(engine, "live", _Script(calls, f"Terminó {m.home} {m.hs + 3} - {m.aws} {m.away}. El acta aún no está descargada."),
+    wrong = _run(engine, "live", _Script(calls, f"Terminó {m.home} {m.hs + 3} - {m.aws} {m.away}. El acta aún no está descargada.", _discover_other(truth)),
                  only={case.id})[1][0]
     assert wrong.status == "fail" and wrong.tools_ok is True and wrong.answer_ok is False            # la tool permitida no salva una cifra errónea
 
@@ -319,15 +326,14 @@ def test_other_group_case_still_enforces_call_limit_and_forbids_other_sources(en
     assert truth is not None and truth.other is not None
     case, calls, m = _other_group_call(truth)
     right = f"Terminó {m.home} {m.hs} - {m.aws} {m.away}. El acta aún no está descargada."
-    too_many = calls + [("get_match", {"match_id": m.id}), ("list_teams", {"group_id": truth.other.group_id}),
-                        ("find_teams", {"name": "CLUB"})]
-    r = _run(engine, "live", _Script(too_many, right), only={case.id})[1][0]
+    too_many = calls + [("get_match", {"match_id": m.id}), ("find_teams", {"name": "CLUB"})]   # + el descubrimiento previo: 5 = tope global
+    r = _run(engine, "live", _Script(too_many, right, _discover_other(truth)), only={case.id})[1][0]
     assert r.status == "fail" and any("llamadas (máximo razonable 4)" in i for i in r.tool_issues)
     other_source = calls + [("top_scorers", {"group_id": truth.other.group_id})]                      # no es una lectura equivalente
-    r2 = _run(engine, "live", _Script(other_source, right), only={case.id})[1][0]
+    r2 = _run(engine, "live", _Script(other_source, right, _discover_other(truth)), only={case.id})[1][0]
     assert r2.status == "fail" and "top_scorers" in r2.unexpected_tools
     redundant = calls + [calls[1]]
-    r3 = _run(engine, "live", _Script(redundant, right), only={case.id})[1][0]
+    r3 = _run(engine, "live", _Script(redundant, right, _discover_other(truth)), only={case.id})[1][0]
     assert r3.status == "fail" and any("llamada repetida" in i for i in r3.tool_issues)
 
 
@@ -352,7 +358,8 @@ def test_finished_without_acta_case_accepts_get_match_but_still_rejects_other_so
     calls = [("list_matches", {"group_id": truth.group_id, "round_id": truth.rounds[m.round_number]}), ("get_match", {"match_id": m.id}),
              ("get_match_report", {"match_id": m.id})]
     text = f"{m.home} {m.hs}-{m.aws} {m.away}: el acta aún no está descargada ni importada, por lo que no constan los goleadores."
-    ok = _run(engine, "live", _Script(calls, text), only={case.id})[1][0]
+    rounds = ("list_rounds", {"group_id": truth.group_id})  # el round_id debe venir de list_rounds (Fase 19)
+    ok = _run(engine, "live", _Script(calls, text, rounds), only={case.id})[1][0]
     assert ok.status == "pass" and ok.tools_ok is True, (ok.detail, ok.tool_issues)
-    other = _run(engine, "live", _Script(calls + [("top_scorers", {"group_id": truth.group_id})], text), only={case.id})[1][0]
+    other = _run(engine, "live", _Script(calls + [("top_scorers", {"group_id": truth.group_id})], text, rounds), only={case.id})[1][0]
     assert other.status == "fail" and "top_scorers" in other.unexpected_tools

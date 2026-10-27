@@ -19,7 +19,7 @@ Los listados devuelven `{<clave>: [...], "count": N}`. IDs = IDs internos de BD.
 | `list_groups` | `competition_id` | `GET /competitions/{id}/groups` |
 | `list_rounds` | `group_id` | `GET /groups/{id}/rounds` |
 | `list_teams` | `group_id` | `GET /groups/{id}/teams` |
-| `list_matches` | `group_id`, `round_id` (opc., ID interno), `team_id` (opc., ID interno de equipo), `status` (opc.: scheduled, finished, postponed, suspended, cancelled, unknown) | `GET /groups/{id}/matches` |
+| `list_matches` | `group_id`, `round_id` (opc., ID interno), `team_id` (opc., ID interno de equipo), `status` (opc.: scheduled, finished, postponed, suspended, cancelled, unknown), `order` (opc.: asc, desc; último partido = `status=finished, order=desc, limit=1`; `past_due=true` en el resultado = programado con fecha pasada) | `GET /groups/{id}/matches` |
 | `get_match` | `match_id` | `GET /matches/{id}` (incluye `observations`) |
 | `list_matches` (+ `has_report`) | filtro opcional de acta disponible | `GET /groups/{id}/matches` |
 | `get_match_report` | `match_id`, `sections` (opc.: officials, goals, cards, players, staff) | `GET /matches/{id}/report` |

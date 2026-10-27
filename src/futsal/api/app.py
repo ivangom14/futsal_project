@@ -1,6 +1,6 @@
 """API REST de consulta (solo lectura) sobre el modelo persistido en PostgreSQL."""
 
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from datetime import date, datetime, time
 from typing import Annotated, Any
 
@@ -36,6 +36,27 @@ def _iso(value: date | time | datetime | None) -> str | None:
     return value.isoformat() if value is not None else None
 
 
+def match_day(m: dict[str, Any]) -> str:
+    """Fecha ISO (aaaa-mm-dd) del partido tal como se expone, o '' si no consta."""
+    return str(m.get("date") or "")[:10]
+
+
+def order_matches(rows: list[dict[str, Any]], order: str) -> list[dict[str, Any]]:
+    """`asc`: orden de jornada (el de siempre). `desc`: lo más reciente primero por la fecha publicada
+    (jornada e id como desempate; sin fecha, al final), para pedir el último partido con limit=1."""
+    if order == "desc":
+        return sorted(rows, key=lambda m: (match_day(m), m.get("round_number") or 0, m["id"]), reverse=True)
+    return rows
+
+
+def mark_past_due(rows: list[dict[str, Any]], today: date) -> None:
+    """`past_due=true` en un partido aún `scheduled` cuya fecha ya pasó: los datos pueden estar desactualizados
+    (no se interpreta como jugado ni se cambia su estado)."""
+    for m in rows:
+        if m["status"] == "scheduled" and match_day(m) and match_day(m) < today.isoformat():
+            m["past_due"] = True
+
+
 def _match_dict(m: Match, home: str | None, away: str | None, number: int | None,
                 has_report: bool | None = None) -> dict[str, Any]:
     data = {"id": m.id, "group_id": m.group_id, "round_id": m.round_id, "round_number": number,
@@ -47,7 +68,7 @@ def _match_dict(m: Match, home: str | None, away: str | None, number: int | None
     return data
 
 
-def create_app(engine: Engine | None = None) -> FastAPI:
+def create_app(engine: Engine | None = None, today: Callable[[], date] = date.today) -> FastAPI:
     app = FastAPI(title="Futsal API", version="0.1.0")
     state: dict[str, Engine] = {}
 
@@ -144,6 +165,7 @@ def create_app(engine: Engine | None = None) -> FastAPI:
     def matches(group_id: int, db: Db, round_id: int | None = None,
                 status: str | None = None, team_id: int | None = None,
                 has_report: bool | None = None,
+                order: Annotated[str, Query(pattern="^(asc|desc)$")] = "asc",
                 limit: Annotated[int | None, Query(ge=1, le=200)] = None) -> dict[str, Any]:
         _group(db, group_id)
         if team_id is not None and db.scalar(
@@ -167,7 +189,8 @@ def create_app(engine: Engine | None = None) -> FastAPI:
             stmt = stmt.where((Match.home_team_id == team_id) | (Match.away_team_id == team_id))
         if has_report is not None:
             stmt = stmt.where(report_id if has_report else ~report_id)
-        rows = [_match_dict(m, h, a, n, r) for m, h, a, n, r in db.execute(stmt)]
+        rows = order_matches([_match_dict(m, h, a, n, r) for m, h, a, n, r in db.execute(stmt)], order)
+        mark_past_due(rows, today())
         if limit is not None and len(rows) > limit:  # count = total de coincidencias; shown = filas devueltas
             return {"items": rows[:limit], "count": len(rows), "shown": limit}
         return _items(rows)

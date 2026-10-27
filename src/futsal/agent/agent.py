@@ -46,7 +46,9 @@ SYSTEM_PROMPT = (
     "que falte no prueba que no ocurriera. No traduzcas el código de tarjeta a color. "
     "En list_matches filtra siempre: team_id (equipo), round_id (jornada), status finished/scheduled; nunca pidas "
     "todos los partidos. Para contar usa limit=1 y lee count (total exacto; jugados = status finished, por jugar = total sin filtro - jugados): "
-    "nunca cuentes las filas de una lista recortada. Último partido de un equipo: su último finished y, con su id, get_match_report. "
+    "nunca cuentes las filas de una lista recortada. Último partido de un equipo: list_matches(team_id, status=finished, order=desc, limit=1) y, con su id, get_match_report; "
+    "próximo: status=scheduled sin order (si trae past_due=true, su fecha ya pasó y los datos pueden estar desactualizados: no lo des por jugado). "
+    "team_id y round_id solo los que te dieron las tools (find_teams/list_teams para equipos, list_rounds para jornadas): nunca los supongas. "
     "Si un equipo, jugador o jornada no aparece, compruébalo con list_teams, find_players o list_rounds y di que no figura en el grupo "
     "(no que no exista), sin explicar tus comprobaciones. Si varios coinciden con el nombre, no elijas: muéstralos "
     "o pregunta cuál. Partido sin jugar (scheduled): dilo, sin marcador; finalizado sin acta importada: dilo, sin "
@@ -76,6 +78,16 @@ CATALOG_HEADER = (
     "(find_teams), pide aclaración o muestra las opciones: no elijas una al azar. Equipos y jornadas de un grupo: "
     "list_teams / list_rounds con su group_id:\n"
 )
+UNKNOWN_ID_MESSAGE = (
+    "error_validacion: {arg}={value} no procede de ninguna herramienta consultada en esta pregunta; no se ha ejecutado. {hint}"
+)
+AMBIGUOUS_TEAM_MESSAGE = (
+    "error_validacion: el nombre coincide con equipos de varios grupos y la pregunta no indica cuál; no se ha ejecutado. "
+    "Pregunta al usuario a qué competición y grupo se refiere en lugar de elegir uno."
+)
+TEAM_ARGS = ("team_id", "against_team_id")
+TEAM_HINT = "Obtén el equipo con find_teams (por nombre) o list_teams (por grupo) y usa su id."
+ROUND_HINT = "Obtén las jornadas con list_rounds(group_id) y usa su id (no el número de jornada)."
 DEFAULT_MAX_TOOL_CALLS = 5
 DEFAULT_MAX_ROWS = 40
 MAX_CONTEXT_GROUPS = 3
@@ -186,6 +198,26 @@ def slim_tools(tools: list[dict[str, Any]]) -> list[dict[str, Any]]:
              "input_schema": slim(t.get("input_schema") or {})} for t in tools]
 
 
+def _harvest(data: Any, teams: set[int], rounds: set[int], ambiguous: set[int]) -> None:
+    """IDs de equipo y jornada que una tool ha mostrado al modelo (`team_id`, listas `teams` y `rounds`). Si una lista de
+    equipos mezcla grupos (find_teams), sus ids quedan como ambiguos."""
+    if isinstance(data, list):
+        for item in data:
+            _harvest(item, teams, rounds, ambiguous)
+    elif isinstance(data, dict):
+        for key, value in data.items():
+            if key == "team_id" and isinstance(value, int):
+                teams.add(value)
+            elif key in ("teams", "rounds") and isinstance(value, list):
+                ids = {i["id"] for i in value if isinstance(i, dict) and isinstance(i.get("id"), int)}
+                (teams if key == "teams" else rounds).update(ids)
+                groups = {i.get("group_id") for i in value if isinstance(i, dict) and i.get("group_id") is not None}
+                if key == "teams" and len(groups) > 1:
+                    ambiguous.update(ids)
+            else:
+                _harvest(value, teams, rounds, ambiguous)
+
+
 def _round_pairs(rounds: list[dict[str, Any]]) -> str:
     """número=round_id; si coinciden y son correlativos, un rango («1-26 (round_id = número)»)."""
     ok = [r for r in rounds if r.get("number") is not None and "id" in r]
@@ -224,6 +256,13 @@ class Agent:
         self._ctx_calls = 0
         self._ctx_ms = 0.0
         self._catalog: list[tuple[str, list[str]]] = []  # competición -> nombres de sus grupos (contexto precargado)
+        self._ctx_teams: set[int] = set()  # IDs mostrados en el contexto precargado
+        self._ctx_rounds: set[int] = set()
+        self._question = ""
+        self._teams: set[int] = set()  # IDs que las tools han mostrado al modelo en ESTA pregunta (+ contexto)
+        self._rounds: set[int] = set()
+        self._ambiguous: set[int] = set()  # equipos de un find_teams que mezcla grupos
+        self._seen: dict[str, tuple[bool, str]] = {}  # llamadas ya hechas en esta pregunta -> (error, resultado enviado)
 
     async def _items(self, tool: str, args: dict[str, Any], key: str) -> list[dict[str, Any]]:
         self._ctx_calls += 1
@@ -258,6 +297,8 @@ class Agent:
                 for grp in groups:
                     rounds = await self._items("list_rounds", {"group_id": grp["id"]}, "rounds")
                     teams = (await self._items("list_teams", {"group_id": grp["id"]}, "teams"))[:MAX_CONTEXT_TEAMS]
+                    self._ctx_rounds.update(r["id"] for r in rounds if isinstance(r.get("id"), int))
+                    self._ctx_teams.update(t["id"] for t in teams if isinstance(t.get("id"), int) and t.get("name"))
                     pairs = _round_pairs(rounds)
                     names = "; ".join(f"{t['id']}={t['name']}" for t in teams if "id" in t and t.get("name"))
                     lines.append(f"- competición «{comp['name']}» (competition_id={comp['id']}), "
@@ -309,6 +350,9 @@ class Agent:
         rec.prefix_chars = {"system_prompt": len(SYSTEM_PROMPT), "context": len(system) - len(SYSTEM_PROMPT),
                             "tools": len(json.dumps(self._tools, ensure_ascii=False, separators=(",", ":")))}
         messages = [Message("user", question)]
+        self._question = question
+        self._teams, self._rounds = set(self._ctx_teams), set(self._ctx_rounds)
+        self._ambiguous, self._seen = set(), {}
         nudged = False
         log(f"USER\n{question}")
         while True:
@@ -384,11 +428,40 @@ class Agent:
             results = [await self._execute(c, result, rec, call_no, log) for c in resp.tool_calls]
             messages.append(Message("tool", tool_results=results))
 
+    def _refusal(self, call: ToolCall) -> str | None:
+        """Motivo para no ejecutar una llamada con un team_id/round_id que ninguna tool mostró (el modelo lo habría supuesto)
+        o con un equipo de nombre ambiguo cuando la pregunta no indica la competición y el grupo."""
+        for arg in TEAM_ARGS:
+            value = call.arguments.get(arg)
+            if isinstance(value, int) and value not in self._teams:
+                return UNKNOWN_ID_MESSAGE.format(arg=arg, value=value, hint=TEAM_HINT)
+            if isinstance(value, int) and value in self._ambiguous and not scope_identified(self._question, self._catalog):
+                return AMBIGUOUS_TEAM_MESSAGE
+        value = call.arguments.get("round_id")
+        if isinstance(value, int) and value not in self._rounds:
+            return UNKNOWN_ID_MESSAGE.format(arg="round_id", value=value, hint=ROUND_HINT)
+        return None
+
     async def _execute(self, call: ToolCall, result: AgentResult, rec: RunRecord, llm_call: int,
                        log: Callable[[str], None]) -> ToolResult:
         result.tool_calls += 1
         log(f"LLM\n→ tool: {call.name}\n→ arguments: {json.dumps(call.arguments)}")
         t0 = time.perf_counter()
+        key = f"{call.name}:{json.dumps(call.arguments, sort_keys=True)}"
+        refusal = self._refusal(call)
+        if refusal is not None:  # id no obtenido de una tool o equipo ambiguo: no se ejecuta, cuenta como llamada
+            log(f"MCP\n→ ERROR {refusal[:120]}")
+            rec.tool_calls.append(ToolCallRecord(len(rec.tool_calls) + 1, llm_call, call.name, dict(call.arguments),
+                                                 0.0, True, len(refusal), len(refusal), f"ERROR {refusal[:120]}", False,
+                                                 refusal if self._trace_results else None))
+            return ToolResult(call.id, refusal, True)
+        if key in self._seen:  # misma llamada ya hecha en esta pregunta: se reutiliza el resultado (sigue contando)
+            was_error, sent = self._seen[key]
+            log("MCP\n→ llamada repetida: se reutiliza el resultado anterior")
+            rec.tool_calls.append(ToolCallRecord(len(rec.tool_calls) + 1, llm_call, call.name, dict(call.arguments),
+                                                 0.0, was_error, len(sent), len(sent), "repetida (resultado reutilizado)", False,
+                                                 sent if self._trace_results else None))
+            return ToolResult(call.id, sent, was_error)
         try:
             is_error, text = await self._mcp.call_tool(call.name, call.arguments)
         except Exception as exc:  # el error vuelve al LLM, no rompe el ciclo
@@ -403,6 +476,13 @@ class Agent:
                 result.official.append(data)
         log(f"MCP\n→ {summarize(is_error, text)}")
         sent = text if is_error else compact_result(text, self._max_rows)
+        self._seen[key] = (is_error, sent)
+        if not is_error:
+            try:
+                _harvest(json.loads(sent), self._teams, self._rounds, set())
+                _harvest(json.loads(text), set(), set(), self._ambiguous)  # group_id solo figura en el original (el modelo no lo ve)
+            except ValueError:
+                pass
         rec.tool_calls.append(ToolCallRecord(
             len(rec.tool_calls) + 1, llm_call, call.name, dict(call.arguments), duration, is_error,
             len(text), len(sent), redact(summarize(is_error, text)), '"truncated":{"list"' in sent,

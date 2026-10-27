@@ -116,3 +116,20 @@ def test_matches_limit_trims_rows_but_count_stays_the_total(client: TestClient) 
     big = client.get(f"/groups/{gid}/matches?limit=200").json()
     assert "shown" not in big and big["count"] == full["count"]
     assert client.get(f"/groups/{gid}/matches?limit=0").status_code == 400
+
+
+def test_matches_order_desc_and_past_due_flag(engine: Engine) -> None:
+    from datetime import date
+
+    run_import(engine, FIXTURE)
+    with TestClient(create_app(engine, today=lambda: date(2999, 1, 1))) as c:  # «hoy» muy posterior: todo programado está desfasado
+        gid = _group_id(c)
+        asc = c.get(f"/groups/{gid}/matches").json()["items"]
+        desc = c.get(f"/groups/{gid}/matches?order=desc").json()["items"]
+        assert {m["id"] for m in asc} == {m["id"] for m in desc}
+        dated = [m["date"][:10] for m in desc if m["date"]]
+        assert dated == sorted(dated, reverse=True)
+        assert c.get(f"/groups/{gid}/matches?order=desc&limit=1").json()["shown"] == 1
+        assert c.get(f"/groups/{gid}/matches?order=sideways").status_code == 400
+        assert all(m.get("past_due") is True for m in asc if m["status"] == "scheduled" and m["date"])
+        assert not any("past_due" in m for m in asc if m["status"] != "scheduled")

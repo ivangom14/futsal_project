@@ -107,13 +107,16 @@ def create_server(client: httpx.Client | None = None) -> FastMCP:
         status: Annotated[MatchStatus | None, Field(description="Estado")] = None,
         team_id: Annotated[int | None, Field(description="Solo partidos de este equipo")] = None,
         has_report: Annotated[bool | None, Field(description="Con/sin acta")] = None,
+        order: Annotated[Literal["asc", "desc"] | None, Field(description=(
+            "asc (jornada, def.) o desc (más reciente primero): último partido = status=finished, order=desc, limit=1"))] = None,
         limit: Annotated[int | None, Field(ge=1, le=200, description=(
             "Solo las N primeras filas; count sigue siendo el total (para contar: limit=1)"))] = None,
     ) -> dict[str, Any]:
         """Partidos de un grupo: equipos, fecha, estado, marcador y has_report (acta disponible). Filtros
-        opcionales; count = total de coincidencias (shown = filas devueltas si hay limit)."""
+        opcionales; count = total de coincidencias (shown = filas devueltas si hay limit). past_due=true: sigue
+        programado pero su fecha ya pasó (datos posiblemente desactualizados; no es un partido jugado)."""
         data = _get(http, f"/groups/{group_id}/matches", f"grupo {group_id}",
-                    round_id=round_id, status=status, team_id=team_id, has_report=has_report, limit=limit)
+                    round_id=round_id, status=status, team_id=team_id, has_report=has_report, order=order, limit=limit)
         if limit is not None and len(data["items"]) > limit:  # API anterior a `limit` (sin reiniciar): se recorta aquí
             data = {"items": data["items"][:limit], "count": len(data["items"]), "shown": limit}
         return _listing("matches", data)

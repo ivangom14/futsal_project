@@ -245,3 +245,16 @@ def test_search_rules_validates_input_and_maps_api_errors() -> None:
     assert unavailable[0] is True and "error_dependencia" in unavailable[1]
     bad = _run("search_rules", {"query": "fuera de juego"}, lambda r: httpx.Response(400, json={"detail": "mala"}))
     assert bad[0] is True and "error_validacion" in bad[1]
+
+
+def test_list_matches_forwards_order_and_rejects_an_invalid_one() -> None:
+    seen: list[httpx.URL] = []
+
+    def handler(req: httpx.Request) -> httpx.Response:
+        seen.append(req.url)
+        return httpx.Response(200, json=LISTING)
+
+    _run("list_matches", {"group_id": 1, "team_id": 4, "status": "finished", "order": "desc", "limit": 1}, handler)
+    assert dict(seen[0].params) == {"team_id": "4", "status": "finished", "order": "desc", "limit": "1"}
+    is_error, text = _run("list_matches", {"group_id": 1, "order": "random"})
+    assert is_error and "order" in text

@@ -186,7 +186,9 @@ def _table_cases(t: Truth) -> list[EvalCase]:  # noqa: C901 - catálogo declarat
         # get_match_report solo en ESTE caso: el prompt del agente le pide, para el último partido de un equipo, comprobar el acta con su id
         # (marcador vs acta); es la misma lectura que ya permite `enfrentamiento_ganador`. El resto de límites (4 llamadas) se mantiene.
         LM | DISCOVERY | frozenset({"get_match", "get_match_report", "list_teams"}),
-        (lambda s, p: _call("list_matches", group_id=o.group_id, team_id=team, status="finished") if s == 0 else None) if o and team is not None else None,
+        # el equipo se descubre antes (list_teams): un team_id solo se acepta si una tool lo mostró
+        (lambda s, p: _call("list_teams", group_id=o.group_id) if s == 0 else
+         _call("list_matches", group_id=o.group_id, team_id=team, status="finished") if s == 1 else None) if o and team is not None else None,
         "" if last_m else "no hay un segundo grupo con partidos finalizados (no se puede detectar la confusión de grupos)", required=LM, max_calls=4))
     return cases
 
