@@ -45,7 +45,8 @@ SYSTEM_PROMPT = (
     "(get_match_report, top_scorers, list_match_events; find_players da player_id). Sin acta o con coverage.complete=false avisa de que el dato puede ser parcial; "
     "que falte no prueba que no ocurriera. No traduzcas el código de tarjeta a color. "
     "En list_matches filtra siempre: team_id (equipo), round_id (jornada), status finished/scheduled; nunca pidas "
-    "todos los partidos. Último partido de un equipo: su último finished y, con su id, get_match_report. "
+    "todos los partidos. Para contar usa limit=1 y lee count (total exacto; jugados = status finished, por jugar = total sin filtro - jugados): "
+    "nunca cuentes las filas de una lista recortada. Último partido de un equipo: su último finished y, con su id, get_match_report. "
     "Si un equipo, jugador o jornada no aparece, compruébalo con list_teams, find_players o list_rounds y di que no figura en el grupo "
     "(no que no exista), sin explicar tus comprobaciones. Si varios coinciden con el nombre, no elijas: muéstralos "
     "o pregunta cuál. Partido sin jugar (scheduled): dilo, sin marcador; finalizado sin acta importada: dilo, sin "
@@ -102,7 +103,7 @@ def compact_result(text: str, max_rows: int = DEFAULT_MAX_ROWS) -> str:
             if isinstance(value, list) and len(value) > max_rows:
                 data[key] = value[:max_rows]
                 data["truncated"] = {"list": key, "shown": max_rows, "total": len(value),
-                                     "hint": "resultado recortado: filtra por team_id, status, round_id o player_id"}
+                                     "hint": "lista INCOMPLETA: no cuentes sus filas ni deduzcas totales; filtra por team_id, status, round_id o player_id, y para contar usa limit=1 (count es el total exacto)"}
     return json.dumps(data, ensure_ascii=False, separators=(",", ":"))
 
 
@@ -114,6 +115,41 @@ class AgentResult:
     error: str | None = None
     guardrail: str | None = None
     run: RunRecord | None = None
+    official: list[dict[str, Any]] = field(default_factory=list)  # resultados válidos de las tablas oficiales obtenidos en esta ejecución
+
+
+def _date(source: Any) -> str:
+    return str(source.get("captured_at", ""))[:10] if isinstance(source, dict) and source.get("captured_at") else "fecha no informada"
+
+
+def official_lines(official: list[dict[str, Any]]) -> list[str]:
+    """Líneas VERIFICADAS (copiadas de lo que devolvieron `get_scorer_table` y `get_standings`; nada del texto del modelo)."""
+    lines: dict[tuple[str, Any], str] = {}
+    for data in official:
+        where = f"{data.get('competition', '')} ({data.get('group', '')})"
+        rows = data.get("scorers") or []
+        top = [r for r in rows if isinstance(r, dict) and r.get("rank") == 1]
+        if top:
+            names = " y ".join(f"{r.get('player')} ({r.get('team')})" for r in top)
+            lines[("scorers", data.get("group_id"))] = (
+                f"tabla oficial de goleadores de la RFFM, tabla actual con captura {_date(data.get('source'))}, {where}: "
+                f"máximo goleador {names} con {top[0].get('goals')} goles.")
+        first = next((r for r in data.get("standings") or [] if isinstance(r, dict) and r.get("position") == 1), None)
+        if first:
+            src: dict[str, Any] = data["source"] if isinstance(data.get("source"), dict) else {}
+            lines[("standings", data.get("group_id"))] = (
+                f"clasificación oficial de la RFFM, jornada {src.get('round')} con captura {_date(src)}, {where}: "
+                f"líder {first.get('team')} con {first.get('points')} puntos.")
+    return list(lines.values())
+
+
+def limit_message(official: list[dict[str, Any]]) -> str:
+    """Mensaje al agotar el límite: la limitación de siempre y, si las hay, las cifras oficiales ya verificadas."""
+    lines = official_lines(official)
+    if not lines:
+        return LIMIT_REACHED_MESSAGE
+    return (LIMIT_REACHED_MESSAGE + "\n\nLo que sí he podido verificar con la fuente oficial ya consultada:\n"
+            + "\n".join(f"- {line}" for line in lines) + "\nEl resto de lo preguntado no se ha podido verificar.")
 
 
 def summarize(is_error: bool, text: str, limit: int = 120) -> str:
@@ -341,7 +377,7 @@ class Agent:
             if result.tool_calls + len(resp.tool_calls) > self._max:
                 result.error = f"límite de {self._max} tool calls alcanzado"
                 # El texto del modelo que acompaña a las tools pendientes no está verificado: no se muestra.
-                result.answer, result.guardrail = LIMIT_REACHED_MESSAGE, "limite_herramientas"
+                result.answer, result.guardrail = limit_message(result.official), "limite_herramientas"
                 log(f"ERROR\n{result.error}; se detiene el ciclo sin ejecutar más tools")
                 return
             messages.append(Message("assistant", resp.text, resp.tool_calls))
@@ -358,6 +394,13 @@ class Agent:
         except Exception as exc:  # el error vuelve al LLM, no rompe el ciclo
             is_error, text = True, f"error_dependencia: {type(exc).__name__}"
         duration = _ms(t0)
+        if not is_error and call.name in ("get_scorer_table", "get_standings"):
+            try:
+                data = json.loads(text)
+            except ValueError:
+                data = None
+            if isinstance(data, dict) and data.get("status") in ("ok", "incomplete"):
+                result.official.append(data)
         log(f"MCP\n→ {summarize(is_error, text)}")
         sent = text if is_error else compact_result(text, self._max_rows)
         rec.tool_calls.append(ToolCallRecord(

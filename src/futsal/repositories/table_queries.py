@@ -25,7 +25,9 @@ from futsal.db.table_models import (
 STANDINGS_NOTE = ("Clasificación OFICIAL publicada por la RFFM tras la jornada indicada (no calculada). Cita la jornada y la fecha de captura; "
                   "los equipos pueden haber jugado distinto número de partidos.")
 SCORERS_NOTE = ("Tabla OFICIAL de goleadores de la RFFM: solo figuran jugadores con al menos un gol; la RFFM no publica posición, así que "
-                "`rank` se deriva de los goles y los empates comparten puesto. Un jugador que no aparece no tiene goles registrados en la tabla.")
+                "`rank` se deriva de los goles y los empates comparten puesto. Un jugador que no aparece no tiene goles registrados en la tabla. "
+                "Es la tabla ACTUAL: la RFFM no publica histórico ni desglose por jornada; no lo reconstruyas con top_scorers (actas, cobertura parcial). "
+                "Si piden una jornada pasada, di que ese desglose no consta y ofrece esta tabla indicando su fecha de captura.")
 NOT_INGESTED = "Aún no se han ingerido estos datos del grupo: no los reconstruyas con resultados o actas; di que no constan."
 
 

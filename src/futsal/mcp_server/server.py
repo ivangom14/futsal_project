@@ -184,7 +184,7 @@ def create_server(client: httpx.Client | None = None) -> FastMCP:
         name: Annotated[str | None, Field(min_length=2, max_length=80)] = None,
         limit: Annotated[int, Field(ge=1, le=50)] = 10,
     ) -> dict[str, Any]:
-        """Goleadores OFICIAL RFFM (no uses actas): solo jugadores con goles, empates con mismo rank. group_id; o competition_id para
+        """Goleadores OFICIAL RFFM (no uses actas), solo la tabla ACTUAL sin desglose por jornada: solo jugadores con goles, empates con mismo rank. group_id; o competition_id para
         el máximo de cada grupo; name busca un jugador."""
         if group_id is not None:
             return _get(http, f"/groups/{group_id}/scorer-table", f"grupo {group_id}", name=name, limit=limit)
