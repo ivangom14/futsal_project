@@ -341,3 +341,18 @@ def test_get_match_report_was_not_allowed_globally(engine: Engine) -> None:
         if cid in cases:
             assert "get_match_report" not in cases[cid].allowed_tools, cid
     assert "get_match_report" in cases["enfrentamiento_ganador"].allowed_tools                         # el precedente que ya existía
+
+
+def test_finished_without_acta_case_accepts_get_match_but_still_rejects_other_sources_and_wrong_scores(engine: Engine) -> None:
+    seed(engine)
+    truth = load_truth(engine)
+    assert truth is not None
+    case = next(c for c in build_cases(truth) if c.id == "acta_finalizado_sin_acta")
+    m = case.facts[0].matches[0]  # type: ignore[index]
+    calls = [("list_matches", {"group_id": truth.group_id, "round_id": truth.rounds[m.round_number]}), ("get_match", {"match_id": m.id}),
+             ("get_match_report", {"match_id": m.id})]
+    text = f"{m.home} {m.hs}-{m.aws} {m.away}: el acta aún no está descargada ni importada, por lo que no constan los goleadores."
+    ok = _run(engine, "live", _Script(calls, text), only={case.id})[1][0]
+    assert ok.status == "pass" and ok.tools_ok is True, (ok.detail, ok.tool_issues)
+    other = _run(engine, "live", _Script(calls + [("top_scorers", {"group_id": truth.group_id})], text), only={case.id})[1][0]
+    assert other.status == "fail" and "top_scorers" in other.unexpected_tools

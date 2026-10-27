@@ -426,6 +426,10 @@ def evidence_ok(f: Fact, payloads: list[dict[str, Any]]) -> bool:
             if any(sum(1 for r in grp if (r.get("status") == "finished") == done) == f.number
                    for grp in rows if grp):
                 return True
+        if f.status == "pending":  # el prompt manda contar «por jugar = total sin filtro - jugados»: basta que ambos `count` los devuelvan las tools
+            totals = [p["count"] for p in payloads if isinstance(p.get("count"), int)]
+            if any(a - b == f.number for a in totals for b in totals if a > b):
+                return True
         return any(p.get("count") == f.number for p in payloads)
     if f.kind == "names":
         names = {norm(str(i.get("name", ""))) for i in items}
@@ -685,6 +689,7 @@ EXTRA_ALLOWED: dict[str, frozenset[str]] = {  # herramientas de solo lectura igu
     "acta_goleadores_contra_equipo": frozenset({"list_match_events", "list_teams", "find_players"}),
     "acta_jugador_ambiguo": frozenset({"get_scorer_table"}),  # los goles de un jugador también están en la tabla oficial (Fase 16)
     "acta_dato_no_almacenado": frozenset({"get_match_report", "list_matches"}),
+    "acta_finalizado_sin_acta": frozenset({"get_match"}),  # detalle del mismo partido (marcador y estado), como en enfrentamiento_ganador
     "equipo_inexistente": frozenset({"list_teams", "list_matches", "find_players"}),
     "jornada_inexistente": frozenset({"list_rounds", "list_matches"})}
 # Herramientas de solo lectura para localizar competición, grupo, equipo o jornada: con varios grupos importados son un paso legítimo

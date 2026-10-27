@@ -181,3 +181,38 @@ def test_partial_coverage_case_asks_about_the_actas_and_the_player_ambiguity_cas
 
     assert "get_scorer_table" in EXTRA_ALLOWED["acta_jugador_ambiguo"]
     assert "get_scorer_table" not in EXTRA_ALLOWED.get("cobertura_parcial_advertencia", frozenset())  # esa vía sigue siendo la de las actas
+
+
+# --- Fase 17.9: tres ajustes del evaluador tras la ejecución live con c6720ff ---------------------------------------------------
+def test_pending_count_derived_from_total_minus_played_is_accepted_only_with_both_counts_from_the_tools() -> None:
+    from futsal.agent.evaluate import Fact, answer_ok, evidence_ok
+
+    pending, played = Fact("count", "pendientes", number=159, status="pending"), Fact("count", "jugados", number=23, status="finished")
+    both = [{"matches": [{"id": 1, "status": "finished"}], "count": 23, "shown": 1}, {"matches": [{"id": 2, "status": "scheduled"}], "count": 182, "shown": 1}]
+    assert evidence_ok(played, both) and evidence_ok(pending, both)                       # 182 - 23 = 159, ambos count salen de las tools
+    assert not evidence_ok(pending, both[:1])                                             # sin el total no hay base para derivarlo
+    assert not evidence_ok(pending, [{"count": 23}, {"count": 180}])                      # 157 != 159
+    assert not evidence_ok(Fact("count", "jugados", number=23, status="finished"), [{"count": 22}, {"count": 182}])
+    assert answer_ok(pending, "Quedan 159 partidos.") and not answer_ok(pending, "Quedan 160 partidos.")   # la respuesta se sigue comparando con la verdad
+
+
+def test_rule_numbers_copied_from_a_retrieved_fragment_with_their_context_are_supported_even_when_paraphrased() -> None:
+    from futsal.agent.criteria import unsupported_rule_citations
+
+    hit = [{"hits": [{"text": "Son aquellas sancionadas con un libre directo según lo estipulado en la Regla 3, la Regla 4 y la Regla 12.",
+                      "pages": "99", "rule": 13}]}]
+    paraphrase = "Regla 13, página 99: las faltas acumuladas son las sancionadas con libre directo según lo estipulado en la Regla 3, la Regla 4 y la Regla 12."
+    assert unsupported_rule_citations(paraphrase, hit) == []
+    invented_context = "Regla 13, página 99: además lo recoge la Regla 7 del reglamento."
+    assert unsupported_rule_citations(invented_context, hit) == ["Regla 7"]
+    moved = "Regla 13, página 99: ver también la Regla 12 sobre las manos."                # la regla existe en el texto, pero con otro contexto
+    assert unsupported_rule_citations(moved, hit) == ["Regla 12"]
+    assert unsupported_rule_citations("Regla 12", hit) == ["Regla 12"]                       # sin contexto suficiente no se da por respaldada
+
+
+def test_get_match_is_allowed_only_in_the_finished_without_acta_case_among_the_actas_cases() -> None:
+    from futsal.agent.evaluate import EXTRA_ALLOWED
+
+    assert EXTRA_ALLOWED["acta_finalizado_sin_acta"] == frozenset({"get_match"})
+    for cid in ("acta_partido_sin_acta", "acta_arbitro", "acta_jugador_inexistente", "acta_tarjetas_codigo", "acta_goleadores_ultimo"):
+        assert "get_match" not in EXTRA_ALLOWED.get(cid, frozenset()), cid

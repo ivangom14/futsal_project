@@ -187,7 +187,14 @@ def unsupported_rule_citations(text: str, payloads: list[dict[str, Any]]) -> lis
     # «…según la Regla 3, la Regla 4…»: una cita LITERAL de un fragmento recuperado no es una cita de esas reglas por parte del modelo
     corpus = norm(" ".join(str(h.get("text", "")) for h in hits))
     unquoted = QUOTE_RE.sub(lambda m: " " if len(norm(m.group(1))) >= 20 and norm(m.group(1)) in corpus else m.group(0), text)
-    out = [m.group(0) for m in RULE_REF_RE.finditer(unquoted) if int(m.group(1)) not in rules]
+
+    def copied(m: re.Match[str]) -> bool:
+        """«…según lo estipulado en la Regla 3, la Regla 4…» parafraseado: la referencia se apoya en un fragmento si repite SU contexto
+        local (las 3 palabras previas + la regla); una referencia nueva o con otro contexto sigue sin respaldo."""
+        before = norm(unquoted[:m.start()]).split()[-3:]
+        return len(before) >= 2 and " ".join([*before, f"regla {m.group(1)}"]) in corpus
+
+    out = [m.group(0) for m in RULE_REF_RE.finditer(unquoted) if int(m.group(1)) not in rules and not copied(m)]
     for m in PAGE_LIST_RE.finditer(text):
         if not {int(n) for n in re.findall(r"\d+", m.group(1))} <= pages:  # cada página de la lista debe figurar en lo recuperado
             out.append(m.group(0))
