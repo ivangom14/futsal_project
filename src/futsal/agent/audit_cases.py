@@ -183,7 +183,9 @@ def _table_cases(t: Truth) -> list[EvalCase]:  # noqa: C901 - catálogo declarat
         "resultados_otro_grupo", "resultados",
         f"¿Cómo terminó el último partido jugado de {o.teams[team]} en {o.competition} ({o.group_name})?" if o and team is not None and last_m else "",
         [Fact("match", "último partido jugado en otro grupo", (last_m,), need_score=True, exclude=o.teams[team])] if o and team is not None and last_m else None,
-        LM | DISCOVERY | frozenset({"get_match", "list_teams"}),
+        # get_match_report solo en ESTE caso: el prompt del agente le pide, para el último partido de un equipo, comprobar el acta con su id
+        # (marcador vs acta); es la misma lectura que ya permite `enfrentamiento_ganador`. El resto de límites (4 llamadas) se mantiene.
+        LM | DISCOVERY | frozenset({"get_match", "get_match_report", "list_teams"}),
         (lambda s, p: _call("list_matches", group_id=o.group_id, team_id=team, status="finished") if s == 0 else None) if o and team is not None else None,
         "" if last_m else "no hay un segundo grupo con partidos finalizados (no se puede detectar la confusión de grupos)", required=LM, max_calls=4))
     return cases

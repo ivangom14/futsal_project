@@ -284,3 +284,60 @@ def test_with_several_groups_old_questions_name_the_scope_and_discovery_tools_ar
     assert facts is not None and [f.kind for f in facts] == ["match"]
     _, results = _run(engine, "offline", only={"tabla_clasificacion_lider", "combinada_lider_proximo_partido"})
     assert [r.status for r in results] == ["pass", "pass"]
+
+
+# --- resultados_otro_grupo: get_match_report permitido SOLO en ese caso (comprobación del acta del último partido) -----------------
+def _other_group_call(truth: Truth) -> tuple[Any, list[tuple[str, dict[str, Any]]], Any]:
+    case = next(c for c in build_cases(truth) if c.id == "resultados_otro_grupo")
+    m = case.facts[0].matches[0]  # type: ignore[index]
+    team = m.home_id
+    calls = [("list_matches", {"group_id": truth.other.group_id, "team_id": team, "status": "finished"}),  # type: ignore[union-attr]
+             ("get_match_report", {"match_id": m.id})]
+    return case, calls, m
+
+
+def test_other_group_case_accepts_the_acta_check_only_when_the_functional_answer_is_right(engine: Engine) -> None:
+    seed(engine)
+    truth = load_truth(engine)
+    assert truth is not None and truth.other is not None
+    case, calls, m = _other_group_call(truth)
+    assert "get_match_report" in case.allowed_tools and case.max_calls == 4
+    warned = f"Terminó {m.home} {m.hs} - {m.aws} {m.away}. El acta aún no está descargada."
+    ok = _run(engine, "live", _Script(calls, warned), only={case.id})[1][0]
+    assert ok.status == "pass" and ok.tools_ok is True and ok.tool_issues == [], (ok.detail, ok.tool_issues, ok.claims, ok.answer)
+    # el control de advertencia sigue activo: con la tool del acta y el acta sin importar, no avisar es un fallo aunque el marcador sea correcto
+    silent = _run(engine, "live", _Script(calls, f"Terminó {m.home} {m.hs} - {m.aws} {m.away}."), only={case.id})[1][0]
+    assert silent.status == "fail" and silent.answer_ok is True and silent.warning_ok is False and silent.tools_ok is True
+    wrong = _run(engine, "live", _Script(calls, f"Terminó {m.home} {m.hs + 3} - {m.aws} {m.away}. El acta aún no está descargada."),
+                 only={case.id})[1][0]
+    assert wrong.status == "fail" and wrong.tools_ok is True and wrong.answer_ok is False            # la tool permitida no salva una cifra errónea
+
+
+def test_other_group_case_still_enforces_call_limit_and_forbids_other_sources(engine: Engine) -> None:
+    seed(engine)
+    truth = load_truth(engine)
+    assert truth is not None and truth.other is not None
+    case, calls, m = _other_group_call(truth)
+    right = f"Terminó {m.home} {m.hs} - {m.aws} {m.away}. El acta aún no está descargada."
+    too_many = calls + [("get_match", {"match_id": m.id}), ("list_teams", {"group_id": truth.other.group_id}),
+                        ("find_teams", {"name": "CLUB"})]
+    r = _run(engine, "live", _Script(too_many, right), only={case.id})[1][0]
+    assert r.status == "fail" and any("llamadas (máximo razonable 4)" in i for i in r.tool_issues)
+    other_source = calls + [("top_scorers", {"group_id": truth.other.group_id})]                      # no es una lectura equivalente
+    r2 = _run(engine, "live", _Script(other_source, right), only={case.id})[1][0]
+    assert r2.status == "fail" and "top_scorers" in r2.unexpected_tools
+    redundant = calls + [calls[1]]
+    r3 = _run(engine, "live", _Script(redundant, right), only={case.id})[1][0]
+    assert r3.status == "fail" and any("llamada repetida" in i for i in r3.tool_issues)
+
+
+def test_get_match_report_was_not_allowed_globally(engine: Engine) -> None:
+    seed(engine)
+    truth = load_truth(engine)
+    assert truth is not None
+    cases = {c.id: c for c in build_cases(truth)}
+    for cid in ("equipo_recuento", "partido_mas_goles", "recuento_global", "jornada_2_resultados", "tabla_clasificacion_lider",
+                "combinada_lider_ultimo_resultado", "tabla_goleadores_top_n", "partido_futuro_resultado"):
+        if cid in cases:
+            assert "get_match_report" not in cases[cid].allowed_tools, cid
+    assert "get_match_report" in cases["enfrentamiento_ganador"].allowed_tools                         # el precedente que ya existía
