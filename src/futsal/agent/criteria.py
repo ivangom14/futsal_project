@@ -265,9 +265,16 @@ RULES_WORDS = frozenset({"regla", "reglas", "reglamento", "reglamentos", "circul
                          "sancionar"})
 
 
+# Retribución del arbitraje: normativa que podría constar en los documentos. Solo cuenta el PAR (árbitro + cobro): «cuánto cobra Messi»
+# sigue siendo ajeno y «quién arbitró el partido» sigue siendo un dato de acta.
+REFEREE_WORDS = frozenset({"arbitro", "arbitros", "arbitraje", "colegiado", "colegiados"})
+PAY_WORDS = frozenset({"cobra", "cobran", "cobrar", "sueldo", "salario", "salarios", "honorarios", "tarifa", "tarifas", "retribucion"})
+
+
 def mentions_rules(question: str) -> bool:
     """¿Parece una pregunta sobre reglamento, circulares o sanciones? (la responde `search_rules`, no los datos de competición)"""
-    return any(w in RULES_WORDS for w in norm(question).split())
+    words = set(norm(question).split())
+    return bool(words & RULES_WORDS) or bool(words & REFEREE_WORDS and words & PAY_WORDS)
 
 
 def mentions_competition(question: str) -> bool:

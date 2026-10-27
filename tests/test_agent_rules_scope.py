@@ -161,3 +161,29 @@ def test_circular_9_case_accepts_admitting_the_content_is_missing_and_rejects_an
     assert invention_claims(case, observed, Truth(1, {}, {}, []), C10_HIT) == []   # …pero ya no como invención crítica
     invented = ideal + " Imponía 3 puntos de sanción."
     assert any("3" in c for c in invention_claims(case, invented, Truth(1, {}, {}, []), C10_HIT))
+
+
+# --- Fase 20: retribución del arbitraje, un par (árbitro + cobro) que debe comprobarse en el reglamento antes de decir «no consta» -----
+SALARIO = "¿Cuánto cobra un árbitro de futsal por partido?"
+
+
+def test_referee_pay_is_a_rules_question_only_as_a_pair_of_words() -> None:
+    assert mentions_rules(SALARIO) and mentions_rules("¿Cuál es el sueldo de un colegiado?")
+    assert not mentions_rules("¿Cuánto cobra Messi por partido?")            # cobro sin árbitro: ajeno
+    assert not mentions_rules("¿Quién arbitró el partido de la jornada 2?")  # árbitro sin cobro: dato de acta
+    assert not mentions_rules("¿Qué dice la FIFA sobre el fútbol?")          # «FIFA» sola no convierte nada en reglamento
+
+
+def test_referee_pay_is_searched_before_accepting_no_consta() -> None:
+    llm = Script([LLMResponse(LIMITATION, []), _search("tarifa arbitral retribución árbitro"),
+                  LLMResponse("En los documentos consultados no consta cuánto cobra un árbitro.", [])])
+    res = _run(llm, SALARIO)
+    assert searches == ["tarifa arbitral retribución árbitro"] and res.tool_calls == 1 and res.guardrail is None
+    assert "no consta" in res.answer and RULES_RECONSIDER_MESSAGE in llm.seen[1]
+
+
+def test_pay_of_a_non_futsal_figure_keeps_the_scope_rejection() -> None:
+    llm = Script([LLMResponse(OFF_TOPIC_MESSAGE, []), LLMResponse(OFF_TOPIC_MESSAGE, [])])   # «partido» activa la reconsulta de siempre
+    res = _run(llm, "¿Cuánto cobra Messi por partido?")
+    assert res.answer == OFF_TOPIC_MESSAGE and res.tool_calls == 0 and searches == []
+    assert not any(RULES_RECONSIDER_MESSAGE in turn for turn in llm.seen)                       # no se le manda a search_rules

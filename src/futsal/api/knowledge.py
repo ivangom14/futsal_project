@@ -14,6 +14,8 @@ NOTE = ("Fragmentos literales de los documentos indexados (campo document: regla
         "Una circular solo rige lo que su texto dice (p. ej. competiciones de la RFEF): no es normativa de la RFFM ni de otra "
         "competición salvo que lo indique. Si dos documentos difieren, preséntalos por separado sin decidir cuál prevalece, "
         "salvo que el texto lo diga.")
+NOT_INDEXED = ("La consulta cita {names}, que no está en la base: ningún fragmento procede de ella. No afirmes su contenido; "
+               "lo que otro fragmento diga sobre ella (p. ej. que la anula) cítalo con su documento y página.")
 NO_HITS = "Sin resultados: reformula con el vocabulario del reglamento (otras palabras) o dilo si sigue sin aparecer."
 
 
@@ -22,7 +24,7 @@ def _hit(h: Any, with_history: bool) -> dict[str, Any]:
     pages = str(h.page_start) if h.page_start == h.page_end else f"{h.page_start}-{h.page_end}"
     out: dict[str, Any] = {
         "document": h.document_title, "doc_key": h.doc_key, "version": h.version_label, "rule": h.rule_number,
-        "rule_title": h.rule_title, "section": section, "subsection": h.subsection_title, "pages": pages,
+        "type": h.doc_type, "rule_title": h.rule_title, "section": section, "subsection": h.subsection_title, "pages": pages,
         "score": h.score, "text": h.text, "truncated": h.truncated or None}
     if h.part and h.part != f"Regla {h.rule_number}":
         out["part"] = h.part  # procedencia dentro del documento (p. ej. «Circular FIFA n.º 1941»); la regla ya figura en `rule`
@@ -32,8 +34,14 @@ def _hit(h: Any, with_history: bool) -> dict[str, Any]:
 
 
 def payload(result: SearchResult, with_history: bool = False) -> dict[str, Any]:
-    return {"query": result.query, "method": result.method, "count": len(result.hits),
-            "hits": [_hit(h, with_history) for h in result.hits], "note": NOTE if result.hits else NO_HITS}
+    out: dict[str, Any] = {"query": result.query, "method": result.method, "count": len(result.hits),
+                           "hits": [_hit(h, with_history) for h in result.hits], "note": NOTE if result.hits else NO_HITS}
+    missing = [f"la Circular {r['circular']}" for r in result.references if r["doc_key"] is None]
+    if result.references:
+        out["cited_circulars"] = [{"circular": r["circular"], "indexed": r["doc_key"] is not None} for r in result.references]
+    if missing:
+        out["note"] += " " + NOT_INDEXED.format(names=" y ".join(missing))
+    return out
 
 
 def knowledge_router(get_engine: Callable[[], Engine]) -> APIRouter:
