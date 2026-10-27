@@ -164,3 +164,61 @@ La repetición live de la Fase 17.6 (5 pass / 2 fail, 2 «críticos») mostró q
 **Corrección** (`agent/criteria.py`, `agent/evaluate.py`): título y clave del documento, versión, sección, subsección, título de la regla y procedencia (`HIT_METADATA`) respaldan las cifras que se citan desde ellos. En los casos sin evidencia (`metadata_only`) solo cuentan esos metadatos: el TEXTO de un fragmento tangencial sigue sin respaldar ninguna cifra, y las cantidades inventadas («dos partidos», «€») se siguen detectando aparte. Residual conocido: un número inventado que coincida con uno de esos metadatos quedaría respaldado.
 **Caso `circular10_sin_evidencia_circular9`:** acepta reconocer que el contenido de la Circular 9 no consta, y que se añada que la Circular 10 la anula y sustituye (el informe lo describe así). La respuesta observada («la Circular 10 establece que la Circular 9 queda sin efecto», sin decir que su contenido no consta) **sigue fallando por la capa de respuesta**, pero ya no se marca como invención crítica.
 **Sin cambios:** el fallo de recuperación de `regla_duracion_mitad` (las consultas del modelo no devolvieron el fragmento esperado) es el RAG léxico, fuera de alcance. Tests: 3 nuevos en `tests/test_agent_rules_scope.py`.
+
+## Medición final de la Fase 17 (live, 2026-10-26) — referencia de cierre
+**Procedencia.** Cifras tomadas del `report.md` de la ejecución (generado en el equipo del usuario y adjuntado a la sesión; no está en el repositorio porque `data/` se ignora en Git) y del encargo de cierre. Esta es la única referencia de la medición final: **no se mezcla con las pasadas parciales anteriores**, que quedan arriba como histórico de diagnóstico.
+
+### Identificación
+| | |
+|---|---|
+| Ejecución | `20261026-212906-live-all`, 2026-10-26 (informe generado a las 21:40 UTC; unos 11 minutos) |
+| Commit | `ac48edc` (Fase 17.7); el informe lo marca «con cambios sin commit» en la máquina del usuario, cuyo estado exacto no se puede verificar desde el repositorio (aquí el árbol está limpio en `ac48edc`) |
+| Suite | `all-72-b32e31cb2b`: 72 casos, 65 evaluables, 7 no evaluables |
+| Proveedor / modelo | gemini / `gemini-3.5-flash-lite` |
+| Base | misma que la API (demostrado): 182 partidos, 18 actas, huella `75a2c6ab117fc8e2` |
+| Prefijo fijo por llamada | sistema 2.800 · herramientas 6.462 · contexto 1.426 caracteres (10.688) |
+| Línea de comandos | no consta en el informe (tope de peticiones y salida no verificables) |
+
+### Resultados
+**53 aprobados de 65 evaluables (81,5 %) · 12 fallidos · 7 no evaluables · 0 sin ejecutar.**
+| Categoría | Casos | Pass | Fail | No evaluables | Aprobación (evaluables) |
+|---|---|---|---|---|---|
+| A. Resultados y calendario | 15 | 12 | 2 | 1 | 12/14 |
+| B. Clasificaciones oficiales | 10 | 7 | 0 | 3 | 7/7 |
+| C. Goleadores oficiales | 9 | 6 | 1 | 2 | 6/7 |
+| D. Actas y eventos | 14 | 13 | 0 | 1 | 13/13 |
+| E. Reglamento y RAG | 20 | 13 | 7 | 0 | 13/20 |
+| F. Consultas combinadas | 3 | 1 | 2 | 0 | 1/3 |
+| G. Fuera de alcance | 1 | 1 | 0 | 0 | 1/1 |
+Capas (OK/fallo): datos 60/5 · herramientas 60/5 · respuesta 57/8 · invención 65/0 · advertencia 64/1 · presentación 65/0. RAG: recuperación correcta 16/20, citas validadas 20/20. Herramientas: 106 llamadas en 65 casos (media 1,63, máximo 5), 0 repetidas, 0 con error, 3 casos sobre el límite, 2 con herramienta no permitida. Errores críticos marcados por el evaluador: **1** (`tabla_goleadores_por_jornada_no_verificable`, ver abajo).
+
+### Consumo, coste y duración
+172 llamadas al LLM (0 reintentos) · 701.998 tokens de entrada reales (94.522 servidos desde caché) · 8.831 de salida · latencia media 2.964 ms por caso (máxima 9.167 ms, sin pausas de ritmo; pausas de ritmo 495,6 s). **Coste reportado: 0,232677 USD**, calculado con 0,30 USD y 2,50 USD por millón de tokens de entrada y salida, **precios aportados por el usuario a partir de fuentes de terceros y NO verificados en la página oficial de Google** (no se pudo abrir desde el entorno de desarrollo); no es una tarifa oficial. El cálculo tampoco descuenta los tokens en caché.
+
+### Los 12 fallos, por causa
+| Causa | Caso(s) | Evidencia de esta ejecución |
+|---|---|---|
+| Recuento incorrecto presentado con seguridad | `recuento_global` | Respondió «22 jugados y 160 pendientes» (verdad: 23 y 159) tras una sola llamada a `list_matches` sin filtrar. El evaluador no lo marca crítico (no valida recuentos derivados); falla por datos y respuesta |
+| Intento de reconstrucción desde actas y límite agotado | `tabla_goleadores_por_jornada_no_verificable` | Tras `get_scorer_table` llamó tres veces a `top_scorers` (actas) por jornadas y agotó las 5 llamadas; marcado **crítico** por fuente incorrecta. El usuario solo recibió el mensaje de límite, sin datos |
+| Exceso de llamadas y límite agotado | `combinada_lider_ultimo_resultado` | 5 llamadas (clasificación, `find_teams` con el nombre de la competición, tres `list_matches`) y mensaje de límite |
+| Partido desactualizado en la base | `combinada_lider_proximo_partido` | Respondió la jornada 6 (1 de noviembre) en lugar de la jornada 5 (24 de octubre): ese partido sigue «programado» en la base aunque su fecha ya pasó, así que la verdad depende de datos sin actualizar |
+| Discrepancia del evaluador | `resultados_otro_grupo` | Respuesta correcta (3-1) con una llamada adicional a `get_match_report`; el criterio actual permite `list_matches`, `get_match`, `list_teams` y las herramientas de descubrimiento, pero no `get_match_report` |
+| Recuperación incompleta o fuente inadecuada del RAG | `regla_roja_mano`, `circular10_saque_meta_coloquial`, `circular10_video_solicitudes`, `circular10_penal_no_acumulable`, `circular10_distingue_fifa` | La búsqueda no devolvió el fragmento esperado (regla, página y texto); `circular10_video_solicitudes` respondió con el texto FIFA en lugar de la Circular 10 |
+| Respuesta sin reconocer que el contenido no consta | `circular10_sin_evidencia_circular9` | Afirmó que la Circular 9 «ha quedado sin efecto» (anulada por la Circular 10). El evaluador no la marca como invención (invención 65/0, cita de la página 1 validada): la vigencia sale del fragmento recuperado; lo que falla es que no reconoce que el contenido de la Circular 9 no consta |
+| Falta de consulta antes de «no consta» | `regla_sin_evidencia_salario` | Respondió «No dispongo de ese dato» sin llamar a `search_rules` (la pregunta, «¿cuánto cobra un árbitro…?», no usa vocabulario de reglamento que active la reconsulta) |
+
+### No evaluables (7)
+`acta_discrepancia_resultado`, `equipo_ambiguo`, `tabla_clasificacion_jornada_pasada`, `tabla_clasificacion_no_ingerida`, `tabla_clasificacion_incompleta`, `tabla_goleadores_no_ingerida`, `tabla_goleadores_nombre_repetido`: precondiciones ausentes en la base del usuario (sin discrepancias, sin nombres repetidos, una sola jornada de clasificación ingerida, ningún grupo en esos estados). Los estados se cubren con la base sembrada de los tests de integración, no con el modelo real.
+
+### Limitaciones de la medición
+- **Una sola ejecución:** cada caso se ejecutó una vez, sin repeticiones ni estimación de varianza. No se calcula ni se presenta ningún intervalo de confianza.
+- **Variabilidad entre ejecuciones:** en las pasadas parciales previas, casos concretos cambiaron de resultado sin tocar el código (p. ej. `regla_duracion_mitad` falló o pasó según las consultas que formuló el modelo). La cifra global debe leerse como la de esta ejecución, no como una tasa estable del agente.
+- **Siete casos no evaluables** que solo se cubren con fixtures; los casos que dependen de datos de competición cambian de verdad cuando se actualiza la base.
+- Coste con tarifa no verificada oficialmente; commit marcado «con cambios sin commit» en el informe; criterios de respuesta léxicos que acotan pero no descartan la invención; un solo modelo (`gemini-3.5-flash-lite`).
+
+### Siguientes pasos recomendados (ordenados e independientes; ninguno iniciado)
+1. **Criterio del evaluador para `resultados_otro_grupo`.** El criterio actual **no** permite `get_match_report`; valorar permitirla como lectura de solo lectura equivalente (comprobar el acta), con test. Solo evaluador.
+2. **Recuentos y reconstrucción desde actas (agente).** Contar con `list_matches` filtrado y `count` (no con una lista sin filtrar) y no reconstruir con actas un dato oficial que la tabla no ofrece (goleadores por jornada). Es lo único de esta lista con cifras erróneas o intentos de reconstrucción.
+3. **Descubrimiento de equipos y eficiencia de consultas (agente).** No adivinar IDs de equipo (usar `find_teams`), elegir el último partido de una lista ya filtrada y vocabulario de reglamento más amplio para la reconsulta de `search_rules`.
+4. **Fase independiente para la recuperación léxica del RAG** (5 fallos de recuperación; la de mayor coste y riesgo de regresión).
+5. **Actualización controlada de los datos de competición** (resultados jugados desde la última ingesta; requiere peticiones web y decisión del usuario), seguida de una nueva evaluación cuando proceda: cambiará la verdad de los casos de próximo y último partido.
