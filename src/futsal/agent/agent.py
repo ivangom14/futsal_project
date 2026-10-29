@@ -86,7 +86,7 @@ AMBIGUOUS_TEAM_MESSAGE = (
     "Pregunta al usuario a qué competición y grupo se refiere en lugar de elegir uno."
 )
 TEAM_ARGS = ("team_id", "against_team_id")
-TEAM_HINT = "Obtén el equipo con find_teams (por nombre) o list_teams (por grupo) y usa su id."
+TEAM_HINT = "Obtén el equipo con find_teams (por nombre) y usa su id."
 ROUND_HINT = "Obtén las jornadas con list_rounds(group_id) y usa su id (no el número de jornada)."
 DEFAULT_MAX_TOOL_CALLS = 5
 DEFAULT_MAX_ROWS = 40
@@ -453,7 +453,7 @@ class Agent:
             log(f"MCP\n→ ERROR {refusal[:120]}")
             rec.tool_calls.append(ToolCallRecord(len(rec.tool_calls) + 1, llm_call, call.name, dict(call.arguments),
                                                  0.0, True, len(refusal), len(refusal), f"ERROR {refusal[:120]}", False,
-                                                 refusal if self._trace_results else None))
+                                                 refusal if self._trace_results else None, refused=True))
             return ToolResult(call.id, refusal, True)
         if key in self._seen:  # misma llamada ya hecha en esta pregunta: se reutiliza el resultado (sigue contando)
             was_error, sent = self._seen[key]

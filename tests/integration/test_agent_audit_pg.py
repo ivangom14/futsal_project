@@ -284,6 +284,8 @@ def test_with_several_groups_old_questions_name_the_scope_and_discovery_tools_ar
     # el caso del próximo partido del líder ya no exige los puntos, que la pregunta no pide
     facts = cases["combinada_lider_proximo_partido"].facts
     assert facts is not None and [f.kind for f in facts] == ["match"]
+    last = cases["combinada_lider_ultimo_resultado"].facts                      # tampoco pide los puntos del líder
+    assert last is not None and [f.kind for f in last] == ["match"] and "get_standings" in cases["combinada_lider_ultimo_resultado"].required
     _, results = _run(engine, "offline", only={"tabla_clasificacion_lider", "combinada_lider_proximo_partido"})
     assert [r.status for r in results] == ["pass", "pass"]
 

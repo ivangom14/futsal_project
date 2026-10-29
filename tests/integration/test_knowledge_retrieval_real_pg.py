@@ -167,3 +167,16 @@ def test_fixture_metrics_do_not_regress(real: Engine) -> None:
         lit = summarize(evaluate(KnowledgeSearch(real), qs))
         ref = summarize(evaluate(KnowledgeSearch(real), qs, reformulated=True))
         assert lit["text@5"] >= lit5 and ref["text@5"] >= ref5 and lit["page@5"] >= page5, (key, lit, ref)
+
+
+@pytest.mark.parametrize(("cid", "query", "rule"), [
+    ("circular10_saque_meta_coloquial", "saque de meta portero pasar la linea de medio campo", 12),     # consultas reales de la ejecución live
+    ("circular10_saque_meta_coloquial", "guardameta saque de meta mas alla de la linea de medio campo", 16),
+    ("circular10_penal_no_acumulable", "falta acumulada penalti", 13),
+])
+def test_a_rule_filter_chosen_by_the_model_no_longer_hides_the_circular(real: Engine, cid: str, query: str, rule: int) -> None:
+    case = _case(cid)
+    fact = (case.facts or [])[0]
+    assert fact.contains
+    res = KnowledgeSearch(real).search(query, limit=5, rule=rule)
+    assert any(_n(fact.contains) in _n(h.text) and h.doc_key == KEYS[2] for h in res.hits), (query, rule)

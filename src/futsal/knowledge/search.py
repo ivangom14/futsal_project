@@ -83,7 +83,7 @@ WHERE {match}
   AND (CAST(:version_label AS text) IS NULL
        OR coalesce(v.version_label, d.version_label) = :version_label)
   AND (CAST(:language AS text) IS NULL OR d.language = :language)
-  AND (CAST(:rule AS integer) IS NULL OR c.rule_number = :rule)
+  AND (CAST(:rule AS integer) IS NULL OR c.rule_number = :rule OR d.doc_type = 'circular')
 ORDER BY score DESC, c.id
 LIMIT :limit
 """

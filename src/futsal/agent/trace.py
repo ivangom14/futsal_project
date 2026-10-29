@@ -65,6 +65,7 @@ class ToolCallRecord:
     result_summary: str
     truncated: bool
     result: str | None = None  # texto enviado al LLM; solo se serializa con include_results
+    refused: bool = False  # el agente no la ejecutó (ID no obtenido de una tool o equipo ambiguo): cuenta como llamada, no como fallo de la tool
 
 
 @dataclass

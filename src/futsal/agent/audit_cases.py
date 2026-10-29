@@ -138,7 +138,6 @@ def _table_cases(t: Truth) -> list[EvalCase]:  # noqa: C901 - catálogo declarat
     lid = lead_row.get("team_id") if lead_row else None
     fin = sorted((m for m in t.of_team(int(str(lid)), "finished") if m.hs is not None), key=lambda m: (m.round_number, m.id)) if lid in t.teams else []
     pend = sorted((m for m in t.of_team(int(str(lid)), "pending") if m.day), key=lambda m: (m.day, m.id)) if lid in t.teams else []
-    lead_facts = [Fact("table_row", "líder oficial", names=(str(lead_row["team"]),), number=int(str(lead_row["points"])), status="team:points")] if lead_row else []
 
     def two_steps(second: ToolCall | None) -> Plan:
         return lambda s, p: _call("get_standings", group_id=g) if s == 0 else (
@@ -146,7 +145,8 @@ def _table_cases(t: Truth) -> list[EvalCase]:  # noqa: C901 - catálogo declarat
 
     cases.append(EvalCase(
         "combinada_lider_ultimo_resultado", "combinada_fuentes", f"En {_where(main)}, ¿quién lidera el grupo y cuál fue su último resultado?" if main else "",
-        lead_facts + [Fact("match", "último partido del líder", (fin[-1],), need_score=True, exclude=str(lead_row["team"]))] if fin and lead_row else None,
+        # la pregunta no pide los puntos del líder (como en el próximo partido): basta el partido; el líder se comprueba con la tool obligatoria
+        [Fact("match", "último partido del líder", (fin[-1],), need_score=True, exclude=str(lead_row["team"]))] if fin and lead_row else None,
         STD | LM | DISCOVERY | frozenset({"get_match", "list_teams"}),
         two_steps(ToolCall("c-list_matches", "list_matches", {"group_id": g, "team_id": lid, "status": "finished"})) if fin else None,
         "" if fin else "no hay clasificación oficial ingerida o el líder no tiene partidos finalizados", required=STD | LM, max_calls=3))

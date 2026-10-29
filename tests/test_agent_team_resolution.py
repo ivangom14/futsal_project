@@ -233,3 +233,24 @@ def test_tools_without_team_or_round_ids_are_untouched() -> None:
     assert res.tool_calls == 3 and res.guardrail is None and len(res.official) == 1
     assert not any("error_validacion" in r for r in _results(llm))
     assert [dict(r.url.params) for r in requests if r.url.path == "/groups/1/matches"] == [{"status": "finished"}]
+
+
+# --- una llamada rechazada no es un fallo de la herramienta, pero sigue contando como llamada ---------------------------------------
+def test_refused_calls_are_marked_and_the_hint_only_names_find_teams() -> None:
+    from futsal.agent.evaluate import verdict_calls
+    llm = Script([_call("list_matches", group_id=1, team_id=11), _call("find_teams", name="DOSA"),
+                  _call("list_matches", group_id=1, team_id=11, limit=1), LLMResponse("ok", [])])
+    res = _run(llm, "partidos del CD DOSA")
+    assert res.run is not None
+    flags = [(tc.name, tc.refused, tc.is_error) for tc in res.run.tool_calls]
+    assert flags == [("list_matches", True, True), ("find_teams", False, False), ("list_matches", False, False)]
+    assert "find_teams" in _results(llm)[0] and "list_teams" not in _results(llm)[0]
+    calls = verdict_calls(res.run.tool_calls)
+    assert [c[2] for c in calls] == [False, False, False] and len(calls) == 3        # sin «devolvió error», pero cuenta para el máximo
+
+
+def test_a_real_tool_error_is_still_an_error_in_the_verdict() -> None:
+    from futsal.agent.evaluate import verdict_calls
+    llm = Script([_call("find_teams", name="DOSA"), _call("list_matches", group_id=999, team_id=11), LLMResponse("no se pudo", [])])
+    res = _run(llm, "partidos del CD DOSA")
+    assert res.run is not None and [c[2] for c in verdict_calls(res.run.tool_calls)] == [False, True]

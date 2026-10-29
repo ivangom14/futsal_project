@@ -208,7 +208,7 @@ def create_server(client: httpx.Client | None = None) -> FastMCP:
     def search_rules(
         query: Annotated[str, Field(min_length=2, max_length=500, description="Palabras clave del reglamento")],
         limit: Annotated[int, Field(ge=1, le=10)] = 5,
-        rule: Annotated[int | None, Field(ge=1, description="Solo esta regla (número)")] = None,
+        rule: Annotated[int | None, Field(ge=1, description="Solo esa regla FIFA (las circulares se incluyen siempre); úsalo solo si el usuario nombra la regla")] = None,
     ) -> dict[str, Any]:
         """Reglas del juego (reglamento FIFA de fútbol sala y circulares de la RFEF sobre reglas y criterios arbitrales, texto literal). Búsqueda por palabras: reformula con el
         vocabulario del reglamento (córner→saque de esquina, pista→terreno de juego, roja→expulsión, cambios→sustituciones,

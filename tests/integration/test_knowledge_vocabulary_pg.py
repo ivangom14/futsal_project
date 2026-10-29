@@ -147,3 +147,12 @@ def test_a_question_without_evidence_gets_no_fragment_that_answers_it(kb: Engine
     body = TestClient(create_app(kb)).get("/knowledge/search", params={"q": "cuanto cobra un arbitro de futsal por partido"}).json()
     assert not any("cobra" in h["text"].lower() or "euros" in h["text"].lower() for h in body["hits"])
     assert "cited_circulars" not in body                       # sin circular citada no hay referencias ni avisos inventados
+
+
+# --- el filtro rule no oculta las circulares ----------------------------------------------------------------------------------------
+def test_rule_filter_keeps_circular_provisions_and_still_limits_the_general_rules(kb: Engine) -> None:
+    hits = KnowledgeSearch(kb).search("guardameta saque de meta balón línea", limit=10, rule=16).hits
+    kinds = {(h.doc_key, h.rule_number) for h in hits}
+    assert (C10_KEY, None) in kinds                                      # la circular (sin número de regla) sigue apareciendo
+    assert all(h.rule_number == 16 for h in hits if h.doc_key == FIFA_KEY)   # y las reglas FIFA siguen filtradas por número
+    assert {h.page_start for h in hits if h.doc_key == FIFA_KEY} == {116}

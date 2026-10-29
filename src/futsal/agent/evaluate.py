@@ -1080,6 +1080,12 @@ def describe(facts: list[Fact] | None) -> str:
     return "; ".join(out)
 
 
+def verdict_calls(records: list[Any]) -> list[tuple[str, str, bool]]:
+    """Llamadas para el veredicto de herramientas. Una llamada que el agente rechazó (ID supuesto) cuenta para el máximo de llamadas
+    y las repeticiones, pero no es un error de la herramienta, que nunca se ejecutó."""
+    return [(tc.name, json.dumps(tc.arguments, sort_keys=True), tc.is_error and not tc.refused) for tc in records]
+
+
 def tools_verdict(case: EvalCase, calls: list[tuple[str, str, bool]], guardrail: str | None) -> list[str]:
     """Veredicto de USO DE HERRAMIENTAS. `calls`: (nombre, argumentos serializados, es_error). Vacío = correcto."""
     issues: list[str] = []
@@ -1184,8 +1190,7 @@ async def run_case(case: EvalCase, mcp: McpClient, mode: str, llm: LLMClient | N
     # capa 1: DATOS (¿devolvieron las tools la cifra correcta?)
     res.evidence_ok = True if structural else all(evidence_ok(f, payloads) for f in facts)
     # capa 2: USO DE HERRAMIENTAS
-    res.tool_issues = tools_verdict(case, [(tc.name, json.dumps(tc.arguments, sort_keys=True), tc.is_error)
-                                           for tc in rec.tool_calls], run.guardrail)
+    res.tool_issues = tools_verdict(case, verdict_calls(rec.tool_calls), run.guardrail)
     res.tools_ok = not res.tool_issues
     # capa 3: RESPUESTA (hechos) + INVENCIÓN + ADVERTENCIA; solo con texto real del modelo (live) o rechazo determinista
     infra = bool(run.error) and bool(rec.llm_calls) and bool(rec.llm_calls[-1].error)  # el LLM no respondió (429, red…)
