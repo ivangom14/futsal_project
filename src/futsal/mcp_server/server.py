@@ -181,6 +181,19 @@ def create_server(client: httpx.Client | None = None) -> FastMCP:
         return _get(http, f"/groups/{group_id}/standings", f"grupo {group_id}", round=round)
 
     @mcp.tool()
+    def get_data_freshness(
+        group_id: int | None = None,
+        competition_id: int | None = None,
+    ) -> dict[str, Any]:
+        """Cuándo se actualizó cada dato (partidos, actas, clasificación, goleadores) de un grupo (group_id) o de una competición (competition_id),
+        con avisos de datos desactualizados o parciales. Solo lectura; úsala si preguntan si los datos están al día."""
+        if group_id is not None:
+            return _get(http, f"/groups/{group_id}/freshness", f"grupo {group_id}")
+        if competition_id is None:
+            raise ToolError("error_validacion: indica group_id o competition_id")
+        return _get(http, f"/competitions/{competition_id}/freshness", f"competición {competition_id}")
+
+    @mcp.tool()
     def get_scorer_table(
         group_id: int | None = None,
         competition_id: int | None = None,

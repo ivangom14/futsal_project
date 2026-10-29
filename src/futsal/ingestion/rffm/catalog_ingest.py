@@ -157,6 +157,9 @@ def _scrape_group(target: Target, gdir: Path, fetch: Fetch, expected_rounds: int
     }
 
 
+scrape_group = _scrape_group  # descarga de un grupo sin tocar el informe global del catálogo (lo usa `refresh`)
+
+
 def scrape_catalog(inventory: dict[str, Any], out_root: Path, fetch: Fetch, *, only: set[str] | None = None,
                    refresh: bool = False, resume: bool = False, max_rounds: int | None = None,
                    requests_made: Callable[[], int] = lambda: 0,

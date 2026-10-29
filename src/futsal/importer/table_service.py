@@ -35,6 +35,7 @@ from futsal.ingestion.rffm.table_ingest import (
     standings_rounds,
 )
 from futsal.ingestion.rffm.tables import ScorerTable, StandingsTable
+from futsal.repositories.table_queries import choose_snapshot
 
 DONE = ("ok", "empty", "not_applicable")  # resultados que `--resume` no repite dentro de la ventana de edad
 REPORT_NAMES = {"standings": "tables-standings-report.json", "scorers": "tables-scorers-report.json"}
@@ -301,11 +302,12 @@ def _kind_coverage(s: Session, gid: int, kind: str) -> dict[str, Any]:
     standings_snap = scorers_snap = None
     rounds: list[int] = []
     if kind == "standings":
-        standings_snap = s.scalar(select(StandingsSnapshot).where(StandingsSnapshot.group_id == gid)
-                                  .order_by(StandingsSnapshot.round_number.desc(), StandingsSnapshot.last_seen_at.desc()).limit(1))
+        standings_snap, _ = choose_snapshot(s, StandingsSnapshot, [StandingsSnapshot.group_id == gid], [
+            StandingsSnapshot.round_number.desc(), StandingsSnapshot.last_seen_at.desc(), StandingsSnapshot.id.desc()])
         rounds = sorted(r for (r,) in s.execute(select(StandingsSnapshot.round_number).where(StandingsSnapshot.group_id == gid).distinct()))
     else:
-        scorers_snap = s.scalar(select(ScorerSnapshot).where(ScorerSnapshot.group_id == gid).order_by(ScorerSnapshot.last_seen_at.desc()).limit(1))
+        scorers_snap, _ = choose_snapshot(s, ScorerSnapshot, [ScorerSnapshot.group_id == gid],
+                                          [ScorerSnapshot.last_seen_at.desc(), ScorerSnapshot.id.desc()])
     snap = standings_snap or scorers_snap
     info: dict[str, Any] = {"last_attempt": None if last is None else {
         "outcome": last.outcome, "at": last.attempted_at.isoformat(), "error_code": last.error_code, "error": last.error_message}}
@@ -319,9 +321,10 @@ def _kind_coverage(s: Session, gid: int, kind: str) -> dict[str, Any]:
                     teams_expected=standings_snap.expected_teams)
     elif scorers_snap is not None:
         info["goals_total"] = scorers_snap.goals_total
-        team_goals = s.scalar(select(func.sum(StandingsRow.goals_for)).join(StandingsSnapshot, StandingsSnapshot.id == StandingsRow.snapshot_id)
-                              .where(StandingsSnapshot.group_id == gid, StandingsSnapshot.round_number == select(
-                                  func.max(StandingsSnapshot.round_number)).where(StandingsSnapshot.group_id == gid).scalar_subquery()))
+        served_standings, _ = choose_snapshot(s, StandingsSnapshot, [StandingsSnapshot.group_id == gid], [
+            StandingsSnapshot.round_number.desc(), StandingsSnapshot.last_seen_at.desc(), StandingsSnapshot.id.desc()])
+        team_goals = None if served_standings is None else s.scalar(
+            select(func.sum(StandingsRow.goals_for)).where(StandingsRow.snapshot_id == served_standings.id))
         info["team_goals_in_standings"] = int(team_goals) if team_goals is not None else None
     if last is not None and last.outcome in ("failed", "round_unavailable"):
         info["stale"] = "el último intento falló: se muestra la última captura buena"

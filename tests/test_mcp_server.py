@@ -11,7 +11,7 @@ from futsal.mcp_server.server import create_server
 
 TOOLS = {"list_competitions", "list_groups", "list_rounds", "list_teams", "list_matches",
          "get_match", "get_match_report", "list_match_events", "top_scorers", "find_players", "find_teams",
-         "search_rules", "get_standings", "get_scorer_table"}
+         "search_rules", "get_standings", "get_scorer_table", "get_data_freshness"}
 LISTING = {"items": [{"id": 1}], "count": 1}
 
 

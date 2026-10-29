@@ -96,7 +96,7 @@ def run_report_import(engine: Engine, input_path: Path, *, dry_run: bool = False
         return out
     with Session(engine) as session, session.begin():
         run = IngestionRun(source=RUN_SOURCE, started_at=now, status="running",
-                           input_path=str(input_path))
+                           input_path=str(input_path), kind="report")
         session.add(run)
         session.flush()
         run_id = run.id

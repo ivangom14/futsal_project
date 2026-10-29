@@ -1,6 +1,7 @@
 """Modelo relacional (SQLAlchemy 2). Claves internas + identificadores externos de RFFM."""
 
 from datetime import date, datetime, time
+from typing import Any
 
 from sqlalchemy import (
     BigInteger,
@@ -131,7 +132,8 @@ class Match(Tracked, Base):
 class IngestionRun(Base):
     __tablename__ = "ingestion_runs"
     __table_args__ = (
-        CheckConstraint("status IN ('running','success','failed')", name="status_valid"),)
+        CheckConstraint("status IN ('running','success','failed','partial','no_changes','cancelled','abandoned')",
+                        name="status_valid"),)
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
     source: Mapped[str] = mapped_column(String(32), default="rffm")
     started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
@@ -146,6 +148,8 @@ class IngestionRun(Base):
     observations_created: Mapped[int] = mapped_column(Integer, default=0)
     issues_created: Mapped[int] = mapped_column(Integer, default=0)
     error_summary: Mapped[str | None] = mapped_column(Text)
+    kind: Mapped[str] = mapped_column(String(24), default="import", server_default="import")
+    stats: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
 
 
 class MatchObservation(Base):
@@ -176,6 +180,29 @@ class DataQualityIssue(Base):
     external_id: Mapped[str | None] = mapped_column(String(64))
     message: Mapped[str] = mapped_column(Text)
     created_at: Mapped[datetime] = _ts()
+    details: Mapped[dict[str, Any] | None] = mapped_column(JSONB)  # identificadores y valores implicados (Fase 21)
+
+
+class DatasetRefresh(Base):
+    """Última actualización de un tipo de dato (partidos, actas) de un grupo: intento, último resultado válido y consulta a la fuente.
+
+    Clasificaciones y goleadores no se guardan aquí: su frescura sale de sus capturas e intentos.
+    """
+
+    __tablename__ = "dataset_refreshes"
+    __table_args__ = (
+        UniqueConstraint("group_id", "dataset"),
+        CheckConstraint("dataset IN ('matches','reports')", name="dataset_valid"),)
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    group_id: Mapped[int] = mapped_column(ForeignKey("competition_groups.id"))
+    dataset: Mapped[str] = mapped_column(String(16))
+    last_attempt_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    last_attempt_status: Mapped[str] = mapped_column(String(16))
+    last_attempt_run_id: Mapped[int | None] = mapped_column(ForeignKey("ingestion_runs.id"))
+    last_attempt_message: Mapped[str | None] = mapped_column(Text)
+    last_valid_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    last_valid_run_id: Mapped[int | None] = mapped_column(ForeignKey("ingestion_runs.id"))
+    source_fetched_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class MatchReport(Tracked, Base):

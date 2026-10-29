@@ -74,16 +74,46 @@ def _missing(db: Session, group: CompetitionGroup, competition: Competition, kin
     return {**head, "status": "not_ingested", "message": NOT_INGESTED}
 
 
+def choose_snapshot(db: Session, model: Any, where: list[Any], valid_order: list[Any]) -> tuple[Any, Any]:
+    """(captura que se sirve, última captura realizada).
+
+    Se sirve la última captura `ok`; una `incomplete` o `empty` posterior se conserva pero no la sustituye. Solo si nunca hubo una
+    `ok` se sirve la más reciente (una `empty` es entonces la ausencia oficial de datos; una `incomplete`, lo mejor disponible y marcada).
+    """
+    latest = db.scalar(select(model).where(*where).order_by(model.last_seen_at.desc(), model.id.desc()).limit(1))
+    valid = db.scalar(select(model).where(*where, model.status == "ok").order_by(*valid_order).limit(1))
+    if valid is not None:
+        return valid, latest
+    return db.scalar(select(model).where(*where).order_by(*valid_order).limit(1)), latest
+
+
+def _capture(served: Any, latest: Any) -> tuple[dict[str, Any], str | None]:
+    """Bloque `capture` (última válida frente a última realizada) y aviso si el último intento fue parcial o vacío."""
+    info: dict[str, Any] = {"served_status": served.status, "last_valid_at": _iso(served.fetched_at) if served.status == "ok" else None,
+                            "latest_status": latest.status, "latest_captured_at": _iso(latest.fetched_at)}
+    if latest.id == served.id or latest.last_seen_at <= served.last_seen_at:
+        return _clean(info), None
+    label = {"incomplete": "parcial", "empty": "vacío"}.get(latest.status, latest.status)
+    rnd = getattr(latest, "round_number", None)
+    return _clean(info), (f"El último intento de actualización{f' (jornada {rnd})' if rnd else ''} fue {label} "
+                          f"(capturado {_iso(latest.fetched_at)}): se muestra la última captura válida, de {_iso(served.fetched_at)}.")
+
+
+def _join_warning(*parts: str | None) -> str | None:
+    text = " ".join(p for p in parts if p)
+    return text or None
+
+
 def standings(db: Session, group_id: int, round_number: int | None = None) -> dict[str, Any] | None:
     found = group_info(db, group_id)
     if found is None:
         return None
     group, competition = found
-    stmt = select(StandingsSnapshot).where(StandingsSnapshot.group_id == group_id)
+    where: list[Any] = [StandingsSnapshot.group_id == group_id]
     if round_number is not None:
-        stmt = stmt.where(StandingsSnapshot.round_number == round_number)
-    snap = db.scalar(stmt.order_by(StandingsSnapshot.round_number.desc(), StandingsSnapshot.last_seen_at.desc(),
-                                   StandingsSnapshot.id.desc()).limit(1))
+        where.append(StandingsSnapshot.round_number == round_number)
+    snap, latest = choose_snapshot(db, StandingsSnapshot, where, [
+        StandingsSnapshot.round_number.desc(), StandingsSnapshot.last_seen_at.desc(), StandingsSnapshot.id.desc()])
     rounds = sorted(r for (r,) in db.execute(select(StandingsSnapshot.round_number).where(StandingsSnapshot.group_id == group_id).distinct()))
     if snap is None:
         out = _missing(db, group, competition, "standings", round_number)
@@ -108,12 +138,19 @@ def standings(db: Session, group_id: int, round_number: int | None = None) -> di
             "lost": r.lost, "goals_for": r.goals_for, "goals_against": r.goals_against,
             "goal_difference": r.goals_for - r.goals_against, "points": r.points,
             "penalty_points": r.penalty_points or None, "zone": promos.get((r.details or {}).get("color"))}) for r in rows]}
+    capture, partial_warning = _capture(snap, latest)
+    out["capture"] = capture
+    lag = None
     if snap.current_round is not None and snap.round_number < snap.current_round and round_number is None:
-        out["warning"] = f"Última jornada ingerida: {snap.round_number}; la RFFM ya iba por la {snap.current_round}."
+        lag = f"Última jornada ingerida: {snap.round_number}; la RFFM ya iba por la {snap.current_round}."
+    failed = None
     last = _last_attempt(db, group_id, "standings", round_number)
     if last is not None and last.outcome in ("failed", "round_unavailable") and last.attempted_at > snap.last_seen_at:
         out["last_attempt"] = _attempt_dict(last)
-        out["warning"] = "El último intento de actualización falló: se muestra la última captura buena."
+        failed = "El último intento de actualización falló: se muestra la última captura buena."
+    warning = _join_warning(lag, partial_warning, failed)
+    if warning:
+        out["warning"] = warning
     return out
 
 
@@ -140,8 +177,8 @@ def scorer_table(db: Session, group_id: int, *, name: str | None = None, team_id
     if found is None:
         return None
     group, competition = found
-    snap = db.scalar(select(ScorerSnapshot).where(ScorerSnapshot.group_id == group_id)
-                     .order_by(ScorerSnapshot.last_seen_at.desc(), ScorerSnapshot.id.desc()).limit(1))
+    snap, latest = choose_snapshot(db, ScorerSnapshot, [ScorerSnapshot.group_id == group_id],
+                                    [ScorerSnapshot.last_seen_at.desc(), ScorerSnapshot.id.desc()])
     if snap is None:
         return _missing(db, group, competition, "scorers", None)
     rows = list(db.scalars(select(ScorerRow).where(ScorerRow.snapshot_id == snap.id).order_by(ScorerRow.row_order)))
@@ -162,10 +199,16 @@ def scorer_table(db: Session, group_id: int, *, name: str | None = None, team_id
         "matching": len(selected), "shown": len(shown), "scorers": [d for _, d in shown]}
     if (name or team_id is not None) and not selected:
         out["message"] = "No figura en la tabla de goleadores (solo se publican jugadores con goles): no consta que haya marcado."
+    capture, partial_warning = _capture(snap, latest)
+    out["capture"] = capture
+    failed = None
     last = _last_attempt(db, group_id, "scorers")
     if last is not None and last.outcome in ("failed", "round_unavailable") and last.attempted_at > snap.last_seen_at:
         out["last_attempt"] = _attempt_dict(last)
-        out["warning"] = "El último intento de actualización falló: se muestra la última captura buena."
+        failed = "El último intento de actualización falló: se muestra la última captura buena."
+    warning = _join_warning(partial_warning, failed)
+    if warning:
+        out["warning"] = warning
     return out
 
 
@@ -176,7 +219,7 @@ def competition_scorers(db: Session, competition_id: int, limit: int) -> dict[st
     groups = []
     for g in db.scalars(select(CompetitionGroup).where(CompetitionGroup.competition_id == competition_id).order_by(CompetitionGroup.id)):
         table = scorer_table(db, g.id, limit=limit) or {}
-        groups.append(_clean({k: table.get(k) for k in ("group_id", "group", "status", "source", "coverage", "scorers", "message", "warning")}))
+        groups.append(_clean({k: table.get(k) for k in ("group_id", "group", "status", "source", "coverage", "capture", "scorers", "message", "warning")}))
     return {"competition_id": competition.id, "competition": competition.name, "derived": ["rank", "tied_with"], "note": SCORERS_NOTE,
             "groups": groups}
 

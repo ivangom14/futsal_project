@@ -20,6 +20,7 @@ from futsal.db.models import (
     Season,
     Team,
 )
+from futsal.api.freshness import freshness_router
 from futsal.api.knowledge import knowledge_router
 from futsal.api.reports import reports_router
 from futsal.api.tables import tables_router
@@ -219,6 +220,7 @@ def create_app(engine: Engine | None = None, today: Callable[[], date] = date.to
 
     app.include_router(reports_router(get_session))
     app.include_router(tables_router(get_session))
+    app.include_router(freshness_router(get_session))
     app.include_router(knowledge_router(get_engine))
     return app
 

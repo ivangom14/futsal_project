@@ -67,9 +67,11 @@ class Loaded:
 
 
 def select_candidates(
-    session: Session, group_external_id: str | Sequence[str] | None, limit: int | None = None
+    session: Session, group_external_id: str | Sequence[str] | None, limit: int | None = None, *, with_report: bool = False
 ) -> list[Candidate]:
-    """Partidos finalizados con marcador y sin acta. `group_external_id`: un grupo, varios, o None = todos los grupos."""
+    """Partidos finalizados con marcador y sin acta (con `with_report`, los que YA tienen acta: para revisarla).
+
+    `group_external_id`: un grupo, varios, o None = todos los grupos."""
     groups = [group_external_id] if isinstance(group_external_id, str) else group_external_id
     home, away = aliased(Team), aliased(Team)
     stmt = (
@@ -81,7 +83,7 @@ def select_candidates(
         .join(Season, Season.id == Competition.season_id)
         .outerjoin(MatchReport, MatchReport.match_id == Match.id)
         .where(Match.status == "finished", Match.home_score.is_not(None), Match.away_score.is_not(None),
-               MatchReport.id.is_(None))
+               MatchReport.id.is_not(None) if with_report else MatchReport.id.is_(None))
         .order_by(CompetitionGroup.external_id, cast(Round.external_id, Integer), Match.external_id))
     if groups is not None:
         stmt = stmt.where(CompetitionGroup.external_id.in_(list(groups)))

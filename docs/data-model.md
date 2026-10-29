@@ -66,3 +66,9 @@ Solo campos observados en un acta real (ver `docs/match-report-discovery.md`).
   anterior queda en `match_observations`, incidencia `report_score_applied`; `import-league` no lo revierte).
   Acta no cerrada, o fecha/hora/campo distintos: incidencia `report_value_mismatch` sin tocar `matches`.
   Equipos/competición/grupo/jornada distintos: error material y rollback. Migración 0003 añade `own_goal`.
+
+## Actualización y consistencia (Fase 21, migración 0006)
+- `ingestion_runs`: `kind` (`import` histórico, `matches`, `report`, `refresh`), `stats` JSONB y estados `partial`, `no_changes`, `cancelled`, `abandoned` (superconjunto del CHECK anterior).
+- `data_quality_issues.details` (JSONB): identificadores y valores implicados (`identity_conflict`, `finished_regression_held|confirmed|resolved`).
+- `dataset_refreshes`: por grupo y tipo (`matches`, `reports`), último intento y última actualización válida. Reglas y comandos: `docs/phase21-data-refresh-consistency.md`.
+- Un partido existente en otro grupo no se mueve (`identity_conflict`); un `finished` no se degrada a `scheduled`/`unknown` sin confirmación; las consultas de tablas oficiales sirven la última captura `ok`.

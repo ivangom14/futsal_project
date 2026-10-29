@@ -4,6 +4,7 @@ import hashlib
 import json
 from dataclasses import dataclass, field
 from datetime import UTC, date, datetime, time
+from typing import Any
 from zoneinfo import ZoneInfo
 
 from futsal.importer.schema import LeagueFile
@@ -18,6 +19,7 @@ class Issue:
     entity_type: str
     external_id: str | None
     message: str
+    details: dict[str, Any] | None = None
 
 
 @dataclass(frozen=True)

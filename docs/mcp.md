@@ -27,6 +27,7 @@ Los listados devuelven `{<clave>: [...], "count": N}`. IDs = IDs internos de BD.
 | `top_scorers` | `group_id`, mismos filtros + `min_goals`, `limit` | `GET /groups/{id}/scorers` (goles de las actas; no es la tabla oficial) |
 | `get_standings` | `group_id`, `round` (opc.) | `GET /groups/{id}/standings` (clasificación oficial RFFM) |
 | `get_scorer_table` | `group_id` o `competition_id`, `name` (opc.), `limit` | `GET /groups/{id}/scorer-table` / `GET /competitions/{id}/scorer-table` (goleadores oficiales RFFM) |
+| `get_data_freshness` | `group_id` o `competition_id` | `GET /groups/{id}/freshness` / `GET /competitions/{id}/freshness` (Fase 21, solo lectura: cuándo se actualizó cada dato y avisos; el MCP no puede iniciar actualizaciones) |
 | `find_teams` | `name` | `GET /teams?name=` (equipos de todos los grupos; `team_id`, `group_id`, grupo y competición) |
 | `find_players` | `group_id`, `name`, `team_id` (opc.) | `GET /groups/{id}/players` |
 | `search_rules` | `query`, `limit` (1-10, def. 5), `rule` (opc.) | `GET /knowledge/search` (reglamento FIFA y Circular 27 de la RFEF; búsqueda léxica, citar documento, regla y página) |
