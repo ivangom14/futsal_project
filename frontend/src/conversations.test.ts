@@ -45,4 +45,11 @@ describe("conversaciones", () => {
     localStorage.setItem(STORAGE_KEY, "{no json");
     expect(loadState()).toEqual(empty);
   });
+
+  it("descarta conversaciones con forma inválida en lugar de romper la app", () => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ conversations: [{ id: "a", title: "x" }, { id: "b", title: "ok", messages: [] }], activeId: "a" }));
+    const s = loadState();
+    expect(s.conversations.map((c) => c.id)).toEqual(["b"]);
+    expect(s.activeId).toBe("b");
+  });
 });

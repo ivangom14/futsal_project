@@ -20,14 +20,22 @@ export function createConversation(now = Date.now()): Conversation {
   return { id: uid(), title: "Nueva conversación", createdAt: now, updatedAt: now, messages: [] };
 }
 
+const isMessage = (m: unknown): m is Message =>
+  typeof m === "object" && m !== null && typeof (m as Message).id === "string" && ((m as Message).role === "user" || (m as Message).role === "assistant") && typeof (m as Message).content === "string";
+
+const isConversation = (c: unknown): c is Conversation =>
+  typeof c === "object" && c !== null && typeof (c as Conversation).id === "string" && typeof (c as Conversation).title === "string" &&
+  Array.isArray((c as Conversation).messages) && (c as Conversation).messages.every(isMessage);
+
 export function loadState(): State {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
       const data = JSON.parse(raw) as State;
       if (Array.isArray(data.conversations)) {
-        const active = data.conversations.some((c) => c.id === data.activeId) ? data.activeId : (data.conversations[0]?.id ?? null);
-        return { conversations: data.conversations, activeId: active };
+        const conversations = data.conversations.filter(isConversation); // descarta entradas con otra forma (versiones antiguas, datos corruptos)
+        const active = conversations.some((c) => c.id === data.activeId) ? data.activeId : (conversations[0]?.id ?? null);
+        return { conversations, activeId: active };
       }
     }
   } catch {
