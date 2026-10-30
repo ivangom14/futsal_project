@@ -1,7 +1,7 @@
 """Validación E2E REAL de la Fase 22 (consume cuota del LLM). Uso (con API 8000 y chat 8001 arrancados):
 
     python scripts/e2e_chat.py            # solo comprobaciones sin LLM (health) y muestra el plan
-    python scripts/e2e_chat.py --yes      # envía 3 preguntas al agente real (≈ 3 ejecuciones del agente)
+    python scripts/e2e_chat.py --yes      # 3 preguntas independientes + una cadena de 3 preguntas con memoria (≈ 6 ejecuciones)
 
 Solo usa la biblioteca estándar. No lee ni imprime claves.
 """
@@ -16,6 +16,13 @@ QUESTIONS = [
     ("datos", "¿Cuáles son los próximos partidos de Primera Autonómica Senior Grupo 2?", False),
     ("clasificación", "¿Quién es el máximo goleador de Primera Autonómica Senior Grupo 2?", False),
     ("normativa", "¿Cuánto dura cada mitad de un partido de fútbol sala?", True),  # debe traer fuentes del RAG
+]
+
+
+CHAIN = [  # Fase 23: preguntas encadenadas en UNA conversación (mismo conversation_id)
+    "¿Quién es el máximo goleador de Primera Autonómica Senior Grupo 2?",
+    "¿En qué equipo juega?",
+    "¿Cuántos goles lleva su equipo?",
 ]
 
 
@@ -65,6 +72,25 @@ def main() -> int:
               f"tools={[t['name'] for t in d['tools']]} | fuentes={len(body['sources'])} | guardarraíl={body['guardrail']}")
         print("   ", body["answer"][:300].replace("\n", " "))
         failed += bool(problems)
+    cid = "e2e-chain"
+    for turn, question in enumerate(CHAIN):
+        status, body = call(f"{args.base}/chat", {"question": question, "conversation_id": cid})
+        if status != 200:
+            print(f"[cadena {turn + 1}] FALLO HTTP {status}: {body.get('detail')}")
+            failed += 1
+            break
+        d = body["diagnostics"]
+        problems = []
+        if d["history_turns"] != turn:
+            problems.append(f"turnos de contexto {d['history_turns']} (esperados {turn})")
+        if not d["tools"]:
+            problems.append("sin consultar herramientas")
+        print(f"[cadena {turn + 1}] {'FALLO: ' + ', '.join(problems) if problems else 'OK'} | tools={[t['name'] for t in d['tools']]} "
+              f"| guardarraíl={body['guardrail']}")
+        print("   ", body["answer"][:300].replace("\n", " "))
+        failed += bool(problems)
+    urllib.request.urlopen(urllib.request.Request(f"{args.base}/chat/conversations/{cid}", method="DELETE"), timeout=10)
+    print("Revisa a mano que las respuestas 2 y 3 hablan del jugador y equipo correctos.")
     return 1 if failed else 0
 
 

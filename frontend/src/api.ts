@@ -1,4 +1,4 @@
-import type { ChatResponse, Health } from "./types";
+import type { ChatResponse, Health, HistoryItem } from "./types";
 
 export const API_URL: string = (import.meta.env.VITE_CHAT_API_URL as string | undefined) ?? "http://127.0.0.1:8001";
 
@@ -39,9 +39,14 @@ async function request<T>(path: string, init?: RequestInit, timeoutMs = 120_000)
 
 export const getHealth = (): Promise<Health> => request<Health>("/chat/health", undefined, 5_000);
 
-export const askAgent = (question: string): Promise<ChatResponse> =>
+/** `history` solo siembra la conversación si el servidor no la conoce (p. ej. tras reiniciarlo); el servidor manda. */
+export const askAgent = (question: string, conversationId: string, history: HistoryItem[] = []): Promise<ChatResponse> =>
   request<ChatResponse>("/chat", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ question }),
+    body: JSON.stringify({ question, conversation_id: conversationId, history }),
   });
+
+/** Pide al servidor que olvide el historial de una conversación borrada (si falla, caduca solo: memoria acotada). */
+export const forgetConversation = (conversationId: string): Promise<{ deleted: boolean }> =>
+  request(`/chat/conversations/${encodeURIComponent(conversationId)}`, { method: "DELETE" }, 5_000);

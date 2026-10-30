@@ -1,4 +1,4 @@
-import type { Conversation, Message } from "./types";
+import type { Conversation, HistoryItem, Message } from "./types";
 
 export const STORAGE_KEY = "rffm-chat-v1";
 export const TITLE_MAX = 48;
@@ -50,6 +50,22 @@ export function saveState(state: State): void {
   } catch {
     /* cuota o modo privado: la sesión sigue funcionando sin persistencia */
   }
+}
+
+export const HISTORY_TURNS = 20; // el servidor limita aún más lo que envía al modelo
+const MEMORY_GUARDRAILS = [null, "aclaracion_ambito"]; // solo estas respuestas sirven de contexto
+
+/** Turnos válidos para el contexto del agente: pregunta + respuesta completa. Se excluyen errores, ejecuciones incompletas y
+ *  respuestas sustituidas por un guardarraíl (no son datos fiables). */
+export function historyFor(messages: Message[]): HistoryItem[] {
+  const out: HistoryItem[] = [];
+  messages.forEach((m, i) => {
+    const next = messages[i + 1];
+    if (m.role !== "user" || !next || next.role !== "assistant" || next.failure || !next.response) return;
+    if (next.response.error || !MEMORY_GUARDRAILS.includes(next.response.guardrail) || !next.content.trim()) return;
+    out.push({ role: "user", content: m.content }, { role: "assistant", content: next.content });
+  });
+  return out.slice(-2 * HISTORY_TURNS);
 }
 
 export function startConversation(state: State): State {

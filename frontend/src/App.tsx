@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ApiError, askAgent, getHealth } from "./api";
+import { ApiError, askAgent, forgetConversation, getHealth } from "./api";
 import {
-  appendMessage, deleteConversation, loadState, removeMessage, saveState, selectConversation, startConversation, uid,
+  appendMessage, deleteConversation, historyFor, loadState, removeMessage, saveState, selectConversation, startConversation, uid,
   type State,
 } from "./conversations";
 import Composer from "./components/Composer";
@@ -9,7 +9,7 @@ import ConnectionBadge from "./components/ConnectionBadge";
 import MessageBubble from "./components/MessageBubble";
 import Sidebar from "./components/Sidebar";
 import Welcome from "./components/Welcome";
-import type { Connection, Message } from "./types";
+import type { Connection, HistoryItem, Message } from "./types";
 
 const HEALTH_POLL_MS = 15_000;
 
@@ -47,10 +47,10 @@ export default function App() {
   }, [refreshHealth]);
 
   const ask = useCallback(
-    async (convId: string, question: string) => {
+    async (convId: string, question: string, history: HistoryItem[]) => {
       setLoadingId(convId);
       try {
-        const response = await askAgent(question);
+        const response = await askAgent(question, convId, history);
         const msg: Message = { id: uid(), role: "assistant", content: response.answer, createdAt: Date.now(), response };
         setState((s) => appendMessage(s, convId, msg));
       } catch (e) {
@@ -66,8 +66,9 @@ export default function App() {
 
   const send = (question: string) => {
     if (!active || loadingId) return;
+    const history = historyFor(active.messages); // contexto de ESTA conversación, sin la pregunta actual
     setState((s) => appendMessage(s, active.id, { id: uid(), role: "user", content: question, createdAt: Date.now() }));
-    void ask(active.id, question);
+    void ask(active.id, question, history);
   };
 
   const retry = (failed: Message) => {
@@ -78,8 +79,9 @@ export default function App() {
       .reverse()
       .find((m) => m.role === "user")?.content;
     if (!question) return;
+    const history = historyFor(active.messages.slice(0, idx - 1)); // lo anterior a la pregunta que falló
     setState((s) => removeMessage(s, active.id, failed.id));
-    void ask(active.id, question);
+    void ask(active.id, question, history);
   };
 
   const loading = loadingId !== null;
@@ -91,7 +93,7 @@ export default function App() {
         open={menu}
         onNew={() => { setState(startConversation); setMenu(false); }}
         onSelect={(id) => { setState((s) => selectConversation(s, id)); setMenu(false); }}
-        onDelete={(id) => setState((s) => { const n = deleteConversation(s, id); return n.conversations.length ? n : startConversation(n); })}
+        onDelete={(id) => { void forgetConversation(id).catch(() => undefined); setState((s) => { const n = deleteConversation(s, id); return n.conversations.length ? n : startConversation(n); }); }}
         onClose={() => setMenu(false)}
       />
       <main className="flex min-w-0 flex-1 flex-col">
@@ -112,7 +114,7 @@ export default function App() {
             <div ref={endRef} />
           </div>
         </div>
-        <Composer onSend={send} loading={loading} />
+        <Composer onSend={send} loading={loading} usesContext={historyFor(active?.messages ?? []).length > 0} />
       </main>
     </div>
   );

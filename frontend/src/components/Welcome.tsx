@@ -13,7 +13,7 @@ export default function Welcome({ onPick, disabled }: { onPick: (q: string) => v
       <p className="mt-1 text-sm text-slate-600">
         Pregunta por partidos, jornadas, clasificaciones, goleadores o normativa. Las respuestas salen de los datos oficiales ingeridos y de los documentos indexados.
       </p>
-      <p className="mt-1 text-xs text-slate-500">Cada pregunta se responde de forma independiente: el agente no recuerda mensajes anteriores.</p>
+      <p className="mt-1 text-xs text-slate-500">Puedes encadenar preguntas («¿y su equipo?»): el agente recuerda los últimos mensajes de esta conversación, pero vuelve a consultar los datos oficiales cada vez.</p>
       <ul className="mt-5 space-y-2">
         {EXAMPLES.map((q) => (
           <li key={q}>

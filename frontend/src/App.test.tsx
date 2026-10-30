@@ -23,6 +23,14 @@ function backend(chat: Handler, health: () => Promise<Response> = () => reply(HE
   return fetchMock;
 }
 const chatCalls = (m: ReturnType<typeof backend>) => m.mock.calls.filter(([u]) => String(u).endsWith("/chat"));
+const sentBodies = (m: ReturnType<typeof backend>) =>
+  chatCalls(m).map(([, init]) => JSON.parse(String((init as RequestInit).body)) as { question: string; conversation_id: string; history: { role: string; content: string }[] });
+const answers = () => screen.queryAllByTestId("msg-agent").length + screen.queryAllByTestId("msg-error").length;
+const ask = async (q: string) => {
+  const before = answers();
+  await userEvent.type(screen.getByLabelText("Pregunta"), `${q}{Enter}`);
+  await waitFor(() => expect(answers()).toBe(before + 1));
+};
 
 beforeEach(() => localStorage.clear());
 afterEach(() => vi.unstubAllGlobals());
@@ -124,5 +132,72 @@ describe("App", () => {
     render(<App />);
     const badge = await screen.findByRole("button", { name: /Servicio degradado.*falta la clave/ });
     await waitFor(() => expect(badge).toBeInTheDocument());
+  });
+
+  it("envía el contexto de la conversación y el mismo conversation_id en las preguntas encadenadas", async () => {
+    const m = backend(() => reply({ ...contract, answer: "El máximo goleador es Juan Pérez." }));
+    render(<App />);
+    await ask("¿Quién es el máximo goleador?");
+    await ask("¿En qué equipo juega?");
+    const [first, second] = sentBodies(m);
+    expect(first.history).toEqual([]);
+    expect(second.history).toEqual([
+      { role: "user", content: "¿Quién es el máximo goleador?" },
+      { role: "assistant", content: "El máximo goleador es Juan Pérez." },
+    ]);
+    expect(second.conversation_id).toBe(first.conversation_id);
+    expect(await screen.findByTestId("context-hint")).toBeInTheDocument();
+  });
+
+  it("aísla las conversaciones y una nueva empieza sin contexto (casos C y D)", async () => {
+    const m = backend(() => reply(contract));
+    render(<App />);
+    await ask("Pregunta sobre el equipo A");
+    await userEvent.click(screen.getByRole("button", { name: "+ Nueva conversación" }));
+    expect(screen.queryByTestId("context-hint")).not.toBeInTheDocument();
+    await ask("¿Y su próximo partido?");
+    await userEvent.click(screen.getByRole("button", { name: "Pregunta sobre el equipo A" }));
+    await ask("Otra del equipo A");
+    const [a1, b1, a2] = sentBodies(m);
+    expect(b1.history).toEqual([]);
+    expect(b1.conversation_id).not.toBe(a1.conversation_id);
+    expect(a2.conversation_id).toBe(a1.conversation_id);
+    expect(a2.history.map((h) => h.content)).toEqual(["Pregunta sobre el equipo A", contract.answer]);
+    expect(JSON.stringify(a2.history)).not.toContain("próximo partido");
+  });
+
+  it("no incluye en el contexto una pregunta fallida ni su reintento duplicado", async () => {
+    let fail = true;
+    const m = backend(() => (fail ? reply({ detail: "error del agente" }, 502) : reply(contract)));
+    render(<App />);
+    await ask("Primera");
+    fail = false;
+    await userEvent.click(within(await screen.findByTestId("msg-error")).getByRole("button", { name: "Reintentar" }));
+    await screen.findByTestId("msg-agent");
+    await ask("Segunda");
+    const bodies = sentBodies(m);
+    expect(bodies[1].history).toEqual([]); // el reintento no arrastra la pregunta fallida
+    expect(bodies[2].history.map((h) => h.content)).toEqual(["Primera", contract.answer]);
+  });
+
+  it("pide al servidor olvidar la conversación al borrarla", async () => {
+    const m = backend(() => reply(contract));
+    render(<App />);
+    await ask("Para borrar");
+    await userEvent.click(screen.getByRole("button", { name: /Borrar conversación Para borrar/ }));
+    await waitFor(() => expect(m.mock.calls.some(([u, i]) => String(u).includes("/chat/conversations/") && (i as RequestInit)?.method === "DELETE")).toBe(true));
+  });
+
+  it("tras recargar, continúa la conversación con su contexto (caso E)", async () => {
+    const m = backend(() => reply(contract));
+    const first = render(<App />);
+    await ask("Primera pregunta");
+    await ask("Segunda pregunta");
+    first.unmount();
+    render(<App />);
+    await ask("Tercera pregunta");
+    const bodies = sentBodies(m);
+    expect(bodies[2].conversation_id).toBe(bodies[0].conversation_id);
+    expect(bodies[2].history.map((h) => h.content)).toEqual(["Primera pregunta", contract.answer, "Segunda pregunta", contract.answer]);
   });
 });

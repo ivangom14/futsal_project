@@ -100,7 +100,7 @@ Comprobación manual en el navegador: pregunta normativa → debe aparecer «Fue
 para el reglamento, los documentos deben estar indexados (`docs/phase15-*.md`).
 
 ## Limitaciones conocidas
-- Sin contexto entre mensajes (el agente no lo soporta): «¿y el siguiente?» no funciona; hay que repetir el contexto.
+- Sin contexto entre mensajes en la Fase 22; **resuelto en la Fase 23** (`docs/phase23-conversational-memory.md`).
 - Sin streaming: se espera la respuesta completa (suele tardar varios segundos). Una pregunta a la vez en el servidor.
 - Historial solo en el `localStorage` del navegador (se pierde al borrarlo; sin sincronización).
 - Fuentes = recuperadas, no necesariamente citadas; las tablas oficiales solo indican competición, grupo y captura.

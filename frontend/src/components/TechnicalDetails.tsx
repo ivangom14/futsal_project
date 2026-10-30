@@ -7,7 +7,7 @@ export default function TechnicalDetails({ response }: { response: ChatResponse 
       <summary className="cursor-pointer select-none">Detalles técnicos</summary>
       <div className="mt-1 space-y-1 rounded border border-slate-200 bg-white p-2">
         <p>
-          {(d.duration_ms / 1000).toFixed(1)} s · {d.llm_calls} llamadas al modelo · {d.tool_calls} herramientas · tokens {d.input_tokens} entrada / {d.output_tokens} salida ({d.token_source})
+          {(d.duration_ms / 1000).toFixed(1)} s · {d.llm_calls} llamadas al modelo · {d.tool_calls} herramientas · {d.history_turns} turnos de contexto · tokens {d.input_tokens} entrada / {d.output_tokens} salida ({d.token_source})
         </p>
         <p>
           Modelo: {d.provider ?? "?"}/{d.model ?? "?"} · run <code>{d.run_id}</code>

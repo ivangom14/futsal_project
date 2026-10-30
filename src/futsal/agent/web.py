@@ -7,21 +7,32 @@ Solo habla con el LLM y con el servidor MCP (que a su vez usa la API de datos); 
 import asyncio
 import json
 import threading
-from collections.abc import AsyncIterator, Callable
+from collections.abc import AsyncIterator, Callable, Sequence
 from contextlib import AbstractAsyncContextManager, asynccontextmanager
-from typing import Any
+from typing import Any, Literal
 
 import httpx
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Path, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from mcp import ClientSession
 from mcp.client.stdio import stdio_client
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, StringConstraints
+from typing import Annotated
 
-from futsal.agent.agent import DEFAULT_MAX_ROWS, DEFAULT_MAX_TOOL_CALLS, Agent, AgentResult
+from futsal.agent.agent import DEFAULT_MAX_ROWS, DEFAULT_MAX_TOOL_CALLS, OFF_TOPIC_MESSAGE, Agent, AgentResult
 from futsal.agent.llm import create_llm
+from futsal.agent.memory import (
+    CONVERSATION_ID,
+    DEFAULT_MAX_CHARS,
+    DEFAULT_MAX_TURNS,
+    MAX_STORED_TURNS,
+    ConversationMemory,
+    Turn,
+    select_turns,
+    turns_from_client,
+)
 from futsal.agent.mcp_client import SessionMcpClient, stdio_params
 from futsal.agent.trace import RunRecord, redact
 from futsal.config.settings import env_value
@@ -29,11 +40,21 @@ from futsal.config.settings import env_value
 DEFAULT_CORS_ORIGINS = "http://localhost:5173,http://127.0.0.1:5173"
 MAX_QUESTION_CHARS = 2000
 MAX_SOURCE_TEXT = 1200
+MAX_HISTORY_ITEM_CHARS = 6000
+MEMORY_GUARDRAILS = (None, "aclaracion_ambito")  # solo estas respuestas son válidas como contexto
 KEY_VARS = {"anthropic": "ANTHROPIC_API_KEY", "gemini": "GEMINI_API_KEY"}
+
+
+class HistoryItem(BaseModel):
+    role: Literal["user", "assistant"]
+    content: Annotated[str, StringConstraints(max_length=MAX_HISTORY_ITEM_CHARS)]
 
 
 class ChatRequest(BaseModel):
     question: str = Field(min_length=1, max_length=MAX_QUESTION_CHARS)
+    conversation_id: str | None = Field(default=None, pattern=CONVERSATION_ID.pattern)  # sin id, la pregunta es independiente
+    # Solo siembra una conversación que el servidor no conoce (p. ej. tras reiniciarlo); si la conoce, manda su propio historial.
+    history: list[HistoryItem] = Field(default_factory=list, max_length=2 * MAX_STORED_TURNS)
 
 
 class Source(BaseModel):
@@ -59,6 +80,7 @@ class Diagnostics(BaseModel):
     provider: str | None
     model: str | None
     duration_ms: float
+    history_turns: int  # turnos anteriores de la conversación enviados al agente como contexto
     llm_calls: int
     tool_calls: int
     input_tokens: int
@@ -115,7 +137,7 @@ def build_sources(rec: RunRecord, official: list[dict[str, Any]]) -> list[Source
     return sources
 
 
-def build_response(result: AgentResult) -> ChatResponse:
+def build_response(result: AgentResult, history_turns: int = 0) -> ChatResponse:
     rec = result.run or RunRecord()
     totals = rec.totals()
     tools = [ToolInfo(name=t.name, arguments=t.arguments, duration_ms=round(t.duration_ms, 1), is_error=t.is_error,
@@ -123,7 +145,7 @@ def build_response(result: AgentResult) -> ChatResponse:
     errors = [redact(f"herramienta {t.name}: {t.result_summary}") for t in rec.tool_calls if t.is_error]
     errors += [redact(f"llamada LLM {c.index}: {c.error}") for c in rec.llm_calls if c.error]
     diag = Diagnostics(
-        run_id=rec.run_id, provider=rec.provider, model=rec.model, duration_ms=round(rec.latency_ms, 1),
+        run_id=rec.run_id, provider=rec.provider, model=rec.model, duration_ms=round(rec.latency_ms, 1), history_turns=history_turns,
         llm_calls=totals["llm_calls"], tool_calls=totals["tool_calls"], input_tokens=totals["input_tokens"],
         output_tokens=totals["output_tokens"], token_source=totals["token_source"], tools=tools, errors=errors)
     return ChatResponse(answer=result.answer, guardrail=result.guardrail, error=result.error,
@@ -146,7 +168,9 @@ async def default_agent() -> AsyncIterator[Agent]:
     async with stdio_client(stdio_params()) as (read, write):
         async with ClientSession(read, write) as session:
             await session.initialize()
-            yield Agent(llm, SessionMcpClient(session), limit, max_rows=rows, trace_path=None, trace_results=True)
+            yield Agent(llm, SessionMcpClient(session), limit, max_rows=rows, trace_path=None, trace_results=True,
+                  history_turns=int(env_value("HISTORY_MAX_TURNS", str(DEFAULT_MAX_TURNS))),
+                  history_chars=int(env_value("HISTORY_MAX_CHARS", str(DEFAULT_MAX_CHARS))))
 
 
 class AgentRunner:
@@ -196,18 +220,18 @@ class AgentRunner:
             return
         self._thread.join(timeout=10)
 
-    async def ask(self, question: str) -> AgentResult:
+    async def ask(self, question: str, history: Sequence[Turn] = ()) -> AgentResult:
         if self._agent is None:  # primer arranque fallido o aún en curso: reintenta
             self.start()
             await asyncio.get_running_loop().run_in_executor(None, self._settled.wait, 30)
         if self._agent is None or self._loop is None:
             raise ChatUnavailable(self.error or "el agente no ha terminado de arrancar")
-        return await asyncio.wrap_future(asyncio.run_coroutine_threadsafe(self._run(question), self._loop))
+        return await asyncio.wrap_future(asyncio.run_coroutine_threadsafe(self._run(question, history), self._loop))
 
-    async def _run(self, question: str) -> AgentResult:
+    async def _run(self, question: str, history: Sequence[Turn]) -> AgentResult:
         assert self._agent is not None and self._lock is not None
         async with self._lock:
-            return await self._agent.run(question)
+            return await self._agent.run(question, history)
 
 
 def _data_api_status() -> dict[str, Any]:
@@ -222,8 +246,12 @@ def _data_api_status() -> dict[str, Any]:
 
 
 def create_chat_app(runner: AgentRunner | None = None,
-                    data_api_status: Callable[[], dict[str, Any]] = _data_api_status) -> FastAPI:
+                    data_api_status: Callable[[], dict[str, Any]] = _data_api_status,
+                    memory: ConversationMemory | None = None) -> FastAPI:
     agent_runner = runner or AgentRunner()
+    conversations = memory if memory is not None else ConversationMemory()
+    max_turns = int(env_value("HISTORY_MAX_TURNS", str(DEFAULT_MAX_TURNS)))
+    max_chars = int(env_value("HISTORY_MAX_CHARS", str(DEFAULT_MAX_CHARS)))
 
     @asynccontextmanager
     async def lifespan(_: FastAPI) -> AsyncIterator[None]:
@@ -255,13 +283,27 @@ def create_chat_app(runner: AgentRunner | None = None,
         question = body.question.strip()
         if not question:
             raise HTTPException(400, "la pregunta está vacía")
+        cid = body.conversation_id
+        known = conversations.get(cid) if cid else None
+        stored = known if known is not None else (  # el servidor manda; el navegador solo siembra un id desconocido
+            [t for t in turns_from_client((h.role, h.content) for h in body.history) if t.answer != OFF_TOPIC_MESSAGE] if cid else [])
+        context = select_turns(stored, max_turns, max_chars)
         try:
-            result = await agent_runner.ask(question)
+            result = await agent_runner.ask(question, context)
         except ChatUnavailable as exc:
             raise HTTPException(503, f"agente no disponible: {exc}") from exc
         if result.error and not result.answer:  # fallo sin respuesta utilizable (LLM caído, cuota…)
             raise HTTPException(502, f"error del agente: {result.error}")
-        return build_response(result)
+        if (cid and not result.error and result.answer.strip() not in ("", OFF_TOPIC_MESSAGE)
+                and result.guardrail in MEMORY_GUARDRAILS):
+            conversations.put(cid, [*stored, Turn(question, result.answer)])  # los fallos o respuestas sustituidas no son contexto
+        elif cid and known is None and stored:
+            conversations.put(cid, stored)
+        return build_response(result, len(context))
+
+    @app.delete("/chat/conversations/{conversation_id}")
+    def forget(conversation_id: Annotated[str, Path(pattern=CONVERSATION_ID.pattern)]) -> dict[str, bool]:
+        return {"deleted": conversations.forget(conversation_id)}
 
     return app
 

@@ -2,7 +2,7 @@ import { useState, type KeyboardEvent } from "react";
 
 export const MAX_CHARS = 2000;
 
-export default function Composer({ onSend, loading }: { onSend: (q: string) => void; loading: boolean }) {
+export default function Composer({ onSend, loading, usesContext = false }: { onSend: (q: string) => void; loading: boolean; usesContext?: boolean }) {
   const [text, setText] = useState("");
   const submit = () => {
     const q = text.trim();
@@ -18,6 +18,11 @@ export default function Composer({ onSend, loading }: { onSend: (q: string) => v
   };
   return (
     <div className="border-t border-slate-200 bg-white p-3">
+      {usesContext && (
+        <p className="mx-auto mb-1 max-w-3xl text-xs text-slate-400" data-testid="context-hint">
+          El agente tiene en cuenta los mensajes anteriores de esta conversación.
+        </p>
+      )}
       <div className="mx-auto flex max-w-3xl items-end gap-2">
         <textarea
           value={text}

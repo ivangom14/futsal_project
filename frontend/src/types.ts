@@ -23,6 +23,7 @@ export interface Diagnostics {
   provider: string | null;
   model: string | null;
   duration_ms: number;
+  history_turns: number;
   llm_calls: number;
   tool_calls: number;
   input_tokens: number;
@@ -38,6 +39,11 @@ export interface ChatResponse {
   error: string | null;
   sources: Source[];
   diagnostics: Diagnostics;
+}
+
+export interface HistoryItem {
+  role: "user" | "assistant";
+  content: string;
 }
 
 export interface Health {

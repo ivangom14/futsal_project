@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  appendMessage, deleteConversation, loadState, saveState, selectConversation, startConversation, STORAGE_KEY, titleFrom,
+  appendMessage, deleteConversation, historyFor, loadState, saveState, selectConversation, startConversation, STORAGE_KEY, titleFrom,
   type State,
 } from "./conversations";
 
@@ -51,5 +51,31 @@ describe("conversaciones", () => {
     const s = loadState();
     expect(s.conversations.map((c) => c.id)).toEqual(["b"]);
     expect(s.activeId).toBe("b");
+  });
+});
+
+describe("historyFor", () => {
+  const answer = (content: string, over: Record<string, unknown> = {}) => ({
+    id: `a-${content}`, role: "assistant" as const, content, createdAt: 2,
+    response: { answer: content, guardrail: null, error: null, sources: [], diagnostics: {} as never, ...over },
+  });
+
+  it("incluye solo parejas pregunta/respuesta completas y válidas", () => {
+    const msgs = [
+      user("q1"), answer("r1"),
+      user("q2"), { id: "f", role: "assistant" as const, content: "", createdAt: 2, failure: "502" },
+      user("q3"), answer("r3", { error: "límite" }),
+      user("q4"), answer("r4", { guardrail: "sin_datos_de_tools" }),
+      user("q5"), answer("r5", { guardrail: "aclaracion_ambito" }),
+      user("q6"),
+    ];
+    expect(historyFor(msgs).map((h) => h.content)).toEqual(["q1", "r1", "q5", "r5"]);
+  });
+
+  it("limita el número de turnos enviados", () => {
+    const msgs = Array.from({ length: 50 }, (_, i) => [user(`q${i}`), answer(`r${i}`)]).flat();
+    const h = historyFor(msgs);
+    expect(h).toHaveLength(40);
+    expect(h[h.length - 1].content).toBe("r49");
   });
 });
