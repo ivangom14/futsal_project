@@ -9,6 +9,7 @@ from collections import OrderedDict
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 
+from futsal.agent.criteria import SCOPE_WORDS, norm
 from futsal.agent.llm import Message
 
 DEFAULT_MAX_TURNS = 6  # parejas pregunta/respuesta enviadas al LLM
@@ -16,6 +17,8 @@ DEFAULT_MAX_CHARS = 6000  # ≈ 1.500 tokens de historial como máximo
 MAX_MESSAGE_CHARS = 1200  # una respuesta larga se recorta (los nombres para resolver referencias van al principio)
 MAX_STORED_TURNS = 20  # por conversación en el servidor
 MAX_CONVERSATIONS = 200  # conversaciones en memoria (LRU)
+MERGE_MAX_WORDS = 12  # una respuesta a una aclaración es corta; algo más largo se trata como pregunta nueva
+ASK_WORDS = SCOPE_WORDS | {"equipo", "jornada", "jugador", "partido"}
 CONVERSATION_ID = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
 
 
@@ -69,6 +72,32 @@ def turns_from_client(items: Iterable[tuple[str, str]]) -> list[Turn]:
         else:
             pending = None
     return turns[-MAX_STORED_TURNS:]
+
+
+def asks_for_input(answer: str) -> bool:
+    """¿La respuesta del asistente termina pidiendo un dato (competición, grupo, equipo, jornada…)? Una pregunta de cortesía
+    («¿Quieres algo más?») no cuenta."""
+    lines = [ln.strip() for ln in answer.strip().splitlines() if ln.strip()]
+    return bool(lines) and lines[-1].endswith("?") and any(w in ASK_WORDS for w in norm(lines[-1]).split())
+
+
+def is_reply(text: str) -> bool:
+    t = text.strip()
+    return bool(t) and not t.endswith("?") and not t.startswith("¿") and len(t.split()) <= MERGE_MAX_WORDS
+
+
+def resolve_pending(turns: Sequence[Turn], question: str) -> tuple[list[Turn], str, bool]:
+    """Si el asistente pidió un dato y el usuario responde brevemente, une la pregunta original con SUS precisiones (solo texto del
+    usuario, nunca del asistente) para no depender de que el modelo recuerde la pregunta pendiente. Devuelve (turnos que quedan como
+    historial, pregunta efectiva, ¿se reescribió?)."""
+    if not turns or not asks_for_input(turns[-1].answer) or not is_reply(question):
+        return list(turns), question, False
+    k = len(turns) - 1
+    while k > 0 and asks_for_input(turns[k - 1].answer) and is_reply(turns[k].question):
+        k -= 1
+    replies = [t.question for t in turns[k + 1 :]] + [question]
+    merged = f"{turns[k].question} (Precisiones del usuario: {'; '.join(replies)})"
+    return list(turns[:k]), merged, True
 
 
 class ConversationMemory:

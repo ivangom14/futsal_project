@@ -33,6 +33,7 @@
     "provider": "fake",
     "model": "fake-model",
     "duration_ms": 0,
+    "resolved_question": null,
     "history_turns": 0,
     "llm_calls": 2,
     "tool_calls": 1,

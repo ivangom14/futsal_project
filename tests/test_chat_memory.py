@@ -12,7 +12,7 @@ from typing import Any
 import pytest
 from fastapi.testclient import TestClient
 
-from futsal.agent.agent import AMBIGUOUS_TEAM_MESSAGE, HISTORY_RULE, OFF_TOPIC_MESSAGE, Agent
+from futsal.agent.agent import AMBIGUOUS_TEAM_MESSAGE, HISTORY_RULE, OFF_TOPIC_MESSAGE, SCOPE_REUSE_MESSAGE, Agent
 from futsal.agent.llm import LLMError, LLMResponse, Message, ToolCall
 from futsal.agent.memory import (
     DEFAULT_MAX_CHARS,
@@ -20,6 +20,7 @@ from futsal.agent.memory import (
     MAX_MESSAGE_CHARS,
     ConversationMemory,
     Turn,
+    resolve_pending,
     select_turns,
     turns_from_client,
 )
@@ -126,6 +127,84 @@ def test_b_scope_is_taken_from_user_turns_only_not_from_assistant_text() -> None
     history = [Turn("¿Y los resultados?", "Hablo de PRIMERA SENIOR Grupo 1 si quieres.")]
     _, mcp = run(Script(_follow_up_steps()), "¿Y el siguiente partido de FS ALCALA?", history)
     assert [c[0] for c in mcp.calls] == ["find_teams"]
+
+
+# --- Aclaraciones pendientes (caso real: «grupo 1 autonomica senior» no coincide literalmente con el catálogo) -------------------
+ASK = "¿De qué competición y grupo deseas consultar los resultados de la última jornada?"
+PENDING = [Turn("¿Qué resultados hubo en la última jornada?", ASK),
+           Turn("grupo 1 autonomica senior", "Equipos del Grupo 1: A, B, C.")]
+
+
+def test_scope_already_given_by_the_user_is_not_asked_again() -> None:
+    llm = Script([text("Para poder mostrarte los resultados, indícame a qué competición, grupo o jornada te refieres."),
+                  tool("list_matches", status="finished"), text("Jornada 5: A 2-1 B.")])
+    res, mcp = run(llm, "pero quiero los resultados", PENDING)
+    assert llm.seen[1][-1] == ("user", SCOPE_REUSE_MESSAGE) and [c[0] for c in mcp.calls] == ["list_matches"]
+    assert res.answer == "Jornada 5: A 2-1 B." and res.guardrail is None
+
+
+def test_clarification_is_kept_when_the_user_never_gave_a_scope() -> None:
+    llm = Script([text(ASK)])
+    res, _ = run(llm, "¿Qué resultados hubo en la última jornada?", [Turn("hola", "Hola")])
+    assert res.guardrail == "aclaracion_ambito" and res.answer == ASK and len(llm.seen) == 1
+
+
+def test_scope_from_assistant_text_alone_does_not_trigger_the_reuse_nudge() -> None:
+    llm = Script([text(ASK)])
+    res, _ = run(llm, "¿Y los resultados?", [Turn("hola", "Hablemos del Grupo 1 de PRIMERA SENIOR.")])
+    assert res.guardrail == "aclaracion_ambito" and len(llm.seen) == 1
+
+
+def test_history_rule_tells_the_model_to_answer_a_pending_clarification() -> None:
+    assert "RESPUESTA" in HISTORY_RULE and "resultados" in HISTORY_RULE
+
+
+# --- Aclaraciones encadenadas: la pregunta pendiente se une a las respuestas del usuario (caso real de la captura) ------------------
+GROUPS_ASK = "La competición tiene los grupos Grupo 1 y Grupo 2.\n\n¿De qué grupo deseas consultar la información?"
+CHAIN = [Turn("¿Qué resultados hubo en la última jornada?", ASK),
+         Turn("PRIMERA DIVISION AUTONOMICA AFICIONADO FS", GROUPS_ASK)]
+
+
+def test_pending_question_is_merged_with_the_users_replies_only() -> None:
+    kept, merged, changed = resolve_pending(CHAIN, "grupo 1")
+    assert changed and kept == []
+    assert merged == ("¿Qué resultados hubo en la última jornada? (Precisiones del usuario: "
+                      "PRIMERA DIVISION AUTONOMICA AFICIONADO FS; grupo 1)")
+    assert "Grupo 2" not in merged  # nada del texto del asistente
+
+
+@pytest.mark.parametrize("question", ["¿Y el siguiente partido?", "x " * 13, "", "   "])
+def test_new_questions_or_long_messages_are_not_merged(question: str) -> None:
+    assert resolve_pending(CHAIN, question)[2] is False
+
+
+def test_courtesy_questions_do_not_create_a_pending_question() -> None:
+    turns = [Turn("¿Quién lidera?", "Lidera A.\n\n¿Quieres algo más?")]
+    assert resolve_pending(turns, "Juan Pérez")[2] is False
+
+
+def test_older_turns_stay_as_history_and_the_chain_is_replaced() -> None:
+    old = Turn("¿Cuál es el reglamento?", "Hay reglas.")
+    kept, merged, changed = resolve_pending([old, *CHAIN], "grupo 1")
+    assert changed and kept == [old] and merged.startswith("¿Qué resultados")
+
+
+def test_agent_answers_the_original_question_after_a_two_step_clarification() -> None:
+    llm = Script([tool("list_matches", status="finished", order="desc"), text("Jornada 5: A 2-1 B.")])
+    res, mcp = run(llm, "grupo 1", CHAIN)
+    sent = llm.seen[0][-1]
+    assert sent[0] == "user" and sent[1].startswith("¿Qué resultados hubo en la última jornada?") and "grupo 1" in sent[1]
+    assert [m for m in llm.seen[0] if m[0] == "assistant"] == []  # la cadena ya va en la pregunta efectiva
+    assert [c[0] for c in mcp.calls] == ["list_matches"] and res.resolved_question == sent[1]
+    assert res.answer == "Jornada 5: A 2-1 B."
+
+
+def test_web_exposes_how_the_message_was_interpreted() -> None:
+    c, _ = web([tool("find_players", name="x"), text("r")])
+    seed = [{"role": "user", "content": CHAIN[0].question}, {"role": "assistant", "content": ASK}]
+    with c:
+        body = ask(c, "grupo 1 aficionado", "chain-1", seed).json()
+    assert body["diagnostics"]["resolved_question"].startswith("¿Qué resultados hubo en la última jornada?")
 
 
 # --- F: seguridad -------------------------------------------------------------------------------------------------------------

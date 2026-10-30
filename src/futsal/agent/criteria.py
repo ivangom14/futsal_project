@@ -13,6 +13,7 @@ Son heurísticas léxicas deterministas: acotan la invención, no la descartan e
 import json
 import re
 import unicodedata
+from collections.abc import Sequence
 from typing import Any
 
 NEG_TOKENS = frozenset({"no", "sin", "ni", "tampoco", "nunca", "ningun", "ninguna", "ninguno"})
@@ -343,6 +344,11 @@ SCOPE_WORDS = frozenset({"competicion", "competiciones", "grupo", "grupos", "tem
 REQUEST_PHRASES = ("indic", "especific", "aclar", "cual", "que competicion", "que grupo", "que temporada", "a que ", "de que ", "dime", "puedes", "podrias",
                    "podria", "necesito", "precis", "concret", "te refieres", "se refiere")
 MAX_CLARIFICATION_CHARS = 600
+
+
+def user_gave_scope(turns: Sequence[Any]) -> bool:
+    """¿Alguna pregunta previa del USUARIO (nunca el texto del asistente) habla de competición, grupo o temporada?"""
+    return any(w in SCOPE_WORDS for t in turns for w in norm(t.question).split())
 
 
 def scope_identified(question: str, catalog: list[tuple[str, list[str]]]) -> bool:

@@ -200,4 +200,13 @@ describe("App", () => {
     expect(bodies[2].conversation_id).toBe(bodies[0].conversation_id);
     expect(bodies[2].history.map((h) => h.content)).toEqual(["Primera pregunta", contract.answer, "Segunda pregunta", contract.answer]);
   });
+
+  it("muestra en los detalles técnicos cómo se interpretó un mensaje de aclaración", async () => {
+    const resolved = "¿Qué resultados hubo? (Precisiones del usuario: grupo 1)";
+    backend(() => reply({ ...contract, diagnostics: { ...contract.diagnostics, resolved_question: resolved } }));
+    render(<App />);
+    await ask("grupo 1");
+    expect(screen.getByText(resolved)).toBeInTheDocument();
+    expect(screen.getByText(/Interpretada como/)).toBeInTheDocument();
+  });
 });

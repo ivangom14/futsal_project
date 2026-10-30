@@ -80,6 +80,7 @@ class Diagnostics(BaseModel):
     provider: str | None
     model: str | None
     duration_ms: float
+    resolved_question: str | None = None  # cómo se interpretó el mensaje al unirlo a una aclaración pendiente
     history_turns: int  # turnos anteriores de la conversación enviados al agente como contexto
     llm_calls: int
     tool_calls: int
@@ -146,6 +147,7 @@ def build_response(result: AgentResult, history_turns: int = 0) -> ChatResponse:
     errors += [redact(f"llamada LLM {c.index}: {c.error}") for c in rec.llm_calls if c.error]
     diag = Diagnostics(
         run_id=rec.run_id, provider=rec.provider, model=rec.model, duration_ms=round(rec.latency_ms, 1), history_turns=history_turns,
+        resolved_question=result.resolved_question,
         llm_calls=totals["llm_calls"], tool_calls=totals["tool_calls"], input_tokens=totals["input_tokens"],
         output_tokens=totals["output_tokens"], token_source=totals["token_source"], tools=tools, errors=errors)
     return ChatResponse(answer=result.answer, guardrail=result.guardrail, error=result.error,

@@ -13,6 +13,7 @@ export default function TechnicalDetails({ response }: { response: ChatResponse 
           Modelo: {d.provider ?? "?"}/{d.model ?? "?"} · run <code>{d.run_id}</code>
           {response.guardrail && <> · guardarraíl: <code>{response.guardrail}</code></>}
         </p>
+        {d.resolved_question && <p>Interpretada como: <em>{d.resolved_question}</em></p>}
         {d.tools.length > 0 && (
           <ul className="space-y-0.5">
             {d.tools.map((t, i) => (

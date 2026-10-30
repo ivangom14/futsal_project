@@ -23,6 +23,7 @@ export interface Diagnostics {
   provider: string | null;
   model: string | null;
   duration_ms: number;
+  resolved_question?: string | null;
   history_turns: number;
   llm_calls: number;
   tool_calls: number;
