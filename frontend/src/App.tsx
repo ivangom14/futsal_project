@@ -25,8 +25,12 @@ export default function App() {
 
   const active = state.conversations.find((c) => c.id === state.activeId) ?? null;
 
-  useEffect(() => saveState(state), [state]);
-  useEffect(() => endRef.current?.scrollIntoView({ behavior: "smooth" }), [active?.messages.length, loadingId]);
+  useEffect(() => {
+    saveState(state);
+  }, [state]);
+  useEffect(() => {
+    endRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [active?.messages.length, loadingId]);
 
   const refreshHealth = useCallback(async () => {
     try {
