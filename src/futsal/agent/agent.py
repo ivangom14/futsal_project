@@ -47,7 +47,7 @@ SYSTEM_PROMPT = (
     "En list_matches filtra siempre: team_id (equipo), round_id (jornada), status finished/scheduled; nunca pidas "
     "todos los partidos. Para contar usa limit=1 y lee count (total exacto; jugados = status finished, por jugar = total sin filtro - jugados): "
     "nunca cuentes las filas de una lista recortada. Último partido de un equipo: list_matches(team_id, status=finished, order=desc, limit=1) y, con su id, get_match_report; "
-    "próximo: status=scheduled sin order (si trae past_due=true, su fecha ya pasó y los datos pueden estar desactualizados: no lo des por jugado). "
+    "próximo: status=scheduled, order=date_asc, limit=1 (por fecha, no por jornada: hay partidos reprogramados; si trae past_due=true, su fecha ya pasó y los datos pueden estar desactualizados: no lo des por jugado). "
     "team_id y round_id solo los que te dieron las tools (find_teams/list_teams para equipos, list_rounds para jornadas): nunca los supongas. "
     "Si un equipo, jugador o jornada no aparece, compruébalo con list_teams, find_players o list_rounds y di que no figura en el grupo "
     "(no que no exista), sin explicar tus comprobaciones. Si varios coinciden con el nombre, no elijas: muéstralos "

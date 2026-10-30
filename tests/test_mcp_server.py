@@ -258,3 +258,10 @@ def test_list_matches_forwards_order_and_rejects_an_invalid_one() -> None:
     assert dict(seen[0].params) == {"team_id": "4", "status": "finished", "order": "desc", "limit": "1"}
     is_error, text = _run("list_matches", {"group_id": 1, "order": "random"})
     assert is_error and "order" in text
+
+
+def test_list_matches_order_accepts_date_asc_for_the_next_match() -> None:
+    server = create_server(httpx.Client(transport=httpx.MockTransport(lambda r: httpx.Response(200, json={})), base_url="http://api"))
+    tools = {t.name: t for t in asyncio.run(server.list_tools())}
+    order = tools["list_matches"].inputSchema["properties"]["order"]
+    assert "date_asc" in json.dumps(order) and "próximo" in json.dumps(order, ensure_ascii=False)

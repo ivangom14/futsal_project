@@ -218,6 +218,18 @@ def unsupported_digits(text: str, payloads: list[dict[str, Any]], question: str 
     return sorted({n for n in _NUMBER_RE.findall(cleaned) if n not in known})
 
 
+_ISO_DATE_RE = re.compile(r"(\d{4})-(\d{2})-(\d{2})")
+
+
+def _known_figures(text: str) -> set[str]:
+    """Cifras presentes en `text`, incluidas las partes de las fechas ISO (año, mes, día con y sin cero): «2026-10-30T17:09» respalda
+    «30 de octubre de 2026», que `_NUMBER_RE` no ve porque el día va pegado a la «T» de la hora."""
+    known = set(_NUMBER_RE.findall(text))
+    for y, m, d in _ISO_DATE_RE.findall(text):
+        known |= {y, m, d, str(int(m)), str(int(d))}
+    return known
+
+
 def figures_without_table(text: str, payloads: list[dict[str, Any]], question: str = "") -> list[str]:
     """Cifras que da la respuesta cuando ninguna tool devolvió filas de clasificación o goleadores (error, grupo sin tabla, sin ingerir).
 
@@ -225,7 +237,7 @@ def figures_without_table(text: str, payloads: list[dict[str, Any]], question: s
     """
     if any(isinstance(p.get(k), list) and p[k] for p in payloads for k in ("standings", "scorers")):
         return []
-    known = set(_NUMBER_RE.findall(question + " " + json.dumps(payloads, ensure_ascii=False)))
+    known = _known_figures(question + " " + json.dumps(payloads, ensure_ascii=False))
     return sorted({n for n in _NUMBER_RE.findall(text) if n not in known})
 
 

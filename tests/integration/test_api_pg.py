@@ -133,3 +133,22 @@ def test_matches_order_desc_and_past_due_flag(engine: Engine) -> None:
         assert c.get(f"/groups/{gid}/matches?order=sideways").status_code == 400
         assert all(m.get("past_due") is True for m in asc if m["status"] == "scheduled" and m["date"])
         assert not any("past_due" in m for m in asc if m["status"] != "scheduled")
+
+
+def test_matches_order_date_asc_returns_the_nearest_match_even_if_it_belongs_to_a_later_round(engine: Engine) -> None:
+    from datetime import date
+
+    run_import(engine, FIXTURE)
+    with engine.begin() as c:  # un partido de la jornada 1 reprogramado después de uno de la jornada 2
+        c.execute(text("UPDATE matches SET scheduled_date='2027-03-01', scheduled_at='2027-03-01 18:00+00' WHERE external_id='5575696'"))
+        c.execute(text("UPDATE matches SET status='scheduled', home_score=NULL, away_score=NULL, scheduled_date='2026-11-07', scheduled_at='2026-11-07 18:00+00' "
+                       "WHERE external_id='5575709'"))
+    with TestClient(create_app(engine, today=lambda: date(2026, 10, 1))) as c:
+        gid = _group_id(c)
+        by_round = c.get(f"/groups/{gid}/matches?status=scheduled").json()["items"]
+        by_date = c.get(f"/groups/{gid}/matches?status=scheduled&order=date_asc").json()["items"]
+        assert {m["id"] for m in by_round} == {m["id"] for m in by_date}
+        assert by_round[0]["round_number"] == 1 and by_date[0]["date"][:10] == "2026-11-07" and by_date[0]["round_number"] == 2
+        assert [m["date"][:10] for m in by_date] == sorted(m["date"][:10] for m in by_date)
+        one = c.get(f"/groups/{gid}/matches?status=scheduled&order=date_asc&limit=1").json()
+        assert one["shown"] == 1 and one["items"][0]["date"][:10] == "2026-11-07" and one["count"] == len(by_date)

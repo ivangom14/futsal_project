@@ -605,7 +605,7 @@ def _base_cases(t: Truth) -> list[EvalCase]:  # noqa: C901 - catálogo declarati
         f2 = [Fact("match", "próximo", (nxt[0],), need_date=True, exclude=name)] if nxt else None
         cases.append(EvalCase("equipo_proximo_partido", "proximos", f"¿Cuál es el próximo partido del {name}?",
                               f2, lm, lambda s, p: _call("list_matches", group_id=g, team_id=dosa,
-                                                       status="scheduled") if s == 0 else None,
+                                                       status="scheduled", order="date_asc") if s == 0 else None,
                               need(bool(nxt), "no hay partidos programados con fecha")))
         f3 = [Fact("count", "jugados", number=len(fin), status="finished"),
               Fact("count", "pendientes", number=len(pend), status="pending")]
@@ -631,7 +631,7 @@ def _base_cases(t: Truth) -> list[EvalCase]:  # noqa: C901 - catálogo declarati
         cases.append(EvalCase(
             "proximo_campo", "combinada", f"¿En qué campo juega el {name} su próximo partido?", fv,
             frozenset({"list_matches", "get_match"}),
-            lambda s, p: (_call("list_matches", group_id=g, team_id=dosa, status="scheduled") if s == 0 else
+            lambda s, p: (_call("list_matches", group_id=g, team_id=dosa, status="scheduled", order="date_asc") if s == 0 else
                           _call("get_match", match_id=int(p[0]["matches"][0]["id"])) if s == 1 and p
                           and p[0].get("matches") else None),
             need(bool(venue), "el próximo partido no tiene campo informado")))
@@ -685,6 +685,7 @@ REQUIRED: dict[str, frozenset[str]] = {k: frozenset(v) for k, v in {
     "acta_goles_agrupados": {"top_scorers"},
     "acta_discrepancia_resultado": {"get_match_report"}}.items()}
 EXTRA_ALLOWED: dict[str, frozenset[str]] = {  # herramientas de solo lectura igual de válidas para el mismo dato
+    "partido_futuro_resultado": frozenset({"list_teams"}),  # resolver los equipos por nombre antes de pedir el partido es válido
     "enfrentamiento_ganador": frozenset({"get_match", "get_match_report"}),
     "acta_goleadores_contra_equipo": frozenset({"list_match_events", "list_teams", "find_players"}),
     "acta_jugador_ambiguo": frozenset({"get_scorer_table"}),  # los goles de un jugador también están en la tabla oficial (Fase 16)

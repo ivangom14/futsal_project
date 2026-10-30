@@ -1,6 +1,7 @@
 """Criterios anti-invención: deterministas, sin red ni BD."""
 
 from futsal.agent.criteria import (
+    figures_without_table,
     unsupported_coverage_counts,
     leaks_prompt,
     mentions_domain,
@@ -142,3 +143,11 @@ def test_the_instructed_limitation_formula_is_not_a_prompt_leak_but_other_copies
     assert not leaks_prompt("Respuesta: " + LIMITATION_REPLY, SYSTEM_PROMPT, allowed)
     copied = "Último partido de un equipo: su último finished y, con su id, get_match_report."
     assert leaks_prompt(LIMITATION_REPLY + " " + copied, SYSTEM_PROMPT, allowed)
+
+
+def test_capture_date_in_an_empty_table_answer_is_not_an_invented_figure() -> None:
+    payload = {"groups": [{"group": "Eliminatorias", "status": "empty", "source": {"captured_at": "2026-10-30T17:09:32.054348+00:00"}, "scorers": []}]}
+    ok = "No consta ningún goleador en la tabla oficial, capturada el 30 de octubre de 2026."
+    assert figures_without_table(ok, [payload], "¿Quién es el máximo goleador?") == []
+    assert figures_without_table("No consta; capturada el 5 de octubre de 2026.", [payload], "") == ["5"]  # una fecha distinta sí es inventada
+    assert figures_without_table("Hay 30 goleadores.", [{"groups": []}], "") == ["30"]  # sin fecha que lo respalde, una cifra sigue siendo inventada

@@ -107,8 +107,9 @@ def create_server(client: httpx.Client | None = None) -> FastMCP:
         status: Annotated[MatchStatus | None, Field(description="Estado")] = None,
         team_id: Annotated[int | None, Field(description="Solo partidos de este equipo")] = None,
         has_report: Annotated[bool | None, Field(description="Con/sin acta")] = None,
-        order: Annotated[Literal["asc", "desc"] | None, Field(description=(
-            "asc (jornada, def.) o desc (más reciente primero): último partido = status=finished, order=desc, limit=1"))] = None,
+        order: Annotated[Literal["asc", "desc", "date_asc"] | None, Field(description=(
+            "asc (jornada, def.), desc (más reciente primero) o date_asc (más próximo primero): último partido = status=finished, order=desc, "
+            "limit=1; próximo = status=scheduled, order=date_asc, limit=1"))] = None,
         limit: Annotated[int | None, Field(ge=1, le=200, description=(
             "Solo las N primeras filas; count sigue siendo el total (para contar: limit=1)"))] = None,
     ) -> dict[str, Any]:

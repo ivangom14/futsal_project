@@ -144,3 +144,9 @@ pendientes. `refresh-status` mostró `fresh` para los cuatro tipos. **No** se ha
 - La frescura de clasificación/goleadores se basa en la captura; no hay fecha de publicación oficial. Un partido desaparecido de la fuente se marca `historical`, nunca se borra.
 - La frase del prompt y la nueva herramienta añaden unos tokens por llamada; no se ha medido con un LLM real (no se ejecutó evaluación live).
 - `get_data_freshness` no está en las listas de herramientas permitidas de los casos de evaluación históricos (no se modificaron); si un modelo la usara en uno, figuraría como no esperada.
+
+## Ajuste posterior (21.2): próximo partido por fecha
+Con partidos reprogramados dentro de su jornada original, `order=asc` (por jornada) devolvía como «próximo» un partido más lejano en el tiempo. `list_matches` admite
+`order=date_asc` (fecha publicada más próxima primero, sin fecha al final); el prompt pide `status=scheduled, order=date_asc, limit=1` para el próximo partido. `asc` y `desc` no cambian.
+Evaluador (sin tocar el agente): las cifras de una fecha ISO con hora (`2026-10-30T17:09`) respaldan «30 de octubre de 2026» (antes se marcaba como invención una fecha de captura) y
+`partido_futuro_resultado` admite `list_teams`.

@@ -44,9 +44,13 @@ def match_day(m: dict[str, Any]) -> str:
 
 def order_matches(rows: list[dict[str, Any]], order: str) -> list[dict[str, Any]]:
     """`asc`: orden de jornada (el de siempre). `desc`: lo más reciente primero por la fecha publicada
-    (jornada e id como desempate; sin fecha, al final), para pedir el último partido con limit=1."""
+    (jornada e id como desempate; sin fecha, al final), para pedir el último partido con limit=1.
+    `date_asc`: lo más próximo primero por la fecha publicada (jornada e id como desempate; sin fecha, al final), para pedir el
+    PRÓXIMO partido con limit=1 aunque haya partidos reprogramados dentro de una jornada anterior."""
     if order == "desc":
         return sorted(rows, key=lambda m: (match_day(m), m.get("round_number") or 0, m["id"]), reverse=True)
+    if order == "date_asc":
+        return sorted(rows, key=lambda m: (not match_day(m), match_day(m), m.get("round_number") or 0, m["id"]))
     return rows
 
 
@@ -166,7 +170,7 @@ def create_app(engine: Engine | None = None, today: Callable[[], date] = date.to
     def matches(group_id: int, db: Db, round_id: int | None = None,
                 status: str | None = None, team_id: int | None = None,
                 has_report: bool | None = None,
-                order: Annotated[str, Query(pattern="^(asc|desc)$")] = "asc",
+                order: Annotated[str, Query(pattern="^(asc|desc|date_asc)$")] = "asc",
                 limit: Annotated[int | None, Query(ge=1, le=200)] = None) -> dict[str, Any]:
         _group(db, group_id)
         if team_id is not None and db.scalar(
