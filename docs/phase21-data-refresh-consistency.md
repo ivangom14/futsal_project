@@ -51,8 +51,8 @@ más reciente (`empty` = ausencia oficial; `incomplete` = lo mejor disponible, m
 `latest_status`, `latest_captured_at`) y un aviso si el último intento fue parcial o vacío. Aplica a clasificación (por jornada), goleadores, cobertura y frescura.
 
 **Barrera de descarga (`refresh/gates.py`).** Antes de importar un grupo: identidad del fichero = alcance pedido (si no, `rejected`); sin jornadas = `no_data` (aún no
-publicado, no es error); descarga fallida = `failed`; sin partidos con histórico = `rejected` (se conserva); menos partidos/jornadas que los almacenados o descarga
-incompleta = `partial` (se importa lo recibido —nunca se borra—, pero **no** avanza la última actualización válida).
+publicado, no es error); descarga fallida = `failed`; sin partidos con histórico = `rejected` (se conserva); menos jornadas que las almacenadas, descarga incompleta o alguna jornada con menos partidos de los que declara = `partial` (se importa lo recibido —nunca se borra—, pero **no** avanza la última actualización válida); menos partidos que
+los almacenados con una descarga **completa y coherente** = `success`/`no_changes` con una nota (son históricos, se ven como `historical` en la reconciliación). *Fase 21.1:* antes esto último también era `partial` y dejaba el grupo así indefinidamente.
 **Actas:** una versión sin jugadores (con jugadores almacenados) o cerrada → abierta se rechaza; un acta con HTTP 404/410 es «aún no publicada» (ausencia temporal, no fallo);
 403/429/5xx, red, tiempo de espera o página ilegible son fallo. Se corta tras 3 fallos de descarga seguidos (no los 404/410).
 

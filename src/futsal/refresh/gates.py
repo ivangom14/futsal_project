@@ -17,12 +17,18 @@ class GateResult:
     decision: str  # apply | apply_partial | reject
     status: str  # estado a registrar si no se aplica / punto de partida si se aplica
     reasons: list[str] = field(default_factory=list)
+    notes: list[str] = field(default_factory=list)  # informativas: no cambian la decisión (p. ej. partidos ausentes de una fuente completa)
 
 
 def assess_matches(*, download_status: str, download_error: str | None, expected_ids: tuple[str, str, str],
                    got_ids: tuple[str, str, str] | None, plan_matches: int, plan_rounds: int, stored_matches: int,
-                   stored_rounds: int) -> GateResult:
-    """Valida la descarga de un grupo (partidos y jornadas) antes de importarla."""
+                   stored_rounds: int, declared_mismatch: bool = False) -> GateResult:
+    """Valida la descarga de un grupo (partidos y jornadas) antes de importarla.
+
+    Menos partidos que los almacenados solo es sospechoso (`partial`) si la descarga es incompleta o alguna jornada trae menos partidos
+    de los que ella misma declara (`declared_mismatch`). Con una descarga completa y coherente, los partidos que la fuente ya no lista
+    son históricos: se conservan, se anotan en `notes` y la reconciliación los señala; no impiden dar la actualización por válida.
+    """
     if download_status == "no_rounds":  # la web no publica jornadas: aún no publicado, no es un error
         return GateResult("reject", NO_DATA, [download_error or "la web no publica jornadas para el grupo"])
     if download_status == "failed" or got_ids is None:
@@ -36,11 +42,18 @@ def assess_matches(*, download_status: str, download_error: str | None, expected
     reasons: list[str] = []
     if download_status != "downloaded":
         reasons.append(f"descarga incompleta ('{download_status}')")
+    notes: list[str] = []
     if plan_matches < stored_matches:
-        reasons.append(f"la fuente trae {plan_matches} partidos y hay {stored_matches} almacenados (no se borra ninguno)")
+        text = f"la fuente trae {plan_matches} partidos y hay {stored_matches} almacenados (no se borra ninguno)"
+        if download_status != "downloaded" or declared_mismatch:
+            reasons.append(text)
+        else:
+            notes.append(f"{stored_matches - plan_matches} partido(s) almacenado(s) ya no figuran en la fuente completa: {text}")
     if plan_rounds < stored_rounds:
         reasons.append(f"la fuente trae {plan_rounds} jornadas y hay {stored_rounds} almacenadas")
-    return GateResult("apply_partial" if reasons else "apply", PARTIAL if reasons else SUCCESS, reasons)
+    if declared_mismatch:
+        reasons.append("alguna jornada trae menos partidos de los que declara")
+    return GateResult("apply_partial" if reasons else "apply", PARTIAL if reasons else SUCCESS, reasons, notes)
 
 
 def assess_report(*, new_players: int, new_closed: bool, stored_players: int | None, stored_closed: bool | None) -> GateResult:

@@ -137,6 +137,8 @@ def _finalize_matches(entry: dict[str, Any], gate: GateResult, rep: Any) -> None
         entry["status"] = NO_CHANGES
     else:
         entry["status"] = SUCCESS
+    if gate.notes and entry["status"] in (SUCCESS, NO_CHANGES):
+        entry["message"] = "; ".join(gate.notes)
 
 
 def _refresh_matches(engine: Engine, comp: dict[str, Any], g: dict[str, Any], target: Target, work: Path, fetch: Fetch,
@@ -159,19 +161,21 @@ def _refresh_matches(engine: Engine, comp: dict[str, Any], g: dict[str, Any], ta
             entry["download"] = {k: res.get(k) for k in ("rounds_discovered", "rounds_downloaded", "rounds_from_cache",
                                                          "rounds_failed", "matches_total") if res.get(k) is not None}
         plan_counts = (0, 0)
+        declared_mismatch = False
         got_ids: tuple[str, str, str] | None = None
         if dl_status in (DOWNLOADED, PARTIAL) and league_path.exists():
             league = read_league(league_path)
             plan = build_plan(league)
             plan_counts = (len(plan.matches), len(plan.rounds))
+            declared_mismatch = any(i.code == "round_match_count" for i in plan.issues)
             got_ids = (league.season.external_id, league.competition.external_id, league.group.external_id)
             entry["source_fetched_at"] = _utc(league_path.stat().st_mtime).isoformat()
         stored_matches, stored_rounds, _gid = _stored_counts(engine, target.competition, target.group)
         gate = assess_matches(download_status=dl_status, download_error=dl_error,
                               expected_ids=(target.season, target.competition, target.group), got_ids=got_ids,
                               plan_matches=plan_counts[0], plan_rounds=plan_counts[1], stored_matches=stored_matches,
-                              stored_rounds=stored_rounds)
-        entry["gate"] = {"decision": gate.decision, "reasons": gate.reasons}
+                              stored_rounds=stored_rounds, declared_mismatch=declared_mismatch)
+        entry["gate"] = {"decision": gate.decision, "reasons": gate.reasons, "notes": gate.notes}
         if gate.decision == "reject":
             entry.update(status=gate.status, message="; ".join(gate.reasons),
                          error_kind="network_or_source" if gate.status == FAILED else "validation")

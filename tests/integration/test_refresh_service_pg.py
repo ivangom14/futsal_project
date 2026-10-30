@@ -173,8 +173,7 @@ def test_partial_response_keeps_history_and_is_not_a_valid_update(engine: Engine
     valid_before = _dataset(engine).last_valid_at
     partial = _league()
     partial["matches"] = partial["matches"][:5]
-    partial["rounds"][0]["matches"], partial["rounds"][1]["matches"] = 5, 0
-    _put(work, partial)
+    _put(work, partial)  # las jornadas siguen declarando 7 partidos cada una: la fuente está truncada
     later = datetime(2099, 1, 3, tzinfo=UTC)
     out = run_refresh(engine, _inventory(), work, tmp_path / "t", tmp_path / "r", FakeSite({}),
                       RefreshOptions(datasets=("matches",), offline=True), now=lambda: later)
@@ -182,6 +181,21 @@ def test_partial_response_keeps_history_and_is_not_a_valid_update(engine: Engine
     assert m["status"] == "partial" and out["status"] == "partial" and "14 almacenados" in m["message"]
     assert _count(engine, Match) == 14  # nada se borra
     assert _dataset(engine).last_valid_at == valid_before and _dataset(engine).last_attempt_status == "partial"
+
+
+def test_matches_that_left_a_complete_source_are_kept_and_do_not_block_a_valid_update(engine: Engine, tmp_path: Path) -> None:
+    work = tmp_path / "work"
+    _put(work, _league())
+    _refresh(engine, work, tmp_path)
+    shrunk = _league()
+    shrunk["matches"] = [m for m in shrunk["matches"] if m["external_match_id"] != "5575696"]
+    shrunk["rounds"][0]["matches"] = 6  # la propia jornada declara un partido menos: la fuente es coherente
+    _put(work, shrunk)
+    out = _refresh(engine, work, tmp_path)
+    m = out["groups"][0]["datasets"]["matches"]
+    assert m["status"] == "no_changes" and out["status"] == "no_changes" and "ya no figuran" in m["message"]
+    assert _count(engine, Match) == 14  # el partido ausente se conserva
+    assert _dataset(engine).last_attempt_status == "no_changes" and _dataset(engine).last_valid_at is not None
 
 
 def test_http_error_timeout_and_unparseable_page_preserve_data(engine: Engine, tmp_path: Path) -> None:

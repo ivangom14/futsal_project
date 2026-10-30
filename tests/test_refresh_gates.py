@@ -35,10 +35,17 @@ def test_wrong_identity_is_rejected() -> None:
     assert r.decision == "reject" and r.status == "rejected" and "identidad" in r.reasons[0]
 
 
-@pytest.mark.parametrize("change", [{"download_status": "partial"}, {"plan_matches": 10}, {"plan_rounds": 1}])
+@pytest.mark.parametrize("change", [{"download_status": "partial"}, {"plan_rounds": 1}, {"plan_matches": 10, "declared_mismatch": True},
+                                    {"plan_matches": 10, "download_status": "partial"}])
 def test_incomplete_download_is_applied_but_never_valid(change: dict[str, object]) -> None:
     r = _m(**change)
     assert (r.decision, r.status) == ("apply_partial", "partial") and r.reasons
+
+
+def test_missing_stored_matches_in_a_complete_and_coherent_download_are_historical_not_partial() -> None:
+    r = _m(plan_matches=13, stored_matches=14)
+    assert (r.decision, r.status, r.reasons) == ("apply", "success", [])
+    assert "1 partido(s) almacenado(s) ya no figuran" in r.notes[0]
 
 
 def test_report_gate_rejects_only_structural_degradation() -> None:
