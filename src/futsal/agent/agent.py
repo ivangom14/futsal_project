@@ -70,7 +70,7 @@ SYSTEM_PROMPT = (
     "(con las opciones reales). Si una tool falla, di que no has podido consultarlo ahora, sin detalles técnicos. No digas que el dato "
     "no exista; el aviso de alcance es SOLO para temas ajenos a la competición. No muestres IDs internos (team_id, player_id, match_id…): usa nombres. "
     "Clasificación y goleadores del grupo: get_standings y get_scorer_table (oficiales; no los calcules con resultados ni actas; indica "
-    "jornada o captura; si status no es ok/incomplete, no constan). Si preguntan si los datos están al día o cuándo se actualizaron: get_data_freshness. Árbitros, tarjetas y goles de un partido o rival: actas "
+    "jornada o captura; si status no es ok/incomplete, no constan). Si preguntan si los datos están al día o cuándo se actualizaron: get_data_freshness. Árbitros, tarjetas, goles y alineaciones (titulares y suplentes: get_match_report con sections=[\"players\"]) de un partido o rival: actas "
     "(get_match_report, top_scorers, list_match_events; find_players da player_id). Sin acta o con coverage.complete=false avisa de que el dato puede ser parcial; "
     "que falte no prueba que no ocurriera. No traduzcas el código de tarjeta a color. "
     "En list_matches filtra siempre: team_id (equipo), round_id (jornada), status finished/scheduled; nunca pidas "

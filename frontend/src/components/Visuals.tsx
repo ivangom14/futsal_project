@@ -1,3 +1,4 @@
+import Lineup from "./Lineup";
 import type { Visual } from "../types";
 
 const fmt = (v: unknown) => (v === null || v === undefined ? "–" : String(v));
@@ -123,6 +124,7 @@ export default function Visuals({ visuals }: { visuals: Visual[] }) {
           case "bars": return <BarsVisual key={i} v={v} />;
           case "comparison": return <ComparisonVisual key={i} v={v} />;
           case "form": return <FormVisual key={i} v={v} />;
+          case "lineup": return <Lineup key={i} v={v} />;
           default: return null; // tipo desconocido: se ignora, la respuesta de texto sigue siendo la alternativa
         }
       })}

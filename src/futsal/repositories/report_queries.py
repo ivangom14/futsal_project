@@ -155,7 +155,8 @@ def match_report(db: Session, match_id: int, sections: tuple[str, ...] = DEFAULT
         out["cards_note"] = CARD_NOTE
     if "players" in sections:
         out["players"] = [{"team": names.get(p.team_id), "player_id": p.player_id, "name": p.display_name,
-                           "shirt": p.shirt_number, "lineup": p.lineup_status, "captain": p.is_captain}
+                           "shirt": p.shirt_number, "lineup": p.lineup_status, "captain": p.is_captain,
+                           **({"goalkeeper": True} if p.role == "goalkeeper" else {})}
                           for p in db.scalars(select(MatchPlayer).where(MatchPlayer.observation_id == obs.id)
                                               .order_by(MatchPlayer.team_id, MatchPlayer.sequence))]
     if "staff" in sections:

@@ -57,14 +57,26 @@ La valoración se guarda con el mensaje en el navegador y sobrevive a recargas; 
 - Accesibilidad: botones con nombre, grupos y regiones con `aria-label`, `:focus-visible`, tablas con `scope`, gráficos con `role=img` y etiqueta.
 - Comprobado en Chromium real (1280×900 y 390×844): sin errores de consola, sin desbordamiento horizontal y logos cargados.
 
+## Alineaciones (visual `lineup`)
+Pregunta por la alineación → quinteto inicial sobre una pista de fútbol sala (SVG propio) y suplentes a la derecha (apilados en móvil).
+- Datos: `get_match_report` con `sections=["players"]` (el prompt lo indica). El acta trae titulares/suplentes, dorsal, capitán y portero
+  (en las 13 actas locales: 1 portero + 4 jugadores titulares por equipo). **No trae posiciones** (cierre, alas, pívot): la colocación en la pista
+  es orientativa, sin etiquetas de posición, y el propio visual lo avisa. Solo se distingue al portero.
+- Cambio mínimo en la API (solo lectura): `/matches/{id}/report` añade `"goalkeeper": true` a los porteros en `players` (se omite en el resto).
+- `presentation.lineup_visuals`: equipo(s) = el mencionado en la pregunta, si no el del foco, si no ambos; portero primero y luego por dorsal;
+  suplentes con los porteros primero; «sin titularidad indicada» aparte. Con ≠ 5 titulares o sin exactamente un portero (`court: false`) no se dibuja la
+  pista: se listan los titulares y se avisa. Sin titulares, sin acta o sin la sección de jugadores no hay visual. Fuente: «Acta del partido · RFFM»
+  (sin `group_id` no se conoce su frescura: se declara).
+- Contrato real compartido: `tests/fixtures/chat_response_lineup.json`. Sugeridas tras un acta: goles, tarjetas y árbitros de ese partido.
+
 ## Contrato (todo compatible; campos nuevos)
 `POST /chat` → `answer_kind`, `is_analysis`, `sources[]` (`kind` = `official_data|document`, `cited`, `queried_at`, `updated_at`, `freshness`, `updated_note`),
 `visuals[]`, `suggestions[]`, `focus`, `diagnostics.resolved_scope`. Petición: `focus` opcional. Nuevo `POST /chat/feedback`. Fixtures reales compartidos con
 el frontend: `tests/fixtures/chat_response.json` y `chat_response_visuals.json` (los verifica el backend).
 
 ## Pruebas (sin cuota de Gemini)
-`tests/test_futsito_presentation.py` (21: foco, fuentes, frescura, citas, visuales, sugeridas, aislamiento), `tests/test_feedback.py` (14), Vitest 37
-(visuales con el contrato real, fuentes y frescura, sugeridas, foco, valoración, persistencia, logo). Batería: 603 pass, 2 skipped; ruff y mypy limpios; el
+`tests/test_futsito_presentation.py` (27, incluye alineaciones: foco, fuentes, frescura, citas, visuales, sugeridas, aislamiento), `tests/test_feedback.py` (14), Vitest 39
+(visuales con el contrato real, fuentes y frescura, sugeridas, foco, valoración, persistencia, logo). Batería: 609 pass, 2 skipped; ruff y mypy limpios; el
 único error de la suite completa es `test_refresh_runs_pg` (necesita PostgreSQL local; ya fallaba).
 
 ## Validación manual con Gemini real (Windows CMD)
@@ -82,7 +94,8 @@ Reinicia el servicio de chat y recarga con `Ctrl+F5`. Conversaciones nuevas:
 5. «Analiza el rendimiento del DOSA» → insignia «Análisis o recomendación · no es información oficial».
 6. Pulsa una pregunta sugerida → se envía como mensaje normal. Cambia a «¿Y el otro grupo?» y a otro equipo: el foco debe cambiar.
 7. 👍 y 👎 (con motivo y comentario) → comprueba `data\feedback\feedback.jsonl`. Recarga: la valoración sigue marcada.
-8. Móvil: `F12` → modo dispositivo; menú ☰, sin desplazamiento horizontal.
+8. «¿Cuál fue la alineación del DOSA en su último partido?» → pista con el portero y 4 jugadores, capitán marcado y suplentes a la derecha, con el aviso de que las posiciones son orientativas; «¿y la del rival?» → el otro equipo.
+9. Móvil: `F12` → modo dispositivo; menú ☰, sin desplazamiento horizontal.
 
 ## Limitaciones
 - Las sugeridas son reglas fijas: no cubren todos los tipos de consulta (p. ej. actas, árbitros) y no analizan el texto de la respuesta.

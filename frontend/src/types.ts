@@ -22,7 +22,15 @@ export type Visual =
   | { type: "table"; title: string; subtitle?: string | null; partial?: boolean; columns: Column[]; rows: Record<string, string | number | boolean | null>[] }
   | { type: "bars"; title: string; subtitle?: string | null; partial?: boolean; rows: { label: string; sublabel?: string | null; value: number; rank?: number | null }[] }
   | { type: "comparison"; title: string; subtitle?: string | null; series: string[]; rows: { label: string; values: (number | null)[] }[] }
+  | LineupVisual
   | { type: "form"; title: string; subtitle?: string | null; rows: { round: number | null; rival: string; score: string; result: "V" | "E" | "D"; points: number; home: boolean }[] };
+
+export interface LineupPlayer { name: string; short: string; shirt: number | null; captain: boolean; goalkeeper: boolean }
+export interface LineupVisual {
+  type: "lineup"; title: string; subtitle?: string | null; team: string;
+  /** Hay exactamente 5 titulares con 1 portero: solo entonces se dibuja la pista. */
+  court: boolean; starters: LineupPlayer[]; substitutes: LineupPlayer[]; unknown: LineupPlayer[]; note: string;
+}
 
 export type Focus = Partial<Record<"team" | "player" | "competition" | "group" | "round", string>>;
 export type FeedbackReason = "wrong_data" | "lost_context" | "incomplete" | "bad_source" | "misunderstood" | "other";

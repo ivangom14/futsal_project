@@ -1,0 +1,122 @@
+{
+  "answer": "Así formó el DOSA.",
+  "guardrail": null,
+  "error": null,
+  "answer_kind": "official",
+  "is_analysis": false,
+  "sources": [
+    {
+      "kind": "official_data",
+      "title": "Acta del partido · RFFM",
+      "detail": "C.D. DOSA - FS ALCALA · Jornada 4",
+      "pages": null,
+      "text": null,
+      "cited": null,
+      "queried_at": "2026-10-30T10:00:00+00:00",
+      "updated_at": null,
+      "freshness": "unknown",
+      "updated_note": "No se conoce la fecha de actualización de estos datos.",
+      "meta": {}
+    }
+  ],
+  "visuals": [
+    {
+      "type": "lineup",
+      "title": "Alineación · C.D. DOSA",
+      "subtitle": "C.D. DOSA 3-1 FS ALCALA · Jornada 4",
+      "team": "C.D. DOSA",
+      "court": true,
+      "starters": [
+        {
+          "name": "Javier Aparicio Jimenez",
+          "short": "J. Aparicio",
+          "shirt": 1,
+          "captain": false,
+          "goalkeeper": true
+        },
+        {
+          "name": "Pedro Gil Mora",
+          "short": "P. Gil",
+          "shirt": 5,
+          "captain": false,
+          "goalkeeper": false
+        },
+        {
+          "name": "Ana Ruiz Soto",
+          "short": "A. Ruiz",
+          "shirt": 7,
+          "captain": false,
+          "goalkeeper": false
+        },
+        {
+          "name": "Ivan Nuñez Diaz",
+          "short": "I. Nuñez",
+          "shirt": 9,
+          "captain": false,
+          "goalkeeper": false
+        },
+        {
+          "name": "Juan Perez Lopez",
+          "short": "J. Perez",
+          "shirt": 10,
+          "captain": true,
+          "goalkeeper": false
+        }
+      ],
+      "substitutes": [
+        {
+          "name": "Sara Reyes Vega",
+          "short": "S. Reyes",
+          "shirt": 13,
+          "captain": false,
+          "goalkeeper": true
+        },
+        {
+          "name": "Luis Suplente Garcia",
+          "short": "L. Suplente",
+          "shirt": 20,
+          "captain": false,
+          "goalkeeper": false
+        }
+      ],
+      "unknown": [],
+      "note": "El acta indica quiénes son titulares y suplentes, pero no la posición de cada jugador en la pista: la colocación en el campo es orientativa."
+    }
+  ],
+  "suggestions": [
+    "¿Quién marcó los goles de ese partido?",
+    "¿Qué tarjetas hubo en ese partido?",
+    "¿Quiénes fueron los árbitros de ese partido?"
+  ],
+  "focus": {},
+  "diagnostics": {
+    "run_id": "run",
+    "provider": "fake",
+    "model": "fake",
+    "duration_ms": 0,
+    "resolved_scope": null,
+    "resolved_question": null,
+    "history_turns": 0,
+    "llm_calls": 2,
+    "tool_calls": 1,
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "token_source": "unreported",
+    "tools": [
+      {
+        "name": "get_match_report",
+        "arguments": {
+          "match_id": 9,
+          "sections": [
+            "players"
+          ]
+        },
+        "duration_ms": 0,
+        "is_error": false,
+        "refused": false,
+        "summary": "{\"report_available\": true, \"match\": {\"match_id\": 9, \"round_number\": 4, \"home_team\": \"C.D. DOSA\", \"away_team\": \"FS ALCALA…"
+      }
+    ],
+    "errors": []
+  }
+}

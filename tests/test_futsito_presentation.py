@@ -45,14 +45,32 @@ RAG = {"hits": [
      "text": "Las faltas se sancionan con tiro libre directo o indirecto."}]}
 
 
+def _pl(team: str, name: str, shirt: int, lineup: str, gk: bool = False, captain: bool = False) -> dict[str, Any]:
+    return {"team": team, "player_id": shirt, "name": name, "shirt": shirt, "lineup": lineup, "captain": captain, **({"goalkeeper": True} if gk else {})}
+
+
+REPORT = {"report_available": True, "match": {"match_id": 9, "round_number": 4, "home_team": "C.D. DOSA", "away_team": "FS ALCALA",
+                                              "status": "finished", "home_score": 3, "away_score": 1},
+          "players": [_pl("C.D. DOSA", "SUPLENTE GARCIA, LUIS", 20, "substitute"), _pl("C.D. DOSA", "PEREZ LOPEZ, JUAN", 10, "starter", captain=True),
+                      _pl("C.D. DOSA", "APARICIO JIMENEZ, JAVIER", 1, "starter", gk=True), _pl("C.D. DOSA", "RUIZ SOTO, ANA", 7, "starter"),
+                      _pl("C.D. DOSA", "GIL MORA, PEDRO", 5, "starter"), _pl("C.D. DOSA", "NUÑEZ DIAZ, IVAN", 9, "starter"),
+                      _pl("C.D. DOSA", "REYES VEGA, SARA", 13, "substitute", gk=True),
+                      _pl("FS ALCALA", "MARTIN CANO, LEO", 1, "starter", gk=True), _pl("FS ALCALA", "OTRO UNO, A", 2, "starter"),
+                      _pl("FS ALCALA", "OTRO DOS, B", 3, "starter"), _pl("FS ALCALA", "OTRO TRES, C", 4, "starter"),
+                      _pl("FS ALCALA", "OTRO CUATRO, D", 5, "starter"), _pl("FS ALCALA", "BANQUILLO UNO, E", 6, "substitute")]}
+
+
+REPORTS: dict[str, dict[str, Any]] = {"current": REPORT}  # acta que devuelve el MCP simulado (los tests la sustituyen)
+
+
 class Mcp:
     async def list_tools(self) -> list[dict[str, Any]]:
         return [{"name": n, "description": n, "input_schema": {"type": "object", "properties": {}}}
-                for n in ("list_competitions", "find_teams", "get_standings", "get_scorer_table", "list_matches", "search_rules")]
+                for n in ("list_competitions", "find_teams", "get_standings", "get_scorer_table", "list_matches", "search_rules", "get_match_report")]
 
     async def call_tool(self, name: str, arguments: dict[str, Any]) -> tuple[bool, str]:
         data = {"list_competitions": CATALOG, "find_teams": TEAMS, "get_standings": STANDINGS, "get_scorer_table": SCORERS,
-                "list_matches": MATCHES, "search_rules": RAG}.get(name, {})
+                "list_matches": MATCHES, "search_rules": RAG, "get_match_report": REPORTS["current"]}.get(name, {})
         return False, json.dumps(data)
 
 
@@ -279,3 +297,72 @@ def test_visual_contract_fixture_matches_backend() -> None:
     if not VISUALS_FIXTURE.exists():
         VISUALS_FIXTURE.write_text(json.dumps(body, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     assert json.loads(VISUALS_FIXTURE.read_text(encoding="utf-8")) == body
+
+
+# --- Alineaciones: quinteto inicial sobre la pista y suplentes ----------------------------------------------------------------------------
+def lineup(question: str, report: dict[str, Any] | None = None) -> Any:
+    steps = [call("get_match_report", match_id=9, sections=["players"]), LLMResponse("Alineación del partido.", [])]
+    REPORTS["current"] = report if report is not None else REPORT
+    try:
+        return present(question, steps)
+    finally:
+        REPORTS["current"] = REPORT
+
+
+def test_lineup_shows_the_starting_five_with_goalkeeper_first_and_the_substitutes() -> None:
+    r = lineup("¿Cuál fue la alineación del DOSA?")
+    (v,) = [v for v in r.visuals if v["type"] == "lineup"]
+    assert v["title"] == "Alineación · C.D. DOSA" and v["subtitle"] == "C.D. DOSA 3-1 FS ALCALA · Jornada 4" and v["court"] is True
+    assert [(p["shirt"], p["short"], p["goalkeeper"]) for p in v["starters"]] == [
+        (1, "J. Aparicio", True), (5, "P. Gil", False), (7, "A. Ruiz", False), (9, "I. Nuñez", False), (10, "J. Perez", False)]
+    assert [p["name"] for p in v["starters"]][0] == "Javier Aparicio Jimenez" and v["starters"][4]["captain"] is True
+    assert [(p["shirt"], p["goalkeeper"]) for p in v["substitutes"]] == [(13, True), (20, False)]  # portero suplente primero
+    assert "no la posición" in v["note"] and "orientativa" in v["note"]  # el acta no da posiciones: se avisa, no se inventan
+
+
+def test_lineup_without_naming_a_team_shows_both_and_naming_one_shows_only_it() -> None:
+    both = [v["team"] for v in lineup("¿Qué alineaciones hubo en ese partido?").visuals if v["type"] == "lineup"]
+    assert both == ["C.D. DOSA", "FS ALCALA"]
+    only = [v["team"] for v in lineup("¿Cuál fue la alineación del Alcalá?").visuals if v["type"] == "lineup"]
+    assert only == ["FS ALCALA"]
+
+
+def test_lineup_needs_real_data_and_degrades_without_the_court_when_incomplete() -> None:
+    four = {**REPORT, "players": [p for p in REPORT["players"] if not (p["team"] == "FS ALCALA" and p["shirt"] == 5 and p["lineup"] == "starter")]}
+    alcala = next(v for v in lineup("alineación del Alcalá", four).visuals if v["type"] == "lineup")
+    assert alcala["court"] is False and len(alcala["starters"]) == 4  # sin 5 titulares no se dibuja la pista; se listan los que constan
+    assert not [v for v in lineup("alineación", {**REPORT, "players": [p for p in REPORT["players"] if p["lineup"] == "substitute"]}).visuals
+                if v["type"] == "lineup"]  # sin titulares, nada
+    assert lineup("alineación", {"report_available": False, "reason": "sin acta", "match": REPORT["match"]}).visuals == []
+    assert lineup("alineación", {k: v for k, v in REPORT.items() if k != "players"}).visuals == []  # sin la sección de jugadores
+
+
+def test_lineup_report_is_listed_as_official_source_with_unknown_date_and_suggestions() -> None:
+    r = lineup("¿Cuál fue la alineación del DOSA?")
+    src = next(s for s in r.sources if s.title == "Acta del partido · RFFM")
+    assert src.detail == "C.D. DOSA - FS ALCALA · Jornada 4" and src.updated_at is None and "No se conoce la fecha" in src.updated_note
+    assert r.suggestions == ["¿Quién marcó los goles de ese partido?", "¿Qué tarjetas hubo en ese partido?", "¿Quiénes fueron los árbitros de ese partido?"]
+
+
+def test_prompt_points_lineups_to_the_report_players_section() -> None:
+    from futsal.agent.agent import SYSTEM_PROMPT
+
+    assert "alineaciones" in SYSTEM_PROMPT and 'sections=["players"]' in SYSTEM_PROMPT
+
+
+LINEUP_FIXTURE = __import__("pathlib").Path(__file__).parent / "fixtures" / "chat_response_lineup.json"
+
+
+def test_lineup_contract_fixture_matches_backend() -> None:
+    c, _ = web([call("get_match_report", match_id=9, sections=["players"]), LLMResponse("Así formó el DOSA.", [])])
+    with c:
+        body = c.post("/chat", json={"question": "¿Cuál fue la alineación del DOSA?", "conversation_id": "ln"}).json()
+    body["diagnostics"].update(run_id="run", duration_ms=0)
+    for t in body["diagnostics"]["tools"]:
+        t["duration_ms"] = 0
+    for src in body["sources"]:
+        src["queried_at"] = "2026-10-30T10:00:00+00:00"
+    assert [v["type"] for v in body["visuals"]] == ["lineup"]
+    if not LINEUP_FIXTURE.exists():
+        LINEUP_FIXTURE.write_text(json.dumps(body, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    assert json.loads(LINEUP_FIXTURE.read_text(encoding="utf-8")) == body

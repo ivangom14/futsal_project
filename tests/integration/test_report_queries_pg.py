@@ -76,6 +76,7 @@ def test_optional_sections_and_validation(api: TestClient, engine: Engine) -> No
     assert [c["player"] for c in body["cards"]] == ["GARCÍA GARCÍA, JAVIER"]
     assert body["cards"][0]["source_code"] and "no está verificado" in body["cards_note"]
     assert len(body["players"]) == 21 and len(body["staff"]) == 3 and "officials" not in body
+    assert any(p.get("goalkeeper") is True for p in body["players"]) and all(p.get("goalkeeper", True) is True for p in body["players"])
     assert api.get(f"/matches/{mid}/report", params={"sections": "secret"}).status_code == 400
 
 

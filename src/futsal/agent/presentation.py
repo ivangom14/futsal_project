@@ -132,6 +132,16 @@ def build_sources(question: str, answer: str, rec: RunRecord, official: list[dic
             out.append({"kind": "official_data", "title": f"{DATASET_TITLE[ds]} · RFFM", "queried_at": queried, "cited": None,
                         "detail": " · ".join(x for x in (g.get("competition"), g.get("group")) if x) or None,
                         "pages": None, "text": None, "meta": {}, **stamp})
+    reports_seen: set[tuple[Any, ...] | None] = set()
+    for call in executed(rec):  # actas de un partido: no llevan group_id, la cabecera da el partido
+        data = _json(call.result) if call.name in ("get_match_report", "get_match") else None
+        head = (data or {}).get("match") if isinstance(data, dict) else None
+        rkey = (head.get("home_team"), head.get("round_number")) if isinstance(head, dict) else None
+        if isinstance(head, dict) and head.get("home_team") and rkey not in reports_seen:
+            reports_seen.add(rkey)
+            out.append({"kind": "official_data", "title": "Acta del partido · RFFM", "queried_at": queried, "cited": None,
+                        "detail": f"{head['home_team']} - {head.get('away_team')}" + (f" · Jornada {head['round_number']}" if head.get("round_number") else ""),
+                        "pages": None, "text": None, "meta": {}, **_stamp(None, None)})
     hits_seen: set[tuple[Any, ...]] = set()
     for call in executed(rec):
         data = _json(call.result) if call.name == "search_rules" else None
@@ -162,8 +172,67 @@ def _mentioned(question: str, rows: list[dict[str, Any]], key: str = "team") -> 
     return found
 
 
-def build_visuals(question: str, rec: RunRecord, official: list[dict[str, Any]], names: dict[str, dict[int, str]]) -> list[dict[str, Any]]:
-    visuals: list[dict[str, Any]] = []
+LINEUP_NOTE = ("El acta indica quiénes son titulares y suplentes, pero no la posición de cada jugador en la pista: "
+               "la colocación en el campo es orientativa.")
+
+
+def _pretty(name: str) -> str:
+    """«APARICIO JIMENEZ, JAVIER» -> «Javier Aparicio Jimenez»."""
+    if "," in name:
+        surname, _, given = name.partition(",")
+        name = f"{given.strip()} {surname.strip()}"
+    return " ".join(w.capitalize() for w in name.split())
+
+
+def _player(p: dict[str, Any]) -> dict[str, Any]:
+    """Jugador para la pista: nombre completo y etiqueta corta («J. Aparicio») a partir de «APELLIDOS, NOMBRE»."""
+    raw = str(p.get("name") or "")
+    surnames, _, given = raw.partition(",")
+    first_given, first_surname = (given.split() or [""])[0].capitalize(), (surnames.split() or [""])[0].capitalize()
+    short = f"{first_given[0]}. {first_surname}" if first_given and first_surname else _pretty(raw)
+    return {"name": _pretty(raw), "short": short, "shirt": p.get("shirt") if isinstance(p.get("shirt"), int) else None,
+            "captain": bool(p.get("captain")), "goalkeeper": bool(p.get("goalkeeper"))}
+
+
+def lineup_visuals(question: str, rec: RunRecord, focus: dict[str, str]) -> list[dict[str, Any]]:
+    """Quinteto inicial y suplentes de un acta, con lo que devolvió `get_match_report` (sección `players`). Sin datos, sin visual."""
+    out: list[dict[str, Any]] = []
+    seen: set[tuple[Any, ...]] = set()
+    for call in executed(rec):
+        data = _json(call.result) if call.name == "get_match_report" else None
+        if not isinstance(data, dict) or not data.get("report_available") or not isinstance(data.get("players"), list):
+            continue
+        head = data.get("match") or {}
+        key = (head.get("home_team"), head.get("away_team"), head.get("round_number"))
+        if key in seen:
+            continue
+        seen.add(key)
+        by_team: dict[str, list[dict[str, Any]]] = {}
+        for p in data["players"]:
+            if isinstance(p, dict) and p.get("team") and p.get("name"):
+                by_team.setdefault(str(p["team"]), []).append(p)
+        wanted = [t for t in by_team if _mentioned(question, [{"team": t}])] or [t for t in by_team if t == focus.get("team")] or list(by_team)
+        score = (f" {head.get('home_score')}-{head.get('away_score')} "
+                 if head.get("status") == "finished" and isinstance(head.get("home_score"), int) else " - ")
+        for team in wanted:
+            rows = by_team[team]
+            order = lambda p: (not p.get("goalkeeper"), p.get("shirt") if isinstance(p.get("shirt"), int) else 999)  # noqa: E731
+            starters = [_player(p) for p in sorted((r for r in rows if r.get("lineup") == "starter"), key=order)]
+            if not starters:
+                continue
+            subs = [_player(p) for p in sorted((r for r in rows if r.get("lineup") == "substitute"), key=order)]
+            unknown = [_player(p) for p in sorted((r for r in rows if r.get("lineup") not in ("starter", "substitute")), key=order)]
+            out.append({"type": "lineup", "title": f"Alineación · {team}",
+                        "subtitle": f"{head.get('home_team')}{score}{head.get('away_team')}"
+                                    + (f" · Jornada {head['round_number']}" if head.get("round_number") else ""),
+                        "team": team, "court": len(starters) == 5 and sum(1 for s in starters if s["goalkeeper"]) == 1,
+                        "starters": starters, "substitutes": subs, "unknown": unknown, "note": LINEUP_NOTE})
+    return out[:2]
+
+
+def build_visuals(question: str, rec: RunRecord, official: list[dict[str, Any]], names: dict[str, dict[int, str]],
+                  focus: dict[str, str] | None = None) -> list[dict[str, Any]]:
+    visuals: list[dict[str, Any]] = lineup_visuals(question, rec, focus or {})
     for data in official:
         where = " · ".join(x for x in (data.get("competition"), data.get("group")) if x)
         src = data.get("source") or {}
@@ -239,6 +308,8 @@ def build_suggestions(question: str, answer: str, rec: RunRecord, focus: dict[st
         cands += [f"¿En qué equipo juega {player}?" if player else "¿Cómo va la clasificación?",
                   f"¿Cómo va {team} en la clasificación?" if team else "¿Cómo va la clasificación?",
                   f"¿Cuál es el próximo partido de {team}?" if team else "¿Qué resultados hubo en la última jornada?"]
+    elif "get_match_report" in names_used:
+        cands += ["¿Quién marcó los goles de ese partido?", "¿Qué tarjetas hubo en ese partido?", "¿Quiénes fueron los árbitros de ese partido?"]
     elif "list_matches" in names_used or "get_match" in names_used:
         cands += [f"¿Cómo va {team} en la clasificación?" if team else "¿Cómo va la clasificación?",
                   f"¿Cuál es el próximo partido de {team}?" if team and finished else (f"¿Cómo ha quedado el último partido de {team}?" if team

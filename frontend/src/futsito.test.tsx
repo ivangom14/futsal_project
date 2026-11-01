@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
 import contract from "../../tests/fixtures/chat_response.json";
 import visualsContract from "../../tests/fixtures/chat_response_visuals.json";
+import lineupJson from "../../tests/fixtures/chat_response_lineup.json";
 import type { ChatResponse } from "./types";
 
 const HEALTH = { status: "ok", agent: { ready: true, error: null }, llm: { provider: "gemini", key_configured: true }, data_api: { reachable: true, detail: null } };
@@ -188,5 +189,39 @@ describe("valoración de respuestas", () => {
     first.unmount();
     render(<App />);
     expect(screen.getByText(/Gracias por tu valoración/)).toBeInTheDocument();
+  });
+});
+
+describe("alineaciones", () => {
+  const lineupContract = lineupJson as unknown as ChatResponse;
+
+  it("dibuja el quinteto en la pista y los suplentes a un lado, con el contrato real", async () => {
+    backend(() => reply(lineupContract));
+    render(<App />);
+    await ask("¿Cuál fue la alineación del DOSA?");
+    const figure = screen.getByTestId("visual");
+    expect(within(figure).getByText("Alineación · C.D. DOSA")).toBeInTheDocument();
+    const court = within(figure).getByRole("img", { name: /^Quinteto inicial de C\.D\. DOSA: 1 Javier Aparicio Jimenez, 5 Pedro Gil Mora/ });
+    expect(within(court as unknown as HTMLElement).getAllByText(/^[A-Z]\. /)).toHaveLength(5); // 5 titulares con su etiqueta
+    expect(within(court as unknown as HTMLElement).getByText("Portero")).toBeInTheDocument();
+    const subs = within(figure).getByRole("region", { name: "Suplentes" });
+    const items = within(subs).getAllByRole("listitem").map((li) => li.textContent ?? "");
+    expect(items).toHaveLength(2);
+    expect(items[0]).toContain("Sara Reyes Vega"); // portero suplente primero
+    expect(items[1]).toContain("Luis Suplente Garcia");
+    expect(within(figure).getByText(/la colocación en el campo es orientativa/)).toBeInTheDocument(); // no inventa posiciones
+    expect(screen.queryByText(/Cierre|Pívot|Pivote|Ala /)).not.toBeInTheDocument();
+  });
+
+  it("sin cinco titulares y un portero no dibuja la pista: lista los titulares y lo avisa", async () => {
+    const [v] = lineupContract.visuals as unknown as { starters: unknown[] }[];
+    const broken = { ...lineupContract, visuals: [{ ...v, court: false, starters: v.starters.slice(0, 4) }] };
+    backend(() => reply(broken));
+    render(<App />);
+    await ask("alineación");
+    const figure = screen.getByTestId("visual");
+    expect(within(figure).queryByRole("img", { name: /Quinteto inicial/ })).not.toBeInTheDocument();
+    expect(within(figure).getByRole("region", { name: "Titulares" })).toBeInTheDocument();
+    expect(within(figure).getByText(/no permite dibujar un quinteto completo/)).toBeInTheDocument();
   });
 });
