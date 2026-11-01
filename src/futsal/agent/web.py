@@ -7,6 +7,7 @@ Solo habla con el LLM y con el servidor MCP (que a su vez usa la API de datos); 
 import asyncio
 import logging
 import threading
+import time
 from pathlib import Path as FilePath
 from collections.abc import AsyncIterator, Callable, Sequence
 from contextlib import AbstractAsyncContextManager, asynccontextmanager
@@ -26,7 +27,7 @@ from futsal.agent.agent import DEFAULT_MAX_ROWS, DEFAULT_MAX_TOOL_CALLS, OFF_TOP
 from futsal.agent import presentation as pres
 from futsal.agent.feedback import FeedbackRequest, RunSummaries, record
 from futsal.agent.llm import create_llm
-from futsal.agent.messages import FriendlyError, classify_error
+from futsal.agent.messages import TIMEOUT, FriendlyError, classify_error
 from futsal.agent.memory import (
     CONVERSATION_ID,
     DEFAULT_MAX_CHARS,
@@ -93,6 +94,13 @@ class Diagnostics(BaseModel):
     model: str | None
     duration_ms: float
     resolved_scope: dict[str, Any] | None = None  # ámbito (tipo, categoría, grupo, competiciones) que la aplicación resolvió
+    llm_ms: float = 0.0  # tiempo esperando al modelo (incluye las esperas de reintentos)
+    retry_wait_ms: float = 0.0  # parte de llm_ms que fue espera por 429/5xx/red
+    llm_retries: int = 0
+    tools_ms: float = 0.0  # tiempo en herramientas MCP / API de datos
+    context_ms: float = 0.0  # preparación del contexto (catálogo) en la primera pregunta tras arrancar
+    postprocess_ms: float = 0.0  # fuentes, frescura, visuales y sugeridas
+    input_tokens_peak: int = 0  # entrada máxima de una llamada (peso de prompt + contexto + historial)
     resolved_question: str | None = None  # cómo se interpretó el mensaje al unirlo a una aclaración pendiente
     history_turns: int  # turnos anteriores de la conversación enviados al agente como contexto
     llm_calls: int
@@ -129,16 +137,24 @@ def build_response(result: AgentResult, history_turns: int, question: str, prev_
         run_id=rec.run_id, provider=rec.provider, model=rec.model, duration_ms=round(rec.latency_ms, 1), history_turns=history_turns,
         resolved_question=result.resolved_question, resolved_scope=result.resolved_scope,
         llm_calls=totals["llm_calls"], tool_calls=totals["tool_calls"], input_tokens=totals["input_tokens"],
+        llm_ms=totals["llm_ms"], retry_wait_ms=totals["retry_wait_ms"], llm_retries=totals["llm_retries"], tools_ms=totals["tool_ms"],
+        context_ms=round(rec.context_ms, 1), input_tokens_peak=totals["peak_input_tokens"],
         output_tokens=totals["output_tokens"], token_source=totals["token_source"], tools=tools, errors=errors)
+    t_post = time.monotonic()
     clean = not result.error and result.guardrail in MEMORY_GUARDRAILS  # solo una consulta limpia mueve el foco
     focus = merge_focus(prev_focus, compute_focus(rec, result.names, result.groups_used, result.official, question)) if clean else prev_focus
     sources = pres.build_sources(question, result.answer, rec, result.official, result.groups_used, freshness)
     kind, analysis = pres.answer_kind(question, result.answer, rec)
     visuals = pres.build_visuals(question, rec, result.official, result.names, focus) if clean else []
+    diag.postprocess_ms = round((time.monotonic() - t_post) * 1000, 1)
     return ChatResponse(
         answer=result.answer, guardrail=result.guardrail, error=result.error, answer_kind=kind, is_analysis=analysis,
         sources=[Source(**src) for src in sources], visuals=visuals, focus=focus, diagnostics=diag,
         suggestions=pres.build_suggestions(question, result.answer, rec, focus, asked, sources))
+
+
+class ChatTimeout(Exception):
+    """La pregunta superó el tiempo máximo y se canceló (el servidor queda libre para la siguiente)."""
 
 
 class ChatUnavailable(Exception):
@@ -175,6 +191,8 @@ class AgentRunner:
         self._settled = threading.Event()
         self._thread: threading.Thread | None = None
         self.error: str | None = None
+        self.waiting = 0  # preguntas esperando su turno
+        self.running_since: float | None = None  # monotonic de la pregunta en curso
 
     @property
     def ready(self) -> bool:
@@ -209,18 +227,32 @@ class AgentRunner:
             return
         self._thread.join(timeout=10)
 
-    async def ask(self, question: str, history: Sequence[Turn] = (), focus: dict[str, Any] | None = None) -> AgentResult:
+    async def ask(self, question: str, history: Sequence[Turn] = (), focus: dict[str, Any] | None = None,
+                  timeout: float | None = None) -> AgentResult:
         if self._agent is None:  # primer arranque fallido o aún en curso: reintenta
             self.start()
             await asyncio.get_running_loop().run_in_executor(None, self._settled.wait, 30)
         if self._agent is None or self._loop is None:
             raise ChatUnavailable(self.error or "el agente no ha terminado de arrancar")
-        return await asyncio.wrap_future(asyncio.run_coroutine_threadsafe(self._run(question, history, focus or {}), self._loop))
+        fut = asyncio.run_coroutine_threadsafe(self._run(question, history, focus or {}), self._loop)
+        try:
+            return await asyncio.wait_for(asyncio.wrap_future(fut), timeout)
+        except TimeoutError as exc:
+            fut.cancel()  # cancela la tarea del agente: libera el turno aunque Gemini siga respondiendo
+            raise ChatTimeout(f"tiempo máximo de {timeout:.0f}s superado (¿Gemini limitando peticiones?)") from exc
 
     async def _run(self, question: str, history: Sequence[Turn], focus: dict[str, Any]) -> AgentResult:
         assert self._agent is not None and self._lock is not None
-        async with self._lock:
-            return await self._agent.run(question, history, focus)
+        self.waiting += 1
+        try:
+            async with self._lock:
+                self.running_since = time.monotonic()
+                try:
+                    return await self._agent.run(question, history, focus)
+                finally:
+                    self.running_since = None
+        finally:
+            self.waiting -= 1
 
 
 def _data_api_status() -> dict[str, Any]:
@@ -272,10 +304,12 @@ def create_chat_app(runner: AgentRunner | None = None,
                     data_api_status: Callable[[], dict[str, Any]] = _data_api_status,
                     memory: ConversationMemory | None = None,
                     freshness: Callable[[list[int]], dict[int, dict[str, Any]]] = api_freshness,
-                    feedback_path: FilePath | None = None) -> FastAPI:
+                    feedback_path: FilePath | None = None,
+                    question_timeout: float | None = None) -> FastAPI:
     agent_runner = runner or AgentRunner()
     conversations = memory if memory is not None else ConversationMemory()
     summaries = RunSummaries()
+    max_seconds = question_timeout if question_timeout is not None else max(5.0, float(env_value("CHAT_TIMEOUT_SECONDS", "90")))
     feedback_file = feedback_path or FilePath(env_value("FEEDBACK_FILE", "data/feedback/feedback.jsonl"))
     max_turns = int(env_value("HISTORY_MAX_TURNS", str(DEFAULT_MAX_TURNS)))
     max_chars = int(env_value("HISTORY_MAX_CHARS", str(DEFAULT_MAX_CHARS)))
@@ -303,7 +337,10 @@ def create_chat_app(runner: AgentRunner | None = None,
         agent = {"ready": agent_runner.ready, "error": agent_runner.error}
         data = data_api_status()
         ok = agent["ready"] and llm["key_configured"] and data["reachable"]
-        return {"status": "ok" if ok else "degraded", "agent": agent, "llm": llm, "data_api": data}
+        running = agent_runner.running_since
+        queue = {"busy": running is not None, "running_for_s": None if running is None else round(time.monotonic() - running, 1),
+                 "waiting": max(agent_runner.waiting - (1 if running is not None else 0), 0)}
+        return {"status": "ok" if ok else "degraded", "agent": agent, "llm": llm, "data_api": data, "queue": queue}
 
     @app.post("/chat", response_model=ChatResponse)
     async def chat(body: ChatRequest) -> ChatResponse | JSONResponse:
@@ -318,7 +355,12 @@ def create_chat_app(runner: AgentRunner | None = None,
         # el servidor manda: solo una conversación que no conoce se siembra con el foco del navegador (sanitizado)
         prev_focus = (conversations.get_focus(cid) or ({} if known is not None else sanitize_focus(body.focus))) if cid else {}
         try:
-            result = await agent_runner.ask(question, context, prev_focus)
+            started = time.monotonic()
+            log.info("pregunta recibida (conversación %s, %d turnos de contexto, en cola: %d)", (cid or "-")[:8], len(context), agent_runner.waiting)
+            result = await agent_runner.ask(question, context, prev_focus, max_seconds)
+            log.info("pregunta resuelta en %.1fs (error=%s, guardarraíl=%s)", time.monotonic() - started, bool(result.error), result.guardrail)
+        except ChatTimeout as exc:
+            return _failure(TIMEOUT, str(exc))
         except ChatUnavailable as exc:
             return _failure(UNAVAILABLE, str(exc), 503)
         except Exception as exc:  # noqa: BLE001 - nunca un traceback al usuario; el detalle va al log
@@ -332,9 +374,11 @@ def create_chat_app(runner: AgentRunner | None = None,
         elif cid and known is None and stored:
             conversations.put(cid, stored)
         groups = sorted(result.groups_used)
-        response = await asyncio.get_running_loop().run_in_executor(
-            None, lambda: build_response(result, len(context), question, prev_focus, [t.question for t in stored[-6:]],
-                                         freshness(groups) if groups else {}))
+        t_fresh = time.monotonic()
+        fresh = await asyncio.get_running_loop().run_in_executor(None, lambda: freshness(groups) if groups else {})
+        fresh_ms = (time.monotonic() - t_fresh) * 1000
+        response = build_response(result, len(context), question, prev_focus, [t.question for t in stored[-6:]], fresh)
+        response.diagnostics.postprocess_ms = round(response.diagnostics.postprocess_ms + fresh_ms, 1)
         d = response.diagnostics
         summaries.add(d.run_id, {"model": d.model, "provider": d.provider, "tools": [t.name for t in d.tools], "tool_errors": len(d.errors),
                                  "guardrail": response.guardrail, "history_turns": d.history_turns, "duration_ms": d.duration_ms,
@@ -359,4 +403,11 @@ def create_chat_app(runner: AgentRunner | None = None,
 
 def app_factory() -> FastAPI:
     """Para `uvicorn futsal.agent.web:app_factory --factory`."""
+    fut = logging.getLogger("futsal")  # que los avisos del chat y del agente (reintentos, esperas, tiempos) se vean en la ventana del servidor
+    if not fut.handlers:
+        handler = logging.StreamHandler()
+        handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(name)s: %(message)s", "%H:%M:%S"))
+        fut.addHandler(handler)
+        fut.setLevel(logging.INFO)
+        fut.propagate = False
     return create_chat_app()

@@ -75,6 +75,8 @@ def rules_steps() -> list[LLMResponse | Exception]:
 def normalized(body: dict[str, Any]) -> dict[str, Any]:
     d = body["diagnostics"]
     d["run_id"], d["duration_ms"] = "run", 0
+    for k in ("llm_ms", "retry_wait_ms", "tools_ms", "context_ms", "postprocess_ms"):
+        d[k] = 0
     for t in d["tools"]:
         t["duration_ms"] = 0
     for src in body["sources"]:

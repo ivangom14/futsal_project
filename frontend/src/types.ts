@@ -53,6 +53,14 @@ export interface Diagnostics {
   resolved_question?: string | null;
   resolved_scope?: { filters: string; inherited: boolean; resolved: boolean; competitions: string[]; total: number } | null;
   history_turns: number;
+  /** Dónde se fue el tiempo (ms): modelo (con esperas por reintentos), herramientas, contexto y montaje de la respuesta. */
+  llm_ms?: number;
+  retry_wait_ms?: number;
+  llm_retries?: number;
+  tools_ms?: number;
+  context_ms?: number;
+  postprocess_ms?: number;
+  input_tokens_peak?: number;
   llm_calls: number;
   tool_calls: number;
   input_tokens: number;
@@ -87,6 +95,7 @@ export interface Health {
   agent: { ready: boolean; error: string | null };
   llm: { provider: string; key_configured: boolean };
   data_api: { reachable: boolean; detail: string | null };
+  queue?: { busy: boolean; running_for_s: number | null; waiting: number };
 }
 
 /** Estado de conexión mostrado en la interfaz. */

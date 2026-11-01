@@ -1,6 +1,8 @@
 """Bucle de tool calling: LLM client + MCP client, con límite de tool calls y traza."""
 
+import asyncio
 import json
+import logging
 import time
 from collections.abc import Callable, Sequence
 from dataclasses import asdict, dataclass, field
@@ -46,6 +48,7 @@ from futsal.domain.competitions import (
 )
 from futsal.agent.trace import LlmCallRecord, RunRecord, ToolCallRecord, redact, write_jsonl
 
+logger = logging.getLogger("futsal.agent")  # (`log` es el callback de traza del bucle)
 OFF_TOPIC_MESSAGE = (
     "Solo puedo responder preguntas sobre la competición de fútbol sala de la RFFM "
     "(competiciones, grupos, jornadas, equipos, partidos, resultados, clasificaciones y actas: goleadores, "
@@ -525,8 +528,10 @@ class Agent:
         while True:
             t0 = time.perf_counter()
             try:
-                resp = self._llm.complete(system, messages, self._tools)
+                # En un hilo: la llamada es síncrona y no debe bloquear el bucle (así la pregunta puede cancelarse por tiempo máximo).
+                resp = await asyncio.to_thread(self._llm.complete, system, messages, self._tools)
             except LLMError as exc:
+                logger.warning("LLM falló tras %d intento(s): %s", max(len(exc.attempts), 1), redact(str(exc))[:200])
                 paced_ms = _paced_ms(self._llm)
                 waited = sum(a.waited_s for a in exc.attempts)
                 rec.llm_calls.append(LlmCallRecord(
@@ -538,6 +543,9 @@ class Agent:
                 log(f"ERROR\n{result.error}")
                 return
             paced_ms = _paced_ms(self._llm)
+            if resp.retries:
+                logger.warning("LLM: %d reintento(s) (429/5xx/red) en la llamada %d; espera %.1fs", resp.retries, len(rec.llm_calls) + 1,
+                            sum(a.waited_s for a in resp.attempts))
             u = resp.usage
             call_no = len(rec.llm_calls) + 1
             rec.llm_calls.append(LlmCallRecord(

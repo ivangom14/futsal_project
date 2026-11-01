@@ -288,7 +288,7 @@ def test_visual_contract_fixture_matches_backend() -> None:
     c, _ = web(steps, freshness=lambda ids: {12: {"datasets": {"matches": {"status": "fresh", "last_valid_at": "2026-10-29T08:00:00+00:00"}}}})
     with c:
         body = c.post("/chat", json={"question": "Compara el DOSA y el Alcalá en la clasificación", "conversation_id": "fx"}).json()
-    body["diagnostics"].update(run_id="run", duration_ms=0)
+    body["diagnostics"].update(run_id="run", duration_ms=0, llm_ms=0, retry_wait_ms=0, tools_ms=0, context_ms=0, postprocess_ms=0)
     for t in body["diagnostics"]["tools"]:
         t["duration_ms"] = 0
     for src in body["sources"]:
@@ -357,7 +357,7 @@ def test_lineup_contract_fixture_matches_backend() -> None:
     c, _ = web([call("get_match_report", match_id=9, sections=["players"]), LLMResponse("Así formó el DOSA.", [])])
     with c:
         body = c.post("/chat", json={"question": "¿Cuál fue la alineación del DOSA?", "conversation_id": "ln"}).json()
-    body["diagnostics"].update(run_id="run", duration_ms=0)
+    body["diagnostics"].update(run_id="run", duration_ms=0, llm_ms=0, retry_wait_ms=0, tools_ms=0, context_ms=0, postprocess_ms=0)
     for t in body["diagnostics"]["tools"]:
         t["duration_ms"] = 0
     for src in body["sources"]:

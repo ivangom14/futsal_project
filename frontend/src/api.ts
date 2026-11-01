@@ -15,13 +15,15 @@ export class ApiError extends Error {
   }
 }
 
-async function request<T>(path: string, init?: RequestInit, timeoutMs = 120_000): Promise<T> {
+async function request<T>(path: string, init?: RequestInit, timeoutMs = 120_000, userSignal?: AbortSignal): Promise<T> {
   const ctrl = new AbortController();
+  userSignal?.addEventListener("abort", () => ctrl.abort());
   const timer = setTimeout(() => ctrl.abort(), timeoutMs);
   let res: Response;
   try {
     res = await fetch(`${API_URL}${path}`, { ...init, signal: ctrl.signal });
   } catch (e) {
+    if (userSignal?.aborted) throw new ApiError("Has cancelado la consulta.", 0, "cancelled", null);
     const aborted = e instanceof DOMException && e.name === "AbortError";
     throw new ApiError(
       aborted ? "La consulta está tardando más de lo esperado. Puedes volver a intentarlo." : "No he podido conectar con el servicio. Inténtalo de nuevo dentro de unos instantes.",
@@ -52,12 +54,12 @@ async function request<T>(path: string, init?: RequestInit, timeoutMs = 120_000)
 export const getHealth = (): Promise<Health> => request<Health>("/chat/health", undefined, 5_000);
 
 /** `history` solo siembra la conversación si el servidor no la conoce (p. ej. tras reiniciarlo); el servidor manda. */
-export const askAgent = (question: string, conversationId: string, history: HistoryItem[] = [], focus: Focus = {}): Promise<ChatResponse> =>
+export const askAgent = (question: string, conversationId: string, history: HistoryItem[] = [], focus: Focus = {}, signal?: AbortSignal): Promise<ChatResponse> =>
   request<ChatResponse>("/chat", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ question, conversation_id: conversationId, history, focus }),
-  });
+  }, 120_000, signal);
 
 /** Valoración de una respuesta (solo para análisis posterior: no cambia el comportamiento del agente). */
 export const sendFeedback = (conversationId: string, messageId: string, runId: string | null, fb: Feedback): Promise<{ saved: boolean }> =>

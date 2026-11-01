@@ -1,7 +1,7 @@
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import App from "./App";
+import App, { SLOW_MS } from "./App";
 import contract from "../../tests/fixtures/chat_response.json";
 import visualsContract from "../../tests/fixtures/chat_response_visuals.json";
 import lineupJson from "../../tests/fixtures/chat_response_lineup.json";
@@ -223,5 +223,71 @@ describe("alineaciones", () => {
     expect(within(figure).queryByRole("img", { name: /Quinteto inicial/ })).not.toBeInTheDocument();
     expect(within(figure).getByRole("region", { name: "Titulares" })).toBeInTheDocument();
     expect(within(figure).getByText(/no permite dibujar un quinteto completo/)).toBeInTheDocument();
+  });
+});
+
+describe("consultas lentas", () => {
+  /** Una respuesta del chat que no llega hasta que se resuelve (o se aborta la petición). */
+  function slowBackend() {
+    let release!: () => void;
+    const gate = new Promise<void>((r) => (release = r));
+    vi.stubGlobal("fetch", vi.fn((url: string, init?: RequestInit) => {
+      if (url.endsWith("/chat/health")) return reply(HEALTH);
+      return new Promise<Response>((resolve, reject) => {
+        init?.signal?.addEventListener("abort", () => reject(new DOMException("aborted", "AbortError")));
+        void gate.then(() => resolve(new Response(JSON.stringify(contract), { status: 200 })));
+      });
+    }));
+    return release;
+  }
+
+  it("permite cancelar: no deja el indicador colgado y ofrece reintentar", async () => {
+    slowBackend();
+    render(<App />);
+    await userEvent.type(screen.getByLabelText("Pregunta"), "¿Cómo va la clasificación?{Enter}");
+    expect(await screen.findByText(/Futsito está consultando/)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Cancelar" }));
+    const err = await screen.findByTestId("msg-error");
+    expect(err).toHaveTextContent("Has cancelado la consulta.");
+    expect(within(err).getByRole("button", { name: "Reintentar" })).toBeInTheDocument();
+    expect(screen.queryByText(/Futsito está consultando/)).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Enviar" })).toBeDisabled(); // campo vacío, pero ya no hay una consulta en curso
+    await userEvent.type(screen.getByLabelText("Pregunta"), "otra");
+    expect(screen.getByRole("button", { name: "Enviar" })).toBeEnabled();
+  });
+
+  it("avisa de que está tardando más de lo normal pasados 20 s", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      const release = slowBackend();
+      const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+      render(<App />);
+      await user.type(screen.getByLabelText("Pregunta"), "hola{Enter}");
+      await screen.findByText(/Futsito está consultando/);
+      expect(screen.queryByTestId("slow-hint")).not.toBeInTheDocument();
+      await vi.advanceTimersByTimeAsync(SLOW_MS + 100);
+      expect(await screen.findByTestId("slow-hint")).toHaveTextContent(/tardando más de lo normal/);
+      release();
+      await screen.findByTestId("msg-agent");
+      expect(screen.queryByTestId("slow-hint")).not.toBeInTheDocument();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
+
+describe("desglose del tiempo", () => {
+  it("muestra dónde se fue el tiempo y las esperas por reintentos", async () => {
+    const slow = { ...contract, diagnostics: { ...contract.diagnostics, duration_ms: 61_000, llm_ms: 58_000, retry_wait_ms: 40_000, llm_retries: 2,
+      tools_ms: 900, context_ms: 0, postprocess_ms: 120, input_tokens_peak: 9400 } };
+    backend(() => reply(slow));
+    render(<App />);
+    await ask("hola");
+    const line = screen.getByTestId("time-breakdown");
+    expect(line).toHaveTextContent("modelo 58.0 s");
+    expect(line).toHaveTextContent("40.0 s esperando 2 reintento(s)");
+    expect(line).toHaveTextContent("herramientas 0.9 s");
+    expect(line).toHaveTextContent("montaje 0.1 s");
+    expect(line).toHaveTextContent("entrada máx. 9400 tokens");
   });
 });

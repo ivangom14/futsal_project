@@ -13,6 +13,7 @@ import { LogoMark } from "./components/Logo";
 import type { Connection, Feedback, Focus, HistoryItem, Message } from "./types";
 
 const HEALTH_POLL_MS = 15_000;
+export const SLOW_MS = 20_000;
 
 export default function App() {
   const [state, setState] = useState<State>(() => {
@@ -22,6 +23,8 @@ export default function App() {
   const [loadingId, setLoadingId] = useState<string | null>(null); // conversación con una pregunta en curso
   const [connection, setConnection] = useState<Connection>({ state: "checking" });
   const [menu, setMenu] = useState(false);
+  const [slow, setSlow] = useState(false); // la consulta lleva más de SLOW_MS
+  const abortRef = useRef<AbortController | null>(null);
   const endRef = useRef<HTMLDivElement>(null);
 
   const active = state.conversations.find((c) => c.id === state.activeId) ?? null;
@@ -50,8 +53,12 @@ export default function App() {
   const ask = useCallback(
     async (convId: string, question: string, history: HistoryItem[], focus: Focus) => {
       setLoadingId(convId);
+      setSlow(false);
+      const ctrl = new AbortController();
+      abortRef.current = ctrl;
+      const timer = setTimeout(() => setSlow(true), SLOW_MS);
       try {
-        const response = await askAgent(question, convId, history, focus);
+        const response = await askAgent(question, convId, history, focus, ctrl.signal);
         const msg: Message = { id: uid(), role: "assistant", content: response.answer, createdAt: Date.now(), response };
         setState((s) => appendMessage(s, convId, msg));
       } catch (e) {
@@ -60,6 +67,9 @@ export default function App() {
         setState((s) => appendMessage(s, convId, { id: uid(), role: "assistant", content: "", createdAt: Date.now(), failure, failureTechnical }));
         void refreshHealth();
       } finally {
+        clearTimeout(timer);
+        abortRef.current = null;
+        setSlow(false);
         setLoadingId(null);
       }
     },
@@ -121,7 +131,15 @@ export default function App() {
                 onSuggest={m.id === lastAgentId ? send : undefined} suggestDisabled={loading} onFeedback={submitFeedback} />
             ))}
             {loadingId !== null && loadingId === active?.id && (
-              <p role="status" className="animate-pulse text-sm text-slate-500">Futsito está consultando los datos…</p>
+              <div role="status" className="text-sm text-slate-500">
+                <p className="animate-pulse">Futsito está consultando los datos…</p>
+                {slow && (
+                  <p className="mt-1 text-xs text-amber-700" data-testid="slow-hint">
+                    Esto está tardando más de lo normal. Puede que el servicio de IA esté limitando las peticiones; puedes esperar o cancelar.
+                  </p>
+                )}
+                <button onClick={() => abortRef.current?.abort()} className="mt-1 text-xs underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand-500">Cancelar</button>
+              </div>
             )}
             <div ref={endRef} />
           </div>

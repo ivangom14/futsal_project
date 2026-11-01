@@ -69,14 +69,27 @@ Pregunta por la alineación → quinteto inicial sobre una pista de fútbol sala
   (sin `group_id` no se conoce su frescura: se declara).
 - Contrato real compartido: `tests/fixtures/chat_response_lineup.json`. Sugeridas tras un acta: goles, tarjetas y árbitros de ese partido.
 
+## Respuestas lentas o colgadas (Fase 25.2)
+Síntoma: «Futsito está consultando los datos…» durante mucho tiempo. Causas posibles (no se pueden distinguir sin ver el desglose): Gemini lento o
+limitando peticiones (los reintentos 429/5xx esperan hasta `LLM_RETRY_MAX_WAIT`=20 s cada uno y cada llamada del bucle puede reintentar), muchas
+llamadas por pregunta (cada una reenvía prompt + herramientas + contexto) o preguntas encoladas: el servidor atiende **una a la vez** y una pregunta
+antigua (p. ej. tras recargar la página) seguía ocupando el turno.
+Medido: el flujo real (MCP stdio + agente + chat + cliente HTTP de Gemini simulado) responde en < 1 s; el prompt creció ≈ 100 tokens por llamada desde antes de Futsito
+(las alineaciones, ≈ 20), despreciable frente al resto.
+Cambios: la llamada al LLM va en un hilo (no bloquea ni impide cancelar); **tiempo máximo por pregunta** (`CHAT_TIMEOUT_SECONDS`, 90 s) → error amigable
+504 y turno liberado; `/chat/health` informa `queue` (`busy`, `running_for_s`, `waiting`); logs `futsal.chat`/`futsal.agent` en la ventana del servidor (pregunta
+recibida/resuelta con su duración y cada reintento del LLM); `diagnostics` desglosa `llm_ms`, `retry_wait_ms`, `llm_retries`, `tools_ms`, `context_ms`,
+`postprocess_ms` e `input_tokens_peak` («Detalles técnicos → Tiempo»); el frontend avisa tras 20 s y permite **Cancelar** (el servidor lo libera por su tiempo máximo).
+No se aumentan los reintentos ni sus límites.
+
 ## Contrato (todo compatible; campos nuevos)
 `POST /chat` → `answer_kind`, `is_analysis`, `sources[]` (`kind` = `official_data|document`, `cited`, `queried_at`, `updated_at`, `freshness`, `updated_note`),
 `visuals[]`, `suggestions[]`, `focus`, `diagnostics.resolved_scope`. Petición: `focus` opcional. Nuevo `POST /chat/feedback`. Fixtures reales compartidos con
 el frontend: `tests/fixtures/chat_response.json` y `chat_response_visuals.json` (los verifica el backend).
 
 ## Pruebas (sin cuota de Gemini)
-`tests/test_futsito_presentation.py` (27, incluye alineaciones: foco, fuentes, frescura, citas, visuales, sugeridas, aislamiento), `tests/test_feedback.py` (14), Vitest 39
-(visuales con el contrato real, fuentes y frescura, sugeridas, foco, valoración, persistencia, logo). Batería: 609 pass, 2 skipped; ruff y mypy limpios; el
+`tests/test_futsito_presentation.py` (27, incluye alineaciones: foco, fuentes, frescura, citas, visuales, sugeridas, aislamiento), `tests/test_feedback.py` (14), Vitest 42
+(visuales con el contrato real, fuentes y frescura, sugeridas, foco, valoración, persistencia, logo). Batería: 612 pass, 2 skipped; ruff y mypy limpios; el
 único error de la suite completa es `test_refresh_runs_pg` (necesita PostgreSQL local; ya fallaba).
 
 ## Validación manual con Gemini real (Windows CMD)
