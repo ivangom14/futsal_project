@@ -54,8 +54,9 @@ export default function App() {
         const msg: Message = { id: uid(), role: "assistant", content: response.answer, createdAt: Date.now(), response };
         setState((s) => appendMessage(s, convId, msg));
       } catch (e) {
-        const failure = e instanceof ApiError ? e.message : "Error inesperado";
-        setState((s) => appendMessage(s, convId, { id: uid(), role: "assistant", content: "", createdAt: Date.now(), failure }));
+        const failure = e instanceof ApiError ? e.message : "Ha ocurrido un problema al procesar tu consulta.";
+        const failureTechnical = e instanceof ApiError ? (e.technical ?? undefined) : e instanceof Error ? e.message : undefined;
+        setState((s) => appendMessage(s, convId, { id: uid(), role: "assistant", content: "", createdAt: Date.now(), failure, failureTechnical }));
         void refreshHealth();
       } finally {
         setLoadingId(null);

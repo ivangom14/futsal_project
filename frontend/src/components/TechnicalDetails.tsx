@@ -13,6 +13,13 @@ export default function TechnicalDetails({ response }: { response: ChatResponse 
           Modelo: {d.provider ?? "?"}/{d.model ?? "?"} · run <code>{d.run_id}</code>
           {response.guardrail && <> · guardarraíl: <code>{response.guardrail}</code></>}
         </p>
+        {d.resolved_scope && (
+          <p>
+            Ámbito interpretado: {d.resolved_scope.filters}
+            {d.resolved_scope.inherited && " (heredado de la conversación)"} → {d.resolved_scope.competitions.join("; ") || "sin competiciones"}
+            {d.resolved_scope.total > d.resolved_scope.competitions.length && ` y ${d.resolved_scope.total - d.resolved_scope.competitions.length} más`}
+          </p>
+        )}
         {d.resolved_question && <p>Interpretada como: <em>{d.resolved_question}</em></p>}
         {d.tools.length > 0 && (
           <ul className="space-y-0.5">
@@ -24,6 +31,7 @@ export default function TechnicalDetails({ response }: { response: ChatResponse 
             ))}
           </ul>
         )}
+        {response.error && <p className="text-red-600">Ejecución incompleta: {response.error}</p>}
         {d.errors.length > 0 && (
           <ul className="text-red-600">
             {d.errors.map((e, i) => (

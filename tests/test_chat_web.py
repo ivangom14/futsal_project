@@ -125,7 +125,9 @@ def test_official_table_is_a_source() -> None:
 def test_llm_failure_is_http_error_not_an_answer() -> None:
     with client([LLMError("cuota agotada (429)")]) as c:
         res = c.post("/chat", json={"question": QUESTION})
-    assert res.status_code == 502 and "cuota agotada" in res.json()["detail"]
+    body = res.json()
+    assert res.status_code == 429 and body["code"] == "rate_limit" and "demasiadas consultas" in body["detail"]
+    assert "cuota agotada" in body["technical"] and "cuota" not in body["detail"]  # detalle técnico aparte, no en el mensaje
 
 
 def test_tool_limit_keeps_safe_answer_and_reports_error() -> None:

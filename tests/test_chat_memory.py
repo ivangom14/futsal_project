@@ -12,7 +12,14 @@ from typing import Any
 import pytest
 from fastapi.testclient import TestClient
 
-from futsal.agent.agent import AMBIGUOUS_TEAM_MESSAGE, HISTORY_RULE, OFF_TOPIC_MESSAGE, SCOPE_REUSE_MESSAGE, Agent
+from futsal.agent.agent import (
+    AMBIGUOUS_TEAM_MESSAGE,
+    HISTORY_RULE,
+    OFF_TOPIC_MESSAGE,
+    RECONSIDER_MESSAGE,
+    SCOPE_REUSE_MESSAGE,
+    Agent,
+)
 from futsal.agent.llm import LLMError, LLMResponse, Message, ToolCall
 from futsal.agent.memory import (
     DEFAULT_MAX_CHARS,
@@ -31,8 +38,8 @@ A1 = "El máximo goleador es Juan Pérez (CD DOSA) con 9 goles."
 COMPETITIONS = {"competitions": [
     {"id": 1, "name": "PRIMERA SENIOR", "groups": [{"id": 1, "name": "Grupo 1"}, {"id": 2, "name": "Grupo 2"}]},
     {"id": 2, "name": "JUVENIL", "groups": [{"id": 3, "name": "Grupo 1"}, {"id": 4, "name": "Grupo 2"}]}]}
-TEAMS = {"teams": [{"id": 21, "name": "FS ALCALA", "group_id": 1, "group": "Grupo 1"},
-                   {"id": 31, "name": "FS ALCALA", "group_id": 3, "group": "Grupo 1"}]}
+TEAMS = {"teams": [{"id": 21, "name": "FS ALCALA", "group_id": 1, "group": "Grupo 1", "competition": "PRIMERA SENIOR"},
+                   {"id": 31, "name": "FS ALCALA", "group_id": 3, "group": "Grupo 1", "competition": "JUVENIL"}]}
 
 
 class FakeMcp:
@@ -86,8 +93,9 @@ def run(llm: Script, question: str, history: list[Turn] | None = None, mcp: Fake
 def test_a_follow_up_receives_previous_turns_with_roles_and_without_duplicating_the_question() -> None:
     llm = Script([tool("find_players", name="Juan Pérez"), text("Juan Pérez juega en CD DOSA.")])
     res, mcp = run(llm, "¿En qué equipo juega?", [Turn(Q1, A1)])
-    assert llm.seen[0] == [("user", Q1), ("assistant", A1), ("user", "¿En qué equipo juega?")]
-    assert HISTORY_RULE in llm.systems[0]
+    assert [r for r, _ in llm.seen[0]] == ["user", "assistant", "user"] and llm.seen[0][:2] == [("user", Q1), ("assistant", A1)]
+    assert llm.seen[0][2][1].startswith("¿En qué equipo juega?")  # + nota de la aplicación con el ámbito heredado (Fase 24)
+    assert "PRIMERA SENIOR" in llm.seen[0][2][1] and HISTORY_RULE in llm.systems[0]
     assert mcp.calls == [("find_players", {"name": "Juan Pérez"})]  # los datos se vuelven a consultar con tools
     assert res.answer == "Juan Pérez juega en CD DOSA." and res.guardrail is None
 
@@ -132,7 +140,7 @@ def test_b_scope_is_taken_from_user_turns_only_not_from_assistant_text() -> None
 # --- Aclaraciones pendientes (caso real: «grupo 1 autonomica senior» no coincide literalmente con el catálogo) -------------------
 ASK = "¿De qué competición y grupo deseas consultar los resultados de la última jornada?"
 PENDING = [Turn("¿Qué resultados hubo en la última jornada?", ASK),
-           Turn("grupo 1 autonomica senior", "Equipos del Grupo 1: A, B, C.")]
+           Turn("el grupo 1", "Equipos del Grupo 1: A, B, C.")]  # «grupo 1» existe en dos competiciones: el ámbito sigue sin resolverse
 
 
 def test_scope_already_given_by_the_user_is_not_asked_again() -> None:
@@ -141,6 +149,15 @@ def test_scope_already_given_by_the_user_is_not_asked_again() -> None:
     res, mcp = run(llm, "pero quiero los resultados", PENDING)
     assert llm.seen[1][-1] == ("user", SCOPE_REUSE_MESSAGE) and [c[0] for c in mcp.calls] == ["list_matches"]
     assert res.answer == "Jornada 5: A 2-1 B." and res.guardrail is None
+
+
+def test_scope_resolved_by_alias_and_category_is_not_accepted_as_a_clarification() -> None:
+    """«grupo 1 senior» identifica una sola competición del catálogo: pedir el ámbito de nuevo no se acepta (se reconsulta)."""
+    turns = [Turn("¿Qué resultados hubo en la última jornada?", ASK), Turn("grupo 1 senior", "Equipos del Grupo 1: A, B.")]
+    llm = Script([text(ASK), tool("list_matches", status="finished"), text("Jornada 5: A 2-1 B.")])
+    res, mcp = run(llm, "pero quiero los resultados", turns)
+    assert "Competición identificada: «PRIMERA SENIOR»" in llm.seen[0][-1][1]
+    assert llm.seen[1][-1][1] == RECONSIDER_MESSAGE and [c[0] for c in mcp.calls] == ["list_matches"] and res.guardrail is None
 
 
 def test_clarification_is_kept_when_the_user_never_gave_a_scope() -> None:
@@ -194,8 +211,9 @@ def test_agent_answers_the_original_question_after_a_two_step_clarification() ->
     res, mcp = run(llm, "grupo 1", CHAIN)
     sent = llm.seen[0][-1]
     assert sent[0] == "user" and sent[1].startswith("¿Qué resultados hubo en la última jornada?") and "grupo 1" in sent[1]
+    assert res.resolved_question is not None and sent[1].startswith(res.resolved_question)
     assert [m for m in llm.seen[0] if m[0] == "assistant"] == []  # la cadena ya va en la pregunta efectiva
-    assert [c[0] for c in mcp.calls] == ["list_matches"] and res.resolved_question == sent[1]
+    assert [c[0] for c in mcp.calls] == ["list_matches"] 
     assert res.answer == "Jornada 5: A 2-1 B."
 
 
@@ -318,7 +336,7 @@ def test_failed_or_replaced_answers_are_not_stored() -> None:
     steps: list[LLMResponse | Exception] = [LLMError("cuota agotada"), text(OFF_TOPIC_MESSAGE), *answer_steps(1)]
     c, llm = web(steps)
     with c:
-        assert ask(c, "falla").status_code == 502
+        assert ask(c, "falla").status_code == 429
         ask(c, "chiste sin datos")  # aviso de alcance (guardarraíl) → no es contexto
         ask(c, "buena")
     assert llm.seen[-2] == [("user", "buena")]

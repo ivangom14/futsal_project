@@ -24,8 +24,8 @@ describe("cliente HTTP", () => {
   });
 
   it("convierte errores HTTP en ApiError con el detalle del backend", async () => {
-    vi.stubGlobal("fetch", () => json({ detail: "error del agente: cuota agotada" }, 502));
-    await expect(askAgent("x", "c")).rejects.toMatchObject({ status: 502, message: "error del agente: cuota agotada" });
+    vi.stubGlobal("fetch", () => json({ detail: "Espera un poco.", code: "rate_limit", technical: "LLM HTTP 429" }, 429));
+    await expect(askAgent("x", "c")).rejects.toMatchObject({ status: 429, message: "Espera un poco.", code: "rate_limit", technical: "LLM HTTP 429" });
   });
 
   it("pide al servidor olvidar una conversación con DELETE", async () => {
@@ -42,5 +42,7 @@ describe("cliente HTTP", () => {
     const err = await getHealth().catch((e) => e);
     expect(err).toBeInstanceOf(ApiError);
     expect(err.status).toBe(0);
+    expect(err.code).toBe("connection");
+    expect(err.message).toMatch(/No he podido conectar/);
   });
 });

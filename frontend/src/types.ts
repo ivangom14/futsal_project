@@ -24,6 +24,7 @@ export interface Diagnostics {
   model: string | null;
   duration_ms: number;
   resolved_question?: string | null;
+  resolved_scope?: { filters: string; inherited: boolean; resolved: boolean; competitions: string[]; total: number } | null;
   history_turns: number;
   llm_calls: number;
   tool_calls: number;
@@ -69,6 +70,8 @@ export interface Message {
   response?: ChatResponse;
   /** Mensaje de error del backend: no es una respuesta del agente. */
   failure?: string;
+  /** Detalle técnico del fallo (solo para el panel de diagnóstico). */
+  failureTechnical?: string;
 }
 
 export interface Conversation {

@@ -15,8 +15,14 @@ export default function MessageBubble({ message, onRetry }: { message: Message; 
   if (message.failure) {
     return (
       <div role="alert" className="max-w-[85%] rounded-2xl rounded-bl-sm border border-red-300 bg-red-50 px-4 py-2 text-sm text-red-800" data-testid="msg-error">
-        <p className="font-semibold">No se pudo obtener una respuesta del agente</p>
+        <p className="font-semibold">No he podido responder ahora mismo</p>
         <p>{message.failure}</p>
+        {message.failureTechnical && (
+          <details className="mt-1 text-xs text-red-700">
+            <summary className="cursor-pointer">Detalle técnico</summary>
+            <p className="mt-1 break-words font-mono">{message.failureTechnical}</p>
+          </details>
+        )}
         {onRetry && (
           <button onClick={onRetry} className="mt-2 rounded bg-red-600 px-3 py-1 text-white hover:bg-red-700">
             Reintentar
@@ -33,7 +39,7 @@ export default function MessageBubble({ message, onRetry }: { message: Message; 
       </div>
       {r?.error && (
         <p role="status" className="mt-2 rounded bg-amber-50 px-2 py-1 text-xs text-amber-800">
-          Ejecución incompleta: {r.error}
+          No he podido completar del todo la consulta. El detalle está en «Detalles técnicos».
         </p>
       )}
       {r && <Sources sources={r.sources} />}

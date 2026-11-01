@@ -6,6 +6,7 @@ Solo habla con el LLM y con el servidor MCP (que a su vez usa la API de datos); 
 
 import asyncio
 import json
+import logging
 import threading
 from collections.abc import AsyncIterator, Callable, Sequence
 from contextlib import AbstractAsyncContextManager, asynccontextmanager
@@ -23,6 +24,7 @@ from typing import Annotated
 
 from futsal.agent.agent import DEFAULT_MAX_ROWS, DEFAULT_MAX_TOOL_CALLS, OFF_TOPIC_MESSAGE, Agent, AgentResult
 from futsal.agent.llm import create_llm
+from futsal.agent.messages import FriendlyError, classify_error
 from futsal.agent.memory import (
     CONVERSATION_ID,
     DEFAULT_MAX_CHARS,
@@ -37,6 +39,7 @@ from futsal.agent.mcp_client import SessionMcpClient, stdio_params
 from futsal.agent.trace import RunRecord, redact
 from futsal.config.settings import env_value
 
+log = logging.getLogger("futsal.chat")
 DEFAULT_CORS_ORIGINS = "http://localhost:5173,http://127.0.0.1:5173"
 MAX_QUESTION_CHARS = 2000
 MAX_SOURCE_TEXT = 1200
@@ -80,6 +83,7 @@ class Diagnostics(BaseModel):
     provider: str | None
     model: str | None
     duration_ms: float
+    resolved_scope: dict[str, Any] | None = None  # ámbito (tipo, categoría, grupo, competiciones) que la aplicación resolvió
     resolved_question: str | None = None  # cómo se interpretó el mensaje al unirlo a una aclaración pendiente
     history_turns: int  # turnos anteriores de la conversación enviados al agente como contexto
     llm_calls: int
@@ -147,7 +151,7 @@ def build_response(result: AgentResult, history_turns: int = 0) -> ChatResponse:
     errors += [redact(f"llamada LLM {c.index}: {c.error}") for c in rec.llm_calls if c.error]
     diag = Diagnostics(
         run_id=rec.run_id, provider=rec.provider, model=rec.model, duration_ms=round(rec.latency_ms, 1), history_turns=history_turns,
-        resolved_question=result.resolved_question,
+        resolved_question=result.resolved_question, resolved_scope=result.resolved_scope,
         llm_calls=totals["llm_calls"], tool_calls=totals["tool_calls"], input_tokens=totals["input_tokens"],
         output_tokens=totals["output_tokens"], token_source=totals["token_source"], tools=tools, errors=errors)
     return ChatResponse(answer=result.answer, guardrail=result.guardrail, error=result.error,
@@ -247,6 +251,16 @@ def _data_api_status() -> dict[str, Any]:
         return {"reachable": False, "detail": f"no responde ({type(exc).__name__})"}
 
 
+UNAVAILABLE = FriendlyError("unavailable", 503, "El servicio no está disponible ahora mismo. Inténtalo de nuevo dentro de unos instantes.")
+
+
+def _failure(friendly: FriendlyError, technical: str, status: int | None = None) -> JSONResponse:
+    """Error para el usuario en lenguaje llano; el detalle técnico (sin secretos) va al log y al campo `technical`."""
+    detail = redact(technical)
+    log.warning("chat %s (%s): %s", friendly.code, status or friendly.status, detail)
+    return JSONResponse({"detail": friendly.message, "code": friendly.code, "technical": detail}, status_code=status or friendly.status)
+
+
 def create_chat_app(runner: AgentRunner | None = None,
                     data_api_status: Callable[[], dict[str, Any]] = _data_api_status,
                     memory: ConversationMemory | None = None) -> FastAPI:
@@ -280,8 +294,8 @@ def create_chat_app(runner: AgentRunner | None = None,
         ok = agent["ready"] and llm["key_configured"] and data["reachable"]
         return {"status": "ok" if ok else "degraded", "agent": agent, "llm": llm, "data_api": data}
 
-    @app.post("/chat")
-    async def chat(body: ChatRequest) -> ChatResponse:
+    @app.post("/chat", response_model=ChatResponse)
+    async def chat(body: ChatRequest) -> ChatResponse | JSONResponse:
         question = body.question.strip()
         if not question:
             raise HTTPException(400, "la pregunta está vacía")
@@ -293,9 +307,12 @@ def create_chat_app(runner: AgentRunner | None = None,
         try:
             result = await agent_runner.ask(question, context)
         except ChatUnavailable as exc:
-            raise HTTPException(503, f"agente no disponible: {exc}") from exc
+            return _failure(UNAVAILABLE, str(exc), 503)
+        except Exception as exc:  # noqa: BLE001 - nunca un traceback al usuario; el detalle va al log
+            log.exception("error inesperado al procesar la consulta")
+            return _failure(classify_error(f"{type(exc).__name__}: {exc}"), f"{type(exc).__name__}: {exc}")
         if result.error and not result.answer:  # fallo sin respuesta utilizable (LLM caído, cuota…)
-            raise HTTPException(502, f"error del agente: {result.error}")
+            return _failure(classify_error(result.error), result.error)
         if (cid and not result.error and result.answer.strip() not in ("", OFF_TOPIC_MESSAGE)
                 and result.guardrail in MEMORY_GUARDRAILS):
             conversations.put(cid, [*stored, Turn(question, result.answer)])  # los fallos o respuestas sustituidas no son contexto

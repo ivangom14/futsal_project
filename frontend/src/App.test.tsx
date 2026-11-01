@@ -72,11 +72,18 @@ describe("App", () => {
 
   it("distingue un error del backend de una respuesta y permite reintentar", async () => {
     let fail = true;
-    const m = backend(() => (fail ? reply({ detail: "error del agente: cuota agotada" }, 502) : reply(contract)));
+    const rateLimited = {
+      detail: "El servicio está recibiendo demasiadas consultas en este momento. Espera un poco y vuelve a intentarlo.",
+      code: "rate_limit",
+      technical: "LLM HTTP 429: el servidor pide esperar 47s",
+    };
+    const m = backend(() => (fail ? reply(rateLimited, 429) : reply(contract)));
     render(<App />);
     await userEvent.type(screen.getByLabelText("Pregunta"), "¿Quién lidera?{Enter}");
     const err = await screen.findByTestId("msg-error");
-    expect(err).toHaveTextContent("cuota agotada");
+    expect(err).toHaveTextContent("demasiadas consultas");
+    expect(within(err).getByText("Detalle técnico")).toBeInTheDocument(); // el detalle va aparte, plegado
+    expect(within(err).getByText(/HTTP 429/)).not.toBeVisible();
     expect(screen.queryByTestId("msg-agent")).not.toBeInTheDocument();
     fail = false;
     await userEvent.click(within(err).getByRole("button", { name: "Reintentar" }));
@@ -92,7 +99,8 @@ describe("App", () => {
     backend(() => reply(partial));
     render(<App />);
     await userEvent.type(screen.getByLabelText("Pregunta"), "x{Enter}");
-    expect(await screen.findByText(/Ejecución incompleta/)).toBeInTheDocument();
+    expect(await screen.findByText(/No he podido completar del todo la consulta/)).toBeInTheDocument();
+    expect(screen.queryByText(/tool calls/)).not.toBeVisible();
     expect(screen.queryByTestId("msg-error")).not.toBeInTheDocument();
   });
 

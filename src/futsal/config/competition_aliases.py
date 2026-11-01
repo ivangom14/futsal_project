@@ -1,0 +1,18 @@
+"""Carga de `competition_aliases.json` (configuración versionada de alias y reglas de clasificación de competiciones)."""
+
+import json
+from functools import lru_cache
+from pathlib import Path
+from typing import Any
+
+CONFIG_PATH = Path(__file__).with_name("competition_aliases.json")
+REQUIRED = ("kind_words", "age_words", "kind_from_name", "age_from_name", "aliases")
+
+
+@lru_cache(maxsize=1)
+def load_aliases() -> dict[str, Any]:
+    data: dict[str, Any] = json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
+    missing = [k for k in REQUIRED if k not in data]
+    if missing:
+        raise ValueError(f"competition_aliases.json: faltan claves {missing}")
+    return data

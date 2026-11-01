@@ -1,0 +1,27 @@
+{
+  "version": 1,
+  "_doc": "Alias coloquiales -> NOMBRES OFICIALES de competición (se comprueban contra el catálogo real; un nombre que no exista se descarta). Para añadir un alias, edita este archivo: no hace falta tocar el prompt. 'default': si una misma frase encaja en varias entradas y el usuario no indica categoría, gana la entrada por defecto; sin ninguna por defecto, se pide aclaración.",
+  "kind_words": {"league": ["liga"], "cup": ["copa"], "tournament": ["torneo", "trofeo"]},
+  "age_words": {"senior": ["senior", "seniors", "absoluto"], "juvenil": ["juvenil", "juveniles"]},
+  "kind_from_name": {"cup": ["copa"], "tournament": ["trofeo", "torneo"]},
+  "age_from_name": {"juvenil": ["juvenil"]},
+  "default_kind": "league",
+  "default_age": "senior",
+  "overrides": {},
+  "aliases": [
+    {"phrases": ["regional", "primera regional", "liga regional", "regional senior", "liga regional senior", "primera regional senior", "regional aficionado"],
+     "names": ["PRIMERA AFICIONADO FS"], "default": true},
+    {"phrases": ["regional", "regional juvenil", "primera regional juvenil", "liga regional juvenil"],
+     "names": ["PRIMERA JUVENIL FS"]},
+    {"phrases": ["primera juvenil", "liga primera juvenil"], "names": ["PRIMERA JUVENIL FS"]},
+    {"phrases": ["autonomica", "primera autonomica", "primera division autonomica", "liga autonomica"],
+     "names": ["PRIMERA DIVISION AUTONOMICA AFICIONADO FS"]},
+    {"phrases": ["autonomica", "primera autonomica", "primera division autonomica", "liga autonomica"],
+     "names": ["PRIMERA DIVISION AUTONOMICA JUVENIL FS"]},
+    {"phrases": ["aficionado", "aficionados", "liga de aficionados", "liga aficionados"],
+     "names": ["PRIMERA DIVISION AUTONOMICA AFICIONADO FS", "PREFERENTE AFICIONADO FS", "PRIMERA AFICIONADO FS"]},
+    {"phrases": ["preferente"], "names": ["PREFERENTE AFICIONADO FS"]},
+    {"phrases": ["preferente"], "names": ["PREFERENTE JUVENIL FS"]},
+    {"phrases": ["tercera", "tercera division"], "names": ["TERCERA DIVISION FS"]}
+  ]
+}

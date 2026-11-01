@@ -7,6 +7,9 @@ export class ApiError extends Error {
   constructor(
     message: string,
     readonly status: number,
+    readonly code: string | null = null,
+    /** Detalle técnico (ya sin secretos) para el panel de diagnóstico; nunca se muestra como texto principal. */
+    readonly technical: string | null = null,
   ) {
     super(message);
   }
@@ -20,19 +23,28 @@ async function request<T>(path: string, init?: RequestInit, timeoutMs = 120_000)
     res = await fetch(`${API_URL}${path}`, { ...init, signal: ctrl.signal });
   } catch (e) {
     const aborted = e instanceof DOMException && e.name === "AbortError";
-    throw new ApiError(aborted ? "La petición tardó demasiado" : "No se pudo conectar con el servicio de chat", 0);
+    throw new ApiError(
+      aborted ? "La consulta está tardando más de lo esperado. Puedes volver a intentarlo." : "No he podido conectar con el servicio. Inténtalo de nuevo dentro de unos instantes.",
+      0,
+      aborted ? "timeout" : "connection",
+      e instanceof Error ? `${e.name}: ${e.message}` : null,
+    );
   } finally {
     clearTimeout(timer);
   }
   if (!res.ok) {
     let detail = `Error HTTP ${res.status}`;
+    let code: string | null = null;
+    let technical: string | null = null;
     try {
       const body = await res.json();
       if (typeof body?.detail === "string") detail = body.detail;
+      if (typeof body?.code === "string") code = body.code;
+      if (typeof body?.technical === "string") technical = body.technical;
     } catch {
       /* cuerpo no JSON */
     }
-    throw new ApiError(detail, res.status);
+    throw new ApiError(detail, res.status, code, technical);
   }
   return (await res.json()) as T;
 }
