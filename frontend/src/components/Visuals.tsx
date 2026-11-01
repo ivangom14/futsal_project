@@ -1,4 +1,7 @@
 import Lineup from "./Lineup";
+import Matches from "./Matches";
+import Officials from "./Officials";
+import Timeline from "./Timeline";
 import type { Visual } from "../types";
 
 const fmt = (v: unknown) => (v === null || v === undefined ? "–" : String(v));
@@ -125,6 +128,9 @@ export default function Visuals({ visuals }: { visuals: Visual[] }) {
           case "comparison": return <ComparisonVisual key={i} v={v} />;
           case "form": return <FormVisual key={i} v={v} />;
           case "lineup": return <Lineup key={i} v={v} />;
+          case "officials": return <Officials key={i} v={v} />;
+          case "timeline": return <Timeline key={i} v={v} />;
+          case "matches": return <Matches key={i} v={v} />;
           default: return null; // tipo desconocido: se ignora, la respuesta de texto sigue siendo la alternativa
         }
       })}

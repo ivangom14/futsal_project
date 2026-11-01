@@ -38,6 +38,10 @@ MATCHES = {"matches": [
      "home_score": 2, "away_score": 2},
     {"id": 3, "round_number": 3, "home_team": "C.D. DOSA", "away_team": "Y", "date": "2026-10-17", "status": "finished",
      "home_score": 0, "away_score": 1}], "count": 3}
+NEXT = {"matches": [
+    {"id": 4, "round_number": 6, "home_team": "C.D. DOSA", "away_team": "Z", "date": "2026-11-01", "status": "scheduled"},
+    {"id": 5, "round_number": 7, "home_team": "W", "away_team": "C.D. DOSA", "date": "2026-11-08", "status": "scheduled", "past_due": True},
+    {"id": 6, "round_number": 8, "home_team": "C.D. DOSA", "away_team": "V", "date": None, "status": "scheduled"}], "count": 30}
 RAG = {"hits": [
     {"document": "Reglas de Juego FIFA", "doc_key": "fifa", "rule": 7, "rule_title": "Duración", "pages": "31",
      "text": "El partido durará dos tiempos iguales de 20 minutos cada uno."},
@@ -51,6 +55,12 @@ def _pl(team: str, name: str, shirt: int, lineup: str, gk: bool = False, captain
 
 REPORT = {"report_available": True, "match": {"match_id": 9, "round_number": 4, "home_team": "C.D. DOSA", "away_team": "FS ALCALA",
                                               "status": "finished", "home_score": 3, "away_score": 1},
+          "officials": [{"name": "INIESTA DEL AMO, EDUARDO HUGO", "role": "Árbitro"}, {"name": "LARRUBIA PAJARES, JAIME", "role": "Árbitro"},
+                        {"name": "ORTIZ PINILLOS, ARANTXA", "role": "Árbitro asistente"}],
+          "goals": [{"type": "goal", "team": "C.D. DOSA", "player": "PEREZ LOPEZ, JUAN", "minute": 3},
+                    {"type": "goal", "team": "FS ALCALA", "player": "MARTIN CANO, LEO", "minute": 12},
+                    {"type": "own_goal", "team": "FS ALCALA", "player": "OTRO UNO, A", "minute": 20},
+                    {"type": "goal", "team": "C.D. DOSA", "player": "RUIZ SOTO, ANA", "minute": 31}],
           "players": [_pl("C.D. DOSA", "SUPLENTE GARCIA, LUIS", 20, "substitute"), _pl("C.D. DOSA", "PEREZ LOPEZ, JUAN", 10, "starter", captain=True),
                       _pl("C.D. DOSA", "APARICIO JIMENEZ, JAVIER", 1, "starter", gk=True), _pl("C.D. DOSA", "RUIZ SOTO, ANA", 7, "starter"),
                       _pl("C.D. DOSA", "GIL MORA, PEDRO", 5, "starter"), _pl("C.D. DOSA", "NUÑEZ DIAZ, IVAN", 9, "starter"),
@@ -70,7 +80,8 @@ class Mcp:
 
     async def call_tool(self, name: str, arguments: dict[str, Any]) -> tuple[bool, str]:
         data = {"list_competitions": CATALOG, "find_teams": TEAMS, "get_standings": STANDINGS, "get_scorer_table": SCORERS,
-                "list_matches": MATCHES, "search_rules": RAG, "get_match_report": REPORTS["current"]}.get(name, {})
+                "list_matches": NEXT if arguments.get("status") == "scheduled" else MATCHES, "search_rules": RAG,
+                "get_match_report": REPORTS["current"]}.get(name, {})
         return False, json.dumps(data)
 
 
@@ -299,7 +310,7 @@ def test_visual_contract_fixture_matches_backend() -> None:
     assert json.loads(VISUALS_FIXTURE.read_text(encoding="utf-8")) == body
 
 
-# --- Alineaciones: quinteto inicial sobre la pista y suplentes ----------------------------------------------------------------------------
+# --- Alineaciones: quinteto inicial sobre la pista y suplentes (y árbitros, goles y partidos como visuales) ----------------------------------------------------------------------------
 def lineup(question: str, report: dict[str, Any] | None = None) -> Any:
     steps = [call("get_match_report", match_id=9, sections=["players"]), LLMResponse("Alineación del partido.", [])]
     REPORTS["current"] = report if report is not None else REPORT
@@ -334,7 +345,8 @@ def test_lineup_needs_real_data_and_degrades_without_the_court_when_incomplete()
     assert not [v for v in lineup("alineación", {**REPORT, "players": [p for p in REPORT["players"] if p["lineup"] == "substitute"]}).visuals
                 if v["type"] == "lineup"]  # sin titulares, nada
     assert lineup("alineación", {"report_available": False, "reason": "sin acta", "match": REPORT["match"]}).visuals == []
-    assert lineup("alineación", {k: v for k, v in REPORT.items() if k != "players"}).visuals == []  # sin la sección de jugadores
+    sin_jugadores = lineup("alineación", {k: v for k, v in REPORT.items() if k != "players"})
+    assert [v["type"] for v in sin_jugadores.visuals] == ["officials", "timeline"]  # sin la sección de jugadores no hay alineación, pero sí lo demás
 
 
 def test_lineup_report_is_listed_as_official_source_with_unknown_date_and_suggestions() -> None:
@@ -350,19 +362,113 @@ def test_prompt_points_lineups_to_the_report_players_section() -> None:
     assert "alineaciones" in SYSTEM_PROMPT and 'sections=["players"]' in SYSTEM_PROMPT
 
 
-LINEUP_FIXTURE = __import__("pathlib").Path(__file__).parent / "fixtures" / "chat_response_lineup.json"
+# --- Árbitros, goles, partidos y «no repetir en texto» ---------------------------------------------------------------------------------------
+def test_officials_are_people_with_their_role_and_kind_of_figure() -> None:
+    r = lineup("¿Quiénes fueron los árbitros del partido?")
+    (v,) = [v for v in r.visuals if v["type"] == "officials"]
+    assert [(p["name"], p["role"], p["kind"]) for p in v["people"]] == [
+        ("Eduardo Hugo Iniesta del Amo", "Árbitro", "referee"), ("Jaime Larrubia Pajares", "Árbitro", "referee"),
+        ("Arantxa Ortiz Pinillos", "Árbitro asistente", "assistant")]  # partículas en minúscula, cargo tal cual figura en el acta
+    assert v["subtitle"] == "C.D. DOSA 3-1 FS ALCALA · Jornada 4"
 
 
-def test_lineup_contract_fixture_matches_backend() -> None:
-    c, _ = web([call("get_match_report", match_id=9, sections=["players"]), LLMResponse("Así formó el DOSA.", [])])
+def test_goal_timeline_puts_each_goal_on_the_side_that_scores_and_never_draws_cards() -> None:
+    r = lineup("¿Quién marcó?")
+    (v,) = [v for v in r.visuals if v["type"] == "timeline"]
+    assert [(e["minute"], e["player"], e["side"], e["own_goal"]) for e in v["events"]] == [
+        (3, "Juan Perez Lopez", "home", False), (12, "Leo Martin Cano", "away", False),
+        (20, "A Otro Uno", "home", True),  # gol en propia puerta: cuenta para el rival (DOSA)
+        (31, "Ana Ruiz Soto", "home", False)]
+    assert (v["home"], v["away"]) == ("C.D. DOSA", "FS ALCALA") and "tarjeta" not in json.dumps(v).lower()
+    sin_goles = {**REPORT, "goals": []}
+    assert not [v for v in lineup("alineación", sin_goles).visuals if v["type"] == "timeline"]
+
+
+def test_report_visuals_come_in_a_stable_order() -> None:
+    assert [v["type"] for v in lineup("¿Qué alineaciones hubo en ese partido?").visuals] == ["lineup", "lineup", "officials", "timeline"]
+    sin_acta = {"report_available": False, "reason": "sin acta", "match": REPORT["match"], "officials": REPORT["officials"]}
+    assert lineup("árbitros", sin_acta).visuals == []  # sin acta no se dibuja nada
+
+
+def test_matches_card_for_upcoming_results_with_total_and_past_due() -> None:
+    r = present("¿Cuáles son los próximos partidos?", [call("list_matches", group_id=12, status="scheduled", limit=3), LLMResponse("Ahí van.", [])])
+    (v,) = [v for v in r.visuals if v["type"] == "matches"]
+    assert v["title"] == "Próximos partidos · PRIMERA AFICIONADO FS · Grupo 2" and v["total"] == 30 and v["partial"] is True
+    assert [(x["round"], x["home"], x["score"], x["past_due"]) for x in v["rows"]] == [(6, "C.D. DOSA", None, False), (7, "W", None, True), (8, "C.D. DOSA", None, False)]
+
+
+def test_team_form_and_matches_card_do_not_duplicate_each_other() -> None:
+    form = present("últimos partidos del DOSA", [call("find_teams", name="DOSA"), call("list_matches", group_id=12, team_id=5, status="finished"),
+                                                 LLMResponse("ok", [])])
+    assert [v["type"] for v in form.visuals] == ["form"]
+    results = present("resultados", [call("list_matches", group_id=12, status="finished"), LLMResponse("ok", [])])
+    assert [v["type"] for v in results.visuals] == ["matches"] and results.visuals[0]["title"] == "Resultados · PRIMERA AFICIONADO FS · Grupo 2"
+    one = present("próximo", [call("list_matches", group_id=12, status="scheduled", limit=1), LLMResponse("ok", [])])
+    assert [v["type"] for v in one.visuals] == ["matches"]  # el simulado devuelve 3 filas; con 1 sola fila real no se dibuja
+
+
+def seen_tool_result(steps: list[LLMResponse], question: str) -> dict[str, Any]:
+    _, llm = run(question, steps)
+    msg = next(m for m in llm.seen[1] if m.role == "tool")
+    return dict(json.loads(msg.tool_results[0].content))
+
+
+def test_the_model_is_told_not_to_repeat_what_the_app_already_draws() -> None:
+    data = seen_tool_result([call("get_match_report", match_id=9, sections=["officials", "players", "goals"]), LLMResponse("ok", [])],
+                            "¿Cuál fue la alineación del DOSA y quién arbitró?")
+    note = data["visual_note"]
+    assert "los árbitros" in note and "las alineaciones" in note and "los goles por minuto" in note and "no lo repitas en texto" in note
+    assert "una o dos frases" in note  # el texto sigue aportando lo esencial
+    assert "visual_note" in seen_tool_result([call("get_standings", group_id=12), LLMResponse("ok", [])], "clasificación")
+    assert "los partidos en una tabla" in seen_tool_result([call("list_matches", group_id=12, status="scheduled"), LLMResponse("ok", [])], "próximos")["visual_note"]
+
+
+def test_no_note_when_nothing_will_be_drawn_so_no_information_is_lost() -> None:
+    only_sub = {**REPORT, "officials": [], "goals": [], "players": [p for p in REPORT["players"] if p["lineup"] == "substitute"]}
+    REPORTS["current"] = only_sub
+    try:
+        assert "visual_note" not in seen_tool_result([call("get_match_report", match_id=9), LLMResponse("ok", [])], "¿qué pasó?")
+    finally:
+        REPORTS["current"] = REPORT
+    assert "visual_note" not in seen_tool_result([call("find_teams", name="DOSA"), LLMResponse("ok", [])], "equipo")  # solo las tools con visual
+    one_team_results = seen_tool_result([call("find_teams", name="DOSA"), call("list_matches", group_id=12, team_id=5, status="finished"), LLMResponse("ok", [])],
+                                        "últimos partidos del DOSA")
+    assert "visual_note" not in one_team_results  # sus últimos resultados los dibuja la «forma» del equipo y no hay aviso de tabla
+
+
+def test_note_and_visual_always_agree() -> None:
+    """Propiedad: si la tool avisa de un visual, build_visuals lo genera (y a la inversa para los tipos avisables)."""
+    cases = [([call("get_match_report", match_id=9, sections=["players"]), LLMResponse("ok", [])], {"lineup"}),
+             ([call("get_standings", group_id=12), LLMResponse("ok", [])], {"table"}),
+             ([call("get_scorer_table", group_id=12), LLMResponse("ok", [])], {"bars"}),
+             ([call("list_matches", group_id=12, status="scheduled"), LLMResponse("ok", [])], {"matches"})]
+    for steps, expected in cases:
+        noted = "visual_note" in seen_tool_result(list(steps), "¿qué alineación hubo, clasificación y partidos?")
+        drawn = {v["type"] for v in present("¿qué alineación hubo, clasificación y partidos?", list(steps)).visuals}
+        assert noted and expected <= drawn, (steps[0].tool_calls[0].name, noted, drawn)
+
+
+MATCH_FIXTURE = __import__("pathlib").Path(__file__).parent / "fixtures" / "chat_response_match.json"
+MATCHES_FIXTURE = __import__("pathlib").Path(__file__).parent / "fixtures" / "chat_response_matches.json"
+
+
+def _fixture(steps: list[LLMResponse], question: str, path: Any, expected: list[str]) -> None:
+    c, _ = web(steps)
     with c:
-        body = c.post("/chat", json={"question": "¿Cuál fue la alineación del DOSA?", "conversation_id": "ln"}).json()
+        body = c.post("/chat", json={"question": question, "conversation_id": "fx"}).json()
     body["diagnostics"].update(run_id="run", duration_ms=0, llm_ms=0, retry_wait_ms=0, tools_ms=0, context_ms=0, postprocess_ms=0)
     for t in body["diagnostics"]["tools"]:
         t["duration_ms"] = 0
     for src in body["sources"]:
         src["queried_at"] = "2026-10-30T10:00:00+00:00"
-    assert [v["type"] for v in body["visuals"]] == ["lineup"]
-    if not LINEUP_FIXTURE.exists():
-        LINEUP_FIXTURE.write_text(json.dumps(body, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    assert json.loads(LINEUP_FIXTURE.read_text(encoding="utf-8")) == body
+    assert [v["type"] for v in body["visuals"]] == expected
+    if not path.exists():
+        path.write_text(json.dumps(body, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    assert json.loads(path.read_text(encoding="utf-8")) == body
+
+
+def test_match_and_matches_contract_fixtures_match_backend() -> None:
+    _fixture([call("get_match_report", match_id=9, sections=["officials", "players", "goals"]), LLMResponse("Ganó el DOSA 3-1.", [])],
+             "¿Cuál fue la alineación del DOSA y quién arbitró?", MATCH_FIXTURE, ["lineup", "officials", "timeline"])
+    _fixture([call("list_matches", group_id=12, status="scheduled", limit=3), LLMResponse("Estos son los próximos partidos.", [])],
+             "¿Cuáles son los próximos partidos?", MATCHES_FIXTURE, ["matches"])

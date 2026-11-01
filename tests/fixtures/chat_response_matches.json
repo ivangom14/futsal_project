@@ -1,0 +1,105 @@
+{
+  "answer": "Estos son los próximos partidos.",
+  "guardrail": null,
+  "error": null,
+  "answer_kind": "official",
+  "is_analysis": false,
+  "sources": [
+    {
+      "kind": "official_data",
+      "title": "Partidos y resultados · RFFM",
+      "detail": "PRIMERA AFICIONADO FS · Grupo 2",
+      "pages": null,
+      "text": null,
+      "cited": null,
+      "queried_at": "2026-10-30T10:00:00+00:00",
+      "updated_at": null,
+      "freshness": "unknown",
+      "updated_note": "No se conoce la fecha de actualización de estos datos.",
+      "meta": {}
+    }
+  ],
+  "visuals": [
+    {
+      "type": "matches",
+      "title": "Próximos partidos · PRIMERA AFICIONADO FS · Grupo 2",
+      "subtitle": null,
+      "rows": [
+        {
+          "round": 6,
+          "date": "2026-11-01",
+          "home": "C.D. DOSA",
+          "away": "Z",
+          "score": null,
+          "status": "scheduled",
+          "past_due": false
+        },
+        {
+          "round": 7,
+          "date": "2026-11-08",
+          "home": "W",
+          "away": "C.D. DOSA",
+          "score": null,
+          "status": "scheduled",
+          "past_due": true
+        },
+        {
+          "round": 8,
+          "date": null,
+          "home": "C.D. DOSA",
+          "away": "V",
+          "score": null,
+          "status": "scheduled",
+          "past_due": false
+        }
+      ],
+      "total": 30,
+      "partial": true
+    }
+  ],
+  "suggestions": [
+    "¿Cómo va la clasificación?",
+    "¿Qué resultados hubo en la última jornada?",
+    "¿Quién es el máximo goleador del grupo?"
+  ],
+  "focus": {
+    "competition": "PRIMERA AFICIONADO FS",
+    "group": "Grupo 2"
+  },
+  "diagnostics": {
+    "run_id": "run",
+    "provider": "fake",
+    "model": "fake",
+    "duration_ms": 0,
+    "resolved_scope": null,
+    "llm_ms": 0,
+    "retry_wait_ms": 0,
+    "llm_retries": 0,
+    "tools_ms": 0,
+    "context_ms": 0,
+    "postprocess_ms": 0,
+    "input_tokens_peak": 0,
+    "resolved_question": null,
+    "history_turns": 0,
+    "llm_calls": 2,
+    "tool_calls": 1,
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "token_source": "unreported",
+    "tools": [
+      {
+        "name": "list_matches",
+        "arguments": {
+          "group_id": 12,
+          "status": "scheduled",
+          "limit": 3
+        },
+        "duration_ms": 0,
+        "is_error": false,
+        "refused": false,
+        "summary": "30 matches"
+      }
+    ],
+    "errors": []
+  }
+}

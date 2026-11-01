@@ -291,7 +291,7 @@
         "duration_ms": 0,
         "is_error": false,
         "refused": false,
-        "summary": "{\"status\": \"ok\", \"competition\": \"PRIMERA AFICIONADO FS\", \"group\": \"Grupo 2\", \"group_id\": 12, \"source\": {\"round\": 5, \"cap…"
+        "summary": "{\"status\":\"ok\",\"competition\":\"PRIMERA AFICIONADO FS\",\"group\":\"Grupo 2\",\"group_id\":12,\"source\":{\"round\":5,\"captured_at\":\"…"
       },
       {
         "name": "get_scorer_table",
@@ -301,7 +301,7 @@
         "duration_ms": 0,
         "is_error": false,
         "refused": false,
-        "summary": "{\"status\": \"ok\", \"competition\": \"PRIMERA AFICIONADO FS\", \"group\": \"Grupo 2\", \"group_id\": 12, \"source\": {\"captured_at\": \"…"
+        "summary": "{\"status\":\"ok\",\"competition\":\"PRIMERA AFICIONADO FS\",\"group\":\"Grupo 2\",\"group_id\":12,\"source\":{\"captured_at\":\"2026-10-28…"
       }
     ],
     "errors": []

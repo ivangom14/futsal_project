@@ -23,6 +23,9 @@ export type Visual =
   | { type: "bars"; title: string; subtitle?: string | null; partial?: boolean; rows: { label: string; sublabel?: string | null; value: number; rank?: number | null }[] }
   | { type: "comparison"; title: string; subtitle?: string | null; series: string[]; rows: { label: string; values: (number | null)[] }[] }
   | LineupVisual
+  | OfficialsVisual
+  | TimelineVisual
+  | MatchesVisual
   | { type: "form"; title: string; subtitle?: string | null; rows: { round: number | null; rival: string; score: string; result: "V" | "E" | "D"; points: number; home: boolean }[] };
 
 export interface LineupPlayer { name: string; short: string; shirt: number | null; captain: boolean; goalkeeper: boolean }
@@ -30,6 +33,20 @@ export interface LineupVisual {
   type: "lineup"; title: string; subtitle?: string | null; team: string;
   /** Hay exactamente 5 titulares con 1 portero: solo entonces se dibuja la pista. */
   court: boolean; starters: LineupPlayer[]; substitutes: LineupPlayer[]; unknown: LineupPlayer[]; note: string;
+}
+
+export interface OfficialsVisual {
+  type: "officials"; title: string; subtitle?: string | null;
+  /** `kind` solo elige el dibujo: árbitro, asistente o mesa. El cargo es el que figura en el acta. */
+  people: { name: string; role: string; kind: "referee" | "assistant" | "table" }[];
+}
+export interface TimelineVisual {
+  type: "timeline"; title: string; subtitle?: string | null; home: string; away: string; partial?: boolean;
+  events: { minute: number | null; player: string; side: "home" | "away"; own_goal: boolean }[];
+}
+export interface MatchesVisual {
+  type: "matches"; title: string; subtitle?: string | null; total: number; partial: boolean;
+  rows: { round: number | null; date: string | null; home: string; away: string; score: string | null; status: string; past_due: boolean }[];
 }
 
 export type Focus = Partial<Record<"team" | "player" | "competition" | "group" | "round", string>>;

@@ -4,7 +4,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import App, { SLOW_MS } from "./App";
 import contract from "../../tests/fixtures/chat_response.json";
 import visualsContract from "../../tests/fixtures/chat_response_visuals.json";
-import lineupJson from "../../tests/fixtures/chat_response_lineup.json";
+import matchesJson from "../../tests/fixtures/chat_response_matches.json";
+import lineupJson from "../../tests/fixtures/chat_response_match.json";
 import type { ChatResponse } from "./types";
 
 const HEALTH = { status: "ok", agent: { ready: true, error: null }, llm: { provider: "gemini", key_configured: true }, data_api: { reachable: true, detail: null } };
@@ -199,7 +200,7 @@ describe("alineaciones", () => {
     backend(() => reply(lineupContract));
     render(<App />);
     await ask("¿Cuál fue la alineación del DOSA?");
-    const figure = screen.getByTestId("visual");
+    const [figure] = screen.getAllByTestId("visual"); // el acta completa trae además árbitros y goles
     expect(within(figure).getByText("Alineación · C.D. DOSA")).toBeInTheDocument();
     const court = within(figure).getByRole("img", { name: /^Quinteto inicial de C\.D\. DOSA: 1 Javier Aparicio Jimenez, 5 Pedro Gil Mora/ });
     expect(within(court as unknown as HTMLElement).getAllByText(/^[A-Z]\. /)).toHaveLength(5); // 5 titulares con su etiqueta
@@ -289,5 +290,54 @@ describe("desglose del tiempo", () => {
     expect(line).toHaveTextContent("herramientas 0.9 s");
     expect(line).toHaveTextContent("montaje 0.1 s");
     expect(line).toHaveTextContent("entrada máx. 9400 tokens");
+  });
+});
+
+describe("árbitros, goles y partidos (contrato real)", () => {
+  const match = lineupJson as unknown as ChatResponse;
+
+  it("el acta completa se ve como gráficos en orden: alineación, árbitros y goles", async () => {
+    backend(() => reply(match));
+    render(<App />);
+    await ask("¿Cuál fue la alineación del DOSA y quién arbitró?");
+    const figures = screen.getAllByTestId("visual");
+    expect(figures.map((f) => within(f).getByText(/^(Alineación|Árbitros|Goles del partido)/).textContent)).toEqual(["Alineación · C.D. DOSA", "Árbitros", "Goles del partido"]);
+    expect(screen.getByText("Ganó el DOSA 3-1.")).toBeInTheDocument(); // el texto queda en una frase: lo detallado va en los gráficos
+  });
+
+  it("dibuja a cada árbitro con su monigote y su cargo del acta", async () => {
+    backend(() => reply(match));
+    render(<App />);
+    await ask("¿Quién arbitró?");
+    const refs = screen.getAllByTestId("visual")[1];
+    const figs = within(refs).getAllByRole("img");
+    expect(figs.map((f) => f.getAttribute("aria-label"))).toEqual([
+      "Árbitro: Eduardo Hugo Iniesta del Amo", "Árbitro: Jaime Larrubia Pajares", "Árbitro asistente: Arantxa Ortiz Pinillos"]);
+    expect(within(refs).getByText("Árbitro asistente")).toBeInTheDocument();
+    expect(refs.querySelectorAll("svg")).toHaveLength(3);
+  });
+
+  it("muestra los goles por minuto, el gol en propia puerta a favor del rival y ninguna tarjeta", async () => {
+    backend(() => reply(match));
+    render(<App />);
+    await ask("¿Quién marcó?");
+    const goals = screen.getAllByTestId("visual")[2];
+    expect(within(goals).getAllByRole("listitem")).toHaveLength(4);
+    expect(within(goals).getByLabelText("minuto 20")).toBeInTheDocument();
+    expect(within(goals).getByText(/A Otro Uno/)).toHaveTextContent("(en propia puerta)");
+    expect(goals.textContent).not.toMatch(/tarjeta|amarilla|roja/i);
+  });
+
+  it("lista los próximos partidos con su estado y avisa de los datos posiblemente desactualizados", async () => {
+    backend(() => reply(matchesJson as unknown as ChatResponse));
+    render(<App />);
+    await ask("¿Cuáles son los próximos partidos?");
+    const card = screen.getByTestId("visual");
+    expect(within(card).getByText("Próximos partidos · PRIMERA AFICIONADO FS · Grupo 2")).toBeInTheDocument();
+    expect(within(card).getAllByText("Programado")).toHaveLength(3);
+    expect(within(card).getAllByText("vs")).toHaveLength(3);
+    expect(within(card).getByText(/El dato puede estar desactualizado|el dato puede estar desactualizado/)).toBeInTheDocument();
+    expect(within(card).getByText("Sin fecha", { exact: false })).toBeInTheDocument();
+    expect(within(card).getByText("Se muestran 3 de 30 partidos.")).toBeInTheDocument();
   });
 });

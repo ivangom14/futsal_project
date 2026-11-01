@@ -145,7 +145,7 @@ def build_response(result: AgentResult, history_turns: int, question: str, prev_
     focus = merge_focus(prev_focus, compute_focus(rec, result.names, result.groups_used, result.official, question)) if clean else prev_focus
     sources = pres.build_sources(question, result.answer, rec, result.official, result.groups_used, freshness)
     kind, analysis = pres.answer_kind(question, result.answer, rec)
-    visuals = pres.build_visuals(question, rec, result.official, result.names, focus) if clean else []
+    visuals = pres.build_visuals(question, rec, result.official, result.names, focus, result.groups_used) if clean else []
     diag.postprocess_ms = round((time.monotonic() - t_post) * 1000, 1)
     return ChatResponse(
         answer=result.answer, guardrail=result.guardrail, error=result.error, answer_kind=kind, is_analysis=analysis,

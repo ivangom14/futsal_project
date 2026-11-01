@@ -35,6 +35,7 @@ from futsal.agent.memory import (
     resolve_pending,
     select_turns,
 )
+from futsal.agent.presentation import visual_note
 from futsal.config.competition_aliases import load_aliases
 from futsal.domain.competitions import (
     Competition,
@@ -131,6 +132,7 @@ AMBIGUOUS_TEAM_MESSAGE = (
     "error_validacion: el nombre coincide con equipos de varios grupos y la pregunta no indica cuál; no se ha ejecutado. "
     "Pregunta al usuario a qué competición y grupo se refiere en lugar de elegir uno."
 )
+VISUAL_TOOLS = frozenset({"get_match_report", "get_standings", "get_scorer_table", "list_matches"})
 TEAM_ARGS = ("team_id", "against_team_id")
 TEAM_HINT = "Obtén el equipo con find_teams (por nombre) y usa su id."
 ROUND_HINT = "Obtén las jornadas con list_rounds(group_id) y usa su id (no el número de jornada)."
@@ -352,6 +354,8 @@ class Agent:
         self._ctx_teams: set[int] = set()  # IDs mostrados en el contexto precargado
         self._ctx_rounds: set[int] = set()
         self._question = ""
+        self._raw_question = ""  # pregunta del usuario tal cual (para decidir qué visuales se dibujan)
+        self._focus_prev: dict[str, Any] = {}
         self._teams: set[int] = set()  # IDs que las tools han mostrado al modelo en ESTA pregunta (+ contexto)
         self._rounds: set[int] = set()
         self._ambiguous: set[int] = set()  # equipos de un find_teams que mezcla grupos
@@ -445,6 +449,17 @@ class Agent:
                                  "competitions": [c.name for c in cands[:8]], "total": len(cands)}
         return scope_note(cands, self._hints, inherited)
 
+    def _visual_note(self, call: ToolCall, text: str) -> str:
+        """Si la aplicación va a dibujar estos datos, el resultado lo dice (para que el modelo no los repita en texto)."""
+        try:
+            data = json.loads(text)
+        except ValueError:
+            return text
+        note = visual_note(call.name, call.arguments, data, self._raw_question, self._focus_prev)
+        if note is None:
+            return text
+        return json.dumps({**data, "visual_note": note}, ensure_ascii=False, separators=(",", ":"))
+
     def _scope_filter(self, text: str) -> str:
         """Resultado de find_teams reducido a lo que cumple las pistas del usuario (liga/copa, categoría, alias, grupo)."""
         if self._hints.empty():
@@ -521,6 +536,7 @@ class Agent:
         note = self._resolve_scope(turns, effective, result) + focus_note(focus, self._other_groups(focus))
         messages = [*history_messages(turns), Message("user", effective + note)]
         self._question = ctx
+        self._raw_question, self._focus_prev = question, focus
         self._teams, self._rounds = set(self._ctx_teams), set(self._ctx_rounds)
         self._ambiguous, self._seen = set(), {}
         nudged = False
@@ -654,6 +670,8 @@ class Agent:
             self._record_evidence(call, text, result)
         if not is_error and call.name == "find_teams":
             text = self._scope_filter(text)
+        if not is_error and call.name in VISUAL_TOOLS:
+            text = self._visual_note(call, text)
         if not is_error and call.name in ("get_scorer_table", "get_standings"):
             try:
                 data = json.loads(text)

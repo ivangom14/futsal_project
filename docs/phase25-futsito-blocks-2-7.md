@@ -69,6 +69,19 @@ Pregunta por la alineación → quinteto inicial sobre una pista de fútbol sala
   (sin `group_id` no se conoce su frescura: se declara).
 - Contrato real compartido: `tests/fixtures/chat_response_lineup.json`. Sugeridas tras un acta: goles, tarjetas y árbitros de ese partido.
 
+## Visuales en lugar de texto (Fase 25.3)
+- **Árbitros** (`officials`): un monigote vestido de árbitro por persona (negro con cuello amarillo y silbato; asistente en amarillo; mesa en azul
+  con cronómetro) con su cargo **tal cual figura en el acta**.
+- **Goles** (`timeline`): por minuto, local a la izquierda y visitante a la derecha; el gol en propia puerta cuenta para el rival. **No se dibujan tarjetas**:
+  el significado de sus códigos (100/101) sigue sin verificar.
+- **Partidos** (`matches`): resultados, próximos partidos o jornada (≥ 2 filas, máx. 12, «se muestran N de M»); un programado con fecha pasada avisa de datos
+  posiblemente desactualizados. La forma de un equipo (`team_id` + finalizados) sigue siendo el visual `form`; no se duplican.
+- Orden en un acta: alineaciones, árbitros, goles. Todo sale de `get_match_report`/`list_matches` con las secciones `players`, `officials` y `goals`.
+- **El gráfico sustituye al texto**: la aplicación lo decide en código y se lo dice al LLM dentro del resultado de la herramienta
+  (`visual_note`: «ya lo muestro como gráfico: no lo repitas en texto; responde con una o dos frases con lo esencial»). Solo se añade cuando el visual SÍ se va a
+  generar (mismas funciones; prueba de propiedad) y nunca cuando no hay datos suficientes, así que no se pierde información. Si el modelo aun así lo repite, no se
+  corrige a posteriori: la obediencia del modelo solo se comprueba con Gemini real (guion manual).
+
 ## Respuestas lentas o colgadas (Fase 25.2)
 Síntoma: «Futsito está consultando los datos…» durante mucho tiempo. Causas posibles (no se pueden distinguir sin ver el desglose): Gemini lento o
 limitando peticiones (los reintentos 429/5xx esperan hasta `LLM_RETRY_MAX_WAIT`=20 s cada uno y cada llamada del bucle puede reintentar), muchas
@@ -88,8 +101,8 @@ No se aumentan los reintentos ni sus límites.
 el frontend: `tests/fixtures/chat_response.json` y `chat_response_visuals.json` (los verifica el backend).
 
 ## Pruebas (sin cuota de Gemini)
-`tests/test_futsito_presentation.py` (27, incluye alineaciones: foco, fuentes, frescura, citas, visuales, sugeridas, aislamiento), `tests/test_feedback.py` (14), Vitest 42
-(visuales con el contrato real, fuentes y frescura, sugeridas, foco, valoración, persistencia, logo). Batería: 612 pass, 2 skipped; ruff y mypy limpios; el
+`tests/test_futsito_presentation.py` (27, incluye alineaciones: foco, fuentes, frescura, citas, visuales, sugeridas, aislamiento), `tests/test_feedback.py` (14), Vitest 46
+(visuales con el contrato real, fuentes y frescura, sugeridas, foco, valoración, persistencia, logo). Batería: 620 pass, 2 skipped; ruff y mypy limpios; el
 único error de la suite completa es `test_refresh_runs_pg` (necesita PostgreSQL local; ya fallaba).
 
 ## Validación manual con Gemini real (Windows CMD)
@@ -108,7 +121,8 @@ Reinicia el servicio de chat y recarga con `Ctrl+F5`. Conversaciones nuevas:
 6. Pulsa una pregunta sugerida → se envía como mensaje normal. Cambia a «¿Y el otro grupo?» y a otro equipo: el foco debe cambiar.
 7. 👍 y 👎 (con motivo y comentario) → comprueba `data\feedback\feedback.jsonl`. Recarga: la valoración sigue marcada.
 8. «¿Cuál fue la alineación del DOSA en su último partido?» → pista con el portero y 4 jugadores, capitán marcado y suplentes a la derecha, con el aviso de que las posiciones son orientativas; «¿y la del rival?» → el otro equipo.
-9. Móvil: `F12` → modo dispositivo; menú ☰, sin desplazamiento horizontal.
+9. «¿Quiénes fueron los árbitros de [partido]?» → monigotes con su cargo; «¿Cuáles son los próximos partidos de [grupo]?» → tarjetas con fecha y estado; «¿Quién marcó en [partido]?» → goles por minuto. En todos, el texto debe limitarse a una o dos frases (si repite la lista, dímelo).
+10. Móvil: `F12` → modo dispositivo; menú ☰, sin desplazamiento horizontal.
 
 ## Limitaciones
 - Las sugeridas son reglas fijas: no cubren todos los tipos de consulta (p. ej. actas, árbitros) y no analizan el texto de la respuesta.

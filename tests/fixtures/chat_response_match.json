@@ -1,5 +1,5 @@
 {
-  "answer": "Así formó el DOSA.",
+  "answer": "Ganó el DOSA 3-1.",
   "guardrail": null,
   "error": null,
   "answer_kind": "official",
@@ -81,6 +81,62 @@
       ],
       "unknown": [],
       "note": "El acta indica quiénes son titulares y suplentes, pero no la posición de cada jugador en la pista: la colocación en el campo es orientativa."
+    },
+    {
+      "type": "officials",
+      "title": "Árbitros",
+      "subtitle": "C.D. DOSA 3-1 FS ALCALA · Jornada 4",
+      "people": [
+        {
+          "name": "Eduardo Hugo Iniesta del Amo",
+          "role": "Árbitro",
+          "kind": "referee"
+        },
+        {
+          "name": "Jaime Larrubia Pajares",
+          "role": "Árbitro",
+          "kind": "referee"
+        },
+        {
+          "name": "Arantxa Ortiz Pinillos",
+          "role": "Árbitro asistente",
+          "kind": "assistant"
+        }
+      ]
+    },
+    {
+      "type": "timeline",
+      "title": "Goles del partido",
+      "subtitle": "C.D. DOSA 3-1 FS ALCALA · Jornada 4",
+      "home": "C.D. DOSA",
+      "away": "FS ALCALA",
+      "events": [
+        {
+          "minute": 3,
+          "player": "Juan Perez Lopez",
+          "side": "home",
+          "own_goal": false
+        },
+        {
+          "minute": 12,
+          "player": "Leo Martin Cano",
+          "side": "away",
+          "own_goal": false
+        },
+        {
+          "minute": 20,
+          "player": "A Otro Uno",
+          "side": "home",
+          "own_goal": true
+        },
+        {
+          "minute": 31,
+          "player": "Ana Ruiz Soto",
+          "side": "home",
+          "own_goal": false
+        }
+      ],
+      "partial": false
     }
   ],
   "suggestions": [
@@ -115,13 +171,15 @@
         "arguments": {
           "match_id": 9,
           "sections": [
-            "players"
+            "officials",
+            "players",
+            "goals"
           ]
         },
         "duration_ms": 0,
         "is_error": false,
         "refused": false,
-        "summary": "{\"report_available\": true, \"match\": {\"match_id\": 9, \"round_number\": 4, \"home_team\": \"C.D. DOSA\", \"away_team\": \"FS ALCALA…"
+        "summary": "{\"report_available\":true,\"match\":{\"match_id\":9,\"round_number\":4,\"home_team\":\"C.D. DOSA\",\"away_team\":\"FS ALCALA\",\"status\"…"
       }
     ],
     "errors": []

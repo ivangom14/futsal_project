@@ -20,6 +20,9 @@ ANALYSIS_QUESTION = ("analiza", "analisis", "recomienda", "recomendacion", "tact
 ANALYSIS_ANSWER = ("en mi opinion", "recomiendo", "probablemente", "podria ser", "parece que", "mi analisis", "diria que")
 GENERIC_TEAM_WORDS = frozenset({"cd", "c", "d", "club", "cde", "f", "s", "fs", "futbol", "sala", "a", "b", "de", "del", "la", "el", "e", "u"})
 MAX_ROWS = 20
+MAX_MATCHES = 12
+MAX_EVENTS = 20
+PARTICLES = frozenset({"de", "del", "la", "las", "los", "y", "da", "do"})
 MAX_BARS = 10
 
 
@@ -181,7 +184,8 @@ def _pretty(name: str) -> str:
     if "," in name:
         surname, _, given = name.partition(",")
         name = f"{given.strip()} {surname.strip()}"
-    return " ".join(w.capitalize() for w in name.split())
+    words = name.split()
+    return " ".join(w.lower() if i and w.lower() in PARTICLES else w.capitalize() for i, w in enumerate(words))
 
 
 def _player(p: dict[str, Any]) -> dict[str, Any]:
@@ -194,44 +198,137 @@ def _player(p: dict[str, Any]) -> dict[str, Any]:
             "captain": bool(p.get("captain")), "goalkeeper": bool(p.get("goalkeeper"))}
 
 
+def lineup_from_report(data: dict[str, Any], question: str, focus: dict[str, str]) -> list[dict[str, Any]]:
+    """Quinteto inicial y suplentes de UN acta (`get_match_report` con la sección `players`). Sin datos, sin visual."""
+    if not data.get("report_available") or not isinstance(data.get("players"), list):
+        return []
+    head = data.get("match") or {}
+    by_team: dict[str, list[dict[str, Any]]] = {}
+    for p in data["players"]:
+        if isinstance(p, dict) and p.get("team") and p.get("name"):
+            by_team.setdefault(str(p["team"]), []).append(p)
+    wanted = [t for t in by_team if _mentioned(question, [{"team": t}])] or [t for t in by_team if t == focus.get("team")] or list(by_team)
+    out: list[dict[str, Any]] = []
+    for team in wanted:
+        rows = by_team[team]
+        order = lambda p: (not p.get("goalkeeper"), p.get("shirt") if isinstance(p.get("shirt"), int) else 999)  # noqa: E731
+        starters = [_player(p) for p in sorted((r for r in rows if r.get("lineup") == "starter"), key=order)]
+        if not starters:
+            continue
+        subs = [_player(p) for p in sorted((r for r in rows if r.get("lineup") == "substitute"), key=order)]
+        unknown = [_player(p) for p in sorted((r for r in rows if r.get("lineup") not in ("starter", "substitute")), key=order)]
+        out.append({"type": "lineup", "title": f"Alineación · {team}", "subtitle": _match_line(head), "team": team,
+                    "court": len(starters) == 5 and sum(1 for s in starters if s["goalkeeper"]) == 1,
+                    "starters": starters, "substitutes": subs, "unknown": unknown, "note": LINEUP_NOTE})
+    return out
+
+
+def _match_line(head: dict[str, Any]) -> str:
+    score = (f" {head.get('home_score')}-{head.get('away_score')} "
+             if head.get("status") == "finished" and isinstance(head.get("home_score"), int) else " - ")
+    return f"{head.get('home_team')}{score}{head.get('away_team')}" + (f" · Jornada {head['round_number']}" if head.get("round_number") else "")
+
+
+def officials_from_report(data: dict[str, Any]) -> dict[str, Any] | None:
+    """Árbitros y mesa del acta, tal como figuran (nombre y cargo). `kind` solo elige el dibujo: árbitro, asistente o mesa."""
+    people = []
+    for o in data.get("officials") or []:
+        if isinstance(o, dict) and o.get("name"):
+            role = str(o.get("role") or "")
+            low = fold(role)
+            kind = "assistant" if "asistente" in low else "table" if any(w in low for w in ("cronometr", "anotador", "mesa", "delegado")) else "referee"
+            people.append({"name": _pretty(str(o["name"])), "role": role or "Árbitro", "kind": kind})
+    if not people or not data.get("report_available"):
+        return None
+    return {"type": "officials", "title": "Árbitros", "subtitle": _match_line(data.get("match") or {}), "people": people}
+
+
+def goals_timeline(data: dict[str, Any]) -> dict[str, Any] | None:
+    """Goles del acta por minuto. Las tarjetas NO se dibujan: el significado de sus códigos no está verificado."""
+    head = data.get("match") or {}
+    goals = [g for g in data.get("goals") or [] if isinstance(g, dict) and g.get("type") in ("goal", "own_goal") and g.get("player")]
+    if not data.get("report_available") or not goals or not head.get("home_team"):
+        return None
+    events = []
+    for g in goals[:MAX_EVENTS]:
+        own = g["type"] == "own_goal"
+        scorer_home = g.get("team") == head["home_team"]
+        side = ("away" if scorer_home else "home") if own else ("home" if scorer_home else "away")  # el gol propio cuenta para el rival
+        events.append({"minute": g.get("minute") if isinstance(g.get("minute"), int) else None, "player": _pretty(str(g["player"])),
+                       "side": side, "own_goal": own})
+    return {"type": "timeline", "title": "Goles del partido", "subtitle": _match_line(head), "home": head["home_team"], "away": head.get("away_team"),
+            "events": events, "partial": len(goals) > MAX_EVENTS}
+
+
+def matches_rows(payload: Any, limit: int = MAX_MATCHES) -> tuple[list[dict[str, Any]], int]:
+    """Filas de partidos de un `list_matches` y el total que informa la herramienta."""
+    matches = [m for m in (payload or {}).get("matches", []) if isinstance(m, dict) and m.get("home_team")] if isinstance(payload, dict) else []
+    count = payload.get("count") if isinstance(payload, dict) else None
+    total = count if isinstance(count, int) else len(matches)
+    rows = [{"round": m.get("round_number"), "date": m.get("date"), "home": m.get("home_team"), "away": m.get("away_team"),
+             "score": f"{m['home_score']}-{m['away_score']}" if isinstance(m.get("home_score"), int) and isinstance(m.get("away_score"), int) else None,
+             "status": m.get("status"), "past_due": bool(m.get("past_due"))} for m in matches[:limit]]
+    return rows, max(total, len(rows))
+
+
+def _matches_title(call: ToolCallRecord, names: dict[str, dict[int, str]], groups_used: dict[int, dict[str, str]]) -> tuple[str, str | None]:
+    a = call.arguments
+    gid = a.get("group_id")
+    g = groups_used.get(gid) if isinstance(gid, int) else None
+    where = " · ".join(x for x in (g or {}).values() if x)
+    kind = {"finished": "Resultados", "scheduled": "Próximos partidos"}.get(str(a.get("status")), "Partidos")
+    extra = [names["teams"][a["team_id"]] if isinstance(a.get("team_id"), int) and a["team_id"] in names["teams"] else None,
+             f"Jornada {names['rounds'][a['round_id']]}" if isinstance(a.get("round_id"), int) and a["round_id"] in names["rounds"] else None]
+    return f"{kind}" + (f" · {where}" if where else ""), " · ".join(x for x in extra if x) or None
+
+
+def visual_note(tool: str, args: dict[str, Any], data: Any, question: str, focus: dict[str, str]) -> str | None:
+    """Si la aplicación va a dibujar estos datos, se lo dice al LLM (dentro del resultado de la tool) para que no los repita en texto.
+    Solo se avisa cuando el visual SÍ se va a generar (mismas funciones que lo construyen): nunca se pierde información."""
+    if not isinstance(data, dict):
+        return None
+    parts: list[str] = []
+    if tool == "get_match_report":
+        if officials_from_report(data):
+            parts.append("los árbitros")
+        if lineup_from_report(data, question, focus):
+            parts.append("las alineaciones (titulares y suplentes)")
+        if goals_timeline(data):
+            parts.append("los goles por minuto")
+    elif tool == "list_matches":
+        rows, _ = matches_rows(data)
+        if len(rows) >= 2 and not (isinstance(args.get("team_id"), int) and args.get("status") == "finished"):
+            parts.append("los partidos en una tabla")
+    elif tool in ("get_standings", "get_scorer_table") and data.get("status") in ("ok", "incomplete"):
+        if len(data.get("standings" if tool == "get_standings" else "scorers") or []) >= 2:
+            parts.append("la clasificación" if tool == "get_standings" else "el ranking de goleadores")
+    if not parts:
+        return None
+    return (f"La aplicación ya muestra {', '.join(parts)} como gráfico junto a tu respuesta: no lo repitas en texto (ni en lista ni en tabla). "
+            "Responde con una o dos frases que aporten lo esencial (p. ej. el resultado o el líder) y lo demás que haya pedido el usuario.")
+
+
 def lineup_visuals(question: str, rec: RunRecord, focus: dict[str, str]) -> list[dict[str, Any]]:
-    """Quinteto inicial y suplentes de un acta, con lo que devolvió `get_match_report` (sección `players`). Sin datos, sin visual."""
+    """Visuales de actas: alineaciones, árbitros y goles, con lo que devolvió `get_match_report`. Sin datos, sin visual."""
     out: list[dict[str, Any]] = []
     seen: set[tuple[Any, ...]] = set()
     for call in executed(rec):
         data = _json(call.result) if call.name == "get_match_report" else None
-        if not isinstance(data, dict) or not data.get("report_available") or not isinstance(data.get("players"), list):
+        if not isinstance(data, dict):
             continue
         head = data.get("match") or {}
         key = (head.get("home_team"), head.get("away_team"), head.get("round_number"))
         if key in seen:
             continue
         seen.add(key)
-        by_team: dict[str, list[dict[str, Any]]] = {}
-        for p in data["players"]:
-            if isinstance(p, dict) and p.get("team") and p.get("name"):
-                by_team.setdefault(str(p["team"]), []).append(p)
-        wanted = [t for t in by_team if _mentioned(question, [{"team": t}])] or [t for t in by_team if t == focus.get("team")] or list(by_team)
-        score = (f" {head.get('home_score')}-{head.get('away_score')} "
-                 if head.get("status") == "finished" and isinstance(head.get("home_score"), int) else " - ")
-        for team in wanted:
-            rows = by_team[team]
-            order = lambda p: (not p.get("goalkeeper"), p.get("shirt") if isinstance(p.get("shirt"), int) else 999)  # noqa: E731
-            starters = [_player(p) for p in sorted((r for r in rows if r.get("lineup") == "starter"), key=order)]
-            if not starters:
-                continue
-            subs = [_player(p) for p in sorted((r for r in rows if r.get("lineup") == "substitute"), key=order)]
-            unknown = [_player(p) for p in sorted((r for r in rows if r.get("lineup") not in ("starter", "substitute")), key=order)]
-            out.append({"type": "lineup", "title": f"Alineación · {team}",
-                        "subtitle": f"{head.get('home_team')}{score}{head.get('away_team')}"
-                                    + (f" · Jornada {head['round_number']}" if head.get("round_number") else ""),
-                        "team": team, "court": len(starters) == 5 and sum(1 for s in starters if s["goalkeeper"]) == 1,
-                        "starters": starters, "substitutes": subs, "unknown": unknown, "note": LINEUP_NOTE})
-    return out[:2]
+        lineups = lineup_from_report(data, question, focus)
+        officials, timeline = officials_from_report(data), goals_timeline(data)
+        out += lineups[:2] + ([officials] if officials else []) + ([timeline] if timeline else [])
+    return out
 
 
 def build_visuals(question: str, rec: RunRecord, official: list[dict[str, Any]], names: dict[str, dict[int, str]],
-                  focus: dict[str, str] | None = None) -> list[dict[str, Any]]:
+                  focus: dict[str, str] | None = None, groups_used: dict[int, dict[str, str]] | None = None) -> list[dict[str, Any]]:
     visuals: list[dict[str, Any]] = lineup_visuals(question, rec, focus or {})
     for data in official:
         where = " · ".join(x for x in (data.get("competition"), data.get("group")) if x)
@@ -262,7 +359,19 @@ def build_visuals(question: str, rec: RunRecord, official: list[dict[str, Any]],
                             "subtitle": f"Tabla actual · captura {str(src.get('captured_at'))[:10]}" if src.get("captured_at") else None,
                             "rows": [{"label": str(r.get("player")), "sublabel": r.get("team"), "value": r["goals"],
                                       "rank": r.get("rank")} for r in scorers[:MAX_BARS]]})
-    for call in executed(rec):  # forma reciente de un equipo: list_matches con team_id
+    form_done = False
+    for call in executed(rec):  # partidos listados: tarjetas de resultados / próximos partidos (la forma de un equipo va aparte)
+        payload = _json(call.result) if call.name == "list_matches" else None
+        if payload is None or (isinstance(call.arguments.get("team_id"), int) and call.arguments.get("status") == "finished"):
+            continue
+        rows, total = matches_rows(payload)
+        if len(rows) >= 2:
+            title, subtitle = _matches_title(call, names, groups_used or {})
+            visuals.append({"type": "matches", "title": title, "subtitle": subtitle, "rows": rows, "total": total, "partial": total > len(rows)})
+            break
+    for call in executed(rec):  # forma reciente de un equipo: list_matches(team_id, status=finished)
+        if form_done or call.arguments.get("status") != "finished":
+            continue
         tid = call.arguments.get("team_id")
         payload = _json(call.result) if call.name == "list_matches" else None
         team = names["teams"].get(tid) if isinstance(tid, int) else None
@@ -271,7 +380,7 @@ def build_visuals(question: str, rec: RunRecord, official: list[dict[str, Any]],
                 and isinstance(m.get("away_score"), int)]
         if team and len(done) >= 2:
             visuals.append(_form(team, done))
-            break
+            form_done = True
     return visuals
 
 
