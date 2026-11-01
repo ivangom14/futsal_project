@@ -106,6 +106,7 @@ class ConversationMemory:
 
     def __init__(self, max_conversations: int = MAX_CONVERSATIONS) -> None:
         self._data: OrderedDict[str, list[Turn]] = OrderedDict()
+        self._focus: OrderedDict[str, dict[str, str]] = OrderedDict()
         self._max = max_conversations
 
     def get(self, conversation_id: str) -> list[Turn] | None:
@@ -120,7 +121,17 @@ class ConversationMemory:
         while len(self._data) > self._max:
             self._data.popitem(last=False)
 
+    def get_focus(self, conversation_id: str) -> dict[str, str] | None:
+        return dict(self._focus[conversation_id]) if conversation_id in self._focus else None
+
+    def put_focus(self, conversation_id: str, focus: dict[str, str]) -> None:
+        self._focus[conversation_id] = dict(focus)
+        self._focus.move_to_end(conversation_id)
+        while len(self._focus) > self._max:
+            self._focus.popitem(last=False)
+
     def forget(self, conversation_id: str) -> bool:
+        self._focus.pop(conversation_id, None)
         return self._data.pop(conversation_id, None) is not None
 
     def __len__(self) -> int:

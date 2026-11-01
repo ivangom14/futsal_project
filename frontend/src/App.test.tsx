@@ -50,13 +50,14 @@ describe("App", () => {
     const m = backend(async () => { await gate; return reply({ ...contract, answer: "Cada mitad dura **20 minutos**." }); });
     render(<App />);
     await userEvent.type(screen.getByLabelText("Pregunta"), "¿Cuánto dura cada mitad?{Enter}");
-    expect(await screen.findByRole("status")).toHaveTextContent(/consultando/i);
+    expect(await screen.findByRole("status")).toHaveTextContent(/Futsito está consultando/i);
     expect(screen.getByRole("button", { name: "Enviar" })).toBeDisabled();
     release();
     const agent = await screen.findByTestId("msg-agent");
     expect(within(agent).getByText("20 minutos").tagName).toBe("STRONG");
     expect(chatCalls(m)).toHaveLength(1);
-    expect(screen.getByText(/Fuentes consultadas \(2\)/)).toBeInTheDocument();
+    expect(screen.getByText("Normativa citada")).toBeInTheDocument(); // solo los fragmentos en los que se apoya la respuesta
+    expect(screen.queryByText(/Otros fragmentos consultados/)).not.toBeInTheDocument(); // ambos fragmentos están citados (Regla 7)
     expect(screen.getByText("Detalles técnicos")).toBeInTheDocument();
     expect(screen.getByText(/search_rules/)).toBeInTheDocument();
     expect(screen.queryByTestId("welcome")).not.toBeInTheDocument();
@@ -67,7 +68,7 @@ describe("App", () => {
     render(<App />);
     await userEvent.type(screen.getByLabelText("Pregunta"), "hola{Enter}");
     await screen.findByTestId("msg-agent");
-    expect(screen.queryByText(/Fuentes consultadas/)).not.toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Fuentes" })).not.toBeInTheDocument();
   });
 
   it("distingue un error del backend de una respuesta y permite reintentar", async () => {

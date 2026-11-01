@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="Futsito">
+  <title>Futsito</title>
+  <circle cx="36" cy="34" r="17" fill="#8b5a36"/><circle cx="92" cy="34" r="17" fill="#8b5a36"/>
+  <circle cx="36" cy="34" r="8" fill="#d9a77c"/><circle cx="92" cy="34" r="8" fill="#d9a77c"/>
+  <circle cx="64" cy="64" r="44" fill="#a8764f"/>
+  <ellipse cx="64" cy="80" rx="21" ry="16" fill="#e8c8a4"/>
+  <ellipse cx="64" cy="72" rx="7.5" ry="5.5" fill="#3b2416"/>
+  <path d="M64 77v6m0 0c-5 6-12 5-14 1m14-1c5 6 12 5 14 1" fill="none" stroke="#3b2416" stroke-width="2.4" stroke-linecap="round"/>
+  <circle cx="47" cy="58" r="5" fill="#2b1a10"/><circle cx="81" cy="58" r="5" fill="#2b1a10"/>
+  <circle cx="48.6" cy="56.4" r="1.7" fill="#fff"/><circle cx="82.6" cy="56.4" r="1.7" fill="#fff"/>
+  <path d="M14 128c4-22 26-30 50-30s46 8 50 30z" fill="#c0281e"/>
+  <path d="M46 99c5 9 31 9 36 0" fill="none" stroke="#fff" stroke-width="3.5" stroke-linecap="round"/>
+  <g fill="#fff"><path d="M32 118l1.6 3.4 3.7.4-2.8 2.5.8 3.7-3.3-1.9-3.3 1.9.8-3.7-2.8-2.5 3.7-.4z" transform="scale(.8) translate(10 26)"/>
+  <path d="M32 118l1.6 3.4 3.7.4-2.8 2.5.8 3.7-3.3-1.9-3.3 1.9.8-3.7-2.8-2.5 3.7-.4z" transform="scale(.8) translate(72 26)"/></g>
+  <circle cx="106" cy="106" r="15" fill="#fff" stroke="#2b1a10" stroke-width="3"/>
+  <path d="M106 98l7 5-2.7 8h-8.6l-2.7-8z" fill="#2b1a10"/>
+</svg>

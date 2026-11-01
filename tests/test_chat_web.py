@@ -77,6 +77,8 @@ def normalized(body: dict[str, Any]) -> dict[str, Any]:
     d["run_id"], d["duration_ms"] = "run", 0
     for t in d["tools"]:
         t["duration_ms"] = 0
+    for src in body["sources"]:
+        src["queried_at"] = "2026-01-01T00:00:00+00:00"
     return body
 
 
@@ -86,7 +88,7 @@ def test_chat_returns_answer_sources_and_diagnostics() -> None:
     assert res.status_code == 200
     body = ChatResponse.model_validate(res.json())
     assert "20 minutos" in body.answer and body.error is None and body.guardrail is None
-    assert [s.kind for s in body.sources] == ["rag", "rag"]
+    assert [s.kind for s in body.sources] == ["document", "document"] and body.answer_kind == "documental"
     assert body.sources[0].title.startswith("Reglas de Juego") and body.sources[0].pages == "31"
     assert body.sources[0].text and "20 minutos" in body.sources[0].text
     d = body.diagnostics
@@ -116,10 +118,12 @@ def test_official_table_is_a_source() -> None:
                         "source": {"captured_at": "2026-10-20T10:00:00", "round": 3},
                         "standings": [{"position": 1, "team": "A", "points": 9}]})
     steps: list[LLMResponse | Exception] = [
-        LLMResponse("", [ToolCall("c1", "get_standings", {})]), LLMResponse("Líder A.", [])]
+        LLMResponse("", [ToolCall("c1", "get_standings", {"group_id": 1})]), LLMResponse("Líder A.", [])]
     with client(steps, FakeMcp({"get_standings": table})) as c:
         body = c.post("/chat", json={"question": "¿Cómo va la clasificación?"}).json()
-    assert body["sources"][0]["kind"] == "official_table" and body["sources"][0]["meta"]["round"] == 3
+    src = body["sources"][0]
+    assert src["kind"] == "official_data" and src["title"] == "Clasificación oficial · RFFM" and src["updated_at"] == "2026-10-20T10:00:00"
+    assert body["answer_kind"] == "official" and body["visuals"][0]["type"] == "table"
 
 
 def test_llm_failure_is_http_error_not_an_answer() -> None:

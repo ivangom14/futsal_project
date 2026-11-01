@@ -1,0 +1,302 @@
+{
+  "answer": "El DOSA lidera con 13 puntos.",
+  "guardrail": null,
+  "error": null,
+  "answer_kind": "official",
+  "is_analysis": false,
+  "sources": [
+    {
+      "kind": "official_data",
+      "title": "Partidos y resultados · RFFM",
+      "detail": "PRIMERA AFICIONADO FS · Grupo 2",
+      "pages": null,
+      "text": null,
+      "cited": null,
+      "queried_at": "2026-10-30T10:00:00+00:00",
+      "updated_at": "2026-10-29T08:00:00+00:00",
+      "freshness": "fresh",
+      "updated_note": null,
+      "meta": {}
+    },
+    {
+      "kind": "official_data",
+      "title": "Clasificación oficial · RFFM",
+      "detail": "PRIMERA AFICIONADO FS · Grupo 2",
+      "pages": null,
+      "text": null,
+      "cited": null,
+      "queried_at": "2026-10-30T10:00:00+00:00",
+      "updated_at": "2026-10-28T09:00:00+00:00",
+      "freshness": "known",
+      "updated_note": null,
+      "meta": {}
+    },
+    {
+      "kind": "official_data",
+      "title": "Goleadores oficiales · RFFM",
+      "detail": "PRIMERA AFICIONADO FS · Grupo 2",
+      "pages": null,
+      "text": null,
+      "cited": null,
+      "queried_at": "2026-10-30T10:00:00+00:00",
+      "updated_at": "2026-10-28T09:00:00+00:00",
+      "freshness": "known",
+      "updated_note": null,
+      "meta": {}
+    }
+  ],
+  "visuals": [
+    {
+      "type": "table",
+      "title": "Clasificación · PRIMERA AFICIONADO FS · Grupo 2",
+      "partial": false,
+      "subtitle": "Jornada 5",
+      "columns": [
+        {
+          "key": "position",
+          "label": "Pos",
+          "align": "right"
+        },
+        {
+          "key": "team",
+          "label": "Equipo",
+          "align": "left"
+        },
+        {
+          "key": "played",
+          "label": "PJ",
+          "align": "right"
+        },
+        {
+          "key": "won",
+          "label": "G",
+          "align": "right"
+        },
+        {
+          "key": "drawn",
+          "label": "E",
+          "align": "right"
+        },
+        {
+          "key": "lost",
+          "label": "P",
+          "align": "right"
+        },
+        {
+          "key": "goals_for",
+          "label": "GF",
+          "align": "right"
+        },
+        {
+          "key": "goals_against",
+          "label": "GC",
+          "align": "right"
+        },
+        {
+          "key": "goal_difference",
+          "label": "DG",
+          "align": "right"
+        },
+        {
+          "key": "points",
+          "label": "Pts",
+          "align": "right"
+        }
+      ],
+      "rows": [
+        {
+          "position": 1,
+          "team": "C.D. DOSA",
+          "played": 5,
+          "won": 4,
+          "drawn": 1,
+          "lost": 0,
+          "goals_for": 20,
+          "goals_against": 8,
+          "goal_difference": 12,
+          "points": 13,
+          "highlight": true
+        },
+        {
+          "position": 2,
+          "team": "FS ALCALA",
+          "played": 5,
+          "won": 3,
+          "drawn": 1,
+          "lost": 1,
+          "goals_for": 15,
+          "goals_against": 10,
+          "goal_difference": 5,
+          "points": 10,
+          "highlight": true
+        }
+      ]
+    },
+    {
+      "type": "comparison",
+      "title": "C.D. DOSA vs FS ALCALA",
+      "subtitle": "PRIMERA AFICIONADO FS · Grupo 2",
+      "series": [
+        "C.D. DOSA",
+        "FS ALCALA"
+      ],
+      "rows": [
+        {
+          "label": "Puntos",
+          "values": [
+            13,
+            10
+          ]
+        },
+        {
+          "label": "Partidos",
+          "values": [
+            5,
+            5
+          ]
+        },
+        {
+          "label": "Goles a favor",
+          "values": [
+            20,
+            15
+          ]
+        },
+        {
+          "label": "Goles en contra",
+          "values": [
+            8,
+            10
+          ]
+        },
+        {
+          "label": "Diferencia de goles",
+          "values": [
+            12,
+            5
+          ]
+        }
+      ]
+    },
+    {
+      "type": "bars",
+      "title": "Goleadores · PRIMERA AFICIONADO FS · Grupo 2",
+      "partial": false,
+      "subtitle": "Tabla actual · captura 2026-10-28",
+      "rows": [
+        {
+          "label": "Juan Pérez",
+          "sublabel": "C.D. DOSA",
+          "value": 9,
+          "rank": 1
+        },
+        {
+          "label": "Luis Gil",
+          "sublabel": "FS ALCALA",
+          "value": 7,
+          "rank": 2
+        }
+      ]
+    },
+    {
+      "type": "form",
+      "title": "Últimos resultados · C.D. DOSA",
+      "subtitle": "Puntos acumulados en los partidos mostrados",
+      "rows": [
+        {
+          "round": 1,
+          "rival": "FS ALCALA",
+          "score": "3-1",
+          "result": "V",
+          "points": 3,
+          "home": true
+        },
+        {
+          "round": 2,
+          "rival": "X",
+          "score": "2-2",
+          "result": "E",
+          "points": 4,
+          "home": false
+        },
+        {
+          "round": 3,
+          "rival": "Y",
+          "score": "0-1",
+          "result": "D",
+          "points": 4,
+          "home": true
+        }
+      ]
+    }
+  ],
+  "suggestions": [
+    "¿Quiénes son los próximos rivales de C.D. DOSA?",
+    "¿Cómo han quedado los últimos partidos de C.D. DOSA?",
+    "¿Quién es el máximo goleador de C.D. DOSA?"
+  ],
+  "focus": {
+    "team": "C.D. DOSA",
+    "competition": "PRIMERA AFICIONADO FS",
+    "group": "Grupo 2"
+  },
+  "diagnostics": {
+    "run_id": "run",
+    "provider": "fake",
+    "model": "fake",
+    "duration_ms": 0,
+    "resolved_scope": null,
+    "resolved_question": null,
+    "history_turns": 0,
+    "llm_calls": 5,
+    "tool_calls": 4,
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "token_source": "unreported",
+    "tools": [
+      {
+        "name": "find_teams",
+        "arguments": {
+          "name": "DOSA"
+        },
+        "duration_ms": 0,
+        "is_error": false,
+        "refused": false,
+        "summary": "{\"teams\": [{\"id\": 5, \"name\": \"C.D. DOSA\", \"group_id\": 12, \"group\": \"Grupo 2\", \"competition\": \"PRIMERA AFICIONADO FS\"}]}"
+      },
+      {
+        "name": "list_matches",
+        "arguments": {
+          "group_id": 12,
+          "team_id": 5,
+          "status": "finished"
+        },
+        "duration_ms": 0,
+        "is_error": false,
+        "refused": false,
+        "summary": "3 matches"
+      },
+      {
+        "name": "get_standings",
+        "arguments": {
+          "group_id": 12
+        },
+        "duration_ms": 0,
+        "is_error": false,
+        "refused": false,
+        "summary": "{\"status\": \"ok\", \"competition\": \"PRIMERA AFICIONADO FS\", \"group\": \"Grupo 2\", \"group_id\": 12, \"source\": {\"round\": 5, \"cap…"
+      },
+      {
+        "name": "get_scorer_table",
+        "arguments": {
+          "group_id": 12
+        },
+        "duration_ms": 0,
+        "is_error": false,
+        "refused": false,
+        "summary": "{\"status\": \"ok\", \"competition\": \"PRIMERA AFICIONADO FS\", \"group\": \"Grupo 2\", \"group_id\": 12, \"source\": {\"captured_at\": \"…"
+      }
+    ],
+    "errors": []
+  }
+}

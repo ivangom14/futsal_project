@@ -57,7 +57,7 @@ describe("conversaciones", () => {
 describe("historyFor", () => {
   const answer = (content: string, over: Record<string, unknown> = {}) => ({
     id: `a-${content}`, role: "assistant" as const, content, createdAt: 2,
-    response: { answer: content, guardrail: null, error: null, sources: [], diagnostics: {} as never, ...over },
+    response: { answer: content, guardrail: null, error: null, sources: [], diagnostics: {} as never, focus: {}, ...over } as never,
   });
 
   it("incluye solo parejas pregunta/respuesta completas y válidas", () => {

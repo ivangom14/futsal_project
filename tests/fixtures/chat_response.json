@@ -2,13 +2,20 @@
   "answer": "Cada mitad dura **20 minutos** (Regla 7, p. 31).",
   "guardrail": null,
   "error": null,
+  "answer_kind": "documental",
+  "is_analysis": false,
   "sources": [
     {
-      "kind": "rag",
+      "kind": "document",
       "title": "Reglas de Juego de Fútbol Sala FIFA",
       "detail": "Regla 7 · La duración del partido · 1 Periodos de juego",
       "pages": "31",
       "text": "El partido durará dos tiempos iguales de 20 minutos.",
+      "cited": true,
+      "queried_at": "2026-01-01T00:00:00+00:00",
+      "updated_at": null,
+      "freshness": null,
+      "updated_note": null,
       "meta": {
         "version": "2025/26",
         "type": "reglamento",
@@ -16,11 +23,16 @@
       }
     },
     {
-      "kind": "rag",
+      "kind": "document",
       "title": "Reglas de Juego de Fútbol Sala FIFA",
       "detail": "Regla 7 · La duración del partido · 1 Periodos de juego",
       "pages": "32",
       "text": "Segundo fragmento.",
+      "cited": true,
+      "queried_at": "2026-01-01T00:00:00+00:00",
+      "updated_at": null,
+      "freshness": null,
+      "updated_note": null,
       "meta": {
         "version": "2025/26",
         "type": "reglamento",
@@ -28,6 +40,12 @@
       }
     }
   ],
+  "visuals": [],
+  "suggestions": [
+    "Resúmeme la Regla 7 del reglamento",
+    "¿Qué circulares hay sobre este tema?"
+  ],
+  "focus": {},
   "diagnostics": {
     "run_id": "run",
     "provider": "fake",

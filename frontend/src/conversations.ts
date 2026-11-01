@@ -1,4 +1,4 @@
-import type { Conversation, HistoryItem, Message } from "./types";
+import type { Conversation, Feedback, Focus, HistoryItem, Message } from "./types";
 
 export const STORAGE_KEY = "rffm-chat-v1";
 export const TITLE_MAX = 48;
@@ -66,6 +66,23 @@ export function historyFor(messages: Message[]): HistoryItem[] {
     out.push({ role: "user", content: m.content }, { role: "assistant", content: next.content });
   });
   return out.slice(-2 * HISTORY_TURNS);
+}
+
+/** Foco (equipo, competición, grupo…) de la última respuesta válida de la conversación: se reenvía para sembrar al servidor. */
+export function focusFor(messages: Message[]): Focus {
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const r = messages[i].response;
+    if (r && !r.error && MEMORY_GUARDRAILS.includes(r.guardrail)) return r.focus ?? {};
+  }
+  return {};
+}
+
+export function setFeedback(state: State, convId: string, messageId: string, feedback: Feedback): State {
+  return {
+    ...state,
+    conversations: state.conversations.map((c) =>
+      c.id === convId ? { ...c, messages: c.messages.map((m) => (m.id === messageId ? { ...m, feedback } : m)) } : c),
+  };
 }
 
 export function startConversation(state: State): State {

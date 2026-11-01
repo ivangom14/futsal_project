@@ -170,6 +170,9 @@ class AgentResult:
     error: str | None = None
     guardrail: str | None = None
     run: RunRecord | None = None
+    names: dict[str, dict[int, str]] = field(default_factory=lambda: {"teams": {}, "players": {}, "rounds": {}})  # id -> nombre visto en tools
+    groups_used: dict[int, dict[str, str]] = field(default_factory=dict)  # group_id consultado -> competición y grupo (catálogo)
+    focus: dict[str, Any] = field(default_factory=dict)  # de qué trató la consulta (nombres, no IDs): equipo, competición, grupo…
     resolved_scope: dict[str, Any] | None = None  # ámbito resuelto por la aplicación (tipo, categoría, grupo, competiciones)
     resolved_question: str | None = None  # pregunta efectiva si se unió a una aclaración pendiente (Fase 23)
     official: list[dict[str, Any]] = field(default_factory=list)  # resultados válidos de las tablas oficiales obtenidos en esta ejecución
@@ -282,6 +285,40 @@ def _ms(start: float) -> float:
     return round((time.perf_counter() - start) * 1000, 1)
 
 
+def _collect_names(data: Any, names: dict[str, dict[int, str]]) -> None:
+    """id -> nombre de equipos (`teams`, filas con `team_id`/`team`), jugadores (`player_id`/`player`) y jornadas (`rounds`)."""
+    if isinstance(data, list):
+        for item in data:
+            _collect_names(item, names)
+    elif isinstance(data, dict):
+        if isinstance(data.get("id"), int) and isinstance(data.get("name"), str) and "group_id" in data:
+            names["teams"][data["id"]] = data["name"]  # fila de find_teams/list_teams
+        if isinstance(data.get("team_id"), int) and isinstance(data.get("team"), str):
+            names["teams"][data["team_id"]] = data["team"]
+        if isinstance(data.get("player_id"), int) and isinstance(data.get("player"), str):
+            names["players"][data["player_id"]] = data["player"]
+        if key_rounds := data.get("rounds"):
+            for r in key_rounds if isinstance(key_rounds, list) else []:
+                if isinstance(r, dict) and isinstance(r.get("id"), int) and isinstance(r.get("number"), int):
+                    names["rounds"][r["id"]] = str(r["number"])
+        for v in data.values():
+            if isinstance(v, (dict, list)):
+                _collect_names(v, names)
+
+
+def focus_note(focus: dict[str, Any], other_groups: list[str]) -> str:
+    """Nota para el LLM con el foco de consultas anteriores de la conversación (NOMBRES; los IDs se vuelven a obtener por nombre)."""
+    labels = (("team", "equipo"), ("player", "jugador"), ("competition", "competición"), ("group", "grupo"), ("round", "jornada"))
+    parts = [f"{label} «{focus[k]}»" for k, label in labels if focus.get(k)]
+    if not parts:
+        return ""
+    others = f" Otros grupos de esa competición: {', '.join(f'«{g}»' for g in other_groups)}." if other_groups else ""
+    return ("\n\n[Nota de la aplicación, no escrita por el usuario] Foco de la conversación según consultas anteriores: " + ", ".join(parts)
+            + ". Referencias como «ese equipo», «su…», «el siguiente» o «el otro grupo» se refieren a esto salvo que el usuario nombre otro "
+              "equipo, jugador o competición (entonces ignora este foco). Los datos y los IDs se obtienen de nuevo con las tools (find_teams, "
+              "find_players, list_rounds) usando estos nombres." + others)
+
+
 class Agent:
     def __init__(self, llm: LLMClient, mcp: McpClient,
                  max_tool_calls: int = DEFAULT_MAX_TOOL_CALLS,
@@ -363,6 +400,28 @@ class Agent:
         except Exception:  # noqa: BLE001 - el contexto es una optimización, nunca un requisito
             return ""
 
+    def _other_groups(self, focus: dict[str, Any]) -> list[str]:
+        """Otros grupos de la competición en foco (para «el otro grupo»)."""
+        for c in self._competitions:
+            if c.name == focus.get("competition"):
+                return [g for _, g in c.groups if g != focus.get("group")]
+        return []
+
+    def _record_evidence(self, call: ToolCall, raw: str, result: AgentResult) -> None:
+        """Nombres que las tools han mostrado de verdad (equipos, jugadores, jornadas) y grupo consultado: base del foco, las fuentes
+        y los visuales. Solo texto verificado de las tools; nada del modelo."""
+        try:
+            data = json.loads(raw)
+        except ValueError:
+            return
+        _collect_names(data, result.names)
+        gid = call.arguments.get("group_id")
+        if isinstance(gid, int):
+            for c in self._competitions:
+                for g_id, g_name in c.groups:
+                    if g_id == gid:
+                        result.groups_used[gid] = {"competition": c.name, "group": g_name}
+
     def _resolve_scope(self, turns: Sequence[Turn], effective: str, result: AgentResult) -> str:
         """Tipo, categoría, alias y grupo que el usuario ha dado (mensaje actual y anteriores, lo nuevo manda) → competiciones del
         catálogo real. Devuelve la nota para el LLM; `find_teams` se filtra con las mismas pistas (ver `_scope_filter`)."""
@@ -420,7 +479,7 @@ class Agent:
             rec.context_ms, rec.context_tool_calls = _ms(start), self._ctx_calls
         return self._system
 
-    async def run(self, question: str, history: Sequence[Turn] = ()) -> AgentResult:
+    async def run(self, question: str, history: Sequence[Turn] = (), focus: dict[str, Any] | None = None) -> AgentResult:
         result = AgentResult("", 0)
         rec = RunRecord(question=question, provider=getattr(self._llm, "provider", None),
                         model=getattr(self._llm, "model", None), max_tool_calls=self._max)
@@ -433,7 +492,7 @@ class Agent:
                 self._on_trace(line)
 
         try:
-            await self._loop(question, history, result, rec, log)
+            await self._loop(question, history, focus or {}, result, rec, log)
         finally:
             rec.latency_ms = _ms(started)
             rec.answer, rec.guardrail, rec.error = result.answer, result.guardrail, result.error
@@ -441,7 +500,7 @@ class Agent:
                 write_jsonl(self._trace_path, rec, self._trace_results)
         return result
 
-    async def _loop(self, question: str, history: Sequence[Turn], result: AgentResult, rec: RunRecord,
+    async def _loop(self, question: str, history: Sequence[Turn], focus: dict[str, Any], result: AgentResult, rec: RunRecord,
                     log: Callable[[str], None]) -> None:
         if self._tools is None:
             self._tools = slim_tools(await self._mcp.list_tools())
@@ -456,7 +515,7 @@ class Agent:
             system += HISTORY_RULE
         # Contexto para los guardarraíles de alcance: la pregunta y lo que el USUARIO dijo antes (nunca las respuestas del asistente).
         ctx = " ".join([*(t.question for t in turns), effective])
-        note = self._resolve_scope(turns, effective, result)
+        note = self._resolve_scope(turns, effective, result) + focus_note(focus, self._other_groups(focus))
         messages = [*history_messages(turns), Message("user", effective + note)]
         self._question = ctx
         self._teams, self._rounds = set(self._ctx_teams), set(self._ctx_rounds)
@@ -583,6 +642,8 @@ class Agent:
         except Exception as exc:  # el error vuelve al LLM, no rompe el ciclo
             is_error, text = True, f"error_dependencia: {type(exc).__name__}"
         duration = _ms(t0)
+        if not is_error:
+            self._record_evidence(call, text, result)
         if not is_error and call.name == "find_teams":
             text = self._scope_filter(text)
         if not is_error and call.name in ("get_scorer_table", "get_standings"):

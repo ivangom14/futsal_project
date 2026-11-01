@@ -17,10 +17,10 @@ export default function Composer({ onSend, loading, usesContext = false }: { onS
     }
   };
   return (
-    <div className="border-t border-slate-200 bg-white p-3">
+    <div className="border-t border-bear-100 bg-white p-3">
       {usesContext && (
         <p className="mx-auto mb-1 max-w-3xl text-xs text-slate-400" data-testid="context-hint">
-          El agente tiene en cuenta los mensajes anteriores de esta conversación.
+          Futsito tiene en cuenta los mensajes anteriores de esta conversación.
         </p>
       )}
       <div className="mx-auto flex max-w-3xl items-end gap-2">
@@ -32,9 +32,9 @@ export default function Composer({ onSend, loading, usesContext = false }: { onS
           rows={2}
           placeholder="Escribe tu pregunta… (Enter envía, Shift+Enter nueva línea)"
           aria-label="Pregunta"
-          className="flex-1 resize-none rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-pitch-500 focus:outline-none"
+          className="flex-1 resize-none rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-200"
         />
-        <button onClick={submit} disabled={loading || !text.trim()} className="rounded-lg bg-pitch-600 px-4 py-2 text-sm font-medium text-white hover:bg-pitch-700 disabled:opacity-50">
+        <button onClick={submit} disabled={loading || !text.trim()} className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-50">
           Enviar
         </button>
       </div>

@@ -18,9 +18,10 @@ describe("cliente HTTP", () => {
       question: "¿Cuánto dura cada mitad?",
       conversation_id: "conv-1",
       history: [{ role: "user", content: "a" }, { role: "assistant", content: "b" }],
+      focus: {},
     });
     expect(res.diagnostics.history_turns).toBe(0);
-    expect(res.sources[0].kind).toBe("rag");
+    expect(res.sources[0].kind).toBe("document");
   });
 
   it("convierte errores HTTP en ApiError con el detalle del backend", async () => {

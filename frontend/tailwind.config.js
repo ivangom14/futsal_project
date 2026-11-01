@@ -5,7 +5,10 @@ export default {
   content: ["./index.html", "./src/**/*.{ts,tsx}"],
   theme: {
     extend: {
-      colors: { pitch: { 50: "#effaf3", 100: "#d8f3e2", 500: "#16a34a", 600: "#15803d", 700: "#166534", 900: "#0f3d22" } },
+      colors: {
+        brand: { 50: "#fdf2ef", 100: "#fbe0da", 200: "#f6c1b8", 500: "#d9372b", 600: "#c0281e", 700: "#9b1f17", 900: "#4a120e" },
+        bear: { 50: "#faf4ee", 100: "#f1e3d2", 300: "#d9a77c", 500: "#a8764f", 700: "#6f4a2d", 900: "#3b2416" },
+      },
     },
   },
   plugins: [typography],

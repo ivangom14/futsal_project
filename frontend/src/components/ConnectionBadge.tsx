@@ -23,7 +23,7 @@ export function describe(c: Connection): { label: string; tone: string; title: s
 export default function ConnectionBadge({ connection, onRefresh }: { connection: Connection; onRefresh: () => void }) {
   const d = describe(connection);
   return (
-    <button onClick={onRefresh} title={d.title} aria-label={`Estado: ${d.label}. ${d.title}`} className="flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs hover:bg-slate-50">
+    <button onClick={onRefresh} title={d.title} aria-label={`Estado: ${d.label}. ${d.title}`} className="flex items-center gap-1.5 rounded-full px-2 py-1 text-xs text-slate-500 hover:bg-bear-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand-500">
       <span className={`h-2 w-2 rounded-full ${d.tone}`} />
       {d.label}
     </button>
