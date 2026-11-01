@@ -23,6 +23,7 @@ export type Visual =
   | { type: "bars"; title: string; subtitle?: string | null; partial?: boolean; rows: { label: string; sublabel?: string | null; value: number; rank?: number | null }[] }
   | { type: "comparison"; title: string; subtitle?: string | null; series: string[]; rows: { label: string; values: (number | null)[] }[] }
   | LineupVisual
+  | CardsVisual
   | OfficialsVisual
   | TimelineVisual
   | MatchesVisual
@@ -47,6 +48,15 @@ export interface TimelineVisual {
 export interface MatchesVisual {
   type: "matches"; title: string; subtitle?: string | null; total: number; partial: boolean;
   rows: { round: number | null; date: string | null; home: string; away: string; score: string | null; status: string; past_due: boolean }[];
+}
+
+export type CardKind = "yellow" | "second_yellow" | "red" | "unknown";
+export interface CardsVisual {
+  type: "cards"; title: string; subtitle?: string | null;
+  /** Con `home`/`away` (un acta) se dibuja a dos lados; sin ellos (varios partidos) es una lista con el equipo. */
+  home: string | null; away: string | null; partial: boolean;
+  summary: Record<CardKind, number>;
+  events: { minute: number | null; player: string; team: string | null; side: "home" | "away" | null; kind: CardKind; round: number | null }[];
 }
 
 export type Focus = Partial<Record<"team" | "player" | "competition" | "group" | "round", string>>;

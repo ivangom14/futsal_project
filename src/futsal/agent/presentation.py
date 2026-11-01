@@ -9,6 +9,7 @@ from typing import Any
 
 from futsal.agent.criteria import norm, states_tool_limit
 from futsal.agent.trace import RunRecord, ToolCallRecord
+from futsal.domain.cards import KINDS, summarize
 from futsal.domain.competitions import fold
 
 DATASET_OF_TOOL = {"get_standings": "standings", "get_scorer_table": "scorers", "list_matches": "matches", "get_match": "matches",
@@ -260,6 +261,40 @@ def goals_timeline(data: dict[str, Any]) -> dict[str, Any] | None:
             "events": events, "partial": len(goals) > MAX_EVENTS}
 
 
+def _card_events(cards: list[Any], home: Any = None, away: Any = None) -> list[dict[str, Any]]:
+    out = []
+    for c in cards:
+        if isinstance(c, dict) and c.get("card_kind") in KINDS and c.get("player"):
+            team = c.get("team")
+            out.append({"minute": c.get("minute") if isinstance(c.get("minute"), int) else None, "player": _pretty(str(c["player"])), "team": team,
+                        "side": "home" if home and team == home else "away" if away and team == away else None, "kind": c["card_kind"],
+                        "round": c.get("round_number") if isinstance(c.get("round_number"), int) else None})
+    return sorted(out, key=lambda e: (e["round"] or 0, e["minute"] is None, e["minute"] or 0))
+
+
+def cards_from_report(data: dict[str, Any]) -> dict[str, Any] | None:
+    """Tarjetas de UN acta (sección `cards`), con el significado confirmado de los códigos (`card_kind`). Sin tarjetas, sin visual."""
+    head = data.get("match") or {}
+    events = _card_events(data.get("cards") or [], head.get("home_team"), head.get("away_team"))
+    if not data.get("report_available") or not events:
+        return None
+    return {"type": "cards", "title": "Tarjetas del partido", "subtitle": _match_line(head), "home": head.get("home_team"), "away": head.get("away_team"),
+            "summary": summarize([e["kind"] for e in events]), "events": events, "partial": False}
+
+
+def cards_from_events(data: Any) -> dict[str, Any] | None:
+    """Tarjetas de varios partidos (`list_match_events` con `event_type=card`); `partial` si la herramienta recortó la lista."""
+    if not isinstance(data, dict):
+        return None
+    events = _card_events([e for e in data.get("events") or [] if isinstance(e, dict) and e.get("type") == "card"])
+    if not events:
+        return None
+    raw_total = data.get("total")
+    total = raw_total if isinstance(raw_total, int) else len(events)
+    return {"type": "cards", "title": "Tarjetas", "subtitle": "Según las actas importadas", "home": None, "away": None,
+            "summary": summarize([e["kind"] for e in events]), "events": events[:MAX_EVENTS], "partial": total > min(len(events), MAX_EVENTS)}
+
+
 def matches_rows(payload: Any, limit: int = MAX_MATCHES) -> tuple[list[dict[str, Any]], int]:
     """Filas de partidos de un `list_matches` y el total que informa la herramienta."""
     matches = [m for m in (payload or {}).get("matches", []) if isinstance(m, dict) and m.get("home_team")] if isinstance(payload, dict) else []
@@ -295,6 +330,11 @@ def visual_note(tool: str, args: dict[str, Any], data: Any, question: str, focus
             parts.append("las alineaciones (titulares y suplentes)")
         if goals_timeline(data):
             parts.append("los goles por minuto")
+        if cards_from_report(data):
+            parts.append("las tarjetas")
+    elif tool == "list_match_events":
+        if cards_from_events(data):
+            parts.append("las tarjetas")
     elif tool == "list_matches":
         rows, _ = matches_rows(data)
         if len(rows) >= 2 and not (isinstance(args.get("team_id"), int) and args.get("status") == "finished"):
@@ -322,8 +362,13 @@ def lineup_visuals(question: str, rec: RunRecord, focus: dict[str, str]) -> list
             continue
         seen.add(key)
         lineups = lineup_from_report(data, question, focus)
-        officials, timeline = officials_from_report(data), goals_timeline(data)
-        out += lineups[:2] + ([officials] if officials else []) + ([timeline] if timeline else [])
+        officials, timeline, cards = officials_from_report(data), goals_timeline(data), cards_from_report(data)
+        out += lineups[:2] + [v for v in (officials, timeline, cards) if v]
+    for call in executed(rec):  # tarjetas de varios partidos
+        events_visual = cards_from_events(_json(call.result)) if call.name == "list_match_events" else None
+        if events_visual:
+            out.append(events_visual)
+            break
     return out
 
 
@@ -398,7 +443,7 @@ def _form(team: str, matches: list[dict[str, Any]]) -> dict[str, Any]:
 
 # --- Preguntas sugeridas (Bloque 4) ----------------------------------------------------------------------------------------------------------
 def build_suggestions(question: str, answer: str, rec: RunRecord, focus: dict[str, str], asked: list[str],
-                      sources: list[dict[str, Any]]) -> list[str]:
+                      sources: list[dict[str, Any]], visuals: list[dict[str, Any]] | None = None) -> list[str]:
     """2-3 preguntas que las tools SÍ pueden responder, a partir de la consulta realizada y el foco; sin llamada extra al LLM."""
     calls = executed(rec)
     if not calls or states_tool_limit(answer) or rec.error or rec.guardrail not in (None, "aclaracion_ambito"):
@@ -418,7 +463,11 @@ def build_suggestions(question: str, answer: str, rec: RunRecord, focus: dict[st
                   f"¿Cómo va {team} en la clasificación?" if team else "¿Cómo va la clasificación?",
                   f"¿Cuál es el próximo partido de {team}?" if team else "¿Qué resultados hubo en la última jornada?"]
     elif "get_match_report" in names_used:
-        cands += ["¿Quién marcó los goles de ese partido?", "¿Qué tarjetas hubo en ese partido?", "¿Quiénes fueron los árbitros de ese partido?"]
+        shown = {v["type"] for v in visuals or []}  # lo que ya se ve en gráficos no se vuelve a sugerir
+        cands += [q for q, t in (("¿Quién marcó los goles de ese partido?", "timeline"), ("¿Qué tarjetas hubo en ese partido?", "cards"),
+                                 ("¿Quiénes fueron los árbitros de ese partido?", "officials")) if t not in shown]
+        cands += [f"¿Cómo va {team} en la clasificación?" if team else "¿Cómo va la clasificación del grupo?",
+                  f"¿Cuál es el próximo partido de {team}?" if team else "¿Cuáles son los próximos partidos del grupo?"]
     elif "list_matches" in names_used or "get_match" in names_used:
         cands += [f"¿Cómo va {team} en la clasificación?" if team else "¿Cómo va la clasificación?",
                   f"¿Cuál es el próximo partido de {team}?" if team and finished else (f"¿Cómo ha quedado el último partido de {team}?" if team

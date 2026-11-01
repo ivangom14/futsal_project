@@ -74,7 +74,8 @@ def test_optional_sections_and_validation(api: TestClient, engine: Engine) -> No
     mid = _ids(engine)["with"]
     body = api.get(f"/matches/{mid}/report", params={"sections": "cards,players,staff"}).json()
     assert [c["player"] for c in body["cards"]] == ["GARCÍA GARCÍA, JAVIER"]
-    assert body["cards"][0]["source_code"] and "no está verificado" in body["cards_note"]
+    assert body["cards"][0]["source_code"] == "100" and body["cards"][0]["card_kind"] == "yellow" and "confirmado" in body["cards_note"]
+    assert sum(t["yellow"] for t in body["cards_summary"].values()) == 1
     assert len(body["players"]) == 21 and len(body["staff"]) == 3 and "officials" not in body
     assert any(p.get("goalkeeper") is True for p in body["players"]) and all(p.get("goalkeeper", True) is True for p in body["players"])
     assert api.get(f"/matches/{mid}/report", params={"sections": "secret"}).status_code == 400
@@ -112,7 +113,7 @@ def test_events_filters_scope_and_limits(api: TestClient, engine: Engine) -> Non
     vs = api.get(f"/groups/{g}/match-events", params={"against_team_id": ids["home"]}).json()
     assert vs["total"] == 4 and all(e["opponent"] == home["events"][0]["team"] for e in vs["events"])
     cards = api.get(f"/groups/{g}/match-events", params={"event_type": "card"}).json()
-    assert cards["total"] == 1 and "source_code" in cards["events"][0] and "cards_note" in cards
+    assert cards["total"] == 1 and cards["events"][0]["card_kind"] == "yellow" and "source_code" in cards["events"][0] and "cards_note" in cards
     page = api.get(f"/groups/{g}/match-events", params={"limit": 2}).json()
     assert page["count"] == 2 and page["total"] == 7 and page["truncated"] is True
     for bad in ({"limit": 0}, {"limit": 1000}, {"event_type": "penalty"}):

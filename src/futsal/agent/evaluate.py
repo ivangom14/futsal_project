@@ -35,7 +35,6 @@ from futsal.agent.audit import OFFICIAL_PREFIXES, critical_reasons, expectation
 from futsal.agent.criteria import (
     RULE_REF_RE,
     answer_warns,
-    card_color_claims,
     claims_position,
     clarifies,
     figures_without_table,
@@ -50,6 +49,7 @@ from futsal.agent.criteria import (
     says_coverage_partial,
     says_not_played,
     substitution_minute_claims,
+    unsupported_card_claims,
     unsupported_card_colors,
     unsupported_coverage_counts,
     unsupported_digits,
@@ -530,7 +530,7 @@ def answer_ok(f: Fact, text: str) -> bool:
         return sum(key(n) in low for n in f.names) >= 2 or clarifies(text)
     if f.kind == "cards":
         none = f.number == 0 and any(w in low for w in ("ninguna", "no hubo", "sin tarjetas", "no se mostr"))
-        return (f.number is not None and has_number(text, f.number) or none) and not card_color_claims(text)
+        return f.number is not None and has_number(text, f.number) or none  # el color lo da `card_kind` (verificado): solo se exige el recuento
     if f.kind == "partial_coverage":
         return says_coverage_partial(text)
     if f.kind == "no_sub_minutes":
@@ -851,12 +851,12 @@ def _new_cases(t: Truth, dosa: int | None) -> list[EvalCase]:  # noqa: C901 - ca
         [Fact("team_ambiguous", "dos equipos con el mismo nombre base", names=tuple(tam[1][:4]))] if tam else None,
         frozenset({"list_matches", "list_teams"}), None,
         "solo se evalúa con LLM real" if tam else "ningún nombre de equipo repetido en esta base"))
-    # 5. tarjetas: contar y NO traducir el código a color
+    # 5. tarjetas: contar (el color lo da `card_kind` de la API, ya confirmado)
     cm = next((m for m in t.matches if t.cards.get(m.id)), None)
     cases.append(EvalCase(
         "acta_tarjetas_codigo", "actas",
         f"¿Cuántas tarjetas hubo en el partido {cm.home} - {cm.away} y de qué color fueron?" if cm else "",
-        [Fact("cards", "tarjetas sin color", (cm,), number=t.cards[cm.id])] if cm else None, rm,
+        [Fact("cards", "número de tarjetas", (cm,), number=t.cards[cm.id])] if cm else None, rm,
         via_list(cm, sections=["cards"]) if cm else None, "" if cm else "ninguna acta con tarjetas"))
     # 6. cobertura parcial: la respuesta debe advertirlo (solo si en esta base de verdad es parcial)
     partial = any(m.status == "finished" and m.id not in t.reported for m in t.matches) or bool(t.unclosed)
@@ -1120,7 +1120,7 @@ def invention_claims(case: EvalCase, answer: str, truth: Truth, payloads: list[d
         claims += [f"menciona tarjeta «{c}», que no figura en los fragmentos recuperados"
                    for c in unsupported_card_colors(answer, payloads)]
     else:
-        claims += [f"afirma color de tarjeta: «{c[:80]}»" for c in card_color_claims(answer)]
+        claims += [f"afirma un color de tarjeta que ninguna herramienta respalda (card_kind): «{c[:80]}»" for c in unsupported_card_claims(answer, payloads)]
     if case.forbid_scores and has_any_score(answer):
         claims.append("da un marcador donde no hay partido jugado ni dato")
     if any(f.kind in ("rule_cited", "no_evidence_rules") for f in case.facts or []):

@@ -72,8 +72,8 @@ Pregunta por la alineación → quinteto inicial sobre una pista de fútbol sala
 ## Visuales en lugar de texto (Fase 25.3)
 - **Árbitros** (`officials`): un monigote vestido de árbitro por persona (negro con cuello amarillo y silbato; asistente en amarillo; mesa en azul
   con cronómetro) con su cargo **tal cual figura en el acta**.
-- **Goles** (`timeline`): por minuto, local a la izquierda y visitante a la derecha; el gol en propia puerta cuenta para el rival. **No se dibujan tarjetas**:
-  el significado de sus códigos (100/101) sigue sin verificar.
+- **Goles** (`timeline`): por minuto, local a la izquierda y visitante a la derecha; el gol en propia puerta cuenta para el rival.
+- **Tarjetas** (`cards`, Fase 25.4): ver «Tarjetas» más abajo.
 - **Partidos** (`matches`): resultados, próximos partidos o jornada (≥ 2 filas, máx. 12, «se muestran N de M»); un programado con fecha pasada avisa de datos
   posiblemente desactualizados. La forma de un equipo (`team_id` + finalizados) sigue siendo el visual `form`; no se duplican.
 - Orden en un acta: alineaciones, árbitros, goles. Todo sale de `get_match_report`/`list_matches` con las secciones `players`, `officials` y `goals`.
@@ -81,6 +81,20 @@ Pregunta por la alineación → quinteto inicial sobre una pista de fútbol sala
   (`visual_note`: «ya lo muestro como gráfico: no lo repitas en texto; responde con una o dos frases con lo esencial»). Solo se añade cuando el visual SÍ se va a
   generar (mismas funciones; prueba de propiedad) y nunca cuando no hay datos suficientes, así que no se pierde información. Si el modelo aun así lo repite, no se
   corrige a posteriori: la obediencia del modelo solo se comprueba con Gemini real (guion manual).
+
+## Tarjetas (Fase 25.4)
+El acta solo trae `codigo_tipo_amonestacion` y `segunda_amarilla` (la página no etiqueta los códigos). Significado **confirmado por el responsable del proyecto**:
+`100` = amarilla · `100` con `segunda_amarilla=1` = «2.ª amarilla (expulsión)» · `101` = roja directa · cualquier otro código = `unknown` (se muestra
+como «Código sin interpretar», sin color, y se cuenta aparte). Comprobado contra las 13 actas locales: 64 amarillas, 7 segundas amarillas (las 7 tenían una `100/0` previa del
+mismo jugador en el partido) y 4 rojas directas.
+- Dominio: `domain/cards.py` (`card_kind`, etiquetas, resumen). API (solo lectura): `card_kind` en `/matches/{id}/report?sections=cards` y en
+  `/groups/{id}/match-events?event_type=card`, `cards_summary` por equipo y nota actualizada; `source_code` se conserva.
+- Visual `cards`: un acta se dibuja a dos lados (local/visitante) por minuto; varios partidos, como lista con equipo y jornada y aviso si está recortada. Cada tarjeta
+  lleva icono de color **y** texto («Amarilla», «2.ª amarilla (expulsión)», «Roja directa») y un resumen («2 amarillas · 1 segunda amarilla (expulsión) · 1 roja directa»).
+- Mismo contrato que el resto: `visual_note` indica al LLM que no repita las tarjetas en texto (solo si el visual se genera); las sugeridas ya no proponen lo que se está viendo.
+- Evaluador: el color de una tarjeta es legítimo si lo respalda un `card_kind` devuelto (`criteria.unsupported_card_claims`: amarilla ← yellow/second_yellow; roja ← red); antes
+  cualquier color era una invención. `acta_tarjetas_codigo` pasa a exigir solo el recuento.
+- Pendiente de comprobar con datos reales: que no aparezcan códigos distintos de 100/101 en otras competiciones (saldrían como `unknown`).
 
 ## Respuestas lentas o colgadas (Fase 25.2)
 Síntoma: «Futsito está consultando los datos…» durante mucho tiempo. Causas posibles (no se pueden distinguir sin ver el desglose): Gemini lento o
@@ -101,8 +115,8 @@ No se aumentan los reintentos ni sus límites.
 el frontend: `tests/fixtures/chat_response.json` y `chat_response_visuals.json` (los verifica el backend).
 
 ## Pruebas (sin cuota de Gemini)
-`tests/test_futsito_presentation.py` (27, incluye alineaciones: foco, fuentes, frescura, citas, visuales, sugeridas, aislamiento), `tests/test_feedback.py` (14), Vitest 46
-(visuales con el contrato real, fuentes y frescura, sugeridas, foco, valoración, persistencia, logo). Batería: 620 pass, 2 skipped; ruff y mypy limpios; el
+`tests/test_futsito_presentation.py` (27, incluye alineaciones: foco, fuentes, frescura, citas, visuales, sugeridas, aislamiento), `tests/test_feedback.py` (14), Vitest 48
+(visuales con el contrato real, fuentes y frescura, sugeridas, foco, valoración, persistencia, logo). Batería: 639 pass, 2 skipped; ruff y mypy limpios; el
 único error de la suite completa es `test_refresh_runs_pg` (necesita PostgreSQL local; ya fallaba).
 
 ## Validación manual con Gemini real (Windows CMD)

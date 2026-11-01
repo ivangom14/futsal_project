@@ -296,12 +296,12 @@ describe("desglose del tiempo", () => {
 describe("árbitros, goles y partidos (contrato real)", () => {
   const match = lineupJson as unknown as ChatResponse;
 
-  it("el acta completa se ve como gráficos en orden: alineación, árbitros y goles", async () => {
+  it("el acta completa se ve como gráficos en orden: alineación, árbitros, goles y tarjetas", async () => {
     backend(() => reply(match));
     render(<App />);
     await ask("¿Cuál fue la alineación del DOSA y quién arbitró?");
     const figures = screen.getAllByTestId("visual");
-    expect(figures.map((f) => within(f).getByText(/^(Alineación|Árbitros|Goles del partido)/).textContent)).toEqual(["Alineación · C.D. DOSA", "Árbitros", "Goles del partido"]);
+    expect(figures.map((f) => within(f).getByText(/^(Alineación|Árbitros|Goles del partido|Tarjetas del partido)/).textContent)).toEqual(["Alineación · C.D. DOSA", "Árbitros", "Goles del partido", "Tarjetas del partido"]);
     expect(screen.getByText("Ganó el DOSA 3-1.")).toBeInTheDocument(); // el texto queda en una frase: lo detallado va en los gráficos
   });
 
@@ -339,5 +339,40 @@ describe("árbitros, goles y partidos (contrato real)", () => {
     expect(within(card).getByText(/El dato puede estar desactualizado|el dato puede estar desactualizado/)).toBeInTheDocument();
     expect(within(card).getByText("Sin fecha", { exact: false })).toBeInTheDocument();
     expect(within(card).getByText("Se muestran 3 de 30 partidos.")).toBeInTheDocument();
+  });
+});
+
+describe("tarjetas (significado de los códigos confirmado)", () => {
+  const match = lineupJson as unknown as ChatResponse;
+  const cardsOf = (r: ChatResponse) => (r.visuals as unknown as { type: string }[]).findIndex((v) => v.type === "cards");
+
+  it("dibuja amarilla, 2.ª amarilla (expulsión), roja directa y las de código desconocido sin color, con su resumen", async () => {
+    backend(() => reply(match));
+    render(<App />);
+    await ask("¿Qué tarjetas hubo?");
+    const card = screen.getAllByTestId("visual")[cardsOf(match)];
+    expect(within(card).getByTestId("cards-summary")).toHaveTextContent("2 amarillas");
+    expect(within(card).getByTestId("cards-summary")).toHaveTextContent("1 segunda amarilla (expulsión)");
+    expect(within(card).getByTestId("cards-summary")).toHaveTextContent("1 roja directa");
+    expect(within(card).getByTestId("cards-summary")).toHaveTextContent("1 tarjeta sin interpretar");
+    const icons = within(card).getAllByRole("img").map((i) => i.getAttribute("aria-label"));
+    expect(icons).toEqual(["Amarilla", "Amarilla", "Roja directa", "2.ª amarilla (expulsión)", "Código sin interpretar"]); // por minuto: 9, 14, 24, 30, 35
+    expect(within(card).getAllByText("2.ª amarilla (expulsión)").length).toBeGreaterThan(0); // también como texto, no solo por color
+    expect(within(card).getByLabelText("minuto 24")).toBeInTheDocument();
+  });
+
+  it("cuando son varios partidos lista cada tarjeta con su equipo y jornada, y avisa si la lista está recortada", async () => {
+    const list = { ...match, visuals: [{ type: "cards", title: "Tarjetas", subtitle: "Según las actas importadas", home: null, away: null, partial: true,
+      summary: { yellow: 1, second_yellow: 0, red: 1, unknown: 0 },
+      events: [{ minute: 9, player: "B Otro Dos", team: "FS ALCALA", side: null, kind: "yellow", round: 2 },
+               { minute: 24, player: "Ana Ruiz Soto", team: "C.D. DOSA", side: null, kind: "red", round: 4 }] }] };
+    backend(() => reply(list));
+    render(<App />);
+    await ask("¿Quién ha visto más tarjetas?");
+    const card = screen.getByTestId("visual");
+    expect(within(card).getAllByRole("listitem")).toHaveLength(2);
+    expect(within(card).getByText("J4 · 24'")).toBeInTheDocument();
+    expect(within(card).getByText(/C\.D\. DOSA/)).toBeInTheDocument();
+    expect(within(card).getByText(/Lista parcial/)).toBeInTheDocument();
   });
 });

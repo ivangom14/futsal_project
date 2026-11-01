@@ -196,10 +196,17 @@ def test_ambiguous_player_must_show_candidates_or_ask_and_never_pick_one_silentl
     assert evidence_ok(f, two) and not evidence_ok(f, [{"players": [{"name": "GOMEZ RODRIGUEZ, PABLO"}]}])
 
 
-def test_cards_count_without_color_translation() -> None:
+def test_cards_count_is_what_the_case_requires_and_colors_are_checked_against_card_kind() -> None:
     f = Fact("cards", "x", (DOSA,), number=2)
-    assert answer_ok(f, "Hubo 2 tarjetas, con códigos 100 y 101; no puedo decir de qué color.")
-    assert not answer_ok(f, "Hubo 2 tarjetas amarillas.")
+    assert answer_ok(f, "Hubo 2 tarjetas, con códigos 100 y 101.")
+    assert answer_ok(f, "Hubo 2 tarjetas amarillas.")  # el color ya lo da la API (card_kind): aquí solo se exige el recuento
+    from futsal.agent.criteria import unsupported_card_claims
+    kinds = [{"cards": [{"card_kind": "yellow"}, {"card_kind": "second_yellow"}]}]
+    assert unsupported_card_claims("Hubo una amarilla y una segunda amarilla (expulsión).", kinds) == []
+    assert unsupported_card_claims("Hubo una tarjeta roja directa.", kinds)  # ninguna red devuelta: invención
+    assert unsupported_card_claims("Hubo una tarjeta amarilla.", [{"cards": [{"card_kind": "unknown"}]}])
+    assert unsupported_card_claims("Hubo una tarjeta roja.", [{"cards": [{"card_kind": "red"}]}]) == []
+    assert not unsupported_card_claims("No hubo tarjetas.", [])
     assert not answer_ok(f, "Hubo 3 tarjetas.")
     assert evidence_ok(f, [{"match": {"match_id": 1}, "cards": [{}, {}]}])
     assert not evidence_ok(f, [{"match": {"match_id": 1}, "cards": [{}]}])

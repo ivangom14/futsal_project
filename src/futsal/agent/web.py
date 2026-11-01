@@ -150,7 +150,7 @@ def build_response(result: AgentResult, history_turns: int, question: str, prev_
     return ChatResponse(
         answer=result.answer, guardrail=result.guardrail, error=result.error, answer_kind=kind, is_analysis=analysis,
         sources=[Source(**src) for src in sources], visuals=visuals, focus=focus, diagnostics=diag,
-        suggestions=pres.build_suggestions(question, result.answer, rec, focus, asked, sources))
+        suggestions=pres.build_suggestions(question, result.answer, rec, focus, asked, sources, visuals))
 
 
 class ChatTimeout(Exception):

@@ -53,6 +53,13 @@ def _pl(team: str, name: str, shirt: int, lineup: str, gk: bool = False, captain
     return {"team": team, "player_id": shirt, "name": name, "shirt": shirt, "lineup": lineup, "captain": captain, **({"goalkeeper": True} if gk else {})}
 
 
+def _card(team: str, name: str, minute: int, code: str, second: str) -> dict[str, Any]:
+    from futsal.domain.cards import card_kind  # el significado lo calcula la API; aquí se reproduce su salida
+
+    return {"type": "card", "team": team, "player_id": minute, "player": name, "minute": minute, "source_code": code, "second_yellow": second,
+            "card_kind": card_kind(code, second)}
+
+
 REPORT = {"report_available": True, "match": {"match_id": 9, "round_number": 4, "home_team": "C.D. DOSA", "away_team": "FS ALCALA",
                                               "status": "finished", "home_score": 3, "away_score": 1},
           "officials": [{"name": "INIESTA DEL AMO, EDUARDO HUGO", "role": "Árbitro"}, {"name": "LARRUBIA PAJARES, JAIME", "role": "Árbitro"},
@@ -61,6 +68,9 @@ REPORT = {"report_available": True, "match": {"match_id": 9, "round_number": 4, 
                     {"type": "goal", "team": "FS ALCALA", "player": "MARTIN CANO, LEO", "minute": 12},
                     {"type": "own_goal", "team": "FS ALCALA", "player": "OTRO UNO, A", "minute": 20},
                     {"type": "goal", "team": "C.D. DOSA", "player": "RUIZ SOTO, ANA", "minute": 31}],
+          "cards": [_card("C.D. DOSA", "GIL MORA, PEDRO", 35, "177", "0"), _card("FS ALCALA", "OTRO DOS, B", 30, "100", "1"),
+                    _card("C.D. DOSA", "PEREZ LOPEZ, JUAN", 14, "100", "0"), _card("FS ALCALA", "OTRO DOS, B", 9, "100", "0"),
+                    _card("C.D. DOSA", "RUIZ SOTO, ANA", 24, "101", "0")],
           "players": [_pl("C.D. DOSA", "SUPLENTE GARCIA, LUIS", 20, "substitute"), _pl("C.D. DOSA", "PEREZ LOPEZ, JUAN", 10, "starter", captain=True),
                       _pl("C.D. DOSA", "APARICIO JIMENEZ, JAVIER", 1, "starter", gk=True), _pl("C.D. DOSA", "RUIZ SOTO, ANA", 7, "starter"),
                       _pl("C.D. DOSA", "GIL MORA, PEDRO", 5, "starter"), _pl("C.D. DOSA", "NUÑEZ DIAZ, IVAN", 9, "starter"),
@@ -346,14 +356,18 @@ def test_lineup_needs_real_data_and_degrades_without_the_court_when_incomplete()
                 if v["type"] == "lineup"]  # sin titulares, nada
     assert lineup("alineación", {"report_available": False, "reason": "sin acta", "match": REPORT["match"]}).visuals == []
     sin_jugadores = lineup("alineación", {k: v for k, v in REPORT.items() if k != "players"})
-    assert [v["type"] for v in sin_jugadores.visuals] == ["officials", "timeline"]  # sin la sección de jugadores no hay alineación, pero sí lo demás
+    assert [v["type"] for v in sin_jugadores.visuals] == ["officials", "timeline", "cards"]  # sin la sección de jugadores no hay alineación, pero sí lo demás
 
 
 def test_lineup_report_is_listed_as_official_source_with_unknown_date_and_suggestions() -> None:
     r = lineup("¿Cuál fue la alineación del DOSA?")
     src = next(s for s in r.sources if s.title == "Acta del partido · RFFM")
     assert src.detail == "C.D. DOSA - FS ALCALA · Jornada 4" and src.updated_at is None and "No se conoce la fecha" in src.updated_note
-    assert r.suggestions == ["¿Quién marcó los goles de ese partido?", "¿Qué tarjetas hubo en ese partido?", "¿Quiénes fueron los árbitros de ese partido?"]
+    # árbitros, goles y tarjetas ya se ven en gráficos: no se vuelven a sugerir
+    assert r.suggestions == ["¿Cómo va la clasificación del grupo?", "¿Cuáles son los próximos partidos del grupo?"]
+    only_players = lineup("alineación", {k: v for k, v in REPORT.items() if k not in ("officials", "goals", "cards")})
+    assert only_players.suggestions[:3] == ["¿Quién marcó los goles de ese partido?", "¿Qué tarjetas hubo en ese partido?",
+                                            "¿Quiénes fueron los árbitros de ese partido?"]
 
 
 def test_prompt_points_lineups_to_the_report_players_section() -> None:
@@ -385,7 +399,7 @@ def test_goal_timeline_puts_each_goal_on_the_side_that_scores_and_never_draws_ca
 
 
 def test_report_visuals_come_in_a_stable_order() -> None:
-    assert [v["type"] for v in lineup("¿Qué alineaciones hubo en ese partido?").visuals] == ["lineup", "lineup", "officials", "timeline"]
+    assert [v["type"] for v in lineup("¿Qué alineaciones hubo en ese partido?").visuals] == ["lineup", "lineup", "officials", "timeline", "cards"]
     sin_acta = {"report_available": False, "reason": "sin acta", "match": REPORT["match"], "officials": REPORT["officials"]}
     assert lineup("árbitros", sin_acta).visuals == []  # sin acta no se dibuja nada
 
@@ -424,7 +438,7 @@ def test_the_model_is_told_not_to_repeat_what_the_app_already_draws() -> None:
 
 
 def test_no_note_when_nothing_will_be_drawn_so_no_information_is_lost() -> None:
-    only_sub = {**REPORT, "officials": [], "goals": [], "players": [p for p in REPORT["players"] if p["lineup"] == "substitute"]}
+    only_sub = {**REPORT, "officials": [], "goals": [], "cards": [], "players": [p for p in REPORT["players"] if p["lineup"] == "substitute"]}
     REPORTS["current"] = only_sub
     try:
         assert "visual_note" not in seen_tool_result([call("get_match_report", match_id=9), LLMResponse("ok", [])], "¿qué pasó?")
@@ -469,6 +483,46 @@ def _fixture(steps: list[LLMResponse], question: str, path: Any, expected: list[
 
 def test_match_and_matches_contract_fixtures_match_backend() -> None:
     _fixture([call("get_match_report", match_id=9, sections=["officials", "players", "goals"]), LLMResponse("Ganó el DOSA 3-1.", [])],
-             "¿Cuál fue la alineación del DOSA y quién arbitró?", MATCH_FIXTURE, ["lineup", "officials", "timeline"])
+             "¿Cuál fue la alineación del DOSA y quién arbitró?", MATCH_FIXTURE, ["lineup", "officials", "timeline", "cards"])
     _fixture([call("list_matches", group_id=12, status="scheduled", limit=3), LLMResponse("Estos son los próximos partidos.", [])],
              "¿Cuáles son los próximos partidos?", MATCHES_FIXTURE, ["matches"])
+
+
+# --- Tarjetas (significado de los códigos confirmado: 100 amarilla, 100+segunda=2.ª amarilla/expulsión, 101 roja directa) --------------------------
+def test_cards_visual_orders_by_minute_assigns_sides_and_counts_each_kind() -> None:
+    (v,) = [v for v in lineup("¿Qué tarjetas hubo?").visuals if v["type"] == "cards"]
+    assert [(e["minute"], e["player"], e["side"], e["kind"]) for e in v["events"]] == [
+        (9, "B Otro Dos", "away", "yellow"), (14, "Juan Perez Lopez", "home", "yellow"), (24, "Ana Ruiz Soto", "home", "red"),
+        (30, "B Otro Dos", "away", "second_yellow"), (35, "Pedro Gil Mora", "home", "unknown")]  # el 177 queda sin color
+    assert v["summary"] == {"yellow": 2, "second_yellow": 1, "red": 1, "unknown": 1} and (v["home"], v["away"]) == ("C.D. DOSA", "FS ALCALA")
+    assert v["subtitle"] == "C.D. DOSA 3-1 FS ALCALA · Jornada 4" and v["partial"] is False
+
+
+def test_no_cards_no_visual_and_no_note() -> None:
+    sin = {**REPORT, "cards": []}
+    assert not [v for v in lineup("tarjetas", sin).visuals if v["type"] == "cards"]
+    REPORTS["current"] = {**sin, "officials": [], "goals": [], "players": []}
+    try:
+        assert "visual_note" not in seen_tool_result([call("get_match_report", match_id=9, sections=["cards"]), LLMResponse("ok", [])], "tarjetas")
+    finally:
+        REPORTS["current"] = REPORT
+
+
+def test_the_model_is_told_the_cards_are_drawn_and_the_tool_gives_the_verified_kind() -> None:
+    data = seen_tool_result([call("get_match_report", match_id=9, sections=["cards"]), LLMResponse("ok", [])], "¿Qué tarjetas hubo?")
+    assert "las tarjetas" in data["visual_note"] and all("card_kind" in c for c in data["cards"])
+
+
+EVENTS = {"events": [{"match_id": 9, "round_number": 4, "type": "card", "team": "C.D. DOSA", "opponent": "FS ALCALA", "player": "RUIZ SOTO, ANA",
+                      "minute": 24, "source_code": "101", "card_kind": "red"},
+                     {"match_id": 7, "round_number": 2, "type": "card", "team": "FS ALCALA", "opponent": "X", "player": "OTRO DOS, B",
+                      "minute": 9, "source_code": "100", "card_kind": "yellow"}], "count": 2, "total": 5, "truncated": True}
+
+
+def test_cards_from_several_matches_are_a_list_marked_partial_when_truncated() -> None:
+    v = pres.cards_from_events(EVENTS)
+    assert v is not None and v["type"] == "cards" and v["partial"] is True and v["home"] is None
+    assert [(e["round"], e["minute"], e["team"], e["kind"]) for e in v["events"]] == [(2, 9, "FS ALCALA", "yellow"), (4, 24, "C.D. DOSA", "red")]
+    assert pres.cards_from_events({"events": [{"type": "goal", "player": "X", "card_kind": "yellow"}]}) is None
+    assert pres.cards_from_events({"events": [{"type": "card", "player": "X", "source_code": "100"}]}) is None  # sin card_kind no se inventa
+    assert "las tarjetas" in (pres.visual_note("list_match_events", {}, EVENTS, "tarjetas", {}) or "")

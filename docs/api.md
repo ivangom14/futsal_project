@@ -80,7 +80,7 @@ ni importan (eso sigue en la CLI). Siempre se usa la **última observación** de
 - `consistency` (en `/report`): `competition_score`, `report_score`, `events_score` (goles + propia meta al rival) y
   `differences` legibles; incluye el marcador previo del listado cuando el acta cerrada lo sustituyó (política de la Fase 5).
 - `own_goal`: `team` = equipo del jugador; suma al rival. `against_team_id` cuenta solo goles (`goal`) de rivales.
-- Tarjetas: se devuelve `source_code`; su significado (amarilla/roja) **no está verificado** y no se traduce.
+- Tarjetas (Fase 25.4): se devuelven `source_code` (original) y `card_kind` = `yellow` (código 100), `second_yellow` (100 con `segunda_amarilla=1`: segunda amarilla, supone expulsión), `red` (101, roja directa) o `unknown` (cualquier otro código: sin color, no se interpreta). Significado **confirmado por el responsable del proyecto** (la RFFM no etiqueta los códigos) y contrastado con 13 actas reales (75 tarjetas: 64 amarillas, 7 segundas amarillas —las 7 con una amarilla previa del mismo jugador— y 4 rojas). El acta incluye `cards_summary` por equipo.
 - Árbitros: `officials` con nombre y rol tal cual figuran en el acta (la exclusión de la Fase 1 afectaba solo al listado de
   jornadas, que no los trae; el acta sí los trae y ya estaban almacenados en `match_officials`).
 - Errores: 404 grupo/equipo/jornada/partido/jugador inexistente; 400 parámetros inválidos (`limit`, `event_type`, `sections`, `name`).

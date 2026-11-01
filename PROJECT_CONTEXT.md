@@ -88,13 +88,13 @@ Sin migraciones. Eval: 9 casos de actas; retirados `goleadores_/arbitro_no_dispo
 ## Limitaciones conocidas
 - El listado no da URL de acta (`match_report_url` = null); el patrón se descubrió en Fase 4.
 - Estado `postponed/suspended/cancelled` sin observar aún; la jornada 1 tiene un partido con `estado=0`.
-- Sin KB ni clasificaciones; agente solo experimental; sin fichas de jugadores. Significado de tarjetas 100/101 sin verificar.
+- Sin KB ni clasificaciones; agente solo experimental; sin fichas de jugadores. Significado de tarjetas 100/101 confirmado en la Fase 25.4.
 - Sustituciones/penaltis/otros técnicos/periodos: no figuran en el acta observada (no se importan ni se exponen; `not_in_source`).
 - Cobertura de actas medida solo sobre snapshots locales (13/13 finalizados); no se ha comprobado la BD real del usuario ni Gemini en vivo.
 - La CLI real es `python -m futsal.cli` (el paquete es `futsal`, no `src`).
 
 ## Próxima fase (recomendada)
-Clasificaciones (derivables de `matches`) y procesamiento incremental de actas al jugarse más partidos; verificar el significado de las tarjetas 100/101.
+Clasificaciones (derivables de `matches`) y procesamiento incremental de actas al jugarse más partidos; (el significado de las tarjetas 100/101 se confirmó en la Fase 25.4).
 
 Fase 10 (fiabilidad): reintentos acotados en el cliente LLM (`LLM_MAX_RETRIES`=2, 429/5xx/red), traza con `token_source`
 (proveedor/estimado/no informado), caché y reintentos; evaluación en capas (datos, herramientas, respuesta, invención,
@@ -211,3 +211,4 @@ Fase 25 (Futsito, bloques 2-7; `docs/phase25-futsito-blocks-2-7.md`; sin LLM en 
 Fase 25.1: visual de alineaciones (`lineup`: quinteto inicial sobre pista de fútbol sala y suplentes a un lado) desde `get_match_report`/`players`; la API añade `goalkeeper` a los porteros (solo lectura); el acta no trae posiciones de campo, así que la colocación es orientativa y se avisa. Fixture `chat_response_lineup.json`; 6 pruebas backend y 2 de frontend nuevas.
 Fase 25.2 (respuestas lentas): llamada al LLM en hilo (`asyncio.to_thread`), tiempo máximo por pregunta (`CHAT_TIMEOUT_SECONDS`=90, 504 amigable y turno liberado), cola en `/chat/health`, logs `futsal.chat`/`futsal.agent` (reintentos y duraciones), desglose de tiempos en `diagnostics` y «Detalles técnicos», aviso a los 20 s y botón Cancelar. Causa real de tu caso NO confirmada (flujo real < 1 s con Gemini simulado): pendiente leer el desglose y la ventana del servidor.
 Fase 25.3 (visuales en lugar de texto): nuevos visuales `officials` (monigotes de árbitro con cargo del acta), `timeline` (goles por minuto; sin tarjetas por código sin verificar) y `matches` (resultados/próximos partidos); `visual_note` en el resultado de las tools para que el LLM no repita en texto lo que la aplicación ya dibuja (solo si el visual se genera; prueba de propiedad nota↔visual); fixtures `chat_response_match.json` y `chat_response_matches.json` (sustituyen a `chat_response_lineup.json`). Obediencia del modelo sin verificar con Gemini real.
+Fase 25.4 (tarjetas): significado CONFIRMADO por el responsable del proyecto: 100 = amarilla; 100 + `segunda_amarilla=1` = 2.ª amarilla (expulsión); 101 = roja directa; otro código = `unknown` (sin color). `domain/cards.py`, `card_kind` y `cards_summary` en la API (solo lectura; `source_code` se conserva), visual `cards` (icono + texto, dos lados en un acta, lista en varios partidos), `visual_note` también para tarjetas, evaluador con `unsupported_card_claims` (el color es válido si lo respalda `card_kind`). 639 backend + 48 Vitest; las pruebas PG (`test_report_queries_pg`) actualizadas pero sin ejecutar aquí.

@@ -132,7 +132,7 @@ AMBIGUOUS_TEAM_MESSAGE = (
     "error_validacion: el nombre coincide con equipos de varios grupos y la pregunta no indica cuál; no se ha ejecutado. "
     "Pregunta al usuario a qué competición y grupo se refiere en lugar de elegir uno."
 )
-VISUAL_TOOLS = frozenset({"get_match_report", "get_standings", "get_scorer_table", "list_matches"})
+VISUAL_TOOLS = frozenset({"get_match_report", "get_standings", "get_scorer_table", "list_matches", "list_match_events"})
 TEAM_ARGS = ("team_id", "against_team_id")
 TEAM_HINT = "Obtén el equipo con find_teams (por nombre) y usa su id."
 ROUND_HINT = "Obtén las jornadas con list_rounds(group_id) y usa su id (no el número de jornada)."

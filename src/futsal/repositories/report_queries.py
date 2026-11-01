@@ -11,6 +11,7 @@ from typing import Any, Literal
 from sqlalchemy import Select, distinct, func, select
 from sqlalchemy.orm import Session, aliased
 
+from futsal.domain.cards import CARDS_NOTE, card_kind, summarize
 from futsal.db.models import (
     Match,
     MatchEvent,
@@ -32,7 +33,7 @@ EventType = Literal["goal", "own_goal", "card"]
 MISSING_LISTED = 10
 NOT_IN_SOURCE = ["periodos / resultado por periodos", "sustituciones", "penaltis", "minuto añadido",
                  "marcador tras cada evento"]
-CARD_NOTE = "source_code es el código RFFM de la tarjeta; su significado (amarilla/roja) no está verificado"
+CARD_NOTE = CARDS_NOTE
 
 
 class NotFound(LookupError):
@@ -142,7 +143,8 @@ def match_report(db: Session, match_id: int, sections: tuple[str, ...] = DEFAULT
         d = {"type": e.event_type, "team": names.get(e.team_id), "player_id": e.player_id,
              "player": e.player_name, "minute": e.minute}
         if e.event_type == "card":
-            d.update(source_code=e.source_code, second_yellow=(e.source_detail or {}).get("segunda_amarilla"))
+            flag = (e.source_detail or {}).get("segunda_amarilla")
+            d.update(source_code=e.source_code, second_yellow=flag, card_kind=card_kind(e.source_code, flag))
         return d
 
     if "officials" in sections:
@@ -153,6 +155,8 @@ def match_report(db: Session, match_id: int, sections: tuple[str, ...] = DEFAULT
     if "cards" in sections:
         out["cards"] = [ev(e) for e in events if e.event_type == "card"]
         out["cards_note"] = CARD_NOTE
+        out["cards_summary"] = {team: summarize([c["card_kind"] for c in out["cards"] if c["team"] == team])
+                                for team in sorted({c["team"] for c in out["cards"] if c["team"]})}
     if "players" in sections:
         out["players"] = [{"team": names.get(p.team_id), "player_id": p.player_id, "name": p.display_name,
                            "shirt": p.shirt_number, "lineup": p.lineup_status, "captain": p.is_captain,
@@ -256,7 +260,7 @@ def list_events(db: Session, group_id: int, *, event_type: str | None = None, te
              "opponent": teams.get(opp), "player_id": e.player_id, "player": pname or e.player_name,
              "minute": e.minute}
         if e.event_type == "card":
-            d["source_code"] = e.source_code
+            d.update(source_code=e.source_code, card_kind=card_kind(e.source_code, (e.source_detail or {}).get("segunda_amarilla")))
         items.append(d)
     out: dict[str, Any] = {"events": items, "count": len(items), "total": total, "limit": limit,
                            "truncated": total > len(items), "source": "actas RFFM (última observación)",

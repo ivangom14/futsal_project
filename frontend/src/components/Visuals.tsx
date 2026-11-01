@@ -1,3 +1,4 @@
+import Cards from "./Cards";
 import Lineup from "./Lineup";
 import Matches from "./Matches";
 import Officials from "./Officials";
@@ -128,6 +129,7 @@ export default function Visuals({ visuals }: { visuals: Visual[] }) {
           case "comparison": return <ComparisonVisual key={i} v={v} />;
           case "form": return <FormVisual key={i} v={v} />;
           case "lineup": return <Lineup key={i} v={v} />;
+          case "cards": return <Cards key={i} v={v} />;
           case "officials": return <Officials key={i} v={v} />;
           case "timeline": return <Timeline key={i} v={v} />;
           case "matches": return <Matches key={i} v={v} />;

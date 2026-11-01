@@ -3,7 +3,7 @@
 No se juzga el estilo del modelo: se comprueba que la respuesta no afirme nada que las tools no hayan devuelto.
 - Jugadores: no puede nombrar a un jugador de la base que no aparezca en la evidencia (ni en la pregunta).
 - Marcadores: en casos sin partido jugado/inexistente no puede dar un marcador.
-- Tarjetas: no puede afirmar colores (el código de tarjeta no está verificado).
+- Tarjetas: el color solo vale si lo da `card_kind` de la API (Fase 25.4); `card_color_claims` queda para el reglamento y las pruebas.
 - Sustituciones: no puede dar minutos de cambios (no constan en el acta).
 - Advertencias: si la evidencia es parcial o contradictoria, la respuesta debe decirlo.
 - Ambigüedad: con varios candidatos, no puede elegir uno en silencio.
@@ -304,6 +304,36 @@ def card_color_claims(text: str) -> list[str]:
     """Frases que afirman un color de tarjeta sin negarlo (el significado de los códigos no está verificado)."""
     return [s.strip() for s in sentences(text)
             if any(c in norm(s).split() for c in CARD_COLORS) and not _negated(s)]
+
+
+def card_kinds_in(payloads: list[dict[str, Any]]) -> set[str]:
+    """Tipos de tarjeta (`card_kind`) que las herramientas devolvieron en esta ejecución."""
+    found: set[str] = set()
+
+    def walk(node: Any) -> None:
+        if isinstance(node, dict):
+            if isinstance(node.get("card_kind"), str):
+                found.add(node["card_kind"])
+            for v in node.values():
+                walk(v)
+        elif isinstance(node, list):
+            for v in node:
+                walk(v)
+
+    walk(payloads)
+    return found
+
+
+def unsupported_card_claims(text: str, payloads: list[dict[str, Any]]) -> list[str]:
+    """Afirmaciones de color de tarjeta que NO respalda ningún `card_kind` devuelto (amarilla ← yellow/second_yellow; roja ← red)."""
+    kinds = card_kinds_in(payloads)
+    out = []
+    for sentence in card_color_claims(text):
+        words = set(norm(sentence).split())
+        yellow, red = bool(words & {"amarilla", "amarillas"}), bool(words & {"roja", "rojas"})
+        if (yellow and not kinds & {"yellow", "second_yellow"}) or (red and "red" not in kinds):
+            out.append(sentence)
+    return out
 
 
 def unsupported_card_colors(text: str, payloads: list[dict[str, Any]]) -> list[str]:

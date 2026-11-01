@@ -137,12 +137,67 @@
         }
       ],
       "partial": false
+    },
+    {
+      "type": "cards",
+      "title": "Tarjetas del partido",
+      "subtitle": "C.D. DOSA 3-1 FS ALCALA · Jornada 4",
+      "home": "C.D. DOSA",
+      "away": "FS ALCALA",
+      "summary": {
+        "yellow": 2,
+        "second_yellow": 1,
+        "red": 1,
+        "unknown": 1
+      },
+      "events": [
+        {
+          "minute": 9,
+          "player": "B Otro Dos",
+          "team": "FS ALCALA",
+          "side": "away",
+          "kind": "yellow",
+          "round": null
+        },
+        {
+          "minute": 14,
+          "player": "Juan Perez Lopez",
+          "team": "C.D. DOSA",
+          "side": "home",
+          "kind": "yellow",
+          "round": null
+        },
+        {
+          "minute": 24,
+          "player": "Ana Ruiz Soto",
+          "team": "C.D. DOSA",
+          "side": "home",
+          "kind": "red",
+          "round": null
+        },
+        {
+          "minute": 30,
+          "player": "B Otro Dos",
+          "team": "FS ALCALA",
+          "side": "away",
+          "kind": "second_yellow",
+          "round": null
+        },
+        {
+          "minute": 35,
+          "player": "Pedro Gil Mora",
+          "team": "C.D. DOSA",
+          "side": "home",
+          "kind": "unknown",
+          "round": null
+        }
+      ],
+      "partial": false
     }
   ],
   "suggestions": [
-    "¿Quién marcó los goles de ese partido?",
-    "¿Qué tarjetas hubo en ese partido?",
-    "¿Quiénes fueron los árbitros de ese partido?"
+    "¿Cómo va la clasificación del grupo?",
+    "¿Cuáles son los próximos partidos del grupo?"
   ],
   "focus": {},
   "diagnostics": {
