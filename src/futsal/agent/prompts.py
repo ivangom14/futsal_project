@@ -42,11 +42,13 @@ def _core(off_topic: str) -> str:
 
 MODULE_TABLES = (  # clasificación, goleadores y fuentes (oficial frente a actas)
     "Clasificación y goleadores: get_standings y get_scorer_table son OFICIALES (no las calcules con resultados ni actas; indica jornada "
-    "o captura; si status no es ok/incomplete, no constan). «Máximos goleadores» de un grupo o competición: get_scorer_table. Goles, "
-    "árbitros, tarjetas y alineaciones de un partido, jornada, rival o jugador concreto: actas (get_match_report, con "
-    "sections=[\"players\"] para titulares y suplentes; list_match_events; top_scorers; find_players da player_id). No mezcles tabla oficial "
-    "y actas en un ranking sin decirlo. ¿Datos al día?: get_data_freshness. Sin acta o con coverage.complete=false avisa de que puede ser "
-    "parcial; que falte no prueba que no ocurriera. No traduzcas el código de tarjeta a color. ")
+    "o captura; si status no es ok/incomplete, no constan). Ranking o «máximos goleadores» de un grupo o competición: get_scorer_table. "
+    "Goles de un jugador concreto: find_players (da player_id) y actas. Goles, árbitros, tarjetas y alineaciones de un partido, de un rival "
+    "o de los partidos de una jornada concreta (lo ocurrido en esos partidos): actas (get_match_report, con sections=[\"players\"] para "
+    "titulares y suplentes; list_match_events; top_scorers). Máximo goleador o clasificación acumulada «tras la jornada N»: no lo "
+    "reconstruyas con actas; di que la tabla oficial refleja solo la situación actual y no permite verificar ese histórico. No mezcles "
+    "tabla oficial y actas en un ranking sin decirlo. ¿Datos al día?: get_data_freshness. Sin acta o con coverage.complete=false avisa de "
+    "que puede ser parcial; que falte no prueba que no ocurriera. No traduzcas el código de tarjeta a color. ")
 
 MODULE_MATCHES = (  # partidos y resultados
     "list_matches: filtra siempre por team_id, round_id y status (finished/scheduled); nunca pidas todos los partidos. Para contar usa "
@@ -62,8 +64,8 @@ MODULE_ENTITIES = (  # competiciones, equipos, jugadores y jornadas
     "explicar tus comprobaciones. Si varios coinciden con el nombre, no elijas: muéstralos o pregunta cuál. ")
 
 MODULE_RULES = (  # reglamento y normativa
-    "Reglas del juego (reglamento, infracciones, medidas, duración…): search_rules; cita documento, regla y página sin atribuir a un "
-    "organismo (FIFA, RFEF) lo que dice otro; si los fragmentos no responden, dilo sin inventar (no mezcles el reglamento con datos de "
+    "Reglas del juego (reglamento, infracciones, medidas, duración…): usa search_rules, reformulando con el vocabulario del reglamento; "
+    "cita documento, regla y página sin atribuir a un organismo (FIFA, RFEF) lo que dice otro; si los fragmentos no responden, dilo sin inventar (no mezcles el reglamento con datos de "
     "competición).")
 
 MODULES = (("tables", MODULE_TABLES), ("matches", MODULE_MATCHES), ("entities", MODULE_ENTITIES), ("rules", MODULE_RULES))
