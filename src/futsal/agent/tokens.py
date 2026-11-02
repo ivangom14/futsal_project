@@ -25,7 +25,7 @@ SOURCE_CHARS = "chars"
 BASIS = f"estimated_chars/{CHARS_PER_TOKEN}"
 
 # Orígenes de la entrada, en el orden en que viajan al modelo.
-ORIGINS = ("system_prompt", "history_rule", "context", "tools", "history", "question", "scope_notes",
+ORIGINS = ("system_prompt", "history_rule", "context", "tools", "history", "question", "scope_notes", "prefetch",
            "assistant_turns", "tool_results", "other")
 
 
@@ -43,7 +43,7 @@ def _message_chars(m: Message) -> tuple[int, int]:
 
 def input_breakdown(*, system_prompt_chars: int, history_rule_chars: int, context_chars: int, tools_chars: int,
                     messages: Sequence[Message], history_messages: int, question_chars: int, note_chars: int,
-                    provider_input_tokens: int | None = None) -> dict[str, Any]:
+                    provider_input_tokens: int | None = None, prefetch_chars: int = 0) -> dict[str, Any]:
     """Reparto de la entrada de UNA llamada por origen.
 
     `messages` es la lista exacta enviada; los primeros `history_messages` son el historial y el siguiente, la pregunta
@@ -61,7 +61,8 @@ def input_breakdown(*, system_prompt_chars: int, history_rule_chars: int, contex
         elif index == history_messages and m.role == "user":
             chars["question"] += question_chars
             chars["scope_notes"] += note_chars
-            chars["other"] += max(text_chars - question_chars - note_chars, 0)
+            chars["prefetch"] += prefetch_chars  # resultado de la búsqueda previa inyectado en el mensaje (Fase 3A)
+            chars["other"] += max(text_chars - question_chars - note_chars - prefetch_chars, 0)
         elif m.role == "assistant":
             chars["assistant_turns"] += text_chars
         elif m.role == "tool":

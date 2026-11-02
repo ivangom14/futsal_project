@@ -1,0 +1,2183 @@
+{
+"_doc": "Inventario de equipos por competición y grupo de la temporada 22, extraído en solo lectura de data/rffm/catalog/*/*/rounds/*.json (sin scraping). Sirve de catálogo de pruebas del extractor de entidades; los nombres son datos públicos de la RFFM.",
+"entries": [
+{
+"competition": "PREFERENTE JUVENIL FS",
+"group": "Grupo 1",
+"group_ref": "26738220/26878003",
+"name": "A.D. ALCORCON F.S. 'C'"
+},
+{
+"competition": "PREFERENTE JUVENIL FS",
+"group": "Grupo 1",
+"group_ref": "26738220/26878003",
+"name": "C.D. LA VILLA MOSTOLES 'A'"
+},
+{
+"competition": "PREFERENTE JUVENIL FS",
+"group": "Grupo 1",
+"group_ref": "26738220/26878003",
+"name": "C.D.E. CASCO ANTIGUO CARABANCHEL"
+},
+{
+"competition": "PREFERENTE JUVENIL FS",
+"group": "Grupo 1",
+"group_ref": "26738220/26878003",
+"name": "C.D.E. CIUDAD VILLA DE VALLECAS F.S. 'B'"
+},
+{
+"competition": "PREFERENTE JUVENIL FS",
+"group": "Grupo 1",
+"group_ref": "26738220/26878003",
+"name": "C.D.E. DEPORTIVO MADRID FUTSAL"
+},
+{
+"competition": "PREFERENTE JUVENIL FS",
+"group": "Grupo 1",
+"group_ref": "26738220/26878003",
+"name": "C.D.E. SAN JOSE DE VALDERAS - VALDERAS F.S. 'A'"
+},
+{
+"competition": "PREFERENTE JUVENIL FS",
+"group": "Grupo 1",
+"group_ref": "26738220/26878003",
+"name": "CDE ATHLETIC MOSTOLES 'B'"
+},
+{
+"competition": "PREFERENTE JUVENIL FS",
+"group": "Grupo 1",
+"group_ref": "26738220/26878003",
+"name": "CLUB DEPORCOSLADA F.S. 'A'"
+},
+{
+"competition": "PREFERENTE JUVENIL FS",
+"group": "Grupo 1",
+"group_ref": "26738220/26878003",
+"name": "DON P'ALPIE ARANJUEZ F.S. - AUTO RECAMBIOS LUIS"
+},
+{
+"competition": "PREFERENTE JUVENIL FS",
+"group": "Grupo 1",
+"group_ref": "26738220/26878003",
+"name": "F.S. DIAGONAL 'A'"
+},
+{
+"competition": "PREFERENTE JUVENIL FS",
+"group": "Grupo 1",
+"group_ref": "26738220/26878003",
+"name": "FUTSALA PINTO - ESCUELA PATRI CHAMORRO 'B'"
+},
+{
+"competition": "PREFERENTE JUVENIL FS",
+"group": "Grupo 1",
+"group_ref": "26738220/26878003",
+"name": "LEGANES F.S. MASDEPORTE 'B'"
+},
+{
+"competition": "PREFERENTE JUVENIL FS",
+"group": "Grupo 1",
+"group_ref": "26738220/26878003",
+"name": "RACING LA PALOMA 'A'"
+},
+{
+"competition": "PREFERENTE JUVENIL FS",
+"group": "Grupo 1",
+"group_ref": "26738220/26878003",
+"name": "SAD COLEGIO INTERNACIONAL KOLBE"
+},
+{
+"competition": "PREFERENTE JUVENIL FS",
+"group": "Grupo 2",
+"group_ref": "26738220/26878012",
+"name": "A.D. OBISPO PERELLO"
+},
+{
+"competition": "PREFERENTE JUVENIL FS",
+"group": "Grupo 2",
+"group_ref": "26738220/26878012",
+"name": "C.D.B. MORALZARZAL FUTSAL - TALLERES LOMILLOS BERROCOSA 'A'"
+},
+{
+"competition": "PREFERENTE JUVENIL FS",
+"group": "Grupo 2",
+"group_ref": "26738220/26878012",
+"name": "C.D.E. COLEGIO ALEMAN DE MADRID 'A'"
+},
+{
+"competition": "PREFERENTE JUVENIL FS",
+"group": "Grupo 2",
+"group_ref": "26738220/26878012",
+"name": "C.D.E. DEHESA VILLALBA - LOS MOLINOS"
+},
+{
+"competition": "PREFERENTE JUVENIL FS",
+"group": "Grupo 2",
+"group_ref": "26738220/26878012",
+"name": "CD RIVAS FUTSAL - YOUFIRST SMART FINACE 'B'"
+},
+{
+"competition": "PREFERENTE JUVENIL FS",
+"group": "Grupo 2",
+"group_ref": "26738220/26878012",
+"name": "CDE FUSION FUTBOL SALA SAN FERNANDO 'A'"
+},
+{
+"competition": "PREFERENTE JUVENIL FS",
+"group": "Grupo 2",
+"group_ref": "26738220/26878012",
+"name": "CLUB DEPORCOSLADA F.S. 'B'"
+},
+{
+"competition": "PREFERENTE JUVENIL FS",
+"group": "Grupo 2",
+"group_ref": "26738220/26878012",
+"name": "CLUB DEPORTIVO ELEMENTAL MALVAR"
+},
+{
+"competition": "PREFERENTE JUVENIL FS",
+"group": "Grupo 2",
+"group_ref": "26738220/26878012",
+"name": "CLUB PILARISTAS 'B'"
+},
+{
+"competition": "PREFERENTE JUVENIL FS",
+"group": "Grupo 2",
+"group_ref": "26738220/26878012",
+"name": "E.F.S. CIUDAD DE TORREJON - REDPISO TORREJON 'B'"
+},
+{
+"competition": "PREFERENTE JUVENIL FS",
+"group": "Grupo 2",
+"group_ref": "26738220/26878012",
+"name": "ESCUELA TORREJON JUNCAL F.S. 'A'"
+},
+{
+"competition": "PREFERENTE JUVENIL FS",
+"group": "Grupo 2",
+"group_ref": "26738220/26878012",
+"name": "FUTBOL SALA LIMONES 5 'B'"
+},
+{
+"competition": "PREFERENTE JUVENIL FS",
+"group": "Grupo 2",
+"group_ref": "26738220/26878012",
+"name": "INTER FUTBOL SALA - JP FINANCIAL 'C'"
+},
+{
+"competition": "PREFERENTE JUVENIL FS",
+"group": "Grupo 2",
+"group_ref": "26738220/26878012",
+"name": "TORREJON SALA FIVE PLAY"
+},
+{
+"competition": "TERCERA DIVISIÓN FS",
+"group": "Grupo 3",
+"group_ref": "26738221/26771028",
+"name": "A.D. OBISPO PERELLO 'A'"
+},
+{
+"competition": "TERCERA DIVISIÓN FS",
+"group": "Grupo 3",
+"group_ref": "26738221/26771028",
+"name": "AGRUPACION AUTO-ESCUELA SIMANCAS - DYNAVIN 'A'"
+},
+{
+"competition": "TERCERA DIVISIÓN FS",
+"group": "Grupo 3",
+"group_ref": "26738221/26771028",
+"name": "ATLETICO TRABENCO ZARZAQUEMADA 'A'"
+},
+{
+"competition": "TERCERA DIVISIÓN FS",
+"group": "Grupo 3",
+"group_ref": "26738221/26771028",
+"name": "C.D. LA VILLA MOSTOLES 'A'"
+},
+{
+"competition": "TERCERA DIVISIÓN FS",
+"group": "Grupo 3",
+"group_ref": "26738221/26771028",
+"name": "C.D.E. ANDRES SEGOVIA-MOSTOLES 'A'"
+},
+{
+"competition": "TERCERA DIVISIÓN FS",
+"group": "Grupo 3",
+"group_ref": "26738221/26771028",
+"name": "C.D.E. CASCO ANTIGUO CARABANCHEL 'A'"
+},
+{
+"competition": "TERCERA DIVISIÓN FS",
+"group": "Grupo 3",
+"group_ref": "26738221/26771028",
+"name": "C.D.E. CIUDAD VILLA DE VALLECAS F.S."
+},
+{
+"competition": "TERCERA DIVISIÓN FS",
+"group": "Grupo 3",
+"group_ref": "26738221/26771028",
+"name": "C.D.E. PINAR DE SAN JOSE - ALCORCON 'A'"
+},
+{
+"competition": "TERCERA DIVISIÓN FS",
+"group": "Grupo 3",
+"group_ref": "26738221/26771028",
+"name": "CD RIVAS FUTSAL - YOUFIRST SMART FINACE"
+},
+{
+"competition": "TERCERA DIVISIÓN FS",
+"group": "Grupo 3",
+"group_ref": "26738221/26771028",
+"name": "CDB SPORTING LAS AGUILAS DE MADRID - PARISAT 'A'"
+},
+{
+"competition": "TERCERA DIVISIÓN FS",
+"group": "Grupo 3",
+"group_ref": "26738221/26771028",
+"name": "CDE C.F.S. EUROSIRIS - BINGO LAS VEGAS 'A'"
+},
+{
+"competition": "TERCERA DIVISIÓN FS",
+"group": "Grupo 3",
+"group_ref": "26738221/26771028",
+"name": "CDE SPORTING MORATA F.S. 'A'"
+},
+{
+"competition": "TERCERA DIVISIÓN FS",
+"group": "Grupo 3",
+"group_ref": "26738221/26771028",
+"name": "CLUB ARGANDA FUTSAL - ALBERO-MUDANZAS SEGOVIANA 'A'"
+},
+{
+"competition": "TERCERA DIVISIÓN FS",
+"group": "Grupo 3",
+"group_ref": "26738221/26771028",
+"name": "DON P'ALPIE ARANJUEZ F.S.- CAFETERIA LA TACITA"
+},
+{
+"competition": "TERCERA DIVISIÓN FS",
+"group": "Grupo 3",
+"group_ref": "26738221/26771028",
+"name": "F.S. DIAGONAL 'A'"
+},
+{
+"competition": "TERCERA DIVISIÓN FS",
+"group": "Grupo 3",
+"group_ref": "26738221/26771028",
+"name": "FUTSALA VILLAVERDE 'A'"
+},
+{
+"competition": "TERCERA DIVISIÓN FS",
+"group": "Grupo 4",
+"group_ref": "26738221/26771029",
+"name": "A.D.ESCURIALENSE - YAPPANCARS 'A'"
+},
+{
+"competition": "TERCERA DIVISIÓN FS",
+"group": "Grupo 4",
+"group_ref": "26738221/26771029",
+"name": "AD COLLADO-VILLALBA"
+},
+{
+"competition": "TERCERA DIVISIÓN FS",
+"group": "Grupo 4",
+"group_ref": "26738221/26771029",
+"name": "C.D. EDUCA & PLAY 'A'"
+},
+{
+"competition": "TERCERA DIVISIÓN FS",
+"group": "Grupo 4",
+"group_ref": "26738221/26771029",
+"name": "C.D. LOPE DE VEGA 'A'"
+},
+{
+"competition": "TERCERA DIVISIÓN FS",
+"group": "Grupo 4",
+"group_ref": "26738221/26771029",
+"name": "C.D.E. DEHESA VILLALBA - AUTOESCUELA GRANDE"
+},
+{
+"competition": "TERCERA DIVISIÓN FS",
+"group": "Grupo 4",
+"group_ref": "26738221/26771029",
+"name": "C.D.E. EL VALLE 'B'"
+},
+{
+"competition": "TERCERA DIVISIÓN FS",
+"group": "Grupo 4",
+"group_ref": "26738221/26771029",
+"name": "CDE FUSION FUTBOL SALA SAN FERNANDO 'A'"
+},
+{
+"competition": "TERCERA DIVISIÓN FS",
+"group": "Grupo 4",
+"group_ref": "26738221/26771029",
+"name": "CLUB AGUSTINIANO 'A'"
+},
+{
+"competition": "TERCERA DIVISIÓN FS",
+"group": "Grupo 4",
+"group_ref": "26738221/26771029",
+"name": "CLUB PILARISTAS 'A'"
+},
+{
+"competition": "TERCERA DIVISIÓN FS",
+"group": "Grupo 4",
+"group_ref": "26738221/26771029",
+"name": "COLEGIO CARDENAL SPINOLA CHAMARTIN 'A'"
+},
+{
+"competition": "TERCERA DIVISIÓN FS",
+"group": "Grupo 4",
+"group_ref": "26738221/26771029",
+"name": "E.F.S. CIUDAD DE TORREJON - REDPISO TORREJON 'B'"
+},
+{
+"competition": "TERCERA DIVISIÓN FS",
+"group": "Grupo 4",
+"group_ref": "26738221/26771029",
+"name": "F.S. CHAMBERI - MIBOTICAE.COM 'A'"
+},
+{
+"competition": "TERCERA DIVISIÓN FS",
+"group": "Grupo 4",
+"group_ref": "26738221/26771029",
+"name": "FUTSAL SANSE 'A'"
+},
+{
+"competition": "TERCERA DIVISIÓN FS",
+"group": "Grupo 4",
+"group_ref": "26738221/26771029",
+"name": "PARQUE NORTE F.S. 'A'"
+},
+{
+"competition": "TERCERA DIVISIÓN FS",
+"group": "Grupo 4",
+"group_ref": "26738221/26771029",
+"name": "TORREJON SALA FIVE PLAY 'A'"
+},
+{
+"competition": "TERCERA DIVISIÓN FS",
+"group": "Grupo 4",
+"group_ref": "26738221/26771029",
+"name": "U.D. SAN LORENZO ABANTOS FS 'A'"
+},
+{
+"competition": "PRIMERA JUVENIL FS",
+"group": "Grupo 1",
+"group_ref": "26738228/28011290",
+"name": "A.D. ESTRECHO TETUAN"
+},
+{
+"competition": "PRIMERA JUVENIL FS",
+"group": "Grupo 1",
+"group_ref": "26738228/28011290",
+"name": "AD COLLADO-VILLALBA 'A'"
+},
+{
+"competition": "PRIMERA JUVENIL FS",
+"group": "Grupo 1",
+"group_ref": "26738228/28011290",
+"name": "C.D. EDUCA & PLAY"
+},
+{
+"competition": "PRIMERA JUVENIL FS",
+"group": "Grupo 1",
+"group_ref": "26738228/28011290",
+"name": "C.D.E. ALCOBENDAS FUTSAL (FS)"
+},
+{
+"competition": "PRIMERA JUVENIL FS",
+"group": "Grupo 1",
+"group_ref": "26738228/28011290",
+"name": "C.D.E. COLEGIO ALEMAN DE MADRID 'B'"
+},
+{
+"competition": "PRIMERA JUVENIL FS",
+"group": "Grupo 1",
+"group_ref": "26738228/28011290",
+"name": "C.D.E. EL VALLE (FS) 'C'"
+},
+{
+"competition": "PRIMERA JUVENIL FS",
+"group": "Grupo 1",
+"group_ref": "26738228/28011290",
+"name": "CDE PARAISO SAGRADOS CORAZONES 'B'"
+},
+{
+"competition": "PRIMERA JUVENIL FS",
+"group": "Grupo 1",
+"group_ref": "26738228/28011290",
+"name": "CDE RAYONES DE TORRELODONES"
+},
+{
+"competition": "PRIMERA JUVENIL FS",
+"group": "Grupo 1",
+"group_ref": "26738228/28011290",
+"name": "CLUB CORAZONISTAS"
+},
+{
+"competition": "PRIMERA JUVENIL FS",
+"group": "Grupo 1",
+"group_ref": "26738228/28011290",
+"name": "COLEGIO CARDENAL SPINOLA CHAMARTIN"
+},
+{
+"competition": "PRIMERA JUVENIL FS",
+"group": "Grupo 1",
+"group_ref": "26738228/28011290",
+"name": "Descansa"
+},
+{
+"competition": "PRIMERA JUVENIL FS",
+"group": "Grupo 1",
+"group_ref": "26738228/28011290",
+"name": "FUTSAL SANSE - DOMINO'S PIZZA 'A'"
+},
+{
+"competition": "PRIMERA JUVENIL FS",
+"group": "Grupo 1",
+"group_ref": "26738228/28011290",
+"name": "PARQUE NORTE F.S."
+},
+{
+"competition": "PRIMERA JUVENIL FS",
+"group": "Grupo 1",
+"group_ref": "26738228/28011290",
+"name": "UNION TRES CANTOS FUTBOL SALA"
+},
+{
+"competition": "PRIMERA JUVENIL FS",
+"group": "Grupo 2",
+"group_ref": "26738228/28122269",
+"name": "A.D. COLEGIO JOYFE 'B'"
+},
+{
+"competition": "PRIMERA JUVENIL FS",
+"group": "Grupo 2",
+"group_ref": "26738228/28122269",
+"name": "C.D. LOPE DE VEGA 'B'"
+},
+{
+"competition": "PRIMERA JUVENIL FS",
+"group": "Grupo 2",
+"group_ref": "26738228/28122269",
+"name": "C.D.E. ALARO DEPORTIVA - PARACUELLOS F.S."
+},
+{
+"competition": "PRIMERA JUVENIL FS",
+"group": "Grupo 2",
+"group_ref": "26738228/28122269",
+"name": "C.D.E. MEJORSALA"
+},
+{
+"competition": "PRIMERA JUVENIL FS",
+"group": "Grupo 2",
+"group_ref": "26738228/28122269",
+"name": "C.D.E. OROQUIETA-ESPINILLO 'A'"
+},
+{
+"competition": "PRIMERA JUVENIL FS",
+"group": "Grupo 2",
+"group_ref": "26738228/28122269",
+"name": "CDE FUSION FUTBOL SALA SAN FERNANDO 'B'"
+},
+{
+"competition": "PRIMERA JUVENIL FS",
+"group": "Grupo 2",
+"group_ref": "26738228/28122269",
+"name": "CFS ARTILLEROS MORATALAZ"
+},
+{
+"competition": "PRIMERA JUVENIL FS",
+"group": "Grupo 2",
+"group_ref": "26738228/28122269",
+"name": "CLUB ARGANDA FUTSAL 'B'"
+},
+{
+"competition": "PRIMERA JUVENIL FS",
+"group": "Grupo 2",
+"group_ref": "26738228/28122269",
+"name": "CLUB UNION DEPORTIVA LOECHES 'A'"
+},
+{
+"competition": "PRIMERA JUVENIL FS",
+"group": "Grupo 2",
+"group_ref": "26738228/28122269",
+"name": "Descansa"
+},
+{
+"competition": "PRIMERA JUVENIL FS",
+"group": "Grupo 2",
+"group_ref": "26738228/28122269",
+"name": "ESCUELA TORREJON JUNCAL F.S. 'B'"
+},
+{
+"competition": "PRIMERA JUVENIL FS",
+"group": "Grupo 2",
+"group_ref": "26738228/28122269",
+"name": "GREDOS SAN DIEGO 'B'"
+},
+{
+"competition": "PRIMERA JUVENIL FS",
+"group": "Grupo 2",
+"group_ref": "26738228/28122269",
+"name": "RACING LA PALOMA 'B'"
+},
+{
+"competition": "PRIMERA JUVENIL FS",
+"group": "Grupo 2",
+"group_ref": "26738228/28122269",
+"name": "RIVAS ATLANTIS"
+},
+{
+"competition": "PRIMERA JUVENIL FS",
+"group": "Grupo 3",
+"group_ref": "26738228/28122301",
+"name": "A.D. COLEGIO JOYFE 'A'"
+},
+{
+"competition": "PRIMERA JUVENIL FS",
+"group": "Grupo 3",
+"group_ref": "26738228/28122301",
+"name": "A.D. COLLADO VILLALBA 'B'"
+},
+{
+"competition": "PRIMERA JUVENIL FS",
+"group": "Grupo 3",
+"group_ref": "26738228/28122301",
+"name": "AGRUPACION AUTO-ESCUELA SIMANCAS"
+},
+{
+"competition": "PRIMERA JUVENIL FS",
+"group": "Grupo 3",
+"group_ref": "26738228/28122301",
+"name": "AGRUPACION COLEGIO CALASANCIO"
+},
+{
+"competition": "PRIMERA JUVENIL FS",
+"group": "Grupo 3",
+"group_ref": "26738228/28122301",
+"name": "C.D. LOPE DE VEGA 'C'"
+},
+{
+"competition": "PRIMERA JUVENIL FS",
+"group": "Grupo 3",
+"group_ref": "26738228/28122301",
+"name": "C.D.E. EL VALLE 'B'"
+},
+{
+"competition": "PRIMERA JUVENIL FS",
+"group": "Grupo 3",
+"group_ref": "26738228/28122301",
+"name": "C.D.E. LAS MINAS"
+},
+{
+"competition": "PRIMERA JUVENIL FS",
+"group": "Grupo 3",
+"group_ref": "26738228/28122301",
+"name": "CDE C.F.S. EUROSIRIS"
+},
+{
+"competition": "PRIMERA JUVENIL FS",
+"group": "Grupo 3",
+"group_ref": "26738228/28122301",
+"name": "CDE FUSION FUTBOL SALA SAN FERNANDO 'C'"
+},
+{
+"competition": "PRIMERA JUVENIL FS",
+"group": "Grupo 3",
+"group_ref": "26738228/28122301",
+"name": "CDE VIRGEN DE ATOCHA FESD"
+},
+{
+"competition": "PRIMERA JUVENIL FS",
+"group": "Grupo 3",
+"group_ref": "26738228/28122301",
+"name": "CLUB AGUSTINIANO"
+},
+{
+"competition": "PRIMERA JUVENIL FS",
+"group": "Grupo 3",
+"group_ref": "26738228/28122301",
+"name": "CLUB UNION DEPORTIVA LOECHES 'B'"
+},
+{
+"competition": "PRIMERA JUVENIL FS",
+"group": "Grupo 3",
+"group_ref": "26738228/28122301",
+"name": "DEPORTIVO CALDEIRO"
+},
+{
+"competition": "PRIMERA JUVENIL FS",
+"group": "Grupo 3",
+"group_ref": "26738228/28122301",
+"name": "FUTSAL SANSE 'B'"
+},
+{
+"competition": "PRIMERA JUVENIL FS",
+"group": "Grupo 4",
+"group_ref": "26738228/28123098",
+"name": "ATLETICO TRABENCO ZARZAQUEMADA"
+},
+{
+"competition": "PRIMERA JUVENIL FS",
+"group": "Grupo 4",
+"group_ref": "26738228/28123098",
+"name": "C.D. FUTSI ATLETICO NAVALCARNERO - FROZEN"
+},
+{
+"competition": "PRIMERA JUVENIL FS",
+"group": "Grupo 4",
+"group_ref": "26738228/28123098",
+"name": "C.D.E. FUENLABRADA FUTBOL SALA 'A'"
+},
+{
+"competition": "PRIMERA JUVENIL FS",
+"group": "Grupo 4",
+"group_ref": "26738228/28123098",
+"name": "C.D.E. SPORT SALA 12"
+},
+{
+"competition": "PRIMERA JUVENIL FS",
+"group": "Grupo 4",
+"group_ref": "26738228/28123098",
+"name": "CDE AQUILA (FS)"
+},
+{
+"competition": "PRIMERA JUVENIL FS",
+"group": "Grupo 4",
+"group_ref": "26738228/28123098",
+"name": "CDE E.F.S. HUMANES 'A'"
+},
+{
+"competition": "PRIMERA JUVENIL FS",
+"group": "Grupo 4",
+"group_ref": "26738228/28123098",
+"name": "CDE EXTINTORES LA UNION VEGA FUTSAL (FS)"
+},
+{
+"competition": "PRIMERA JUVENIL FS",
+"group": "Grupo 4",
+"group_ref": "26738228/28123098",
+"name": "CDE FENIX FUENLABRADA"
+},
+{
+"competition": "PRIMERA JUVENIL FS",
+"group": "Grupo 4",
+"group_ref": "26738228/28123098",
+"name": "CDE SPORT CAMPOHERMOSO FUTBOL SALA"
+},
+{
+"competition": "PRIMERA JUVENIL FS",
+"group": "Grupo 4",
+"group_ref": "26738228/28123098",
+"name": "CLUB C.F.S. EL ALAMO"
+},
+{
+"competition": "PRIMERA JUVENIL FS",
+"group": "Grupo 4",
+"group_ref": "26738228/28123098",
+"name": "E.F.S. GRIÑON (FS)"
+},
+{
+"competition": "PRIMERA JUVENIL FS",
+"group": "Grupo 4",
+"group_ref": "26738228/28123098",
+"name": "F.S. DIAGONAL 'B'"
+},
+{
+"competition": "PRIMERA JUVENIL FS",
+"group": "Grupo 4",
+"group_ref": "26738228/28123098",
+"name": "FUTBOL SALA PARLA"
+},
+{
+"competition": "PRIMERA JUVENIL FS",
+"group": "Grupo 4",
+"group_ref": "26738228/28123098",
+"name": "FUTSAL PINTO - GRUPO EGIDO 'A'"
+},
+{
+"competition": "PRIMERA JUVENIL FS",
+"group": "Grupo 5",
+"group_ref": "26738228/28123215",
+"name": "C.D. LA VILLA MOSTOLES 'B'"
+},
+{
+"competition": "PRIMERA JUVENIL FS",
+"group": "Grupo 5",
+"group_ref": "26738228/28123215",
+"name": "C.D.E. ANDRES SEGOVIA-MOSTOLES"
+},
+{
+"competition": "PRIMERA JUVENIL FS",
+"group": "Grupo 5",
+"group_ref": "26738228/28123215",
+"name": "C.D.E. FUENLABRADA FUTBOL SALA (FS) 'B'"
+},
+{
+"competition": "PRIMERA JUVENIL FS",
+"group": "Grupo 5",
+"group_ref": "26738228/28123215",
+"name": "C.D.E. INTERSALA MOSTOLES"
+},
+{
+"competition": "PRIMERA JUVENIL FS",
+"group": "Grupo 5",
+"group_ref": "26738228/28123215",
+"name": "C.D.E. OROQUIETA-ESPINILLO 'B'"
+},
+{
+"competition": "PRIMERA JUVENIL FS",
+"group": "Grupo 5",
+"group_ref": "26738228/28123215",
+"name": "C.D.E. PINAR DE SAN JOSE - ALCORCON 'B'"
+},
+{
+"competition": "PRIMERA JUVENIL FS",
+"group": "Grupo 5",
+"group_ref": "26738228/28123215",
+"name": "C.D.E. SAN JOSE DE VALDERAS - VALDERAS F.S. 'B'"
+},
+{
+"competition": "PRIMERA JUVENIL FS",
+"group": "Grupo 5",
+"group_ref": "26738228/28123215",
+"name": "C.S.D. PARQUE DE LISBOA FUTSAL"
+},
+{
+"competition": "PRIMERA JUVENIL FS",
+"group": "Grupo 5",
+"group_ref": "26738228/28123215",
+"name": "CDE E.F.S. HUMANES 'B'"
+},
+{
+"competition": "PRIMERA JUVENIL FS",
+"group": "Grupo 5",
+"group_ref": "26738228/28123215",
+"name": "CDE MOSTOLES SUR FS (FS)"
+},
+{
+"competition": "PRIMERA JUVENIL FS",
+"group": "Grupo 5",
+"group_ref": "26738228/28123215",
+"name": "CDE SPORT LATINA - EM ALUCHE FS"
+},
+{
+"competition": "PRIMERA JUVENIL FS",
+"group": "Grupo 5",
+"group_ref": "26738228/28123215",
+"name": "F.S. DIAGONAL 'C'"
+},
+{
+"competition": "PRIMERA JUVENIL FS",
+"group": "Grupo 5",
+"group_ref": "26738228/28123215",
+"name": "FUTSAL PINTO (FS) 'B'"
+},
+{
+"competition": "PRIMERA JUVENIL FS",
+"group": "Grupo 5",
+"group_ref": "26738228/28123215",
+"name": "FUTSALA VILLAVERDE 'B'"
+},
+{
+"competition": "PRIMERA DIVISION AUTONOMICA AFICIONADO FS",
+"group": "Grupo 1",
+"group_ref": "26738243/26738244",
+"name": "ATLETICO TRABENCO ZARZAQUEMADA 'B'"
+},
+{
+"competition": "PRIMERA DIVISION AUTONOMICA AFICIONADO FS",
+"group": "Grupo 1",
+"group_ref": "26738243/26738244",
+"name": "C.D.E. CASCO ANTIGUO CARABANCHEL 'B'"
+},
+{
+"competition": "PRIMERA DIVISION AUTONOMICA AFICIONADO FS",
+"group": "Grupo 1",
+"group_ref": "26738243/26738244",
+"name": "C.D.E. FUENLABRADA FUTBOL SALA 'A'"
+},
+{
+"competition": "PRIMERA DIVISION AUTONOMICA AFICIONADO FS",
+"group": "Grupo 1",
+"group_ref": "26738243/26738244",
+"name": "C.D.E. SAN JOSE DE VALDERAS - VALDERAS F.S. 'A'"
+},
+{
+"competition": "PRIMERA DIVISION AUTONOMICA AFICIONADO FS",
+"group": "Grupo 1",
+"group_ref": "26738243/26738244",
+"name": "CDB SPORTING LAS AGUILAS DE MADRID - MERCADO LAS AGUILAS 'B'"
+},
+{
+"competition": "PRIMERA DIVISION AUTONOMICA AFICIONADO FS",
+"group": "Grupo 1",
+"group_ref": "26738243/26738244",
+"name": "CDE ANDEL - CENTRO EDUCATIVO"
+},
+{
+"competition": "PRIMERA DIVISION AUTONOMICA AFICIONADO FS",
+"group": "Grupo 1",
+"group_ref": "26738243/26738244",
+"name": "CDE ATHLETIC MOSTOLES 'B'"
+},
+{
+"competition": "PRIMERA DIVISION AUTONOMICA AFICIONADO FS",
+"group": "Grupo 1",
+"group_ref": "26738243/26738244",
+"name": "CDE WINTER SQUAD"
+},
+{
+"competition": "PRIMERA DIVISION AUTONOMICA AFICIONADO FS",
+"group": "Grupo 1",
+"group_ref": "26738243/26738244",
+"name": "CLUB C.F.S. EL ALAMO 'B'"
+},
+{
+"competition": "PRIMERA DIVISION AUTONOMICA AFICIONADO FS",
+"group": "Grupo 1",
+"group_ref": "26738243/26738244",
+"name": "CLUB ESCUELA DEPORTIVA MANILA-ESTRELLAS 'A'"
+},
+{
+"competition": "PRIMERA DIVISION AUTONOMICA AFICIONADO FS",
+"group": "Grupo 1",
+"group_ref": "26738243/26738244",
+"name": "COLME FUTSAL"
+},
+{
+"competition": "PRIMERA DIVISION AUTONOMICA AFICIONADO FS",
+"group": "Grupo 1",
+"group_ref": "26738243/26738244",
+"name": "ESCUELA DEPORTIVA BRUNETE"
+},
+{
+"competition": "PRIMERA DIVISION AUTONOMICA AFICIONADO FS",
+"group": "Grupo 1",
+"group_ref": "26738243/26738244",
+"name": "FUTSAL PINTO - GRUPO EGIDO"
+},
+{
+"competition": "PRIMERA DIVISION AUTONOMICA AFICIONADO FS",
+"group": "Grupo 1",
+"group_ref": "26738243/26738244",
+"name": "FUTSALA VILLAVERDE 'B'"
+},
+{
+"competition": "PRIMERA DIVISION AUTONOMICA AFICIONADO FS",
+"group": "Grupo 2",
+"group_ref": "26738243/26738245",
+"name": "A. D. OBISPO PERELLO 'B'"
+},
+{
+"competition": "PRIMERA DIVISION AUTONOMICA AFICIONADO FS",
+"group": "Grupo 2",
+"group_ref": "26738243/26738245",
+"name": "AGRUPACION AUTO-ESCUELA SIMANCAS 'B'"
+},
+{
+"competition": "PRIMERA DIVISION AUTONOMICA AFICIONADO FS",
+"group": "Grupo 2",
+"group_ref": "26738243/26738245",
+"name": "AGRUPACION COLEGIO CALASANCIO 'A'"
+},
+{
+"competition": "PRIMERA DIVISION AUTONOMICA AFICIONADO FS",
+"group": "Grupo 2",
+"group_ref": "26738243/26738245",
+"name": "C.D. DOSA"
+},
+{
+"competition": "PRIMERA DIVISION AUTONOMICA AFICIONADO FS",
+"group": "Grupo 2",
+"group_ref": "26738243/26738245",
+"name": "C.D. LOPE DE VEGA 'B'"
+},
+{
+"competition": "PRIMERA DIVISION AUTONOMICA AFICIONADO FS",
+"group": "Grupo 2",
+"group_ref": "26738243/26738245",
+"name": "C.D.E. ALARO DEPORTIVA 'A'"
+},
+{
+"competition": "PRIMERA DIVISION AUTONOMICA AFICIONADO FS",
+"group": "Grupo 2",
+"group_ref": "26738243/26738245",
+"name": "C.D.E. MEJORSALA"
+},
+{
+"competition": "PRIMERA DIVISION AUTONOMICA AFICIONADO FS",
+"group": "Grupo 2",
+"group_ref": "26738243/26738245",
+"name": "CLUB CORAZONISTAS 'A'"
+},
+{
+"competition": "PRIMERA DIVISION AUTONOMICA AFICIONADO FS",
+"group": "Grupo 2",
+"group_ref": "26738243/26738245",
+"name": "COLEGIO CARDENAL SPINOLA CHAMARTIN 'B'"
+},
+{
+"competition": "PRIMERA DIVISION AUTONOMICA AFICIONADO FS",
+"group": "Grupo 2",
+"group_ref": "26738243/26738245",
+"name": "E.F.S. COLMENAR VIEJO 'A'"
+},
+{
+"competition": "PRIMERA DIVISION AUTONOMICA AFICIONADO FS",
+"group": "Grupo 2",
+"group_ref": "26738243/26738245",
+"name": "ESC. DEP. DE FUTBOL DE TORRES"
+},
+{
+"competition": "PRIMERA DIVISION AUTONOMICA AFICIONADO FS",
+"group": "Grupo 2",
+"group_ref": "26738243/26738245",
+"name": "PARQUE NORTE F.S. - RODILLITO 'B'"
+},
+{
+"competition": "PRIMERA DIVISION AUTONOMICA AFICIONADO FS",
+"group": "Grupo 2",
+"group_ref": "26738243/26738245",
+"name": "SAN FELIPE NERI - ELIPA DRAGONS 017"
+},
+{
+"competition": "PRIMERA DIVISION AUTONOMICA AFICIONADO FS",
+"group": "Grupo 2",
+"group_ref": "26738243/26738245",
+"name": "TORREJON SALA FIVE PLAY 'B'"
+},
+{
+"competition": "PREFERENTE AFICIONADO FS",
+"group": "Grupo 1",
+"group_ref": "26738246/26738247",
+"name": "C.D. EUROPEO - FUTSAL PARDILLO SVP 'A'"
+},
+{
+"competition": "PREFERENTE AFICIONADO FS",
+"group": "Grupo 1",
+"group_ref": "26738246/26738247",
+"name": "C.D. VILLA DEL PRADO"
+},
+{
+"competition": "PREFERENTE AFICIONADO FS",
+"group": "Grupo 1",
+"group_ref": "26738246/26738247",
+"name": "C.D.E. FUENLABRADA FUTBOL SALA 'B'"
+},
+{
+"competition": "PREFERENTE AFICIONADO FS",
+"group": "Grupo 1",
+"group_ref": "26738246/26738247",
+"name": "C.D.E. LAS MINAS - KENNA DENTAL 'A'"
+},
+{
+"competition": "PREFERENTE AFICIONADO FS",
+"group": "Grupo 1",
+"group_ref": "26738246/26738247",
+"name": "C.D.E. OROQUIETA-ESPINILLO 'A'"
+},
+{
+"competition": "PREFERENTE AFICIONADO FS",
+"group": "Grupo 1",
+"group_ref": "26738246/26738247",
+"name": "CDE E.F.S. HUMANES"
+},
+{
+"competition": "PREFERENTE AFICIONADO FS",
+"group": "Grupo 1",
+"group_ref": "26738246/26738247",
+"name": "CDE EXTINTORES LA UNION VEGA FUTSAL"
+},
+{
+"competition": "PREFERENTE AFICIONADO FS",
+"group": "Grupo 1",
+"group_ref": "26738246/26738247",
+"name": "CDE MOSTOLES SUR FS"
+},
+{
+"competition": "PREFERENTE AFICIONADO FS",
+"group": "Grupo 1",
+"group_ref": "26738246/26738247",
+"name": "CFS ARTILLEROS MORATALAZ 'A'"
+},
+{
+"competition": "PREFERENTE AFICIONADO FS",
+"group": "Grupo 1",
+"group_ref": "26738246/26738247",
+"name": "CLUB C.F.S. EL ALAMO 'C'"
+},
+{
+"competition": "PREFERENTE AFICIONADO FS",
+"group": "Grupo 1",
+"group_ref": "26738246/26738247",
+"name": "CLUB ESCUELA DEPORTIVA MANILA-ESTRELLAS 'B'"
+},
+{
+"competition": "PREFERENTE AFICIONADO FS",
+"group": "Grupo 1",
+"group_ref": "26738246/26738247",
+"name": "F.S. DIAGONAL 'B'"
+},
+{
+"competition": "PREFERENTE AFICIONADO FS",
+"group": "Grupo 1",
+"group_ref": "26738246/26738247",
+"name": "RACING LA PALOMA"
+},
+{
+"competition": "PREFERENTE AFICIONADO FS",
+"group": "Grupo 1",
+"group_ref": "26738246/26738247",
+"name": "UNION DEPORTIVA LAS ROZAS BOADILLA"
+},
+{
+"competition": "PREFERENTE AFICIONADO FS",
+"group": "Grupo 2",
+"group_ref": "26738246/26738248",
+"name": "A.D. COLEGIO JOYFE 'A'"
+},
+{
+"competition": "PREFERENTE AFICIONADO FS",
+"group": "Grupo 2",
+"group_ref": "26738246/26738248",
+"name": "ASTON F.S. - ALSA"
+},
+{
+"competition": "PREFERENTE AFICIONADO FS",
+"group": "Grupo 2",
+"group_ref": "26738246/26738248",
+"name": "C.D. EDUCA & PLAY 'B'"
+},
+{
+"competition": "PREFERENTE AFICIONADO FS",
+"group": "Grupo 2",
+"group_ref": "26738246/26738248",
+"name": "C.D.E. ALARO DEPORTIVA - PARACUELLOS F.S. 'B'"
+},
+{
+"competition": "PREFERENTE AFICIONADO FS",
+"group": "Grupo 2",
+"group_ref": "26738246/26738248",
+"name": "C.D.E. F.S. SANTORCAZ"
+},
+{
+"competition": "PREFERENTE AFICIONADO FS",
+"group": "Grupo 2",
+"group_ref": "26738246/26738248",
+"name": "CDE C.F.S. EUROSIRIS - RINCON DE SANABRIA 'B'"
+},
+{
+"competition": "PREFERENTE AFICIONADO FS",
+"group": "Grupo 2",
+"group_ref": "26738246/26738248",
+"name": "CDE FUSION FUTBOL SALA SAN FERNANDO 'B'"
+},
+{
+"competition": "PREFERENTE AFICIONADO FS",
+"group": "Grupo 2",
+"group_ref": "26738246/26738248",
+"name": "CFS ARTILLEROS MORATALAZ 'B'"
+},
+{
+"competition": "PREFERENTE AFICIONADO FS",
+"group": "Grupo 2",
+"group_ref": "26738246/26738248",
+"name": "CLUB PILARISTAS 'B'"
+},
+{
+"competition": "PREFERENTE AFICIONADO FS",
+"group": "Grupo 2",
+"group_ref": "26738246/26738248",
+"name": "COLEGIO CARDENAL SPINOLA CHAMARTIN 'C'"
+},
+{
+"competition": "PREFERENTE AFICIONADO FS",
+"group": "Grupo 2",
+"group_ref": "26738246/26738248",
+"name": "ESCUELA TORREJON JUNCAL F.S. 'A'"
+},
+{
+"competition": "PREFERENTE AFICIONADO FS",
+"group": "Grupo 2",
+"group_ref": "26738246/26738248",
+"name": "FUTSAL SANSE 'B'"
+},
+{
+"competition": "PREFERENTE AFICIONADO FS",
+"group": "Grupo 2",
+"group_ref": "26738246/26738248",
+"name": "FUTURO DEL FUTBOL SALA - VELILLA"
+},
+{
+"competition": "PREFERENTE AFICIONADO FS",
+"group": "Grupo 2",
+"group_ref": "26738246/26738248",
+"name": "UNION TRES CANTOS FUTBOL SALA 'B'"
+},
+{
+"competition": "PRIMERA DIVISION AUTONOMICA JUVENIL FS",
+"group": "Grupo Unico",
+"group_ref": "26749998/26814437",
+"name": "A.D. ALCORCON F.S. 'B'"
+},
+{
+"competition": "PRIMERA DIVISION AUTONOMICA JUVENIL FS",
+"group": "Grupo Unico",
+"group_ref": "26749998/26814437",
+"name": "A.D.ESCURIALENSE"
+},
+{
+"competition": "PRIMERA DIVISION AUTONOMICA JUVENIL FS",
+"group": "Grupo Unico",
+"group_ref": "26749998/26814437",
+"name": "C.D. DOSA"
+},
+{
+"competition": "PRIMERA DIVISION AUTONOMICA JUVENIL FS",
+"group": "Grupo Unico",
+"group_ref": "26749998/26814437",
+"name": "C.D. LOPE DE VEGA 'A'"
+},
+{
+"competition": "PRIMERA DIVISION AUTONOMICA JUVENIL FS",
+"group": "Grupo Unico",
+"group_ref": "26749998/26814437",
+"name": "C.D.E. EL VALLE 'A'"
+},
+{
+"competition": "PRIMERA DIVISION AUTONOMICA JUVENIL FS",
+"group": "Grupo Unico",
+"group_ref": "26749998/26814437",
+"name": "C.D.E. PINAR DE SAN JOSE - ALCORCON 'A'"
+},
+{
+"competition": "PRIMERA DIVISION AUTONOMICA JUVENIL FS",
+"group": "Grupo Unico",
+"group_ref": "26749998/26814437",
+"name": "CD RIVAS FUTSAL - YOUFIRST SMART FINACE 'A'"
+},
+{
+"competition": "PRIMERA DIVISION AUTONOMICA JUVENIL FS",
+"group": "Grupo Unico",
+"group_ref": "26749998/26814437",
+"name": "CDE PARAISO SAGRADOS CORAZONES 'A'"
+},
+{
+"competition": "PRIMERA DIVISION AUTONOMICA JUVENIL FS",
+"group": "Grupo Unico",
+"group_ref": "26749998/26814437",
+"name": "CLUB ARGANDA FUTSAL 'A'"
+},
+{
+"competition": "PRIMERA DIVISION AUTONOMICA JUVENIL FS",
+"group": "Grupo Unico",
+"group_ref": "26749998/26814437",
+"name": "E.F.S. CIUDAD DE TORREJON - REDPISO TORREJON 'A'"
+},
+{
+"competition": "PRIMERA DIVISION AUTONOMICA JUVENIL FS",
+"group": "Grupo Unico",
+"group_ref": "26749998/26814437",
+"name": "FUTSALA PINTO - ESCUELA PATRI CHAMORRO 'A'"
+},
+{
+"competition": "PRIMERA DIVISION AUTONOMICA JUVENIL FS",
+"group": "Grupo Unico",
+"group_ref": "26749998/26814437",
+"name": "FUTSALA VILLAVERDE 'A'"
+},
+{
+"competition": "PRIMERA DIVISION AUTONOMICA JUVENIL FS",
+"group": "Grupo Unico",
+"group_ref": "26749998/26814437",
+"name": "GREDOS SAN DIEGO LAS SUERTES 'A'"
+},
+{
+"competition": "PRIMERA DIVISION AUTONOMICA JUVENIL FS",
+"group": "Grupo Unico",
+"group_ref": "26749998/26814437",
+"name": "INTER FUTBOL SALA - JP FINANCIAL 'B'"
+},
+{
+"competition": "PRIMERA DIVISION AUTONOMICA JUVENIL FS",
+"group": "Grupo Unico",
+"group_ref": "26749998/26814437",
+"name": "MRB F.S. MOSTOLES - CIUDAD DE MOSTOLES 'B'"
+},
+{
+"competition": "PRIMERA DIVISION AUTONOMICA JUVENIL FS",
+"group": "Grupo Unico",
+"group_ref": "26749998/26814437",
+"name": "UNION DEPORTIVA LAS ROZAS BOADILLA - AST TCNET"
+},
+{
+"competition": "TROFEO COMUNIDAD DIVISION HONOR JUVENIL FS",
+"group": "Eliminatorias",
+"group_ref": "26843411/26843429",
+"name": "A.D. ALCORCON 'A'"
+},
+{
+"competition": "TROFEO COMUNIDAD DIVISION HONOR JUVENIL FS",
+"group": "Eliminatorias",
+"group_ref": "26843411/26843429",
+"name": "C.D.E. CIUDAD VILLA DE VALLECAS F.S. 'A'"
+},
+{
+"competition": "TROFEO COMUNIDAD DIVISION HONOR JUVENIL FS",
+"group": "Eliminatorias",
+"group_ref": "26843411/26843429",
+"name": "CDE ATHLETIC MOSTOLES 'A'"
+},
+{
+"competition": "TROFEO COMUNIDAD DIVISION HONOR JUVENIL FS",
+"group": "Eliminatorias",
+"group_ref": "26843411/26843429",
+"name": "CLUB PILARISTAS 'A'"
+},
+{
+"competition": "TROFEO COMUNIDAD DIVISION HONOR JUVENIL FS",
+"group": "Eliminatorias",
+"group_ref": "26843411/26843429",
+"name": "FUTBOL SALA LIMONES 5 'A'"
+},
+{
+"competition": "TROFEO COMUNIDAD DIVISION HONOR JUVENIL FS",
+"group": "Eliminatorias",
+"group_ref": "26843411/26843429",
+"name": "INTER FUTBOL SALA - JP FINANCIAL 'A'"
+},
+{
+"competition": "TROFEO COMUNIDAD DIVISION HONOR JUVENIL FS",
+"group": "Eliminatorias",
+"group_ref": "26843411/26843429",
+"name": "LEGANES F.S. MASDEPORTE 'A'"
+},
+{
+"competition": "TROFEO COMUNIDAD DIVISION HONOR JUVENIL FS",
+"group": "Eliminatorias",
+"group_ref": "26843411/26843429",
+"name": "MRB F.S. MOSTOLES - CIUDAD DE MOSTOLES 'A'"
+},
+{
+"competition": "PRIMERA AFICIONADO FS",
+"group": "Grupo 1",
+"group_ref": "27776951/27776954",
+"name": "AGRUPACION DEPORTIVA NAVALAFUENTE"
+},
+{
+"competition": "PRIMERA AFICIONADO FS",
+"group": "Grupo 1",
+"group_ref": "27776951/27776954",
+"name": "C.D. BUSTARVIEJO"
+},
+{
+"competition": "PRIMERA AFICIONADO FS",
+"group": "Grupo 1",
+"group_ref": "27776951/27776954",
+"name": "C.D.B. MORALZARZAL FUTSAL - TALLERES CARTON BALANDIN"
+},
+{
+"competition": "PRIMERA AFICIONADO FS",
+"group": "Grupo 1",
+"group_ref": "27776951/27776954",
+"name": "C.D.E. COLEGIO ALEMAN DE MADRID"
+},
+{
+"competition": "PRIMERA AFICIONADO FS",
+"group": "Grupo 1",
+"group_ref": "27776951/27776954",
+"name": "CDE GOLOSO 108 - MIBOTICAE.COM"
+},
+{
+"competition": "PRIMERA AFICIONADO FS",
+"group": "Grupo 1",
+"group_ref": "27776951/27776954",
+"name": "CLUB DE FUTBOL RAYO MANZANARES"
+},
+{
+"competition": "PRIMERA AFICIONADO FS",
+"group": "Grupo 1",
+"group_ref": "27776951/27776954",
+"name": "Descansa"
+},
+{
+"competition": "PRIMERA AFICIONADO FS",
+"group": "Grupo 1",
+"group_ref": "27776951/27776954",
+"name": "E.F.S. COLMENAR VIEJO 'B'"
+},
+{
+"competition": "PRIMERA AFICIONADO FS",
+"group": "Grupo 1",
+"group_ref": "27776951/27776954",
+"name": "F.S. CHAMBERI - MIBOTICAE.COM 'B'"
+},
+{
+"competition": "PRIMERA AFICIONADO FS",
+"group": "Grupo 1",
+"group_ref": "27776951/27776954",
+"name": "SAN AGUSTIN DEL GUADALIX FUTBOL SALA"
+},
+{
+"competition": "PRIMERA AFICIONADO FS",
+"group": "Grupo 1",
+"group_ref": "27776951/27776954",
+"name": "U.D. LORETO MONCLOA"
+},
+{
+"competition": "PRIMERA AFICIONADO FS",
+"group": "Grupo 1",
+"group_ref": "27776951/27776954",
+"name": "U.D. SAN LORENZO ABANTOS FS 'B'"
+},
+{
+"competition": "PRIMERA AFICIONADO FS",
+"group": "Grupo 1",
+"group_ref": "27776951/27776954",
+"name": "UNION TRES CANTOS FUTBOL SALA 'C'"
+},
+{
+"competition": "PRIMERA AFICIONADO FS",
+"group": "Grupo 1",
+"group_ref": "27776951/27776954",
+"name": "VILLA DE ALGETE FUTBOL SALA - MIDAS"
+},
+{
+"competition": "PRIMERA AFICIONADO FS",
+"group": "Grupo 2",
+"group_ref": "27776951/28153964",
+"name": "A.D. COLEGIO JOYFE 'B'"
+},
+{
+"competition": "PRIMERA AFICIONADO FS",
+"group": "Grupo 2",
+"group_ref": "27776951/28153964",
+"name": "A.D. TANCITARO"
+},
+{
+"competition": "PRIMERA AFICIONADO FS",
+"group": "Grupo 2",
+"group_ref": "27776951/28153964",
+"name": "AGRUPACION AUTO-ESCUELA SIMANCAS 'C'"
+},
+{
+"competition": "PRIMERA AFICIONADO FS",
+"group": "Grupo 2",
+"group_ref": "27776951/28153964",
+"name": "C.D. LOPE DE VEGA 'C'"
+},
+{
+"competition": "PRIMERA AFICIONADO FS",
+"group": "Grupo 2",
+"group_ref": "27776951/28153964",
+"name": "C.D.E. CASCO ANTIGUO CARABANCHEL 'D'"
+},
+{
+"competition": "PRIMERA AFICIONADO FS",
+"group": "Grupo 2",
+"group_ref": "27776951/28153964",
+"name": "C.D.E. LAS MINAS - BAR REBUJITO 'B'"
+},
+{
+"competition": "PRIMERA AFICIONADO FS",
+"group": "Grupo 2",
+"group_ref": "27776951/28153964",
+"name": "C.D.E. VIRGEN DEL CERRO FUTSAL"
+},
+{
+"competition": "PRIMERA AFICIONADO FS",
+"group": "Grupo 2",
+"group_ref": "27776951/28153964",
+"name": "CDE SPORTING MORATA F.S. 'B'"
+},
+{
+"competition": "PRIMERA AFICIONADO FS",
+"group": "Grupo 2",
+"group_ref": "27776951/28153964",
+"name": "CLUB ARGANDA FUTSAL 'B'"
+},
+{
+"competition": "PRIMERA AFICIONADO FS",
+"group": "Grupo 2",
+"group_ref": "27776951/28153964",
+"name": "CLUB DEPORTIVO ELEMENTAL MALVAR"
+},
+{
+"competition": "PRIMERA AFICIONADO FS",
+"group": "Grupo 2",
+"group_ref": "27776951/28153964",
+"name": "DEPORTIVO CALDEIRO"
+},
+{
+"competition": "PRIMERA AFICIONADO FS",
+"group": "Grupo 2",
+"group_ref": "27776951/28153964",
+"name": "ESCUELA TORREJON JUNCAL F.S. 'B'"
+},
+{
+"competition": "PRIMERA AFICIONADO FS",
+"group": "Grupo 3",
+"group_ref": "27776951/28153967",
+"name": "A.D.ESCURIALENSE - YAPPANCARS 'B'"
+},
+{
+"competition": "PRIMERA AFICIONADO FS",
+"group": "Grupo 3",
+"group_ref": "27776951/28153967",
+"name": "AGRUPACION COLEGIO CALASANCIO 'B'"
+},
+{
+"competition": "PRIMERA AFICIONADO FS",
+"group": "Grupo 3",
+"group_ref": "27776951/28153967",
+"name": "C.D. CUATRO CAMINOS"
+},
+{
+"competition": "PRIMERA AFICIONADO FS",
+"group": "Grupo 3",
+"group_ref": "27776951/28153967",
+"name": "C.D.E. CASCO ANTIGUO CARABANCHEL 'C'"
+},
+{
+"competition": "PRIMERA AFICIONADO FS",
+"group": "Grupo 3",
+"group_ref": "27776951/28153967",
+"name": "C.D.E. OROQUIETA-ESPINILLO 'B'"
+},
+{
+"competition": "PRIMERA AFICIONADO FS",
+"group": "Grupo 3",
+"group_ref": "27776951/28153967",
+"name": "C.D.E. PINAR DE SAN JOSE - ALCORCON 'C'"
+},
+{
+"competition": "PRIMERA AFICIONADO FS",
+"group": "Grupo 3",
+"group_ref": "27776951/28153967",
+"name": "CDB SPORTING LAS AGUILAS DE MADRID - IL POMO D'ORO 'C'"
+},
+{
+"competition": "PRIMERA AFICIONADO FS",
+"group": "Grupo 3",
+"group_ref": "27776951/28153967",
+"name": "CDE AMET - AGUIRRE"
+},
+{
+"competition": "PRIMERA AFICIONADO FS",
+"group": "Grupo 3",
+"group_ref": "27776951/28153967",
+"name": "CLUB AGUSTINIANO (FS) 'B'"
+},
+{
+"competition": "PRIMERA AFICIONADO FS",
+"group": "Grupo 3",
+"group_ref": "27776951/28153967",
+"name": "CLUB CORAZONISTAS 'B'"
+},
+{
+"competition": "PRIMERA AFICIONADO FS",
+"group": "Grupo 3",
+"group_ref": "27776951/28153967",
+"name": "COLEGIO CLARET (FS)"
+},
+{
+"competition": "PRIMERA AFICIONADO FS",
+"group": "Grupo 3",
+"group_ref": "27776951/28153967",
+"name": "GRUPO JACER - KERRINGCROSS"
+},
+{
+"competition": "PRIMERA AFICIONADO FS",
+"group": "Grupo 4",
+"group_ref": "27776951/28153975",
+"name": "ATLETICO TRABENCO ZARZAQUEMADA 'C'"
+},
+{
+"competition": "PRIMERA AFICIONADO FS",
+"group": "Grupo 4",
+"group_ref": "27776951/28153975",
+"name": "C.D. EUROPEO - FUTSAL PARDILLO SVP 'B'"
+},
+{
+"competition": "PRIMERA AFICIONADO FS",
+"group": "Grupo 4",
+"group_ref": "27776951/28153975",
+"name": "C.D. FUTSI ATLETICO NAVALCARNERO - FROZEN"
+},
+{
+"competition": "PRIMERA AFICIONADO FS",
+"group": "Grupo 4",
+"group_ref": "27776951/28153975",
+"name": "C.D. LA VILLA MOSTOLES 'B'"
+},
+{
+"competition": "PRIMERA AFICIONADO FS",
+"group": "Grupo 4",
+"group_ref": "27776951/28153975",
+"name": "C.D.E. ANDRES SEGOVIA MOSTOLES 'B'"
+},
+{
+"competition": "PRIMERA AFICIONADO FS",
+"group": "Grupo 4",
+"group_ref": "27776951/28153975",
+"name": "C.D.E. INTERSALA MOSTOLES"
+},
+{
+"competition": "PRIMERA AFICIONADO FS",
+"group": "Grupo 4",
+"group_ref": "27776951/28153975",
+"name": "C.D.E. PINAR DE SAN JOSE - ALCORCON 'B'"
+},
+{
+"competition": "PRIMERA AFICIONADO FS",
+"group": "Grupo 4",
+"group_ref": "27776951/28153975",
+"name": "C.D.E. SAN JOSE DE VALDERAS 'B'"
+},
+{
+"competition": "PRIMERA AFICIONADO FS",
+"group": "Grupo 4",
+"group_ref": "27776951/28153975",
+"name": "CDE BAYONA FUTSAL"
+},
+{
+"competition": "PRIMERA AFICIONADO FS",
+"group": "Grupo 4",
+"group_ref": "27776951/28153975",
+"name": "CDE FENIX FUENLABRADA (FS)"
+},
+{
+"competition": "PRIMERA AFICIONADO FS",
+"group": "Grupo 4",
+"group_ref": "27776951/28153975",
+"name": "CDE FUTBOL SALA EL ARROYO - GRIÑON"
+},
+{
+"competition": "PRIMERA AFICIONADO FS",
+"group": "Grupo 4",
+"group_ref": "27776951/28153975",
+"name": "Descansa"
+},
+{
+"competition": "PRIMERA AFICIONADO FS",
+"group": "Grupo 4",
+"group_ref": "27776951/28153975",
+"name": "FUTSALA PINTO - ESCUELA PATRI CHAMORRO"
+},
+{
+"competition": "PRIMERA AFICIONADO FS",
+"group": "Grupo 4",
+"group_ref": "27776951/28153975",
+"name": "SAD COLEGIO INTERNACIONAL KOLBE (FS)"
+},
+{
+"competition": "COPA SENIOR I - fase previa- FS",
+"group": "Eliminatorias",
+"group_ref": "28403847/28410203",
+"name": "AGRUPACION AUTO-ESCUELA SIMANCAS 'B'"
+},
+{
+"competition": "COPA SENIOR I - fase previa- FS",
+"group": "Eliminatorias",
+"group_ref": "28403847/28410203",
+"name": "ATLETICO TRABENCO ZARZAQUEMADA 'B'"
+},
+{
+"competition": "COPA SENIOR I - fase previa- FS",
+"group": "Eliminatorias",
+"group_ref": "28403847/28410203",
+"name": "C.D. DOSA"
+},
+{
+"competition": "COPA SENIOR I - fase previa- FS",
+"group": "Eliminatorias",
+"group_ref": "28403847/28410203",
+"name": "C.D. EDUCA & PLAY 'A'"
+},
+{
+"competition": "COPA SENIOR I - fase previa- FS",
+"group": "Eliminatorias",
+"group_ref": "28403847/28410203",
+"name": "C.D. LOPE DE VEGA 'A'"
+},
+{
+"competition": "COPA SENIOR I - fase previa- FS",
+"group": "Eliminatorias",
+"group_ref": "28403847/28410203",
+"name": "C.D. LOPE DE VEGA 'B'"
+},
+{
+"competition": "COPA SENIOR I - fase previa- FS",
+"group": "Eliminatorias",
+"group_ref": "28403847/28410203",
+"name": "C.D.E. DEHESA VILLALBA - AUTOESCUELA GRANDE"
+},
+{
+"competition": "COPA SENIOR I - fase previa- FS",
+"group": "Eliminatorias",
+"group_ref": "28403847/28410203",
+"name": "C.D.E. FUENLABRADA FUTBOL SALA 'A'"
+},
+{
+"competition": "COPA SENIOR I - fase previa- FS",
+"group": "Eliminatorias",
+"group_ref": "28403847/28410203",
+"name": "C.D.E. MEJORSALA"
+},
+{
+"competition": "COPA SENIOR I - fase previa- FS",
+"group": "Eliminatorias",
+"group_ref": "28403847/28410203",
+"name": "C.D.E. PINAR DE SAN JOSE - ALCORCON 'A'"
+},
+{
+"competition": "COPA SENIOR I - fase previa- FS",
+"group": "Eliminatorias",
+"group_ref": "28403847/28410203",
+"name": "CDB SPORTING LAS AGUILAS DE MADRID - PARISAT 'A'"
+},
+{
+"competition": "COPA SENIOR I - fase previa- FS",
+"group": "Eliminatorias",
+"group_ref": "28403847/28410203",
+"name": "CDE ANDEL - CENTRO EDUCATIVO"
+},
+{
+"competition": "COPA SENIOR I - fase previa- FS",
+"group": "Eliminatorias",
+"group_ref": "28403847/28410203",
+"name": "CDE ATHLETIC MOSTOLES 'B'"
+},
+{
+"competition": "COPA SENIOR I - fase previa- FS",
+"group": "Eliminatorias",
+"group_ref": "28403847/28410203",
+"name": "CDE SPORTING MORATA F.S. 'A'"
+},
+{
+"competition": "COPA SENIOR I - fase previa- FS",
+"group": "Eliminatorias",
+"group_ref": "28403847/28410203",
+"name": "CDE WINTER SQUAD"
+},
+{
+"competition": "COPA SENIOR I - fase previa- FS",
+"group": "Eliminatorias",
+"group_ref": "28403847/28410203",
+"name": "CLUB C.F.S. EL ALAMO 'B'"
+},
+{
+"competition": "COPA SENIOR I - fase previa- FS",
+"group": "Eliminatorias",
+"group_ref": "28403847/28410203",
+"name": "CLUB CORAZONISTAS 'A'"
+},
+{
+"competition": "COPA SENIOR I - fase previa- FS",
+"group": "Eliminatorias",
+"group_ref": "28403847/28410203",
+"name": "COLEGIO CARDENAL SPINOLA CHAMARTIN 'A'"
+},
+{
+"competition": "COPA SENIOR I - fase previa- FS",
+"group": "Eliminatorias",
+"group_ref": "28403847/28410203",
+"name": "COLEGIO CARDENAL SPINOLA CHAMARTIN 'B'"
+},
+{
+"competition": "COPA SENIOR I - fase previa- FS",
+"group": "Eliminatorias",
+"group_ref": "28403847/28410203",
+"name": "E.F.S. CIUDAD DE TORREJON - REDPISO TORREJON 'B'"
+},
+{
+"competition": "COPA SENIOR I - fase previa- FS",
+"group": "Eliminatorias",
+"group_ref": "28403847/28410203",
+"name": "ESCUELA DEPORTIVA BRUNETE"
+},
+{
+"competition": "COPA SENIOR I - fase previa- FS",
+"group": "Eliminatorias",
+"group_ref": "28403847/28410203",
+"name": "F.S. CHAMBERI - MIBOTICAE.COM 'A'"
+},
+{
+"competition": "COPA SENIOR I - fase previa- FS",
+"group": "Eliminatorias",
+"group_ref": "28403847/28410203",
+"name": "F.S. DIAGONAL 'A'"
+},
+{
+"competition": "COPA SENIOR I - fase previa- FS",
+"group": "Eliminatorias",
+"group_ref": "28403847/28410203",
+"name": "PARQUE NORTE F.S. - RODILLITO 'B'"
+},
+{
+"competition": "COPA SENIOR I - fase final- FS",
+"group": "Eliminatorias",
+"group_ref": "28403858/28410667",
+"name": "AGRUPACION AUTO-ESCUELA SIMANCAS - DYNAVIN 'A'"
+},
+{
+"competition": "COPA SENIOR I - fase final- FS",
+"group": "Eliminatorias",
+"group_ref": "28403858/28410667",
+"name": "ATLETICO TRABENCO ZARZAQUEMADA 'A'"
+},
+{
+"competition": "COPA SENIOR I - fase final- FS",
+"group": "Eliminatorias",
+"group_ref": "28403858/28410667",
+"name": "ATLETICO TRABENCO ZARZAQUEMADA 'B'"
+},
+{
+"competition": "COPA SENIOR I - fase final- FS",
+"group": "Eliminatorias",
+"group_ref": "28403858/28410667",
+"name": "C.D. LOPE DE VEGA 'A'"
+},
+{
+"competition": "COPA SENIOR I - fase final- FS",
+"group": "Eliminatorias",
+"group_ref": "28403858/28410667",
+"name": "C.D.E. EL VALLE 'B'"
+},
+{
+"competition": "COPA SENIOR I - fase final- FS",
+"group": "Eliminatorias",
+"group_ref": "28403858/28410667",
+"name": "C.D.E. PINAR DE SAN JOSE - ALCORCON 'A'"
+},
+{
+"competition": "COPA SENIOR I - fase final- FS",
+"group": "Eliminatorias",
+"group_ref": "28403858/28410667",
+"name": "CDE SPORTING MORATA F.S. 'A'"
+},
+{
+"competition": "COPA SENIOR I - fase final- FS",
+"group": "Eliminatorias",
+"group_ref": "28403858/28410667",
+"name": "COLEGIO CARDENAL SPINOLA CHAMARTIN 'B'"
+},
+{
+"competition": "COPA SENIOR I - fase final- FS",
+"group": "Eliminatorias",
+"group_ref": "28403858/28410667",
+"name": "Descansa"
+},
+{
+"competition": "COPA SENIOR I - fase final- FS",
+"group": "Eliminatorias",
+"group_ref": "28403858/28410667",
+"name": "E.F.S. CIUDAD DE TORREJON - REDPISO TORREJON 'B'"
+},
+{
+"competition": "COPA SENIOR I - fase final- FS",
+"group": "Eliminatorias",
+"group_ref": "28403858/28410667",
+"name": "F.S. DIAGONAL 'A'"
+},
+{
+"competition": "COPA SENIOR I - fase final- FS",
+"group": "Eliminatorias",
+"group_ref": "28403858/28410667",
+"name": "FUTSALA VILLAVERDE 'A'"
+},
+{
+"competition": "COPA SENIOR II - fase previa- FS",
+"group": "Eliminatorias",
+"group_ref": "28403871/28411587",
+"name": "A.D. COLEGIO JOYFE 'B'"
+},
+{
+"competition": "COPA SENIOR II - fase previa- FS",
+"group": "Eliminatorias",
+"group_ref": "28403871/28411587",
+"name": "A.D. TANCITARO"
+},
+{
+"competition": "COPA SENIOR II - fase previa- FS",
+"group": "Eliminatorias",
+"group_ref": "28403871/28411587",
+"name": "C.D. CUATRO CAMINOS"
+},
+{
+"competition": "COPA SENIOR II - fase previa- FS",
+"group": "Eliminatorias",
+"group_ref": "28403871/28411587",
+"name": "C.D. FUTSI ATLETICO NAVALCARNERO - FROZEN"
+},
+{
+"competition": "COPA SENIOR II - fase previa- FS",
+"group": "Eliminatorias",
+"group_ref": "28403871/28411587",
+"name": "C.D. LOPE DE VEGA 'C'"
+},
+{
+"competition": "COPA SENIOR II - fase previa- FS",
+"group": "Eliminatorias",
+"group_ref": "28403871/28411587",
+"name": "C.D.E. INTERSALA MOSTOLES"
+},
+{
+"competition": "COPA SENIOR II - fase previa- FS",
+"group": "Eliminatorias",
+"group_ref": "28403871/28411587",
+"name": "C.D.E. LAS MINAS - BAR REBUJITO 'B'"
+},
+{
+"competition": "COPA SENIOR II - fase previa- FS",
+"group": "Eliminatorias",
+"group_ref": "28403871/28411587",
+"name": "CDE BAYONA FUTSAL"
+},
+{
+"competition": "COPA SENIOR II - fase previa- FS",
+"group": "Eliminatorias",
+"group_ref": "28403871/28411587",
+"name": "CDE GOLOSO 108 - MIBOTICAE.COM"
+},
+{
+"competition": "COPA SENIOR II - fase previa- FS",
+"group": "Eliminatorias",
+"group_ref": "28403871/28411587",
+"name": "CDE SPORTING MORATA F.S. 'B'"
+},
+{
+"competition": "COPA SENIOR II - fase previa- FS",
+"group": "Eliminatorias",
+"group_ref": "28403871/28411587",
+"name": "CLUB CORAZONISTAS 'B'"
+},
+{
+"competition": "COPA SENIOR II - fase previa- FS",
+"group": "Eliminatorias",
+"group_ref": "28403871/28411587",
+"name": "CLUB DE FUTBOL RAYO MANZANARES"
+},
+{
+"competition": "COPA SENIOR II - fase previa- FS",
+"group": "Eliminatorias",
+"group_ref": "28403871/28411587",
+"name": "CLUB DEPORTIVO ELEMENTAL MALVAR"
+},
+{
+"competition": "COPA SENIOR II - fase previa- FS",
+"group": "Eliminatorias",
+"group_ref": "28403871/28411587",
+"name": "DEPORTIVO CALDEIRO"
+},
+{
+"competition": "COPA SENIOR II - fase previa- FS",
+"group": "Eliminatorias",
+"group_ref": "28403871/28411587",
+"name": "E.F.S. COLMENAR VIEJO 'B'"
+},
+{
+"competition": "COPA SENIOR II - fase previa- FS",
+"group": "Eliminatorias",
+"group_ref": "28403871/28411587",
+"name": "ESCUELA TORREJON JUNCAL F.S. 'B'"
+},
+{
+"competition": "COPA SENIOR II - fase previa- FS",
+"group": "Eliminatorias",
+"group_ref": "28403871/28411587",
+"name": "F.S. CHAMBERI - MIBOTICAE.COM 'B'"
+},
+{
+"competition": "COPA SENIOR II - fase previa- FS",
+"group": "Eliminatorias",
+"group_ref": "28403871/28411587",
+"name": "FUTSALA PINTO - ESCUELA PATRI CHAMORRO"
+},
+{
+"competition": "COPA SENIOR II - fase previa- FS",
+"group": "Eliminatorias",
+"group_ref": "28403871/28411587",
+"name": "SAN AGUSTIN DEL GUADALIX FUTBOL SALA"
+},
+{
+"competition": "COPA SENIOR II - fase previa- FS",
+"group": "Eliminatorias",
+"group_ref": "28403871/28411587",
+"name": "U.D. SAN LORENZO ABANTOS FS 'B'"
+},
+{
+"competition": "COPA SENIOR II - fase previa- FS",
+"group": "Eliminatorias",
+"group_ref": "28403871/28411587",
+"name": "UNION TRES CANTOS FUTBOL SALA 'C'"
+},
+{
+"competition": "COPA SENIOR II - fase previa- FS",
+"group": "Eliminatorias",
+"group_ref": "28403871/28411587",
+"name": "VILLA DE ALGETE FUTBOL SALA - MIDAS"
+},
+{
+"competition": "COPA SENIOR II - fase final- FS",
+"group": "Eliminatorias",
+"group_ref": "28403930/28411968",
+"name": "A.D. COLEGIO JOYFE 'A'"
+},
+{
+"competition": "COPA SENIOR II - fase final- FS",
+"group": "Eliminatorias",
+"group_ref": "28403930/28411968",
+"name": "AGRUPACION AUTO-ESCUELA SIMANCAS 'C'"
+},
+{
+"competition": "COPA SENIOR II - fase final- FS",
+"group": "Eliminatorias",
+"group_ref": "28403930/28411968",
+"name": "ASTON F.S. - ALSA"
+},
+{
+"competition": "COPA SENIOR II - fase final- FS",
+"group": "Eliminatorias",
+"group_ref": "28403930/28411968",
+"name": "ATLETICO TRABENCO ZARZAQUEMADA 'C'"
+},
+{
+"competition": "COPA SENIOR II - fase final- FS",
+"group": "Eliminatorias",
+"group_ref": "28403930/28411968",
+"name": "C.D. EDUCA & PLAY 'B'"
+},
+{
+"competition": "COPA SENIOR II - fase final- FS",
+"group": "Eliminatorias",
+"group_ref": "28403930/28411968",
+"name": "C.D. EUROPEO - FUTSAL PARDILLO SVP 'A'"
+},
+{
+"competition": "COPA SENIOR II - fase final- FS",
+"group": "Eliminatorias",
+"group_ref": "28403930/28411968",
+"name": "C.D. LOPE DE VEGA 'C'"
+},
+{
+"competition": "COPA SENIOR II - fase final- FS",
+"group": "Eliminatorias",
+"group_ref": "28403930/28411968",
+"name": "C.D. VILLA DEL PRADO"
+},
+{
+"competition": "COPA SENIOR II - fase final- FS",
+"group": "Eliminatorias",
+"group_ref": "28403930/28411968",
+"name": "C.D.E. FUENLABRADA FUTBOL SALA 'B'"
+},
+{
+"competition": "COPA SENIOR II - fase final- FS",
+"group": "Eliminatorias",
+"group_ref": "28403930/28411968",
+"name": "C.D.E. LAS MINAS - KENNA DENTAL 'A'"
+},
+{
+"competition": "COPA SENIOR II - fase final- FS",
+"group": "Eliminatorias",
+"group_ref": "28403930/28411968",
+"name": "CDE AMET - AGUIRRE"
+},
+{
+"competition": "COPA SENIOR II - fase final- FS",
+"group": "Eliminatorias",
+"group_ref": "28403930/28411968",
+"name": "CDE BAYONA FUTSAL"
+},
+{
+"competition": "COPA SENIOR II - fase final- FS",
+"group": "Eliminatorias",
+"group_ref": "28403930/28411968",
+"name": "CDE E.F.S. HUMANES"
+},
+{
+"competition": "COPA SENIOR II - fase final- FS",
+"group": "Eliminatorias",
+"group_ref": "28403930/28411968",
+"name": "CDE EXTINTORES LA UNION VEGA FUTSAL"
+},
+{
+"competition": "COPA SENIOR II - fase final- FS",
+"group": "Eliminatorias",
+"group_ref": "28403930/28411968",
+"name": "CDE FENIX FUENLABRADA (FS)"
+},
+{
+"competition": "COPA SENIOR II - fase final- FS",
+"group": "Eliminatorias",
+"group_ref": "28403930/28411968",
+"name": "CDE FUTBOL SALA EL ARROYO - GRIÑON"
+},
+{
+"competition": "COPA SENIOR II - fase final- FS",
+"group": "Eliminatorias",
+"group_ref": "28403930/28411968",
+"name": "CDE MOSTOLES SUR FS"
+},
+{
+"competition": "COPA SENIOR II - fase final- FS",
+"group": "Eliminatorias",
+"group_ref": "28403930/28411968",
+"name": "CDE SPORTING MORATA F.S. 'B'"
+},
+{
+"competition": "COPA SENIOR II - fase final- FS",
+"group": "Eliminatorias",
+"group_ref": "28403930/28411968",
+"name": "CLUB C.F.S. EL ALAMO 'C'"
+},
+{
+"competition": "COPA SENIOR II - fase final- FS",
+"group": "Eliminatorias",
+"group_ref": "28403930/28411968",
+"name": "CLUB DE FUTBOL RAYO MANZANARES"
+},
+{
+"competition": "COPA SENIOR II - fase final- FS",
+"group": "Eliminatorias",
+"group_ref": "28403930/28411968",
+"name": "COLEGIO CARDENAL SPINOLA CHAMARTIN 'C'"
+},
+{
+"competition": "COPA SENIOR II - fase final- FS",
+"group": "Eliminatorias",
+"group_ref": "28403930/28411968",
+"name": "DEPORTIVO CALDEIRO"
+},
+{
+"competition": "COPA SENIOR II - fase final- FS",
+"group": "Eliminatorias",
+"group_ref": "28403930/28411968",
+"name": "Descansa"
+},
+{
+"competition": "COPA SENIOR II - fase final- FS",
+"group": "Eliminatorias",
+"group_ref": "28403930/28411968",
+"name": "ESCUELA TORREJON JUNCAL F.S. 'A'"
+},
+{
+"competition": "COPA SENIOR II - fase final- FS",
+"group": "Eliminatorias",
+"group_ref": "28403930/28411968",
+"name": "F.S. DIAGONAL 'B'"
+},
+{
+"competition": "COPA SENIOR II - fase final- FS",
+"group": "Eliminatorias",
+"group_ref": "28403930/28411968",
+"name": "UNION DEPORTIVA LAS ROZAS BOADILLA"
+},
+{
+"competition": "COPA SENIOR II - fase final- FS",
+"group": "Eliminatorias",
+"group_ref": "28403930/28411968",
+"name": "UNION TRES CANTOS FUTBOL SALA 'B'"
+},
+{
+"competition": "COPA SENIOR II - fase final- FS",
+"group": "Eliminatorias",
+"group_ref": "28403930/28411968",
+"name": "UNION TRES CANTOS FUTBOL SALA 'C'"
+},
+{
+"competition": "COPA SENIOR II - fase final- FS",
+"group": "Eliminatorias",
+"group_ref": "28403930/28411968",
+"name": "VILLA DE ALGETE FUTBOL SALA - MIDAS"
+},
+{
+"competition": "COPA JUVENIL - fase previa- FS",
+"group": "Eliminatorias",
+"group_ref": "28404003/28413770",
+"name": "A.D. ESTRECHO TETUAN"
+},
+{
+"competition": "COPA JUVENIL - fase previa- FS",
+"group": "Eliminatorias",
+"group_ref": "28404003/28413770",
+"name": "C.D. EDUCA & PLAY"
+},
+{
+"competition": "COPA JUVENIL - fase previa- FS",
+"group": "Eliminatorias",
+"group_ref": "28404003/28413770",
+"name": "C.D. FUTSI ATLETICO NAVALCARNERO - FROZEN"
+},
+{
+"competition": "COPA JUVENIL - fase previa- FS",
+"group": "Eliminatorias",
+"group_ref": "28404003/28413770",
+"name": "C.D. LOPE DE VEGA 'C'"
+},
+{
+"competition": "COPA JUVENIL - fase previa- FS",
+"group": "Eliminatorias",
+"group_ref": "28404003/28413770",
+"name": "C.D.E. ALCOBENDAS FUTSAL (FS)"
+},
+{
+"competition": "COPA JUVENIL - fase previa- FS",
+"group": "Eliminatorias",
+"group_ref": "28404003/28413770",
+"name": "C.D.E. ANDRES SEGOVIA-MOSTOLES"
+},
+{
+"competition": "COPA JUVENIL - fase previa- FS",
+"group": "Eliminatorias",
+"group_ref": "28404003/28413770",
+"name": "C.D.E. FUENLABRADA FUTBOL SALA (FS) 'B'"
+},
+{
+"competition": "COPA JUVENIL - fase previa- FS",
+"group": "Eliminatorias",
+"group_ref": "28404003/28413770",
+"name": "C.D.E. LAS MINAS"
+},
+{
+"competition": "COPA JUVENIL - fase previa- FS",
+"group": "Eliminatorias",
+"group_ref": "28404003/28413770",
+"name": "C.D.E. MEJORSALA"
+},
+{
+"competition": "COPA JUVENIL - fase previa- FS",
+"group": "Eliminatorias",
+"group_ref": "28404003/28413770",
+"name": "C.D.E. PINAR DE SAN JOSE - ALCORCON 'B'"
+},
+{
+"competition": "COPA JUVENIL - fase previa- FS",
+"group": "Eliminatorias",
+"group_ref": "28404003/28413770",
+"name": "CDE EXTINTORES LA UNION VEGA FUTSAL (FS)"
+},
+{
+"competition": "COPA JUVENIL - fase previa- FS",
+"group": "Eliminatorias",
+"group_ref": "28404003/28413770",
+"name": "CLUB C.F.S. EL ALAMO"
+},
+{
+"competition": "COPA JUVENIL - fase previa- FS",
+"group": "Eliminatorias",
+"group_ref": "28404003/28413770",
+"name": "FUTBOL SALA PARLA"
+},
+{
+"competition": "COPA JUVENIL - fase previa- FS",
+"group": "Eliminatorias",
+"group_ref": "28404003/28413770",
+"name": "UNION TRES CANTOS FUTBOL SALA"
+}
+]
+}

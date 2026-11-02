@@ -1,0 +1,7165 @@
+{
+ "_doc": "Dataset 'dev' del extractor de equipos y del router (Fase 2A). Redactado ANTES de ejecutar el extractor sobre él (excepto 'dev', que se usó para depurar). Etiquetas por construcción y por el catálogo real (tests/fixtures/entities/team_catalog.json). `form` indica cómo se escribió el equipo; las formas 'core' se etiquetan por una regla (no son evidencia independiente de la semántica).",
+ "set": "dev",
+ "catalog": "tests/fixtures/entities/team_catalog.json",
+ "cases": [
+  {
+   "id": "dev_0000",
+   "question": "Oye, ¿Cuántos puntos lleva C.D.E. SAN JOSE DE VALDERAS - VALDERAS F.S. 'B' esta temporada?",
+   "source": "blind",
+   "category": "team_points",
+   "intent": "standings",
+   "needed_tools": [
+    "find_teams",
+    "get_standings"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "get_standings",
+    "list_teams"
+   ],
+   "prefetch_expected": "fire",
+   "prefetch_entity": "C.D.E. SAN JOSE DE VALDERAS - VALDERAS F.S. 'B'",
+   "abstain_reason": null,
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": true,
+   "season": "current",
+   "form": "official",
+   "notes": ""
+  },
+  {
+   "id": "dev_0001",
+   "question": "¿Qué partido tiene club union deportiva loeches 'a' en la jornada 3?",
+   "source": "blind",
+   "category": "team_round_match",
+   "intent": "matches",
+   "needed_tools": [
+    "find_teams",
+    "list_rounds",
+    "list_matches"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "list_rounds",
+    "list_matches",
+    "get_match",
+    "list_teams"
+   ],
+   "prefetch_expected": "fire",
+   "prefetch_entity": "CLUB UNION DEPORTIVA LOECHES 'A'",
+   "abstain_reason": null,
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "current",
+   "form": "lower",
+   "notes": ""
+  },
+  {
+   "id": "dev_0002",
+   "question": "¿Cómo va CDE E.F.S. HUMANES?",
+   "source": "blind",
+   "category": "neg_homonym",
+   "intent": "matches",
+   "needed_tools": [
+    "find_teams"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "list_matches",
+    "get_standings",
+    "list_teams"
+   ],
+   "prefetch_expected": "abstain",
+   "prefetch_entity": null,
+   "abstain_reason": "homonym",
+   "entity_ambiguity": "multi_competition",
+   "scope": "needs_clarification",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "current",
+   "form": null,
+   "notes": ""
+  },
+  {
+   "id": "dev_0003",
+   "question": "En PREFERENTE JUVENIL FS (Grupo 2), próximo encuentro de CDE FUSION FUTBOL SALA SAN FERNANDO 'A'",
+   "source": "blind",
+   "category": "team_next_match",
+   "intent": "matches",
+   "needed_tools": [
+    "find_teams",
+    "list_matches"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "list_matches",
+    "get_match",
+    "list_teams"
+   ],
+   "prefetch_expected": "fire",
+   "prefetch_entity": "CDE FUSION FUTBOL SALA SAN FERNANDO 'A'",
+   "abstain_reason": null,
+   "entity_ambiguity": "multi_competition",
+   "scope": "resolved",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": true,
+   "season": "current",
+   "form": "official+scope",
+   "notes": ""
+  },
+  {
+   "id": "dev_0004",
+   "question": "Oye, ¿En qué posición está E.F.S. CIUDAD DE TORREJON - REDPISO TORREJON ’A’?",
+   "source": "blind",
+   "category": "team_standing",
+   "intent": "standings",
+   "needed_tools": [
+    "find_teams",
+    "get_standings"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "get_standings",
+    "list_teams"
+   ],
+   "prefetch_expected": "fire",
+   "prefetch_entity": "E.F.S. CIUDAD DE TORREJON - REDPISO TORREJON 'A'",
+   "abstain_reason": null,
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": true,
+   "season": "current",
+   "form": "curly_quotes",
+   "notes": ""
+  },
+  {
+   "id": "dev_0005",
+   "question": "Una duda: ¿Qué árbitros dirigieron el último encuentro de C.D.E. VIRGEN DEL CERRO FUTSAL?",
+   "source": "blind",
+   "category": "team_referee",
+   "intent": "matches",
+   "needed_tools": [
+    "find_teams",
+    "list_matches",
+    "get_match_report"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "list_matches",
+    "get_match_report",
+    "get_match",
+    "list_teams"
+   ],
+   "prefetch_expected": "fire",
+   "prefetch_entity": "C.D.E. VIRGEN DEL CERRO FUTSAL",
+   "abstain_reason": null,
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "current",
+   "form": "official",
+   "notes": ""
+  },
+  {
+   "id": "dev_0006",
+   "question": "¿Quién lidera la clasificación de COPA SENIOR I - fase previa- FS (Eliminatorias)?",
+   "source": "blind",
+   "category": "neg_table",
+   "intent": "standings",
+   "needed_tools": [
+    "get_standings"
+   ],
+   "plausible_tools": [
+    "get_standings",
+    "list_competitions",
+    "list_groups"
+   ],
+   "prefetch_expected": "abstain",
+   "prefetch_entity": null,
+   "abstain_reason": "no_team",
+   "entity_ambiguity": "none",
+   "scope": "resolved",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "current",
+   "form": null,
+   "notes": ""
+  },
+  {
+   "id": "dev_0007",
+   "question": "¿En qué campo juega A.D. OBISPO PERELLO 'A' su próximo partido?",
+   "source": "blind",
+   "category": "team_venue",
+   "intent": "matches",
+   "needed_tools": [
+    "find_teams",
+    "list_matches",
+    "get_match"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "list_matches",
+    "get_match",
+    "list_teams"
+   ],
+   "prefetch_expected": "fire",
+   "prefetch_entity": "A.D. OBISPO PERELLO 'A'",
+   "abstain_reason": null,
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "current",
+   "form": "official",
+   "notes": ""
+  },
+  {
+   "id": "dev_0008",
+   "question": "¿Qué jugador de cde paraiso sagrados corazones 'a' ha marcado más goles?",
+   "source": "blind",
+   "category": "team_team_scorer",
+   "intent": "scorers",
+   "needed_tools": [
+    "find_teams",
+    "get_scorer_table"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "get_scorer_table",
+    "top_scorers",
+    "find_players",
+    "list_teams"
+   ],
+   "prefetch_expected": "fire",
+   "prefetch_entity": "CDE PARAISO SAGRADOS CORAZONES 'A'",
+   "abstain_reason": null,
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "current",
+   "form": "lower",
+   "notes": ""
+  },
+  {
+   "id": "dev_0009",
+   "question": "Oye, ¿Qué jugador de C.D.E. CASCO ANTIGUO CARABANCHEL 'A' ha marcado más goles?",
+   "source": "blind",
+   "category": "team_team_scorer",
+   "intent": "scorers",
+   "needed_tools": [
+    "find_teams",
+    "get_scorer_table"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "get_scorer_table",
+    "top_scorers",
+    "find_players",
+    "list_teams"
+   ],
+   "prefetch_expected": "fire",
+   "prefetch_entity": "C.D.E. CASCO ANTIGUO CARABANCHEL 'A'",
+   "abstain_reason": null,
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "current",
+   "form": "official",
+   "notes": ""
+  },
+  {
+   "id": "dev_0010",
+   "question": "¿En qué equipo juega Lucas Casillas?",
+   "source": "blind",
+   "category": "neg_player",
+   "intent": "scorers",
+   "needed_tools": [
+    "find_players"
+   ],
+   "plausible_tools": [
+    "find_players",
+    "top_scorers",
+    "get_scorer_table",
+    "list_match_events"
+   ],
+   "prefetch_expected": "abstain",
+   "prefetch_entity": null,
+   "abstain_reason": "player",
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "current",
+   "form": null,
+   "notes": ""
+  },
+  {
+   "id": "dev_0011",
+   "question": "¿Quién es el máximo goleador de TERCERA DIVISIÓN FS (Grupo 3)?",
+   "source": "blind",
+   "category": "neg_table",
+   "intent": "scorers",
+   "needed_tools": [
+    "get_scorer_table"
+   ],
+   "plausible_tools": [
+    "get_scorer_table",
+    "list_competitions",
+    "list_groups"
+   ],
+   "prefetch_expected": "abstain",
+   "prefetch_entity": null,
+   "abstain_reason": "no_team",
+   "entity_ambiguity": "none",
+   "scope": "resolved",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "current",
+   "form": null,
+   "notes": ""
+  },
+  {
+   "id": "dev_0012",
+   "question": "Una duda: ¿Qué jugador de c.s.d. parque de lisboa futsal ha marcado más goles?",
+   "source": "blind",
+   "category": "team_team_scorer",
+   "intent": "scorers",
+   "needed_tools": [
+    "find_teams",
+    "get_scorer_table"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "get_scorer_table",
+    "top_scorers",
+    "find_players",
+    "list_teams"
+   ],
+   "prefetch_expected": "fire",
+   "prefetch_entity": "C.S.D. PARQUE DE LISBOA FUTSAL",
+   "abstain_reason": null,
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "current",
+   "form": "lower",
+   "notes": ""
+  },
+  {
+   "id": "dev_0013",
+   "question": "Una duda: ¿En qué posición está FUTSALA PINTO - ESCUELA PATRI CHAMORRO 'A'?",
+   "source": "blind",
+   "category": "team_standing",
+   "intent": "standings",
+   "needed_tools": [
+    "find_teams",
+    "get_standings"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "get_standings",
+    "list_teams"
+   ],
+   "prefetch_expected": "fire",
+   "prefetch_entity": "FUTSALA PINTO - ESCUELA PATRI CHAMORRO 'A'",
+   "abstain_reason": null,
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": true,
+   "season": "current",
+   "form": "official",
+   "notes": ""
+  },
+  {
+   "id": "dev_0014",
+   "question": "¿Y en qué puesto está?",
+   "source": "blind",
+   "category": "neg_follow",
+   "intent": "matches",
+   "needed_tools": [
+    "find_teams",
+    "list_matches"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "list_matches",
+    "get_standings",
+    "get_match_report"
+   ],
+   "prefetch_expected": "abstain",
+   "prefetch_entity": null,
+   "abstain_reason": "context",
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": true,
+   "prev_questions": [
+    "¿Cómo va INTER FUTBOL SALA - JP FINANCIAL 'A'?"
+   ],
+   "focus": {
+    "team": "INTER FUTBOL SALA - JP FINANCIAL 'A'"
+   },
+   "tier0_eligible": false,
+   "season": "current",
+   "form": null,
+   "notes": ""
+  },
+  {
+   "id": "dev_0015",
+   "question": "Oye, Escribe un poema sobre el fútbol sala",
+   "source": "blind",
+   "category": "neg_off",
+   "intent": "unrecognized",
+   "needed_tools": [],
+   "plausible_tools": [],
+   "prefetch_expected": "abstain",
+   "prefetch_entity": null,
+   "abstain_reason": "off_topic",
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "current",
+   "form": null,
+   "notes": ""
+  },
+  {
+   "id": "dev_0016",
+   "question": "Dime el marcador del último partido de ATLETICO TRABENCO ZARZAQUEMADA B",
+   "source": "blind",
+   "category": "neg_homonym",
+   "intent": "matches",
+   "needed_tools": [
+    "find_teams"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "list_matches",
+    "get_standings",
+    "list_teams"
+   ],
+   "prefetch_expected": "abstain",
+   "prefetch_entity": null,
+   "abstain_reason": "homonym",
+   "entity_ambiguity": "multi_competition",
+   "scope": "needs_clarification",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "current",
+   "form": null,
+   "notes": ""
+  },
+  {
+   "id": "dev_0017",
+   "question": "¿Hay algún equipo de Pizza?",
+   "source": "blind",
+   "category": "neg_generic",
+   "intent": "teams_players",
+   "needed_tools": [
+    "list_teams"
+   ],
+   "plausible_tools": [
+    "list_teams",
+    "find_teams",
+    "list_groups"
+   ],
+   "prefetch_expected": "abstain",
+   "prefetch_entity": null,
+   "abstain_reason": "generic_word",
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "current",
+   "form": null,
+   "notes": ""
+  },
+  {
+   "id": "dev_0018",
+   "question": "¿Cómo va el Getafe CF?",
+   "source": "blind",
+   "category": "neg_foreign",
+   "intent": "matches",
+   "needed_tools": [
+    "find_teams"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "list_matches",
+    "get_standings",
+    "list_teams"
+   ],
+   "prefetch_expected": "abstain",
+   "prefetch_entity": null,
+   "abstain_reason": "not_in_catalog",
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "current",
+   "form": null,
+   "notes": ""
+  },
+  {
+   "id": "dev_0019",
+   "question": "En PREFERENTE AFICIONADO FS (Grupo 1), ¿En qué posición está CDE EFS HUMANES?",
+   "source": "blind",
+   "category": "team_standing",
+   "intent": "standings",
+   "needed_tools": [
+    "find_teams",
+    "get_standings"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "get_standings",
+    "list_teams"
+   ],
+   "prefetch_expected": "fire",
+   "prefetch_entity": "CDE E.F.S. HUMANES",
+   "abstain_reason": null,
+   "entity_ambiguity": "multi_competition",
+   "scope": "resolved",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": true,
+   "season": "current",
+   "form": "no_dots+scope",
+   "notes": ""
+  },
+  {
+   "id": "dev_0020",
+   "question": "En PRIMERA DIVISION AUTONOMICA AFICIONADO FS (Grupo 1), ¿Quién es el máximo goleador de Atletico Trabenco Zarzaquemada 'b'?",
+   "source": "blind",
+   "category": "team_team_scorer",
+   "intent": "scorers",
+   "needed_tools": [
+    "find_teams",
+    "get_scorer_table"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "get_scorer_table",
+    "top_scorers",
+    "find_players",
+    "list_teams"
+   ],
+   "prefetch_expected": "fire",
+   "prefetch_entity": "ATLETICO TRABENCO ZARZAQUEMADA 'B'",
+   "abstain_reason": null,
+   "entity_ambiguity": "multi_competition",
+   "scope": "resolved",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "current",
+   "form": "title+scope",
+   "notes": ""
+  },
+  {
+   "id": "dev_0021",
+   "question": "¿A qué grupo pertenece a.d. alcorcon 'a'?",
+   "source": "blind",
+   "category": "team_group_lookup",
+   "intent": "teams_players",
+   "needed_tools": [
+    "find_teams"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "list_teams",
+    "list_groups"
+   ],
+   "prefetch_expected": "fire",
+   "prefetch_entity": "A.D. ALCORCON 'A'",
+   "abstain_reason": null,
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": true,
+   "season": "current",
+   "form": "lower",
+   "notes": ""
+  },
+  {
+   "id": "dev_0022",
+   "question": "¿Contra quién juega AD ALCORCON 'A' el próximo fin de semana?",
+   "source": "blind",
+   "category": "team_next_match",
+   "intent": "matches",
+   "needed_tools": [
+    "find_teams",
+    "list_matches"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "list_matches",
+    "get_match",
+    "list_teams"
+   ],
+   "prefetch_expected": "fire",
+   "prefetch_entity": "A.D. ALCORCON 'A'",
+   "abstain_reason": null,
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": true,
+   "season": "current",
+   "form": "no_dots",
+   "notes": ""
+  },
+  {
+   "id": "dev_0023",
+   "question": "Oye, ¿En qué grupo juega C.D.E. VIRGEN DEL CERRO FUTSAL?",
+   "source": "blind",
+   "category": "team_group_lookup",
+   "intent": "teams_players",
+   "needed_tools": [
+    "find_teams"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "list_teams",
+    "list_groups"
+   ],
+   "prefetch_expected": "fire",
+   "prefetch_entity": "C.D.E. VIRGEN DEL CERRO FUTSAL",
+   "abstain_reason": null,
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": true,
+   "season": "current",
+   "form": "official",
+   "notes": ""
+  },
+  {
+   "id": "dev_0024",
+   "question": "Una duda: ¿Cuántos puntos tiene Club Arganda Futsal 'a'?",
+   "source": "blind",
+   "category": "team_points",
+   "intent": "standings",
+   "needed_tools": [
+    "find_teams",
+    "get_standings"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "get_standings",
+    "list_teams"
+   ],
+   "prefetch_expected": "fire",
+   "prefetch_entity": "CLUB ARGANDA FUTSAL 'A'",
+   "abstain_reason": null,
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": true,
+   "season": "current",
+   "form": "title",
+   "notes": ""
+  },
+  {
+   "id": "dev_0025",
+   "question": "Una duda: ¿Qué puesto ocupa Arganda Futsal A en la clasificación?",
+   "source": "blind",
+   "category": "team_standing",
+   "intent": "standings",
+   "needed_tools": [
+    "find_teams",
+    "get_standings"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "get_standings",
+    "list_teams"
+   ],
+   "prefetch_expected": "fire",
+   "prefetch_entity": "CLUB ARGANDA FUTSAL 'A'",
+   "abstain_reason": null,
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": true,
+   "season": "current",
+   "form": "core",
+   "notes": "núcleo etiquetado por regla"
+  },
+  {
+   "id": "dev_0026",
+   "question": "¿Hay algún equipo de Aquila?",
+   "source": "blind",
+   "category": "neg_generic",
+   "intent": "teams_players",
+   "needed_tools": [
+    "list_teams"
+   ],
+   "plausible_tools": [
+    "list_teams",
+    "find_teams",
+    "list_groups"
+   ],
+   "prefetch_expected": "abstain",
+   "prefetch_entity": null,
+   "abstain_reason": "generic_word",
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "current",
+   "form": null,
+   "notes": ""
+  },
+  {
+   "id": "dev_0027",
+   "question": "¿Cuál fue el último resultado de A.D. ALCORCON 'A'?",
+   "source": "blind",
+   "category": "neg_follow",
+   "intent": "matches",
+   "needed_tools": [
+    "find_teams",
+    "list_matches"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "list_matches",
+    "get_standings",
+    "get_match_report"
+   ],
+   "prefetch_expected": "abstain",
+   "prefetch_entity": null,
+   "abstain_reason": "context",
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": true,
+   "prev_questions": [
+    "¿Cómo va A.D. ALCORCON 'A'?"
+   ],
+   "focus": {
+    "team": "A.D. ALCORCON 'A'"
+   },
+   "tier0_eligible": false,
+   "season": "current",
+   "form": null,
+   "notes": ""
+  },
+  {
+   "id": "dev_0028",
+   "question": "¿Cuántos puntos tuvo FUTSAL SANSE - DOMINO'S PIZZA 'A' en 2018?",
+   "source": "blind",
+   "category": "neg_history",
+   "intent": "unrecognized",
+   "needed_tools": [],
+   "plausible_tools": [
+    "find_teams"
+   ],
+   "prefetch_expected": "abstain",
+   "prefetch_entity": null,
+   "abstain_reason": "historical",
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "historical",
+   "form": null,
+   "notes": ""
+  },
+  {
+   "id": "dev_0029",
+   "question": "¿A qué grupo pertenece CLUB CORAZONISTAS?",
+   "source": "blind",
+   "category": "team_group_lookup",
+   "intent": "teams_players",
+   "needed_tools": [
+    "find_teams"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "list_teams",
+    "list_groups"
+   ],
+   "prefetch_expected": "fire",
+   "prefetch_entity": "CLUB CORAZONISTAS",
+   "abstain_reason": null,
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": true,
+   "season": "current",
+   "form": "official",
+   "notes": ""
+  },
+  {
+   "id": "dev_0030",
+   "question": "¿Cómo va el FC Inventado 90?",
+   "source": "blind",
+   "category": "neg_foreign",
+   "intent": "matches",
+   "needed_tools": [
+    "find_teams"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "list_matches",
+    "get_standings",
+    "list_teams"
+   ],
+   "prefetch_expected": "abstain",
+   "prefetch_entity": null,
+   "abstain_reason": "not_in_catalog",
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "current",
+   "form": null,
+   "notes": ""
+  },
+  {
+   "id": "dev_0031",
+   "question": "¿Qué árbitros dirigieron el último encuentro de C.D.E. DEPORTIVO MADRID FUTSAL?",
+   "source": "blind",
+   "category": "team_referee",
+   "intent": "matches",
+   "needed_tools": [
+    "find_teams",
+    "list_matches",
+    "get_match_report"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "list_matches",
+    "get_match_report",
+    "get_match",
+    "list_teams"
+   ],
+   "prefetch_expected": "fire",
+   "prefetch_entity": "C.D.E. DEPORTIVO MADRID FUTSAL",
+   "abstain_reason": null,
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "current",
+   "form": "official",
+   "notes": ""
+  },
+  {
+   "id": "dev_0032",
+   "question": "¿Cuál fue el último resultado de CDE E.F.S. HUMANES 'B'?",
+   "source": "blind",
+   "category": "team_last_result",
+   "intent": "matches",
+   "needed_tools": [
+    "find_teams",
+    "list_matches"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "list_matches",
+    "get_match",
+    "get_match_report",
+    "list_teams"
+   ],
+   "prefetch_expected": "fire",
+   "prefetch_entity": "CDE E.F.S. HUMANES 'B'",
+   "abstain_reason": null,
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": true,
+   "season": "current",
+   "form": "official",
+   "notes": ""
+  },
+  {
+   "id": "dev_0033",
+   "question": "¿Quién lidera la clasificación de COPA SENIOR II - fase previa- FS (Eliminatorias)?",
+   "source": "blind",
+   "category": "neg_table",
+   "intent": "standings",
+   "needed_tools": [
+    "get_standings"
+   ],
+   "plausible_tools": [
+    "get_standings",
+    "list_competitions",
+    "list_groups"
+   ],
+   "prefetch_expected": "abstain",
+   "prefetch_entity": null,
+   "abstain_reason": "no_team",
+   "entity_ambiguity": "none",
+   "scope": "resolved",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "current",
+   "form": null,
+   "notes": ""
+  },
+  {
+   "id": "dev_0034",
+   "question": "¿Cómo ha quedado GREDOS SAN DIEGO LAS SUERTES 'A' en la liga?",
+   "source": "blind",
+   "category": "team_status",
+   "intent": "composite",
+   "needed_tools": [
+    "find_teams",
+    "get_standings",
+    "list_matches"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "get_standings",
+    "list_matches",
+    "get_match",
+    "list_teams"
+   ],
+   "prefetch_expected": "fire",
+   "prefetch_entity": "GREDOS SAN DIEGO LAS SUERTES 'A'",
+   "abstain_reason": null,
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "current",
+   "form": "official",
+   "notes": ""
+  },
+  {
+   "id": "dev_0035",
+   "question": "¿En qué grupo juega UNION DEPORTIVA LAS ROZAS BOADILLA - AST TCNET?",
+   "source": "blind",
+   "category": "team_group_lookup",
+   "intent": "teams_players",
+   "needed_tools": [
+    "find_teams"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "list_teams",
+    "list_groups"
+   ],
+   "prefetch_expected": "fire",
+   "prefetch_entity": "UNION DEPORTIVA LAS ROZAS BOADILLA - AST TCNET",
+   "abstain_reason": null,
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": true,
+   "season": "current",
+   "form": "official",
+   "notes": ""
+  },
+  {
+   "id": "dev_0036",
+   "question": "Una duda: ¿Cuánto dura cada mitad de un partido de fútbol sala?",
+   "source": "blind",
+   "category": "neg_rules",
+   "intent": "rules",
+   "needed_tools": [
+    "search_rules"
+   ],
+   "plausible_tools": [
+    "search_rules"
+   ],
+   "prefetch_expected": "abstain",
+   "prefetch_entity": null,
+   "abstain_reason": "no_team",
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "current",
+   "form": null,
+   "notes": ""
+  },
+  {
+   "id": "dev_0037",
+   "question": "Una duda: ¿Qué tiempo hace hoy?",
+   "source": "blind",
+   "category": "neg_off",
+   "intent": "unrecognized",
+   "needed_tools": [],
+   "plausible_tools": [],
+   "prefetch_expected": "abstain",
+   "prefetch_entity": null,
+   "abstain_reason": "off_topic",
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "current",
+   "form": null,
+   "notes": ""
+  },
+  {
+   "id": "dev_0038",
+   "question": "¿Qué puesto ocupa RACING LA PALOMA en la clasificación?",
+   "source": "blind",
+   "category": "team_standing",
+   "intent": "standings",
+   "needed_tools": [
+    "find_teams",
+    "get_standings"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "get_standings",
+    "list_teams"
+   ],
+   "prefetch_expected": "fire",
+   "prefetch_entity": "RACING LA PALOMA",
+   "abstain_reason": null,
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": true,
+   "season": "current",
+   "form": "official",
+   "notes": ""
+  },
+  {
+   "id": "dev_0039",
+   "question": "Una duda: ¿En qué posición está AD OBISPO PERELLO 'A'?",
+   "source": "blind",
+   "category": "team_standing",
+   "intent": "standings",
+   "needed_tools": [
+    "find_teams",
+    "get_standings"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "get_standings",
+    "list_teams"
+   ],
+   "prefetch_expected": "fire",
+   "prefetch_entity": "A.D. OBISPO PERELLO 'A'",
+   "abstain_reason": null,
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": true,
+   "season": "current",
+   "form": "no_dots",
+   "notes": ""
+  },
+  {
+   "id": "dev_0040",
+   "question": "¿Contra quién juega Gredos San Diego Las Suertes 'a' el próximo fin de semana?",
+   "source": "blind",
+   "category": "team_next_match",
+   "intent": "matches",
+   "needed_tools": [
+    "find_teams",
+    "list_matches"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "list_matches",
+    "get_match",
+    "list_teams"
+   ],
+   "prefetch_expected": "fire",
+   "prefetch_entity": "GREDOS SAN DIEGO LAS SUERTES 'A'",
+   "abstain_reason": null,
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": true,
+   "season": "current",
+   "form": "title",
+   "notes": ""
+  },
+  {
+   "id": "dev_0041",
+   "question": "En PRIMERA AFICIONADO FS (Grupo 3), ¿Cuántos partidos ha jugado CD CUATRO CAMINOS?",
+   "source": "blind",
+   "category": "team_count",
+   "intent": "matches",
+   "needed_tools": [
+    "find_teams",
+    "list_matches"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "list_matches",
+    "list_teams"
+   ],
+   "prefetch_expected": "fire",
+   "prefetch_entity": "C.D. CUATRO CAMINOS",
+   "abstain_reason": null,
+   "entity_ambiguity": "multi_competition",
+   "scope": "resolved",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "current",
+   "form": "no_dots+scope",
+   "notes": ""
+  },
+  {
+   "id": "dev_0042",
+   "question": "Una duda: ¿En qué grupo juega Virgen Del Cerro Futsal?",
+   "source": "blind",
+   "category": "team_group_lookup",
+   "intent": "teams_players",
+   "needed_tools": [
+    "find_teams"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "list_teams",
+    "list_groups"
+   ],
+   "prefetch_expected": "fire",
+   "prefetch_entity": "C.D.E. VIRGEN DEL CERRO FUTSAL",
+   "abstain_reason": null,
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": true,
+   "season": "current",
+   "form": "core",
+   "notes": "núcleo etiquetado por regla"
+  },
+  {
+   "id": "dev_0043",
+   "question": "¿En qué campo juega C.D.E. CASCO ANTIGUO CARABANCHEL 'A' su próximo partido?",
+   "source": "blind",
+   "category": "team_venue",
+   "intent": "matches",
+   "needed_tools": [
+    "find_teams",
+    "list_matches",
+    "get_match"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "list_matches",
+    "get_match",
+    "list_teams"
+   ],
+   "prefetch_expected": "fire",
+   "prefetch_entity": "C.D.E. CASCO ANTIGUO CARABANCHEL 'A'",
+   "abstain_reason": null,
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "current",
+   "form": "official",
+   "notes": ""
+  },
+  {
+   "id": "dev_0044",
+   "question": "Oye, ¿Cuántos partidos ha jugado FUTSAL SANSE - DOMINO'S PIZZA 'A'?",
+   "source": "blind",
+   "category": "team_count",
+   "intent": "matches",
+   "needed_tools": [
+    "find_teams",
+    "list_matches"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "list_matches",
+    "list_teams"
+   ],
+   "prefetch_expected": "fire",
+   "prefetch_entity": "FUTSAL SANSE - DOMINO'S PIZZA 'A'",
+   "abstain_reason": null,
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "current",
+   "form": "official",
+   "notes": ""
+  },
+  {
+   "id": "dev_0045",
+   "question": "¿Qué jugador de Obispo Perello A ha marcado más goles?",
+   "source": "blind",
+   "category": "team_team_scorer",
+   "intent": "scorers",
+   "needed_tools": [
+    "find_teams",
+    "get_scorer_table"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "get_scorer_table",
+    "top_scorers",
+    "find_players",
+    "list_teams"
+   ],
+   "prefetch_expected": "fire",
+   "prefetch_entity": "A.D. OBISPO PERELLO 'A'",
+   "abstain_reason": null,
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "current",
+   "form": "core",
+   "notes": "núcleo etiquetado por regla"
+  },
+  {
+   "id": "dev_0046",
+   "question": "Una duda: Próximo encuentro de Torrejon Sala Five Play 'b'",
+   "source": "blind",
+   "category": "team_next_match",
+   "intent": "matches",
+   "needed_tools": [
+    "find_teams",
+    "list_matches"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "list_matches",
+    "get_match",
+    "list_teams"
+   ],
+   "prefetch_expected": "fire",
+   "prefetch_entity": "TORREJON SALA FIVE PLAY 'B'",
+   "abstain_reason": null,
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": true,
+   "season": "current",
+   "form": "title",
+   "notes": ""
+  },
+  {
+   "id": "dev_0047",
+   "question": "¿Cuál fue el último resultado de C.D.E. SPORT SALA 12?",
+   "source": "blind",
+   "category": "team_last_result",
+   "intent": "matches",
+   "needed_tools": [
+    "find_teams",
+    "list_matches"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "list_matches",
+    "get_match",
+    "get_match_report",
+    "list_teams"
+   ],
+   "prefetch_expected": "fire",
+   "prefetch_entity": "C.D.E. SPORT SALA 12",
+   "abstain_reason": null,
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": true,
+   "season": "current",
+   "form": "official",
+   "notes": ""
+  },
+  {
+   "id": "dev_0048",
+   "question": "Oye, ¿Quién lidera la clasificación de COPA SENIOR I - fase final- FS (Eliminatorias)?",
+   "source": "blind",
+   "category": "neg_table",
+   "intent": "standings",
+   "needed_tools": [
+    "get_standings"
+   ],
+   "plausible_tools": [
+    "get_standings",
+    "list_competitions",
+    "list_groups"
+   ],
+   "prefetch_expected": "abstain",
+   "prefetch_entity": null,
+   "abstain_reason": "no_team",
+   "entity_ambiguity": "none",
+   "scope": "resolved",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "current",
+   "form": null,
+   "notes": ""
+  },
+  {
+   "id": "dev_0049",
+   "question": "¿Cómo va CDE FUTBOL SALA EL ARROYO - GRIÑON?",
+   "source": "blind",
+   "category": "neg_homonym",
+   "intent": "matches",
+   "needed_tools": [
+    "find_teams"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "list_matches",
+    "get_standings",
+    "list_teams"
+   ],
+   "prefetch_expected": "abstain",
+   "prefetch_entity": null,
+   "abstain_reason": "homonym",
+   "entity_ambiguity": "multi_competition",
+   "scope": "needs_clarification",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "current",
+   "form": null,
+   "notes": ""
+  },
+  {
+   "id": "dev_0050",
+   "question": "¿Cómo quedó E.F.S. CIUDAD DE TORREJON - REDPISO TORREJON 'A' en la temporada 2019/20?",
+   "source": "blind",
+   "category": "neg_history",
+   "intent": "unrecognized",
+   "needed_tools": [],
+   "plausible_tools": [
+    "find_teams"
+   ],
+   "prefetch_expected": "abstain",
+   "prefetch_entity": null,
+   "abstain_reason": "historical",
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "historical",
+   "form": null,
+   "notes": ""
+  },
+  {
+   "id": "dev_0051",
+   "question": "¿Cuántos puntos tuvo F.S. DIAGONAL 'C' en 2018?",
+   "source": "blind",
+   "category": "neg_history",
+   "intent": "unrecognized",
+   "needed_tools": [],
+   "plausible_tools": [
+    "find_teams"
+   ],
+   "prefetch_expected": "abstain",
+   "prefetch_entity": null,
+   "abstain_reason": "historical",
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "historical",
+   "form": null,
+   "notes": ""
+  },
+  {
+   "id": "dev_0052",
+   "question": "¿Quién es el máximo goleador de Eurosiris Rincon De Sanabria B?",
+   "source": "blind",
+   "category": "team_team_scorer",
+   "intent": "scorers",
+   "needed_tools": [
+    "find_teams",
+    "get_scorer_table"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "get_scorer_table",
+    "top_scorers",
+    "find_players",
+    "list_teams"
+   ],
+   "prefetch_expected": "fire",
+   "prefetch_entity": "CDE C.F.S. EUROSIRIS - RINCON DE SANABRIA 'B'",
+   "abstain_reason": null,
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "current",
+   "form": "core",
+   "notes": "núcleo etiquetado por regla"
+  },
+  {
+   "id": "dev_0053",
+   "question": "Una duda: ¿Cuál fue el último resultado de CLUB UNION DEPORTIVA LOECHES ’A’?",
+   "source": "blind",
+   "category": "team_last_result",
+   "intent": "matches",
+   "needed_tools": [
+    "find_teams",
+    "list_matches"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "list_matches",
+    "get_match",
+    "get_match_report",
+    "list_teams"
+   ],
+   "prefetch_expected": "fire",
+   "prefetch_entity": "CLUB UNION DEPORTIVA LOECHES 'A'",
+   "abstain_reason": null,
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": true,
+   "season": "current",
+   "form": "curly_quotes",
+   "notes": ""
+  },
+  {
+   "id": "dev_0054",
+   "question": "¿Cuántos goles ha marcado Rodrigo Cuaresma?",
+   "source": "blind",
+   "category": "neg_player",
+   "intent": "scorers",
+   "needed_tools": [
+    "find_players"
+   ],
+   "plausible_tools": [
+    "find_players",
+    "top_scorers",
+    "get_scorer_table",
+    "list_match_events"
+   ],
+   "prefetch_expected": "abstain",
+   "prefetch_entity": null,
+   "abstain_reason": "player",
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "current",
+   "form": null,
+   "notes": ""
+  },
+  {
+   "id": "dev_0055",
+   "question": "¿Cuándo es el próximo partido de C.D.E. VIRGEN DEL CERRO FUTSAL?",
+   "source": "blind",
+   "category": "team_next_match",
+   "intent": "matches",
+   "needed_tools": [
+    "find_teams",
+    "list_matches"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "list_matches",
+    "get_match",
+    "list_teams"
+   ],
+   "prefetch_expected": "fire",
+   "prefetch_entity": "C.D.E. VIRGEN DEL CERRO FUTSAL",
+   "abstain_reason": null,
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": true,
+   "season": "current",
+   "form": "official",
+   "notes": ""
+  },
+  {
+   "id": "dev_0056",
+   "question": "Compara a C.D.E. COLEGIO ALEMAN DE MADRID 'B' con CLUB CORAZONISTAS",
+   "source": "blind",
+   "category": "neg_multi",
+   "intent": "composite",
+   "needed_tools": [
+    "find_teams"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "list_matches",
+    "get_standings",
+    "list_teams"
+   ],
+   "prefetch_expected": "abstain",
+   "prefetch_entity": null,
+   "abstain_reason": "multi_team",
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "current",
+   "form": null,
+   "notes": ""
+  },
+  {
+   "id": "dev_0057",
+   "question": "Sobre el reglamento: ¿Qué dice el reglamento sobre el saque de banda cuando juega C.D.E. VIRGEN DEL CERRO FUTSAL?",
+   "source": "blind",
+   "category": "neg_rules_team",
+   "intent": "rules",
+   "needed_tools": [
+    "search_rules"
+   ],
+   "plausible_tools": [
+    "search_rules"
+   ],
+   "prefetch_expected": "abstain",
+   "prefetch_entity": null,
+   "abstain_reason": "rules",
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "current",
+   "form": null,
+   "notes": ""
+  },
+  {
+   "id": "dev_0058",
+   "question": "Próximo encuentro de union deportiva las rozas boadilla - ast tcnet",
+   "source": "blind",
+   "category": "team_next_match",
+   "intent": "matches",
+   "needed_tools": [
+    "find_teams",
+    "list_matches"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "list_matches",
+    "get_match",
+    "list_teams"
+   ],
+   "prefetch_expected": "fire",
+   "prefetch_entity": "UNION DEPORTIVA LAS ROZAS BOADILLA - AST TCNET",
+   "abstain_reason": null,
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": true,
+   "season": "current",
+   "form": "lower",
+   "notes": ""
+  },
+  {
+   "id": "dev_0059",
+   "question": "¿Cuántos puntos tiene cde futbol sala el arroyo - griñon?",
+   "source": "blind",
+   "category": "neg_homonym",
+   "intent": "matches",
+   "needed_tools": [
+    "find_teams"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "list_matches",
+    "get_standings",
+    "list_teams"
+   ],
+   "prefetch_expected": "abstain",
+   "prefetch_entity": null,
+   "abstain_reason": "homonym",
+   "entity_ambiguity": "multi_competition",
+   "scope": "needs_clarification",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "current",
+   "form": null,
+   "notes": ""
+  },
+  {
+   "id": "dev_0060",
+   "question": "¿Hay algún equipo de Union?",
+   "source": "blind",
+   "category": "neg_generic",
+   "intent": "teams_players",
+   "needed_tools": [
+    "list_teams"
+   ],
+   "plausible_tools": [
+    "list_teams",
+    "find_teams",
+    "list_groups"
+   ],
+   "prefetch_expected": "abstain",
+   "prefetch_entity": null,
+   "abstain_reason": "generic_word",
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "current",
+   "form": null,
+   "notes": ""
+  },
+  {
+   "id": "dev_0061",
+   "question": "¿A qué grupo pertenece A.D.ESCURIALENSE - YAPPANCARS 'B'?",
+   "source": "blind",
+   "category": "team_group_lookup",
+   "intent": "teams_players",
+   "needed_tools": [
+    "find_teams"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "list_teams",
+    "list_groups"
+   ],
+   "prefetch_expected": "fire",
+   "prefetch_entity": "A.D.ESCURIALENSE - YAPPANCARS 'B'",
+   "abstain_reason": null,
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": true,
+   "season": "current",
+   "form": "official",
+   "notes": ""
+  },
+  {
+   "id": "dev_0062",
+   "question": "¿Cuánto es 7 por 8?",
+   "source": "blind",
+   "category": "neg_off",
+   "intent": "unrecognized",
+   "needed_tools": [],
+   "plausible_tools": [],
+   "prefetch_expected": "abstain",
+   "prefetch_entity": null,
+   "abstain_reason": "off_topic",
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "current",
+   "form": null,
+   "notes": ""
+  },
+  {
+   "id": "dev_0063",
+   "question": "¿Qué jugador de colme futsal ha marcado más goles?",
+   "source": "blind",
+   "category": "team_team_scorer",
+   "intent": "scorers",
+   "needed_tools": [
+    "find_teams",
+    "get_scorer_table"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "get_scorer_table",
+    "top_scorers",
+    "find_players",
+    "list_teams"
+   ],
+   "prefetch_expected": "fire",
+   "prefetch_entity": "COLME FUTSAL",
+   "abstain_reason": null,
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "current",
+   "form": "lower",
+   "notes": ""
+  },
+  {
+   "id": "dev_0064",
+   "question": "Una duda: Escribe un poema sobre el fútbol sala",
+   "source": "blind",
+   "category": "neg_off",
+   "intent": "unrecognized",
+   "needed_tools": [],
+   "plausible_tools": [],
+   "prefetch_expected": "abstain",
+   "prefetch_entity": null,
+   "abstain_reason": "off_topic",
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "current",
+   "form": null,
+   "notes": ""
+  },
+  {
+   "id": "dev_0065",
+   "question": "¿Cómo quedó CDE C.F.S. EUROSIRIS en la temporada 2019/20?",
+   "source": "blind",
+   "category": "neg_history",
+   "intent": "unrecognized",
+   "needed_tools": [],
+   "plausible_tools": [
+    "find_teams"
+   ],
+   "prefetch_expected": "abstain",
+   "prefetch_entity": null,
+   "abstain_reason": "historical",
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "historical",
+   "form": null,
+   "notes": ""
+  },
+  {
+   "id": "dev_0066",
+   "question": "Oye, ¿Qué tiempo hace hoy?",
+   "source": "blind",
+   "category": "neg_off",
+   "intent": "unrecognized",
+   "needed_tools": [],
+   "plausible_tools": [],
+   "prefetch_expected": "abstain",
+   "prefetch_entity": null,
+   "abstain_reason": "off_topic",
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "current",
+   "form": null,
+   "notes": ""
+  },
+  {
+   "id": "dev_0067",
+   "question": "Una duda: ¿Contra quién juega c.d.e. virgen del cerro futsal en la jornada 5?",
+   "source": "blind",
+   "category": "team_round_match",
+   "intent": "matches",
+   "needed_tools": [
+    "find_teams",
+    "list_rounds",
+    "list_matches"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "list_rounds",
+    "list_matches",
+    "get_match",
+    "list_teams"
+   ],
+   "prefetch_expected": "fire",
+   "prefetch_entity": "C.D.E. VIRGEN DEL CERRO FUTSAL",
+   "abstain_reason": null,
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "current",
+   "form": "lower",
+   "notes": ""
+  },
+  {
+   "id": "dev_0068",
+   "question": "¿En qué posición está club corazonistas?",
+   "source": "blind",
+   "category": "team_standing",
+   "intent": "standings",
+   "needed_tools": [
+    "find_teams",
+    "get_standings"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "get_standings",
+    "list_teams"
+   ],
+   "prefetch_expected": "fire",
+   "prefetch_entity": "CLUB CORAZONISTAS",
+   "abstain_reason": null,
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": true,
+   "season": "current",
+   "form": "lower",
+   "notes": ""
+  },
+  {
+   "id": "dev_0069",
+   "question": "Oye, ¿A qué grupo pertenece INTER FUTBOL SALA - JP FINANCIAL 'A'?",
+   "source": "blind",
+   "category": "team_group_lookup",
+   "intent": "teams_players",
+   "needed_tools": [
+    "find_teams"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "list_teams",
+    "list_groups"
+   ],
+   "prefetch_expected": "fire",
+   "prefetch_entity": "INTER FUTBOL SALA - JP FINANCIAL 'A'",
+   "abstain_reason": null,
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": true,
+   "season": "current",
+   "form": "official",
+   "notes": ""
+  },
+  {
+   "id": "dev_0070",
+   "question": "¿En qué grupo juega C.D.E. VIRGEN DEL CERRO FUTSAL?",
+   "source": "blind",
+   "category": "team_group_lookup",
+   "intent": "teams_players",
+   "needed_tools": [
+    "find_teams"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "list_teams",
+    "list_groups"
+   ],
+   "prefetch_expected": "fire",
+   "prefetch_entity": "C.D.E. VIRGEN DEL CERRO FUTSAL",
+   "abstain_reason": null,
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": true,
+   "season": "current",
+   "form": "official",
+   "notes": ""
+  },
+  {
+   "id": "dev_0071",
+   "question": "Una duda: ¿Qué dice el reglamento sobre el saque de banda?",
+   "source": "blind",
+   "category": "neg_rules",
+   "intent": "rules",
+   "needed_tools": [
+    "search_rules"
+   ],
+   "plausible_tools": [
+    "search_rules"
+   ],
+   "prefetch_expected": "abstain",
+   "prefetch_entity": null,
+   "abstain_reason": "no_team",
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "current",
+   "form": null,
+   "notes": ""
+  },
+  {
+   "id": "dev_0072",
+   "question": "¿Cuándo es el próximo partido de c.d.e. sport sala 12?",
+   "source": "blind",
+   "category": "team_next_match",
+   "intent": "matches",
+   "needed_tools": [
+    "find_teams",
+    "list_matches"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "list_matches",
+    "get_match",
+    "list_teams"
+   ],
+   "prefetch_expected": "fire",
+   "prefetch_entity": "C.D.E. SPORT SALA 12",
+   "abstain_reason": null,
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": true,
+   "season": "current",
+   "form": "lower",
+   "notes": ""
+  },
+  {
+   "id": "dev_0073",
+   "question": "Dime el marcador del último partido de GREDOS SAN DIEGO LAS SUERTES 'A'",
+   "source": "blind",
+   "category": "team_last_result",
+   "intent": "matches",
+   "needed_tools": [
+    "find_teams",
+    "list_matches"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "list_matches",
+    "get_match",
+    "get_match_report",
+    "list_teams"
+   ],
+   "prefetch_expected": "fire",
+   "prefetch_entity": "GREDOS SAN DIEGO LAS SUERTES 'A'",
+   "abstain_reason": null,
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": true,
+   "season": "current",
+   "form": "official",
+   "notes": ""
+  },
+  {
+   "id": "dev_0074",
+   "question": "¿Hay algún equipo de Diego?",
+   "source": "blind",
+   "category": "neg_generic",
+   "intent": "teams_players",
+   "needed_tools": [
+    "list_teams"
+   ],
+   "plausible_tools": [
+    "list_teams",
+    "find_teams",
+    "list_groups"
+   ],
+   "prefetch_expected": "abstain",
+   "prefetch_entity": null,
+   "abstain_reason": "generic_word",
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "current",
+   "form": null,
+   "notes": ""
+  },
+  {
+   "id": "dev_0075",
+   "question": "¿Cuándo es el próximo partido de RACING LA?",
+   "source": "blind",
+   "category": "neg_partial",
+   "intent": "matches",
+   "needed_tools": [
+    "find_teams"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "list_matches",
+    "get_standings",
+    "list_teams"
+   ],
+   "prefetch_expected": "abstain",
+   "prefetch_entity": null,
+   "abstain_reason": "partial_name",
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "current",
+   "form": null,
+   "notes": ""
+  },
+  {
+   "id": "dev_0076",
+   "question": "¿Cuándo juega el Peña Los Cracks?",
+   "source": "blind",
+   "category": "neg_foreign",
+   "intent": "matches",
+   "needed_tools": [
+    "find_teams"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "list_matches",
+    "get_standings",
+    "list_teams"
+   ],
+   "prefetch_expected": "abstain",
+   "prefetch_entity": null,
+   "abstain_reason": "not_in_catalog",
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "current",
+   "form": null,
+   "notes": ""
+  },
+  {
+   "id": "dev_0077",
+   "question": "¿Quién es el máximo goleador de futsala pinto - escuela patri chamorro 'a'?",
+   "source": "blind",
+   "category": "team_team_scorer",
+   "intent": "scorers",
+   "needed_tools": [
+    "find_teams",
+    "get_scorer_table"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "get_scorer_table",
+    "top_scorers",
+    "find_players",
+    "list_teams"
+   ],
+   "prefetch_expected": "fire",
+   "prefetch_entity": "FUTSALA PINTO - ESCUELA PATRI CHAMORRO 'A'",
+   "abstain_reason": null,
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "current",
+   "form": "lower",
+   "notes": ""
+  },
+  {
+   "id": "dev_0078",
+   "question": "¿Cómo va el Real Madrid?",
+   "source": "blind",
+   "category": "neg_foreign",
+   "intent": "matches",
+   "needed_tools": [
+    "find_teams"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "list_matches",
+    "get_standings",
+    "list_teams"
+   ],
+   "prefetch_expected": "abstain",
+   "prefetch_entity": null,
+   "abstain_reason": "not_in_catalog",
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "current",
+   "form": null,
+   "notes": ""
+  },
+  {
+   "id": "dev_0079",
+   "question": "Una duda: ¿Cuántos puntos lleva Cde C.F.S. Eurosiris esta temporada?",
+   "source": "blind",
+   "category": "team_points",
+   "intent": "standings",
+   "needed_tools": [
+    "find_teams",
+    "get_standings"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "get_standings",
+    "list_teams"
+   ],
+   "prefetch_expected": "fire",
+   "prefetch_entity": "CDE C.F.S. EUROSIRIS",
+   "abstain_reason": null,
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": true,
+   "season": "current",
+   "form": "title",
+   "notes": ""
+  },
+  {
+   "id": "dev_0080",
+   "question": "¿Cómo terminó el último partido de FUTSAL SANSE?",
+   "source": "blind",
+   "category": "neg_partial",
+   "intent": "matches",
+   "needed_tools": [
+    "find_teams"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "list_matches",
+    "get_standings",
+    "list_teams"
+   ],
+   "prefetch_expected": "abstain",
+   "prefetch_entity": null,
+   "abstain_reason": "partial_name",
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "current",
+   "form": null,
+   "notes": ""
+  },
+  {
+   "id": "dev_0081",
+   "question": "¿Cuántos goles lleva su máximo goleador?",
+   "source": "blind",
+   "category": "neg_follow",
+   "intent": "matches",
+   "needed_tools": [
+    "find_teams",
+    "list_matches"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "list_matches",
+    "get_standings",
+    "get_match_report"
+   ],
+   "prefetch_expected": "abstain",
+   "prefetch_entity": null,
+   "abstain_reason": "context",
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": true,
+   "prev_questions": [
+    "¿Qué puesto ocupa C.D. BUSTARVIEJO en la clasificación?"
+   ],
+   "focus": {
+    "team": "C.D. BUSTARVIEJO"
+   },
+   "tier0_eligible": false,
+   "season": "current",
+   "form": null,
+   "notes": ""
+  },
+  {
+   "id": "dev_0082",
+   "question": "Oye, ¿Cuántos partidos ha jugado C.D.E. DEPORTIVO MADRID FUTSAL?",
+   "source": "blind",
+   "category": "team_count",
+   "intent": "matches",
+   "needed_tools": [
+    "find_teams",
+    "list_matches"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "list_matches",
+    "list_teams"
+   ],
+   "prefetch_expected": "fire",
+   "prefetch_entity": "C.D.E. DEPORTIVO MADRID FUTSAL",
+   "abstain_reason": null,
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "current",
+   "form": "official",
+   "notes": ""
+  },
+  {
+   "id": "dev_0083",
+   "question": "¿Quién es el máximo goleador de CDE CASCO ANTIGUO CARABANCHEL 'A'?",
+   "source": "blind",
+   "category": "team_team_scorer",
+   "intent": "scorers",
+   "needed_tools": [
+    "find_teams",
+    "get_scorer_table"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "get_scorer_table",
+    "top_scorers",
+    "find_players",
+    "list_teams"
+   ],
+   "prefetch_expected": "fire",
+   "prefetch_entity": "C.D.E. CASCO ANTIGUO CARABANCHEL 'A'",
+   "abstain_reason": null,
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "current",
+   "form": "no_dots",
+   "notes": ""
+  },
+  {
+   "id": "dev_0084",
+   "question": "¿Cuántos partidos le quedan a colme futsal?",
+   "source": "blind",
+   "category": "team_count",
+   "intent": "matches",
+   "needed_tools": [
+    "find_teams",
+    "list_matches"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "list_matches",
+    "list_teams"
+   ],
+   "prefetch_expected": "fire",
+   "prefetch_entity": "COLME FUTSAL",
+   "abstain_reason": null,
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "current",
+   "form": "lower",
+   "notes": ""
+  },
+  {
+   "id": "dev_0085",
+   "question": "Oye, ¿Qué puesto ocupa CDE EL VALLE 'A' en la clasificación?",
+   "source": "blind",
+   "category": "team_standing",
+   "intent": "standings",
+   "needed_tools": [
+    "find_teams",
+    "get_standings"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "get_standings",
+    "list_teams"
+   ],
+   "prefetch_expected": "fire",
+   "prefetch_entity": "C.D.E. EL VALLE 'A'",
+   "abstain_reason": null,
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": true,
+   "season": "current",
+   "form": "no_dots",
+   "notes": ""
+  },
+  {
+   "id": "dev_0086",
+   "question": "Oye, ¿Qué partido tiene CSD PARQUE DE LISBOA FUTSAL en la jornada 3?",
+   "source": "blind",
+   "category": "team_round_match",
+   "intent": "matches",
+   "needed_tools": [
+    "find_teams",
+    "list_rounds",
+    "list_matches"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "list_rounds",
+    "list_matches",
+    "get_match",
+    "list_teams"
+   ],
+   "prefetch_expected": "fire",
+   "prefetch_entity": "C.S.D. PARQUE DE LISBOA FUTSAL",
+   "abstain_reason": null,
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "current",
+   "form": "no_dots",
+   "notes": ""
+  },
+  {
+   "id": "dev_0087",
+   "question": "En PRIMERA DIVISION AUTONOMICA AFICIONADO FS (Grupo 2), ¿Cuándo es el próximo partido de PARQUE NORTE F.S. - RODILLITO ’B’?",
+   "source": "blind",
+   "category": "team_next_match",
+   "intent": "matches",
+   "needed_tools": [
+    "find_teams",
+    "list_matches"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "list_matches",
+    "get_match",
+    "list_teams"
+   ],
+   "prefetch_expected": "fire",
+   "prefetch_entity": "PARQUE NORTE F.S. - RODILLITO 'B'",
+   "abstain_reason": null,
+   "entity_ambiguity": "multi_competition",
+   "scope": "resolved",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": true,
+   "season": "current",
+   "form": "curly_quotes+scope",
+   "notes": ""
+  },
+  {
+   "id": "dev_0088",
+   "question": "¿Quién es el máximo goleador de PRIMERA AFICIONADO FS (Grupo 3)?",
+   "source": "blind",
+   "category": "neg_table",
+   "intent": "scorers",
+   "needed_tools": [
+    "get_scorer_table"
+   ],
+   "plausible_tools": [
+    "get_scorer_table",
+    "list_competitions",
+    "list_groups"
+   ],
+   "prefetch_expected": "abstain",
+   "prefetch_entity": null,
+   "abstain_reason": "no_team",
+   "entity_ambiguity": "none",
+   "scope": "resolved",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "current",
+   "form": null,
+   "notes": ""
+  },
+  {
+   "id": "dev_0089",
+   "question": "¿Cuál fue el último resultado de CDE PARAISO SAGRADOS CORAZONES 'A'?",
+   "source": "blind",
+   "category": "neg_follow",
+   "intent": "matches",
+   "needed_tools": [
+    "find_teams",
+    "list_matches"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "list_matches",
+    "get_standings",
+    "get_match_report"
+   ],
+   "prefetch_expected": "abstain",
+   "prefetch_entity": null,
+   "abstain_reason": "context",
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": true,
+   "prev_questions": [
+    "¿Cuál fue el último resultado de CDE PARAISO SAGRADOS CORAZONES 'A'?"
+   ],
+   "focus": {
+    "team": "CDE PARAISO SAGRADOS CORAZONES 'A'"
+   },
+   "tier0_eligible": false,
+   "season": "current",
+   "form": null,
+   "notes": ""
+  },
+  {
+   "id": "dev_0090",
+   "question": "¿Cómo va C.D. Europeo - Futsal Pardillo Svp 'a'?",
+   "source": "blind",
+   "category": "neg_homonym",
+   "intent": "matches",
+   "needed_tools": [
+    "find_teams"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "list_matches",
+    "get_standings",
+    "list_teams"
+   ],
+   "prefetch_expected": "abstain",
+   "prefetch_entity": null,
+   "abstain_reason": "homonym",
+   "entity_ambiguity": "multi_competition",
+   "scope": "needs_clarification",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "current",
+   "form": null,
+   "notes": ""
+  },
+  {
+   "id": "dev_0091",
+   "question": "¿Cuántos puntos tuvo DON P'ALPIE ARANJUEZ F.S. - AUTO RECAMBIOS LUIS en 2018?",
+   "source": "blind",
+   "category": "neg_history",
+   "intent": "unrecognized",
+   "needed_tools": [],
+   "plausible_tools": [
+    "find_teams"
+   ],
+   "prefetch_expected": "abstain",
+   "prefetch_entity": null,
+   "abstain_reason": "historical",
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "historical",
+   "form": null,
+   "notes": ""
+  },
+  {
+   "id": "dev_0092",
+   "question": "¿Quién lidera la clasificación de TERCERA DIVISIÓN FS (Grupo 4)?",
+   "source": "blind",
+   "category": "neg_table",
+   "intent": "standings",
+   "needed_tools": [
+    "get_standings"
+   ],
+   "plausible_tools": [
+    "get_standings",
+    "list_competitions",
+    "list_groups"
+   ],
+   "prefetch_expected": "abstain",
+   "prefetch_entity": null,
+   "abstain_reason": "no_team",
+   "entity_ambiguity": "none",
+   "scope": "resolved",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "current",
+   "form": null,
+   "notes": ""
+  },
+  {
+   "id": "dev_0093",
+   "question": "¿Hay algún equipo de Prado?",
+   "source": "blind",
+   "category": "neg_generic",
+   "intent": "teams_players",
+   "needed_tools": [
+    "list_teams"
+   ],
+   "plausible_tools": [
+    "list_teams",
+    "find_teams",
+    "list_groups"
+   ],
+   "prefetch_expected": "abstain",
+   "prefetch_entity": null,
+   "abstain_reason": "generic_word",
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "current",
+   "form": null,
+   "notes": ""
+  },
+  {
+   "id": "dev_0094",
+   "question": "¿Hay algún equipo de Athletic?",
+   "source": "blind",
+   "category": "neg_generic",
+   "intent": "teams_players",
+   "needed_tools": [
+    "list_teams"
+   ],
+   "plausible_tools": [
+    "list_teams",
+    "find_teams",
+    "list_groups"
+   ],
+   "prefetch_expected": "abstain",
+   "prefetch_entity": null,
+   "abstain_reason": "generic_word",
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "current",
+   "form": null,
+   "notes": ""
+  },
+  {
+   "id": "dev_0095",
+   "question": "¿En qué campo juega inter futbol sala - jp financial 'a' su próximo partido?",
+   "source": "blind",
+   "category": "team_venue",
+   "intent": "matches",
+   "needed_tools": [
+    "find_teams",
+    "list_matches",
+    "get_match"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "list_matches",
+    "get_match",
+    "list_teams"
+   ],
+   "prefetch_expected": "fire",
+   "prefetch_entity": "INTER FUTBOL SALA - JP FINANCIAL 'A'",
+   "abstain_reason": null,
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "current",
+   "form": "lower",
+   "notes": ""
+  },
+  {
+   "id": "dev_0096",
+   "question": "Oye, ¿Cuántos partidos ha jugado DON PALPIE ARANJUEZ F.S. - AUTO RECAMBIOS LUIS?",
+   "source": "blind",
+   "category": "team_count",
+   "intent": "matches",
+   "needed_tools": [
+    "find_teams",
+    "list_matches"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "list_matches",
+    "list_teams"
+   ],
+   "prefetch_expected": "fire",
+   "prefetch_entity": "DON P'ALPIE ARANJUEZ F.S. - AUTO RECAMBIOS LUIS",
+   "abstain_reason": null,
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "current",
+   "form": "no_quotes",
+   "notes": ""
+  },
+  {
+   "id": "dev_0097",
+   "question": "Oye, ¿Qué dice el reglamento sobre el saque de banda?",
+   "source": "blind",
+   "category": "neg_rules",
+   "intent": "rules",
+   "needed_tools": [
+    "search_rules"
+   ],
+   "plausible_tools": [
+    "search_rules"
+   ],
+   "prefetch_expected": "abstain",
+   "prefetch_entity": null,
+   "abstain_reason": "no_team",
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "current",
+   "form": null,
+   "notes": ""
+  },
+  {
+   "id": "dev_0098",
+   "question": "¿Cuántos puntos tiene CDE INTERSALA MOSTOLES?",
+   "source": "blind",
+   "category": "neg_homonym",
+   "intent": "matches",
+   "needed_tools": [
+    "find_teams"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "list_matches",
+    "get_standings",
+    "list_teams"
+   ],
+   "prefetch_expected": "abstain",
+   "prefetch_entity": null,
+   "abstain_reason": "homonym",
+   "entity_ambiguity": "multi_competition",
+   "scope": "needs_clarification",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "current",
+   "form": null,
+   "notes": ""
+  },
+  {
+   "id": "dev_0099",
+   "question": "¿A qué grupo pertenece TORREJON SALA FIVE PLAY B?",
+   "source": "blind",
+   "category": "team_group_lookup",
+   "intent": "teams_players",
+   "needed_tools": [
+    "find_teams"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "list_teams",
+    "list_groups"
+   ],
+   "prefetch_expected": "fire",
+   "prefetch_entity": "TORREJON SALA FIVE PLAY 'B'",
+   "abstain_reason": null,
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": true,
+   "season": "current",
+   "form": "no_quotes",
+   "notes": ""
+  },
+  {
+   "id": "dev_0100",
+   "question": "¿Cómo terminó el último partido de INTER FUTBOL SALA - JP FINANCIAL 'A'?",
+   "source": "blind",
+   "category": "neg_follow",
+   "intent": "matches",
+   "needed_tools": [
+    "find_teams",
+    "list_matches"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "list_matches",
+    "get_standings",
+    "get_match_report"
+   ],
+   "prefetch_expected": "abstain",
+   "prefetch_entity": null,
+   "abstain_reason": "context",
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": true,
+   "prev_questions": [
+    "¿Cómo ha quedado INTER FUTBOL SALA - JP FINANCIAL 'A' en la liga?"
+   ],
+   "focus": {
+    "team": "INTER FUTBOL SALA - JP FINANCIAL 'A'"
+   },
+   "tier0_eligible": false,
+   "season": "current",
+   "form": null,
+   "notes": ""
+  },
+  {
+   "id": "dev_0101",
+   "question": "¿Cuándo juega el Atlético de Madrid?",
+   "source": "blind",
+   "category": "neg_foreign",
+   "intent": "matches",
+   "needed_tools": [
+    "find_teams"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "list_matches",
+    "get_standings",
+    "list_teams"
+   ],
+   "prefetch_expected": "abstain",
+   "prefetch_entity": null,
+   "abstain_reason": "not_in_catalog",
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "current",
+   "form": null,
+   "notes": ""
+  },
+  {
+   "id": "dev_0102",
+   "question": "Una duda: ¿Cuál fue el último resultado de C.D.E. Sport Sala 12?",
+   "source": "blind",
+   "category": "team_last_result",
+   "intent": "matches",
+   "needed_tools": [
+    "find_teams",
+    "list_matches"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "list_matches",
+    "get_match",
+    "get_match_report",
+    "list_teams"
+   ],
+   "prefetch_expected": "fire",
+   "prefetch_entity": "C.D.E. SPORT SALA 12",
+   "abstain_reason": null,
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": true,
+   "season": "current",
+   "form": "title",
+   "notes": ""
+  },
+  {
+   "id": "dev_0103",
+   "question": "Oye, Próximo encuentro de Colme Futsal",
+   "source": "blind",
+   "category": "team_next_match",
+   "intent": "matches",
+   "needed_tools": [
+    "find_teams",
+    "list_matches"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "list_matches",
+    "get_match",
+    "list_teams"
+   ],
+   "prefetch_expected": "fire",
+   "prefetch_entity": "COLME FUTSAL",
+   "abstain_reason": null,
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": true,
+   "season": "current",
+   "form": "title",
+   "notes": ""
+  },
+  {
+   "id": "dev_0104",
+   "question": "Oye, Próximo encuentro de A.D. OBISPO PERELLO 'A'",
+   "source": "blind",
+   "category": "team_next_match",
+   "intent": "matches",
+   "needed_tools": [
+    "find_teams",
+    "list_matches"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "list_matches",
+    "get_match",
+    "list_teams"
+   ],
+   "prefetch_expected": "fire",
+   "prefetch_entity": "A.D. OBISPO PERELLO 'A'",
+   "abstain_reason": null,
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": true,
+   "season": "current",
+   "form": "official",
+   "notes": ""
+  },
+  {
+   "id": "dev_0105",
+   "question": "¿Cómo quedó CLUB UNION DEPORTIVA LOECHES 'B' en la temporada 2019/20?",
+   "source": "blind",
+   "category": "neg_history",
+   "intent": "unrecognized",
+   "needed_tools": [],
+   "plausible_tools": [
+    "find_teams"
+   ],
+   "prefetch_expected": "abstain",
+   "prefetch_entity": null,
+   "abstain_reason": "historical",
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "historical",
+   "form": null,
+   "notes": ""
+  },
+  {
+   "id": "dev_0106",
+   "question": "En PRIMERA DIVISION AUTONOMICA AFICIONADO FS (Grupo 2), ¿Cómo ha quedado PARQUE NORTE F.S. - RODILLITO 'B' en la liga?",
+   "source": "blind",
+   "category": "team_status",
+   "intent": "composite",
+   "needed_tools": [
+    "find_teams",
+    "get_standings",
+    "list_matches"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "get_standings",
+    "list_matches",
+    "get_match",
+    "list_teams"
+   ],
+   "prefetch_expected": "fire",
+   "prefetch_entity": "PARQUE NORTE F.S. - RODILLITO 'B'",
+   "abstain_reason": null,
+   "entity_ambiguity": "multi_competition",
+   "scope": "resolved",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "current",
+   "form": "official+scope",
+   "notes": ""
+  },
+  {
+   "id": "dev_0107",
+   "question": "¿Cómo va c.d.e. mejorsala?",
+   "source": "blind",
+   "category": "neg_homonym",
+   "intent": "matches",
+   "needed_tools": [
+    "find_teams"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "list_matches",
+    "get_standings",
+    "list_teams"
+   ],
+   "prefetch_expected": "abstain",
+   "prefetch_entity": null,
+   "abstain_reason": "homonym",
+   "entity_ambiguity": "multi_competition",
+   "scope": "needs_clarification",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "current",
+   "form": null,
+   "notes": ""
+  },
+  {
+   "id": "dev_0108",
+   "question": "¿Qué equipos de Winter hay en la competición?",
+   "source": "blind",
+   "category": "neg_generic",
+   "intent": "teams_players",
+   "needed_tools": [
+    "list_teams"
+   ],
+   "plausible_tools": [
+    "list_teams",
+    "find_teams",
+    "list_groups"
+   ],
+   "prefetch_expected": "abstain",
+   "prefetch_entity": null,
+   "abstain_reason": "generic_word",
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "current",
+   "form": null,
+   "notes": ""
+  },
+  {
+   "id": "dev_0109",
+   "question": "¿Qué árbitros dirigieron el último encuentro de C.D.E. COLEGIO ALEMAN DE MADRID ’B’?",
+   "source": "blind",
+   "category": "team_referee",
+   "intent": "matches",
+   "needed_tools": [
+    "find_teams",
+    "list_matches",
+    "get_match_report"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "list_matches",
+    "get_match_report",
+    "get_match",
+    "list_teams"
+   ],
+   "prefetch_expected": "fire",
+   "prefetch_entity": "C.D.E. COLEGIO ALEMAN DE MADRID 'B'",
+   "abstain_reason": null,
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "current",
+   "form": "curly_quotes",
+   "notes": ""
+  },
+  {
+   "id": "dev_0110",
+   "question": "¿Cómo va el Club Estrella Polar?",
+   "source": "blind",
+   "category": "neg_foreign",
+   "intent": "matches",
+   "needed_tools": [
+    "find_teams"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "list_matches",
+    "get_standings",
+    "list_teams"
+   ],
+   "prefetch_expected": "abstain",
+   "prefetch_entity": null,
+   "abstain_reason": "not_in_catalog",
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "current",
+   "form": null,
+   "notes": ""
+  },
+  {
+   "id": "dev_0111",
+   "question": "¿A qué grupo pertenece A.D. OBISPO PERELLO 'A'?",
+   "source": "blind",
+   "category": "team_group_lookup",
+   "intent": "teams_players",
+   "needed_tools": [
+    "find_teams"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "list_teams",
+    "list_groups"
+   ],
+   "prefetch_expected": "fire",
+   "prefetch_entity": "A.D. OBISPO PERELLO 'A'",
+   "abstain_reason": null,
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": true,
+   "season": "current",
+   "form": "official",
+   "notes": ""
+  },
+  {
+   "id": "dev_0112",
+   "question": "Dime el marcador del último partido de TORREJON SALA FIVE PLAY 'B'",
+   "source": "blind",
+   "category": "neg_follow",
+   "intent": "matches",
+   "needed_tools": [
+    "find_teams",
+    "list_matches"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "list_matches",
+    "get_standings",
+    "get_match_report"
+   ],
+   "prefetch_expected": "abstain",
+   "prefetch_entity": null,
+   "abstain_reason": "context",
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": true,
+   "prev_questions": [
+    "¿Cuál fue el último resultado de TORREJON SALA FIVE PLAY 'B'?"
+   ],
+   "focus": {
+    "team": "TORREJON SALA FIVE PLAY 'B'"
+   },
+   "tier0_eligible": false,
+   "season": "current",
+   "form": null,
+   "notes": ""
+  },
+  {
+   "id": "dev_0113",
+   "question": "En PRIMERA JUVENIL FS (Grupo 4), ¿Cuántos partidos le quedan a CD FUTSI ATLETICO NAVALCARNERO - FROZEN?",
+   "source": "blind",
+   "category": "team_count",
+   "intent": "matches",
+   "needed_tools": [
+    "find_teams",
+    "list_matches"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "list_matches",
+    "list_teams"
+   ],
+   "prefetch_expected": "fire",
+   "prefetch_entity": "C.D. FUTSI ATLETICO NAVALCARNERO - FROZEN",
+   "abstain_reason": null,
+   "entity_ambiguity": "multi_competition",
+   "scope": "resolved",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "current",
+   "form": "no_dots+scope",
+   "notes": ""
+  },
+  {
+   "id": "dev_0114",
+   "question": "¿Cuántos goles ha marcado Zacarías Pimpollo?",
+   "source": "blind",
+   "category": "neg_player",
+   "intent": "scorers",
+   "needed_tools": [
+    "find_players"
+   ],
+   "plausible_tools": [
+    "find_players",
+    "top_scorers",
+    "get_scorer_table",
+    "list_match_events"
+   ],
+   "prefetch_expected": "abstain",
+   "prefetch_entity": null,
+   "abstain_reason": "player",
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "current",
+   "form": null,
+   "notes": ""
+  },
+  {
+   "id": "dev_0115",
+   "question": "En PRIMERA DIVISION AUTONOMICA AFICIONADO FS (Grupo 2), ¿En qué grupo juega CLUB CORAZONISTAS ’A’?",
+   "source": "blind",
+   "category": "team_group_lookup",
+   "intent": "teams_players",
+   "needed_tools": [
+    "find_teams"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "list_teams",
+    "list_groups"
+   ],
+   "prefetch_expected": "fire",
+   "prefetch_entity": "CLUB CORAZONISTAS 'A'",
+   "abstain_reason": null,
+   "entity_ambiguity": "multi_competition",
+   "scope": "resolved",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": true,
+   "season": "current",
+   "form": "curly_quotes+scope",
+   "notes": ""
+  },
+  {
+   "id": "dev_0116",
+   "question": "Compara a C.D.E. SPORT SALA 12 con A.D. OBISPO PERELLO 'A'",
+   "source": "blind",
+   "category": "neg_multi",
+   "intent": "composite",
+   "needed_tools": [
+    "find_teams"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "list_matches",
+    "get_standings",
+    "list_teams"
+   ],
+   "prefetch_expected": "abstain",
+   "prefetch_entity": null,
+   "abstain_reason": "multi_team",
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "current",
+   "form": null,
+   "notes": ""
+  },
+  {
+   "id": "dev_0117",
+   "question": "Dime el marcador del último partido de CDE AQUILA (FS)",
+   "source": "blind",
+   "category": "neg_follow",
+   "intent": "matches",
+   "needed_tools": [
+    "find_teams",
+    "list_matches"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "list_matches",
+    "get_standings",
+    "get_match_report"
+   ],
+   "prefetch_expected": "abstain",
+   "prefetch_entity": null,
+   "abstain_reason": "context",
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": true,
+   "prev_questions": [
+    "¿Cómo ha quedado CDE AQUILA (FS) en la liga?"
+   ],
+   "focus": {
+    "team": "CDE AQUILA (FS)"
+   },
+   "tier0_eligible": false,
+   "season": "current",
+   "form": null,
+   "notes": ""
+  },
+  {
+   "id": "dev_0118",
+   "question": "Una duda: ¿Qué árbitros dirigieron el último encuentro de C.D.E. SAN JOSE DE VALDERAS - VALDERAS F.S. 'B'?",
+   "source": "blind",
+   "category": "team_referee",
+   "intent": "matches",
+   "needed_tools": [
+    "find_teams",
+    "list_matches",
+    "get_match_report"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "list_matches",
+    "get_match_report",
+    "get_match",
+    "list_teams"
+   ],
+   "prefetch_expected": "fire",
+   "prefetch_entity": "C.D.E. SAN JOSE DE VALDERAS - VALDERAS F.S. 'B'",
+   "abstain_reason": null,
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "current",
+   "form": "official",
+   "notes": ""
+  },
+  {
+   "id": "dev_0119",
+   "question": "Una duda: ¿Qué jugador de c.d. bustarviejo ha marcado más goles?",
+   "source": "blind",
+   "category": "team_team_scorer",
+   "intent": "scorers",
+   "needed_tools": [
+    "find_teams",
+    "get_scorer_table"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "get_scorer_table",
+    "top_scorers",
+    "find_players",
+    "list_teams"
+   ],
+   "prefetch_expected": "fire",
+   "prefetch_entity": "C.D. BUSTARVIEJO",
+   "abstain_reason": null,
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "current",
+   "form": "lower",
+   "notes": ""
+  },
+  {
+   "id": "dev_0120",
+   "question": "¿Hay algún equipo de Limones?",
+   "source": "blind",
+   "category": "neg_generic",
+   "intent": "teams_players",
+   "needed_tools": [
+    "list_teams"
+   ],
+   "plausible_tools": [
+    "list_teams",
+    "find_teams",
+    "list_groups"
+   ],
+   "prefetch_expected": "abstain",
+   "prefetch_entity": null,
+   "abstain_reason": "generic_word",
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "current",
+   "form": null,
+   "notes": ""
+  },
+  {
+   "id": "dev_0121",
+   "question": "Oye, ¿Cuántas faltas acumuladas hay antes del tiro libre?",
+   "source": "blind",
+   "category": "neg_rules",
+   "intent": "rules",
+   "needed_tools": [
+    "search_rules"
+   ],
+   "plausible_tools": [
+    "search_rules"
+   ],
+   "prefetch_expected": "abstain",
+   "prefetch_entity": null,
+   "abstain_reason": "no_team",
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "current",
+   "form": null,
+   "notes": ""
+  },
+  {
+   "id": "dev_0122",
+   "question": "¿Cuántos puntos tiene CLUB UNION DEPORTIVA LOECHES B?",
+   "source": "blind",
+   "category": "team_points",
+   "intent": "standings",
+   "needed_tools": [
+    "find_teams",
+    "get_standings"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "get_standings",
+    "list_teams"
+   ],
+   "prefetch_expected": "fire",
+   "prefetch_entity": "CLUB UNION DEPORTIVA LOECHES 'B'",
+   "abstain_reason": null,
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": true,
+   "season": "current",
+   "form": "no_quotes",
+   "notes": ""
+  },
+  {
+   "id": "dev_0123",
+   "question": "¿Cuántos goles ha marcado Jorge Villar?",
+   "source": "blind",
+   "category": "neg_player",
+   "intent": "scorers",
+   "needed_tools": [
+    "find_players"
+   ],
+   "plausible_tools": [
+    "find_players",
+    "top_scorers",
+    "get_scorer_table",
+    "list_match_events"
+   ],
+   "prefetch_expected": "abstain",
+   "prefetch_entity": null,
+   "abstain_reason": "player",
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "current",
+   "form": null,
+   "notes": ""
+  },
+  {
+   "id": "dev_0124",
+   "question": "Una duda: ¿Quién es el máximo goleador de C.D.E. SAN JOSE DE VALDERAS - VALDERAS F.S. B?",
+   "source": "blind",
+   "category": "team_team_scorer",
+   "intent": "scorers",
+   "needed_tools": [
+    "find_teams",
+    "get_scorer_table"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "get_scorer_table",
+    "top_scorers",
+    "find_players",
+    "list_teams"
+   ],
+   "prefetch_expected": "fire",
+   "prefetch_entity": "C.D.E. SAN JOSE DE VALDERAS - VALDERAS F.S. 'B'",
+   "abstain_reason": null,
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "current",
+   "form": "no_quotes",
+   "notes": ""
+  },
+  {
+   "id": "dev_0125",
+   "question": "¿Qué puesto ocupa AGRUPACION AUTO-ESCUELA SIMANCAS 'C' en la clasificación?",
+   "source": "blind",
+   "category": "neg_homonym",
+   "intent": "matches",
+   "needed_tools": [
+    "find_teams"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "list_matches",
+    "get_standings",
+    "list_teams"
+   ],
+   "prefetch_expected": "abstain",
+   "prefetch_entity": null,
+   "abstain_reason": "homonym",
+   "entity_ambiguity": "multi_competition",
+   "scope": "needs_clarification",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "current",
+   "form": null,
+   "notes": ""
+  },
+  {
+   "id": "dev_0126",
+   "question": "¿En qué equipo juega Diego Concejal?",
+   "source": "blind",
+   "category": "neg_player",
+   "intent": "scorers",
+   "needed_tools": [
+    "find_players"
+   ],
+   "plausible_tools": [
+    "find_players",
+    "top_scorers",
+    "get_scorer_table",
+    "list_match_events"
+   ],
+   "prefetch_expected": "abstain",
+   "prefetch_entity": null,
+   "abstain_reason": "player",
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "current",
+   "form": null,
+   "notes": ""
+  },
+  {
+   "id": "dev_0127",
+   "question": "Oye, ¿Qué árbitros dirigieron el último encuentro de CDE CASCO ANTIGUO CARABANCHEL 'A'?",
+   "source": "blind",
+   "category": "team_referee",
+   "intent": "matches",
+   "needed_tools": [
+    "find_teams",
+    "list_matches",
+    "get_match_report"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "list_matches",
+    "get_match_report",
+    "get_match",
+    "list_teams"
+   ],
+   "prefetch_expected": "fire",
+   "prefetch_entity": "C.D.E. CASCO ANTIGUO CARABANCHEL 'A'",
+   "abstain_reason": null,
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "current",
+   "form": "no_dots",
+   "notes": ""
+  },
+  {
+   "id": "dev_0128",
+   "question": "Oye, ¿Cómo terminó el último partido de Cde C.F.S. Eurosiris?",
+   "source": "blind",
+   "category": "team_last_result",
+   "intent": "matches",
+   "needed_tools": [
+    "find_teams",
+    "list_matches"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "list_matches",
+    "get_match",
+    "get_match_report",
+    "list_teams"
+   ],
+   "prefetch_expected": "fire",
+   "prefetch_entity": "CDE C.F.S. EUROSIRIS",
+   "abstain_reason": null,
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": true,
+   "season": "current",
+   "form": "title",
+   "notes": ""
+  },
+  {
+   "id": "dev_0129",
+   "question": "Próximo encuentro de c.d.e. intersala mostoles",
+   "source": "blind",
+   "category": "neg_homonym",
+   "intent": "matches",
+   "needed_tools": [
+    "find_teams"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "list_matches",
+    "get_standings",
+    "list_teams"
+   ],
+   "prefetch_expected": "abstain",
+   "prefetch_entity": null,
+   "abstain_reason": "homonym",
+   "entity_ambiguity": "multi_competition",
+   "scope": "needs_clarification",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "current",
+   "form": null,
+   "notes": ""
+  },
+  {
+   "id": "dev_0130",
+   "question": "Una duda: ¿En qué posición está DON PALPIE ARANJUEZ F.S. - AUTO RECAMBIOS LUIS?",
+   "source": "blind",
+   "category": "team_standing",
+   "intent": "standings",
+   "needed_tools": [
+    "find_teams",
+    "get_standings"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "get_standings",
+    "list_teams"
+   ],
+   "prefetch_expected": "fire",
+   "prefetch_entity": "DON P'ALPIE ARANJUEZ F.S. - AUTO RECAMBIOS LUIS",
+   "abstain_reason": null,
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": true,
+   "season": "current",
+   "form": "no_quotes",
+   "notes": ""
+  },
+  {
+   "id": "dev_0131",
+   "question": "¿Quién es el máximo goleador de COPA JUVENIL - fase previa- FS (Eliminatorias)?",
+   "source": "blind",
+   "category": "neg_table",
+   "intent": "scorers",
+   "needed_tools": [
+    "get_scorer_table"
+   ],
+   "plausible_tools": [
+    "get_scorer_table",
+    "list_competitions",
+    "list_groups"
+   ],
+   "prefetch_expected": "abstain",
+   "prefetch_entity": null,
+   "abstain_reason": "no_team",
+   "entity_ambiguity": "none",
+   "scope": "resolved",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "current",
+   "form": null,
+   "notes": ""
+  },
+  {
+   "id": "dev_0132",
+   "question": "Una duda: Regla del juego: ¿Qué dice el reglamento sobre el saque de banda cuando juega C.D.E. CASCO ANTIGUO CARABANCHEL 'B'?",
+   "source": "blind",
+   "category": "neg_rules_team",
+   "intent": "rules",
+   "needed_tools": [
+    "search_rules"
+   ],
+   "plausible_tools": [
+    "search_rules"
+   ],
+   "prefetch_expected": "abstain",
+   "prefetch_entity": null,
+   "abstain_reason": "rules",
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "current",
+   "form": null,
+   "notes": ""
+  },
+  {
+   "id": "dev_0133",
+   "question": "¿Cuántos goles ha marcado Sergio Montesinos?",
+   "source": "blind",
+   "category": "neg_player",
+   "intent": "scorers",
+   "needed_tools": [
+    "find_players"
+   ],
+   "plausible_tools": [
+    "find_players",
+    "top_scorers",
+    "get_scorer_table",
+    "list_match_events"
+   ],
+   "prefetch_expected": "abstain",
+   "prefetch_entity": null,
+   "abstain_reason": "player",
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "current",
+   "form": null,
+   "notes": ""
+  },
+  {
+   "id": "dev_0134",
+   "question": "¿Cómo ha quedado Bustarviejo en la liga?",
+   "source": "blind",
+   "category": "team_status",
+   "intent": "composite",
+   "needed_tools": [
+    "find_teams",
+    "get_standings",
+    "list_matches"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "get_standings",
+    "list_matches",
+    "get_match",
+    "list_teams"
+   ],
+   "prefetch_expected": "fire",
+   "prefetch_entity": "C.D. BUSTARVIEJO",
+   "abstain_reason": null,
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "current",
+   "form": "core",
+   "notes": "núcleo etiquetado por regla"
+  },
+  {
+   "id": "dev_0135",
+   "question": "Compara a CD RIVAS FUTSAL - YOUFIRST SMART FINACE 'B' con COLME FUTSAL",
+   "source": "blind",
+   "category": "neg_multi",
+   "intent": "composite",
+   "needed_tools": [
+    "find_teams"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "list_matches",
+    "get_standings",
+    "list_teams"
+   ],
+   "prefetch_expected": "abstain",
+   "prefetch_entity": null,
+   "abstain_reason": "multi_team",
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "current",
+   "form": null,
+   "notes": ""
+  },
+  {
+   "id": "dev_0136",
+   "question": "¿Y su último partido?",
+   "source": "blind",
+   "category": "neg_follow",
+   "intent": "matches",
+   "needed_tools": [
+    "find_teams",
+    "list_matches"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "list_matches",
+    "get_standings",
+    "get_match_report"
+   ],
+   "prefetch_expected": "abstain",
+   "prefetch_entity": null,
+   "abstain_reason": "context",
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": true,
+   "prev_questions": [
+    "¿Qué puesto ocupa CDE E.F.S. HUMANES 'B' en la clasificación?"
+   ],
+   "focus": {
+    "team": "CDE E.F.S. HUMANES 'B'"
+   },
+   "tier0_eligible": false,
+   "season": "current",
+   "form": null,
+   "notes": ""
+  },
+  {
+   "id": "dev_0137",
+   "question": "¿Cuántos puntos tiene c.d. educa & play?",
+   "source": "blind",
+   "category": "neg_homonym",
+   "intent": "matches",
+   "needed_tools": [
+    "find_teams"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "list_matches",
+    "get_standings",
+    "list_teams"
+   ],
+   "prefetch_expected": "abstain",
+   "prefetch_entity": null,
+   "abstain_reason": "homonym",
+   "entity_ambiguity": "multi_competition",
+   "scope": "needs_clarification",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "current",
+   "form": null,
+   "notes": ""
+  },
+  {
+   "id": "dev_0138",
+   "question": "Una duda: Próximo encuentro de cd rivas futsal - youfirst smart finace 'b'",
+   "source": "blind",
+   "category": "team_next_match",
+   "intent": "matches",
+   "needed_tools": [
+    "find_teams",
+    "list_matches"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "list_matches",
+    "get_match",
+    "list_teams"
+   ],
+   "prefetch_expected": "fire",
+   "prefetch_entity": "CD RIVAS FUTSAL - YOUFIRST SMART FINACE 'B'",
+   "abstain_reason": null,
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": true,
+   "season": "current",
+   "form": "lower",
+   "notes": ""
+  },
+  {
+   "id": "dev_0139",
+   "question": "¿Cuántos partidos le quedan a Virgen Del Cerro Futsal?",
+   "source": "blind",
+   "category": "team_count",
+   "intent": "matches",
+   "needed_tools": [
+    "find_teams",
+    "list_matches"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "list_matches",
+    "list_teams"
+   ],
+   "prefetch_expected": "fire",
+   "prefetch_entity": "C.D.E. VIRGEN DEL CERRO FUTSAL",
+   "abstain_reason": null,
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "current",
+   "form": "core",
+   "notes": "núcleo etiquetado por regla"
+  },
+  {
+   "id": "dev_0140",
+   "question": "Compara a CDE C.F.S. EUROSIRIS con INTER FUTBOL SALA - JP FINANCIAL 'A'",
+   "source": "blind",
+   "category": "neg_multi",
+   "intent": "composite",
+   "needed_tools": [
+    "find_teams"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "list_matches",
+    "get_standings",
+    "list_teams"
+   ],
+   "prefetch_expected": "abstain",
+   "prefetch_entity": null,
+   "abstain_reason": "multi_team",
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "current",
+   "form": null,
+   "notes": ""
+  },
+  {
+   "id": "dev_0141",
+   "question": "Compara a CLUB ARGANDA FUTSAL 'A' con FUTSALA PINTO - ESCUELA PATRI CHAMORRO 'A'",
+   "source": "blind",
+   "category": "neg_multi",
+   "intent": "composite",
+   "needed_tools": [
+    "find_teams"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "list_matches",
+    "get_standings",
+    "list_teams"
+   ],
+   "prefetch_expected": "abstain",
+   "prefetch_entity": null,
+   "abstain_reason": "multi_team",
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "current",
+   "form": null,
+   "notes": ""
+  },
+  {
+   "id": "dev_0142",
+   "question": "¿En qué posición está FUTSAL SANSE?",
+   "source": "blind",
+   "category": "neg_partial",
+   "intent": "matches",
+   "needed_tools": [
+    "find_teams"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "list_matches",
+    "get_standings",
+    "list_teams"
+   ],
+   "prefetch_expected": "abstain",
+   "prefetch_entity": null,
+   "abstain_reason": "partial_name",
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "current",
+   "form": null,
+   "notes": ""
+  },
+  {
+   "id": "dev_0143",
+   "question": "¿Cuándo juega el Club Estrella Polar?",
+   "source": "blind",
+   "category": "neg_foreign",
+   "intent": "matches",
+   "needed_tools": [
+    "find_teams"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "list_matches",
+    "get_standings",
+    "list_teams"
+   ],
+   "prefetch_expected": "abstain",
+   "prefetch_entity": null,
+   "abstain_reason": "not_in_catalog",
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "current",
+   "form": null,
+   "notes": ""
+  },
+  {
+   "id": "dev_0144",
+   "question": "Una duda: ¿En qué grupo juega INTER FUTBOL SALA - JP FINANCIAL 'A'?",
+   "source": "blind",
+   "category": "team_group_lookup",
+   "intent": "teams_players",
+   "needed_tools": [
+    "find_teams"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "list_teams",
+    "list_groups"
+   ],
+   "prefetch_expected": "fire",
+   "prefetch_entity": "INTER FUTBOL SALA - JP FINANCIAL 'A'",
+   "abstain_reason": null,
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": true,
+   "season": "current",
+   "form": "official",
+   "notes": ""
+  },
+  {
+   "id": "dev_0145",
+   "question": "Una duda: ¿Quién lidera la clasificación de PRIMERA DIVISION AUTONOMICA JUVENIL FS (Grupo Unico)?",
+   "source": "blind",
+   "category": "neg_table",
+   "intent": "standings",
+   "needed_tools": [
+    "get_standings"
+   ],
+   "plausible_tools": [
+    "get_standings",
+    "list_competitions",
+    "list_groups"
+   ],
+   "prefetch_expected": "abstain",
+   "prefetch_entity": null,
+   "abstain_reason": "no_team",
+   "entity_ambiguity": "none",
+   "scope": "resolved",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "current",
+   "form": null,
+   "notes": ""
+  },
+  {
+   "id": "dev_0146",
+   "question": "Oye, Sobre el reglamento: ¿Cuánto dura cada mitad de un partido de fútbol sala cuando juega C.D.E. CASCO ANTIGUO CARABANCHEL 'A'?",
+   "source": "blind",
+   "category": "neg_rules_team",
+   "intent": "rules",
+   "needed_tools": [
+    "search_rules"
+   ],
+   "plausible_tools": [
+    "search_rules"
+   ],
+   "prefetch_expected": "abstain",
+   "prefetch_entity": null,
+   "abstain_reason": "rules",
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "current",
+   "form": null,
+   "notes": ""
+  },
+  {
+   "id": "dev_0147",
+   "question": "Una duda: ¿Quién arbitró el último partido de Don P'alpie Aranjuez F.S. - Auto Recambios Luis?",
+   "source": "blind",
+   "category": "team_referee",
+   "intent": "matches",
+   "needed_tools": [
+    "find_teams",
+    "list_matches",
+    "get_match_report"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "list_matches",
+    "get_match_report",
+    "get_match",
+    "list_teams"
+   ],
+   "prefetch_expected": "fire",
+   "prefetch_entity": "DON P'ALPIE ARANJUEZ F.S. - AUTO RECAMBIOS LUIS",
+   "abstain_reason": null,
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "current",
+   "form": "title",
+   "notes": ""
+  },
+  {
+   "id": "dev_0148",
+   "question": "¿Hay algún equipo de Andres?",
+   "source": "blind",
+   "category": "neg_generic",
+   "intent": "teams_players",
+   "needed_tools": [
+    "list_teams"
+   ],
+   "plausible_tools": [
+    "list_teams",
+    "find_teams",
+    "list_groups"
+   ],
+   "prefetch_expected": "abstain",
+   "prefetch_entity": null,
+   "abstain_reason": "generic_word",
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "current",
+   "form": null,
+   "notes": ""
+  },
+  {
+   "id": "dev_0149",
+   "question": "Una duda: ¿Quién arbitró el último partido de UNION DEPORTIVA LAS ROZAS BOADILLA - AST TCNET?",
+   "source": "blind",
+   "category": "team_referee",
+   "intent": "matches",
+   "needed_tools": [
+    "find_teams",
+    "list_matches",
+    "get_match_report"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "list_matches",
+    "get_match_report",
+    "get_match",
+    "list_teams"
+   ],
+   "prefetch_expected": "fire",
+   "prefetch_entity": "UNION DEPORTIVA LAS ROZAS BOADILLA - AST TCNET",
+   "abstain_reason": null,
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "current",
+   "form": "official",
+   "notes": ""
+  },
+  {
+   "id": "dev_0150",
+   "question": "Oye, ¿En qué grupo juega CDE EL VALLE 'A'?",
+   "source": "blind",
+   "category": "team_group_lookup",
+   "intent": "teams_players",
+   "needed_tools": [
+    "find_teams"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "list_teams",
+    "list_groups"
+   ],
+   "prefetch_expected": "fire",
+   "prefetch_entity": "C.D.E. EL VALLE 'A'",
+   "abstain_reason": null,
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": true,
+   "season": "current",
+   "form": "no_dots",
+   "notes": ""
+  },
+  {
+   "id": "dev_0151",
+   "question": "Compara a C.D.E. DEPORTIVO MADRID FUTSAL con C.D.E. PINAR DE SAN JOSE - ALCORCON 'C'",
+   "source": "blind",
+   "category": "neg_multi",
+   "intent": "composite",
+   "needed_tools": [
+    "find_teams"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "list_matches",
+    "get_standings",
+    "list_teams"
+   ],
+   "prefetch_expected": "abstain",
+   "prefetch_entity": null,
+   "abstain_reason": "multi_team",
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "current",
+   "form": null,
+   "notes": ""
+  },
+  {
+   "id": "dev_0152",
+   "question": "Una duda: ¿Qué jugador de CD RIVAS FUTSAL - YOUFIRST SMART FINACE ’B’ ha marcado más goles?",
+   "source": "blind",
+   "category": "team_team_scorer",
+   "intent": "scorers",
+   "needed_tools": [
+    "find_teams",
+    "get_scorer_table"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "get_scorer_table",
+    "top_scorers",
+    "find_players",
+    "list_teams"
+   ],
+   "prefetch_expected": "fire",
+   "prefetch_entity": "CD RIVAS FUTSAL - YOUFIRST SMART FINACE 'B'",
+   "abstain_reason": null,
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "current",
+   "form": "curly_quotes",
+   "notes": ""
+  },
+  {
+   "id": "dev_0153",
+   "question": "Oye, Cuéntame un chiste",
+   "source": "blind",
+   "category": "neg_off",
+   "intent": "unrecognized",
+   "needed_tools": [],
+   "plausible_tools": [],
+   "prefetch_expected": "abstain",
+   "prefetch_entity": null,
+   "abstain_reason": "off_topic",
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "current",
+   "form": null,
+   "notes": ""
+  },
+  {
+   "id": "dev_0154",
+   "question": "¿Qué puesto ocupa CDE PARAISO SAGRADOS CORAZONES 'A' en la clasificación?",
+   "source": "blind",
+   "category": "team_standing",
+   "intent": "standings",
+   "needed_tools": [
+    "find_teams",
+    "get_standings"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "get_standings",
+    "list_teams"
+   ],
+   "prefetch_expected": "fire",
+   "prefetch_entity": "CDE PARAISO SAGRADOS CORAZONES 'A'",
+   "abstain_reason": null,
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": true,
+   "season": "current",
+   "form": "official",
+   "notes": ""
+  },
+  {
+   "id": "dev_0155",
+   "question": "Una duda: ¿Cuántos puntos lleva CDE C.F.S. EUROSIRIS - RINCON DE SANABRIA 'B' esta temporada?",
+   "source": "blind",
+   "category": "team_points",
+   "intent": "standings",
+   "needed_tools": [
+    "find_teams",
+    "get_standings"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "get_standings",
+    "list_teams"
+   ],
+   "prefetch_expected": "fire",
+   "prefetch_entity": "CDE C.F.S. EUROSIRIS - RINCON DE SANABRIA 'B'",
+   "abstain_reason": null,
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": true,
+   "season": "current",
+   "form": "official",
+   "notes": ""
+  },
+  {
+   "id": "dev_0156",
+   "question": "Próximo encuentro de F.S. CHAMBERI - MIBOTICAE.COM B",
+   "source": "blind",
+   "category": "neg_homonym",
+   "intent": "matches",
+   "needed_tools": [
+    "find_teams"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "list_matches",
+    "get_standings",
+    "list_teams"
+   ],
+   "prefetch_expected": "abstain",
+   "prefetch_entity": null,
+   "abstain_reason": "homonym",
+   "entity_ambiguity": "multi_competition",
+   "scope": "needs_clarification",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "current",
+   "form": null,
+   "notes": ""
+  },
+  {
+   "id": "dev_0157",
+   "question": "Oye, ¿Cuántos puntos lleva TORREJON SALA FIVE PLAY B esta temporada?",
+   "source": "blind",
+   "category": "team_points",
+   "intent": "standings",
+   "needed_tools": [
+    "find_teams",
+    "get_standings"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "get_standings",
+    "list_teams"
+   ],
+   "prefetch_expected": "fire",
+   "prefetch_entity": "TORREJON SALA FIVE PLAY 'B'",
+   "abstain_reason": null,
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": true,
+   "season": "current",
+   "form": "no_quotes",
+   "notes": ""
+  },
+  {
+   "id": "dev_0158",
+   "question": "En PRIMERA JUVENIL FS (Grupo 1), ¿Cuántos partidos le quedan a C.D. EDUCA & PLAY?",
+   "source": "blind",
+   "category": "team_count",
+   "intent": "matches",
+   "needed_tools": [
+    "find_teams",
+    "list_matches"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "list_matches",
+    "list_teams"
+   ],
+   "prefetch_expected": "fire",
+   "prefetch_entity": "C.D. EDUCA & PLAY",
+   "abstain_reason": null,
+   "entity_ambiguity": "multi_competition",
+   "scope": "resolved",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "current",
+   "form": "official+scope",
+   "notes": ""
+  },
+  {
+   "id": "dev_0159",
+   "question": "Oye, ¿Cuándo es el próximo partido de FUTSALA PINTO - ESCUELA PATRI CHAMORRO 'A'?",
+   "source": "blind",
+   "category": "team_next_match",
+   "intent": "matches",
+   "needed_tools": [
+    "find_teams",
+    "list_matches"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "list_matches",
+    "get_match",
+    "list_teams"
+   ],
+   "prefetch_expected": "fire",
+   "prefetch_entity": "FUTSALA PINTO - ESCUELA PATRI CHAMORRO 'A'",
+   "abstain_reason": null,
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": true,
+   "season": "current",
+   "form": "official",
+   "notes": ""
+  },
+  {
+   "id": "dev_0160",
+   "question": "Escribe un poema sobre el fútbol sala",
+   "source": "blind",
+   "category": "neg_off",
+   "intent": "unrecognized",
+   "needed_tools": [],
+   "plausible_tools": [],
+   "prefetch_expected": "abstain",
+   "prefetch_entity": null,
+   "abstain_reason": "off_topic",
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "current",
+   "form": null,
+   "notes": ""
+  },
+  {
+   "id": "dev_0161",
+   "question": "Oye, ¿Qué árbitros dirigieron el último encuentro de CDE E.F.S. HUMANES B?",
+   "source": "blind",
+   "category": "team_referee",
+   "intent": "matches",
+   "needed_tools": [
+    "find_teams",
+    "list_matches",
+    "get_match_report"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "list_matches",
+    "get_match_report",
+    "get_match",
+    "list_teams"
+   ],
+   "prefetch_expected": "fire",
+   "prefetch_entity": "CDE E.F.S. HUMANES 'B'",
+   "abstain_reason": null,
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "current",
+   "form": "no_quotes",
+   "notes": ""
+  },
+  {
+   "id": "dev_0162",
+   "question": "Una duda: ¿Quién arbitró el último partido de C.D.E. CASCO ANTIGUO CARABANCHEL A?",
+   "source": "blind",
+   "category": "team_referee",
+   "intent": "matches",
+   "needed_tools": [
+    "find_teams",
+    "list_matches",
+    "get_match_report"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "list_matches",
+    "get_match_report",
+    "get_match",
+    "list_teams"
+   ],
+   "prefetch_expected": "fire",
+   "prefetch_entity": "C.D.E. CASCO ANTIGUO CARABANCHEL 'A'",
+   "abstain_reason": null,
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "current",
+   "form": "no_quotes",
+   "notes": ""
+  },
+  {
+   "id": "dev_0163",
+   "question": "¿Cómo quedó el partido entre A.D.ESCURIALENSE - YAPPANCARS 'B' y A.D. OBISPO PERELLO 'A'?",
+   "source": "blind",
+   "category": "neg_multi",
+   "intent": "composite",
+   "needed_tools": [
+    "find_teams"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "list_matches",
+    "get_standings",
+    "list_teams"
+   ],
+   "prefetch_expected": "abstain",
+   "prefetch_entity": null,
+   "abstain_reason": "multi_team",
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "current",
+   "form": null,
+   "notes": ""
+  },
+  {
+   "id": "dev_0164",
+   "question": "Próximo encuentro de Colme Futsal",
+   "source": "blind",
+   "category": "team_next_match",
+   "intent": "matches",
+   "needed_tools": [
+    "find_teams",
+    "list_matches"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "list_matches",
+    "get_match",
+    "list_teams"
+   ],
+   "prefetch_expected": "fire",
+   "prefetch_entity": "COLME FUTSAL",
+   "abstain_reason": null,
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": true,
+   "season": "current",
+   "form": "title",
+   "notes": ""
+  },
+  {
+   "id": "dev_0165",
+   "question": "¿Hay algún equipo de Estrellas?",
+   "source": "blind",
+   "category": "neg_generic",
+   "intent": "teams_players",
+   "needed_tools": [
+    "list_teams"
+   ],
+   "plausible_tools": [
+    "list_teams",
+    "find_teams",
+    "list_groups"
+   ],
+   "prefetch_expected": "abstain",
+   "prefetch_entity": null,
+   "abstain_reason": "generic_word",
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "current",
+   "form": null,
+   "notes": ""
+  },
+  {
+   "id": "dev_0166",
+   "question": "¿Cuántos partidos ha jugado A.D. OBISPO PERELLO 'A'?",
+   "source": "blind",
+   "category": "team_count",
+   "intent": "matches",
+   "needed_tools": [
+    "find_teams",
+    "list_matches"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "list_matches",
+    "list_teams"
+   ],
+   "prefetch_expected": "fire",
+   "prefetch_entity": "A.D. OBISPO PERELLO 'A'",
+   "abstain_reason": null,
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "current",
+   "form": "official",
+   "notes": ""
+  },
+  {
+   "id": "dev_0167",
+   "question": "¿Cuántos puntos lleva C.D.E. SAN JOSE DE VALDERAS - VALDERAS F.S. 'B' esta temporada?",
+   "source": "blind",
+   "category": "team_points",
+   "intent": "standings",
+   "needed_tools": [
+    "find_teams",
+    "get_standings"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "get_standings",
+    "list_teams"
+   ],
+   "prefetch_expected": "fire",
+   "prefetch_entity": "C.D.E. SAN JOSE DE VALDERAS - VALDERAS F.S. 'B'",
+   "abstain_reason": null,
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": true,
+   "season": "current",
+   "form": "official",
+   "notes": ""
+  },
+  {
+   "id": "dev_0168",
+   "question": "¿Cómo quedó el partido entre INTER FUTBOL SALA - JP FINANCIAL 'A' y CD RIVAS FUTSAL - YOUFIRST SMART FINACE 'B'?",
+   "source": "blind",
+   "category": "neg_multi",
+   "intent": "composite",
+   "needed_tools": [
+    "find_teams"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "list_matches",
+    "get_standings",
+    "list_teams"
+   ],
+   "prefetch_expected": "abstain",
+   "prefetch_entity": null,
+   "abstain_reason": "multi_team",
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "current",
+   "form": null,
+   "notes": ""
+  },
+  {
+   "id": "dev_0169",
+   "question": "¿Cuántos puntos lleva C.D.E. COLEGIO ALEMAN DE MADRID ’B’ esta temporada?",
+   "source": "blind",
+   "category": "team_points",
+   "intent": "standings",
+   "needed_tools": [
+    "find_teams",
+    "get_standings"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "get_standings",
+    "list_teams"
+   ],
+   "prefetch_expected": "fire",
+   "prefetch_entity": "C.D.E. COLEGIO ALEMAN DE MADRID 'B'",
+   "abstain_reason": null,
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": true,
+   "season": "current",
+   "form": "curly_quotes",
+   "notes": ""
+  },
+  {
+   "id": "dev_0170",
+   "question": "Próximo encuentro de CSD PARQUE DE LISBOA FUTSAL",
+   "source": "blind",
+   "category": "team_next_match",
+   "intent": "matches",
+   "needed_tools": [
+    "find_teams",
+    "list_matches"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "list_matches",
+    "get_match",
+    "list_teams"
+   ],
+   "prefetch_expected": "fire",
+   "prefetch_entity": "C.S.D. PARQUE DE LISBOA FUTSAL",
+   "abstain_reason": null,
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": true,
+   "season": "current",
+   "form": "no_dots",
+   "notes": ""
+  },
+  {
+   "id": "dev_0171",
+   "question": "¿Cuántos goles ha marcado Pablo Pimpollo?",
+   "source": "blind",
+   "category": "neg_player",
+   "intent": "scorers",
+   "needed_tools": [
+    "find_players"
+   ],
+   "plausible_tools": [
+    "find_players",
+    "top_scorers",
+    "get_scorer_table",
+    "list_match_events"
+   ],
+   "prefetch_expected": "abstain",
+   "prefetch_entity": null,
+   "abstain_reason": "player",
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "current",
+   "form": null,
+   "notes": ""
+  },
+  {
+   "id": "dev_0172",
+   "question": "Cuéntame un chiste",
+   "source": "blind",
+   "category": "neg_off",
+   "intent": "unrecognized",
+   "needed_tools": [],
+   "plausible_tools": [],
+   "prefetch_expected": "abstain",
+   "prefetch_entity": null,
+   "abstain_reason": "off_topic",
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "current",
+   "form": null,
+   "notes": ""
+  },
+  {
+   "id": "dev_0173",
+   "question": "En PRIMERA DIVISION AUTONOMICA AFICIONADO FS (Grupo 2), ¿Dónde juega CLUB CORAZONISTAS 'A' como local?",
+   "source": "blind",
+   "category": "team_venue",
+   "intent": "matches",
+   "needed_tools": [
+    "find_teams",
+    "list_matches",
+    "get_match"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "list_matches",
+    "get_match",
+    "list_teams"
+   ],
+   "prefetch_expected": "fire",
+   "prefetch_entity": "CLUB CORAZONISTAS 'A'",
+   "abstain_reason": null,
+   "entity_ambiguity": "multi_competition",
+   "scope": "resolved",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "current",
+   "form": "official+scope",
+   "notes": ""
+  },
+  {
+   "id": "dev_0174",
+   "question": "¿Cuántos puntos tiene colme futsal?",
+   "source": "blind",
+   "category": "team_points",
+   "intent": "standings",
+   "needed_tools": [
+    "find_teams",
+    "get_standings"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "get_standings",
+    "list_teams"
+   ],
+   "prefetch_expected": "fire",
+   "prefetch_entity": "COLME FUTSAL",
+   "abstain_reason": null,
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": true,
+   "season": "current",
+   "form": "lower",
+   "notes": ""
+  },
+  {
+   "id": "dev_0175",
+   "question": "¿Cuándo juega el Real Madrid?",
+   "source": "blind",
+   "category": "neg_foreign",
+   "intent": "matches",
+   "needed_tools": [
+    "find_teams"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "list_matches",
+    "get_standings",
+    "list_teams"
+   ],
+   "prefetch_expected": "abstain",
+   "prefetch_entity": null,
+   "abstain_reason": "not_in_catalog",
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "current",
+   "form": null,
+   "notes": ""
+  },
+  {
+   "id": "dev_0176",
+   "question": "Oye, ¿Cómo terminó el último partido de UNION DEPORTIVA LAS ROZAS BOADILLA - AST TCNET?",
+   "source": "blind",
+   "category": "team_last_result",
+   "intent": "matches",
+   "needed_tools": [
+    "find_teams",
+    "list_matches"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "list_matches",
+    "get_match",
+    "get_match_report",
+    "list_teams"
+   ],
+   "prefetch_expected": "fire",
+   "prefetch_entity": "UNION DEPORTIVA LAS ROZAS BOADILLA - AST TCNET",
+   "abstain_reason": null,
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": true,
+   "season": "current",
+   "form": "official",
+   "notes": ""
+  },
+  {
+   "id": "dev_0177",
+   "question": "Una duda: ¿Quién arbitró el último partido de c.d.e. sport sala 12?",
+   "source": "blind",
+   "category": "team_referee",
+   "intent": "matches",
+   "needed_tools": [
+    "find_teams",
+    "list_matches",
+    "get_match_report"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "list_matches",
+    "get_match_report",
+    "get_match",
+    "list_teams"
+   ],
+   "prefetch_expected": "fire",
+   "prefetch_entity": "C.D.E. SPORT SALA 12",
+   "abstain_reason": null,
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "current",
+   "form": "lower",
+   "notes": ""
+  },
+  {
+   "id": "dev_0178",
+   "question": "¿Cuántos puntos lleva TORREJON SALA FIVE PLAY 'B' esta temporada?",
+   "source": "blind",
+   "category": "team_points",
+   "intent": "standings",
+   "needed_tools": [
+    "find_teams",
+    "get_standings"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "get_standings",
+    "list_teams"
+   ],
+   "prefetch_expected": "fire",
+   "prefetch_entity": "TORREJON SALA FIVE PLAY 'B'",
+   "abstain_reason": null,
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": true,
+   "season": "current",
+   "form": "official",
+   "notes": ""
+  },
+  {
+   "id": "dev_0179",
+   "question": "¿Quién es el máximo goleador de PRIMERA DIVISION AUTONOMICA AFICIONADO FS (Grupo 1)?",
+   "source": "blind",
+   "category": "neg_table",
+   "intent": "scorers",
+   "needed_tools": [
+    "get_scorer_table"
+   ],
+   "plausible_tools": [
+    "get_scorer_table",
+    "list_competitions",
+    "list_groups"
+   ],
+   "prefetch_expected": "abstain",
+   "prefetch_entity": null,
+   "abstain_reason": "no_team",
+   "entity_ambiguity": "none",
+   "scope": "resolved",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "current",
+   "form": null,
+   "notes": ""
+  },
+  {
+   "id": "dev_0180",
+   "question": "¿Cuántos puntos tuvo C.S.D. PARQUE DE LISBOA FUTSAL en 2018?",
+   "source": "blind",
+   "category": "neg_history",
+   "intent": "unrecognized",
+   "needed_tools": [],
+   "plausible_tools": [
+    "find_teams"
+   ],
+   "prefetch_expected": "abstain",
+   "prefetch_entity": null,
+   "abstain_reason": "historical",
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "historical",
+   "form": null,
+   "notes": ""
+  },
+  {
+   "id": "dev_0181",
+   "question": "¿En qué posición está Alcorcon A?",
+   "source": "blind",
+   "category": "team_standing",
+   "intent": "standings",
+   "needed_tools": [
+    "find_teams",
+    "get_standings"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "get_standings",
+    "list_teams"
+   ],
+   "prefetch_expected": "fire",
+   "prefetch_entity": "A.D. ALCORCON 'A'",
+   "abstain_reason": null,
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": true,
+   "season": "current",
+   "form": "core",
+   "notes": "núcleo etiquetado por regla"
+  },
+  {
+   "id": "dev_0182",
+   "question": "Una duda: ¿Quién es el máximo goleador de c.d.e. deportivo madrid futsal?",
+   "source": "blind",
+   "category": "team_team_scorer",
+   "intent": "scorers",
+   "needed_tools": [
+    "find_teams",
+    "get_scorer_table"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "get_scorer_table",
+    "top_scorers",
+    "find_players",
+    "list_teams"
+   ],
+   "prefetch_expected": "fire",
+   "prefetch_entity": "C.D.E. DEPORTIVO MADRID FUTSAL",
+   "abstain_reason": null,
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "current",
+   "form": "lower",
+   "notes": ""
+  },
+  {
+   "id": "dev_0183",
+   "question": "¿En qué campo juega Futsala Pinto - Escuela Patri Chamorro 'a' su próximo partido?",
+   "source": "blind",
+   "category": "team_venue",
+   "intent": "matches",
+   "needed_tools": [
+    "find_teams",
+    "list_matches",
+    "get_match"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "list_matches",
+    "get_match",
+    "list_teams"
+   ],
+   "prefetch_expected": "fire",
+   "prefetch_entity": "FUTSALA PINTO - ESCUELA PATRI CHAMORRO 'A'",
+   "abstain_reason": null,
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "current",
+   "form": "title",
+   "notes": ""
+  },
+  {
+   "id": "dev_0184",
+   "question": "¿Cuántos goles ha marcado Alvaro Peralta?",
+   "source": "blind",
+   "category": "neg_player",
+   "intent": "scorers",
+   "needed_tools": [
+    "find_players"
+   ],
+   "plausible_tools": [
+    "find_players",
+    "top_scorers",
+    "get_scorer_table",
+    "list_match_events"
+   ],
+   "prefetch_expected": "abstain",
+   "prefetch_entity": null,
+   "abstain_reason": "player",
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "current",
+   "form": null,
+   "notes": ""
+  },
+  {
+   "id": "dev_0185",
+   "question": "Una duda: ¿En qué campo juega CLUB ARGANDA FUTSAL A su próximo partido?",
+   "source": "blind",
+   "category": "team_venue",
+   "intent": "matches",
+   "needed_tools": [
+    "find_teams",
+    "list_matches",
+    "get_match"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "list_matches",
+    "get_match",
+    "list_teams"
+   ],
+   "prefetch_expected": "fire",
+   "prefetch_entity": "CLUB ARGANDA FUTSAL 'A'",
+   "abstain_reason": null,
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "current",
+   "form": "no_quotes",
+   "notes": ""
+  },
+  {
+   "id": "dev_0186",
+   "question": "Oye, ¿Qué árbitros dirigieron el último encuentro de Deportivo Madrid Futsal?",
+   "source": "blind",
+   "category": "team_referee",
+   "intent": "matches",
+   "needed_tools": [
+    "find_teams",
+    "list_matches",
+    "get_match_report"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "list_matches",
+    "get_match_report",
+    "get_match",
+    "list_teams"
+   ],
+   "prefetch_expected": "fire",
+   "prefetch_entity": "C.D.E. DEPORTIVO MADRID FUTSAL",
+   "abstain_reason": null,
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "current",
+   "form": "core",
+   "notes": "núcleo etiquetado por regla"
+  },
+  {
+   "id": "dev_0187",
+   "question": "Oye, ¿Cuánto dura cada mitad de un partido de fútbol sala?",
+   "source": "blind",
+   "category": "neg_rules",
+   "intent": "rules",
+   "needed_tools": [
+    "search_rules"
+   ],
+   "plausible_tools": [
+    "search_rules"
+   ],
+   "prefetch_expected": "abstain",
+   "prefetch_entity": null,
+   "abstain_reason": "no_team",
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "current",
+   "form": null,
+   "notes": ""
+  },
+  {
+   "id": "dev_0188",
+   "question": "¿Qué equipos de Colmenar hay en la competición?",
+   "source": "blind",
+   "category": "neg_generic",
+   "intent": "teams_players",
+   "needed_tools": [
+    "list_teams"
+   ],
+   "plausible_tools": [
+    "list_teams",
+    "find_teams",
+    "list_groups"
+   ],
+   "prefetch_expected": "abstain",
+   "prefetch_entity": null,
+   "abstain_reason": "generic_word",
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "current",
+   "form": null,
+   "notes": ""
+  },
+  {
+   "id": "dev_0189",
+   "question": "¿Cuánto dura cada mitad de un partido de fútbol sala?",
+   "source": "blind",
+   "category": "neg_rules",
+   "intent": "rules",
+   "needed_tools": [
+    "search_rules"
+   ],
+   "plausible_tools": [
+    "search_rules"
+   ],
+   "prefetch_expected": "abstain",
+   "prefetch_entity": null,
+   "abstain_reason": "no_team",
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "current",
+   "form": null,
+   "notes": ""
+  },
+  {
+   "id": "dev_0190",
+   "question": "Una duda: ¿Cuántas faltas acumuladas hay antes del tiro libre?",
+   "source": "blind",
+   "category": "neg_rules",
+   "intent": "rules",
+   "needed_tools": [
+    "search_rules"
+   ],
+   "plausible_tools": [
+    "search_rules"
+   ],
+   "prefetch_expected": "abstain",
+   "prefetch_entity": null,
+   "abstain_reason": "no_team",
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "current",
+   "form": null,
+   "notes": ""
+  },
+  {
+   "id": "dev_0191",
+   "question": "Oye, ¿Quién lidera la clasificación de COPA JUVENIL - fase previa- FS (Eliminatorias)?",
+   "source": "blind",
+   "category": "neg_table",
+   "intent": "standings",
+   "needed_tools": [
+    "get_standings"
+   ],
+   "plausible_tools": [
+    "get_standings",
+    "list_competitions",
+    "list_groups"
+   ],
+   "prefetch_expected": "abstain",
+   "prefetch_entity": null,
+   "abstain_reason": "no_team",
+   "entity_ambiguity": "none",
+   "scope": "resolved",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "current",
+   "form": null,
+   "notes": ""
+  },
+  {
+   "id": "dev_0192",
+   "question": "¿Contra quién juega FUTSALA PINTO-ESCUELA PATRI CHAMORRO 'A' en la jornada 5?",
+   "source": "blind",
+   "category": "team_round_match",
+   "intent": "matches",
+   "needed_tools": [
+    "find_teams",
+    "list_rounds",
+    "list_matches"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "list_rounds",
+    "list_matches",
+    "get_match",
+    "list_teams"
+   ],
+   "prefetch_expected": "fire",
+   "prefetch_entity": "FUTSALA PINTO - ESCUELA PATRI CHAMORRO 'A'",
+   "abstain_reason": null,
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "current",
+   "form": "hyphen_spacing",
+   "notes": ""
+  },
+  {
+   "id": "dev_0193",
+   "question": "¿Cómo terminó el último partido de C.D.E. VIRGEN DEL CERRO FUTSAL?",
+   "source": "blind",
+   "category": "neg_follow",
+   "intent": "matches",
+   "needed_tools": [
+    "find_teams",
+    "list_matches"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "list_matches",
+    "get_standings",
+    "get_match_report"
+   ],
+   "prefetch_expected": "abstain",
+   "prefetch_entity": null,
+   "abstain_reason": "context",
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": true,
+   "prev_questions": [
+    "¿Cuál fue el último resultado de C.D.E. VIRGEN DEL CERRO FUTSAL?"
+   ],
+   "focus": {
+    "team": "C.D.E. VIRGEN DEL CERRO FUTSAL"
+   },
+   "tier0_eligible": false,
+   "season": "current",
+   "form": null,
+   "notes": ""
+  },
+  {
+   "id": "dev_0194",
+   "question": "Dime el marcador del último partido de ARGANDA FUTSAL",
+   "source": "blind",
+   "category": "neg_partial",
+   "intent": "matches",
+   "needed_tools": [
+    "find_teams"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "list_matches",
+    "get_standings",
+    "list_teams"
+   ],
+   "prefetch_expected": "abstain",
+   "prefetch_entity": null,
+   "abstain_reason": "partial_name",
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "current",
+   "form": null,
+   "notes": ""
+  },
+  {
+   "id": "dev_0195",
+   "question": "¿Cuándo juega el Deportivo Fantasma?",
+   "source": "blind",
+   "category": "neg_foreign",
+   "intent": "matches",
+   "needed_tools": [
+    "find_teams"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "list_matches",
+    "get_standings",
+    "list_teams"
+   ],
+   "prefetch_expected": "abstain",
+   "prefetch_entity": null,
+   "abstain_reason": "not_in_catalog",
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "current",
+   "form": null,
+   "notes": ""
+  },
+  {
+   "id": "dev_0196",
+   "question": "Oye, ¿Cómo va A.D. OBISPO PERELLO 'A'?",
+   "source": "blind",
+   "category": "team_status",
+   "intent": "composite",
+   "needed_tools": [
+    "find_teams",
+    "get_standings",
+    "list_matches"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "get_standings",
+    "list_matches",
+    "get_match",
+    "list_teams"
+   ],
+   "prefetch_expected": "fire",
+   "prefetch_entity": "A.D. OBISPO PERELLO 'A'",
+   "abstain_reason": null,
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "current",
+   "form": "official",
+   "notes": ""
+  },
+  {
+   "id": "dev_0197",
+   "question": "Una duda: ¿Dónde juega C.S.D. Parque De Lisboa Futsal como local?",
+   "source": "blind",
+   "category": "team_venue",
+   "intent": "matches",
+   "needed_tools": [
+    "find_teams",
+    "list_matches",
+    "get_match"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "list_matches",
+    "get_match",
+    "list_teams"
+   ],
+   "prefetch_expected": "fire",
+   "prefetch_entity": "C.S.D. PARQUE DE LISBOA FUTSAL",
+   "abstain_reason": null,
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "current",
+   "form": "title",
+   "notes": ""
+  },
+  {
+   "id": "dev_0198",
+   "question": "En PRIMERA JUVENIL FS (Grupo 2), ¿Qué partido tiene Cde Fusion Futbol Sala San Fernando 'b' en la jornada 3?",
+   "source": "blind",
+   "category": "team_round_match",
+   "intent": "matches",
+   "needed_tools": [
+    "find_teams",
+    "list_rounds",
+    "list_matches"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "list_rounds",
+    "list_matches",
+    "get_match",
+    "list_teams"
+   ],
+   "prefetch_expected": "fire",
+   "prefetch_entity": "CDE FUSION FUTBOL SALA SAN FERNANDO 'B'",
+   "abstain_reason": null,
+   "entity_ambiguity": "multi_competition",
+   "scope": "resolved",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "current",
+   "form": "title+scope",
+   "notes": ""
+  },
+  {
+   "id": "dev_0199",
+   "question": "¿Cuántos goles ha marcado Rodrigo Casillas?",
+   "source": "blind",
+   "category": "neg_player",
+   "intent": "scorers",
+   "needed_tools": [
+    "find_players"
+   ],
+   "plausible_tools": [
+    "find_players",
+    "top_scorers",
+    "get_scorer_table",
+    "list_match_events"
+   ],
+   "prefetch_expected": "abstain",
+   "prefetch_entity": null,
+   "abstain_reason": "player",
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "current",
+   "form": null,
+   "notes": ""
+  },
+  {
+   "id": "dev_0200",
+   "question": "En PRIMERA AFICIONADO FS (Grupo 1), ¿A qué grupo pertenece Club De Futbol Rayo Manzanares?",
+   "source": "blind",
+   "category": "team_group_lookup",
+   "intent": "teams_players",
+   "needed_tools": [
+    "find_teams"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "list_teams",
+    "list_groups"
+   ],
+   "prefetch_expected": "fire",
+   "prefetch_entity": "CLUB DE FUTBOL RAYO MANZANARES",
+   "abstain_reason": null,
+   "entity_ambiguity": "multi_competition",
+   "scope": "resolved",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": true,
+   "season": "current",
+   "form": "title+scope",
+   "notes": ""
+  },
+  {
+   "id": "dev_0201",
+   "question": "¿En qué equipo juega Diego Ibeas?",
+   "source": "blind",
+   "category": "neg_player",
+   "intent": "scorers",
+   "needed_tools": [
+    "find_players"
+   ],
+   "plausible_tools": [
+    "find_players",
+    "top_scorers",
+    "get_scorer_table",
+    "list_match_events"
+   ],
+   "prefetch_expected": "abstain",
+   "prefetch_entity": null,
+   "abstain_reason": "player",
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "current",
+   "form": null,
+   "notes": ""
+  },
+  {
+   "id": "dev_0202",
+   "question": "¿Hay algún equipo de Winter?",
+   "source": "blind",
+   "category": "neg_generic",
+   "intent": "teams_players",
+   "needed_tools": [
+    "list_teams"
+   ],
+   "plausible_tools": [
+    "list_teams",
+    "find_teams",
+    "list_groups"
+   ],
+   "prefetch_expected": "abstain",
+   "prefetch_entity": null,
+   "abstain_reason": "generic_word",
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "current",
+   "form": null,
+   "notes": ""
+  },
+  {
+   "id": "dev_0203",
+   "question": "Oye, ¿Qué árbitros dirigieron el último encuentro de CDE VIRGEN DEL CERRO FUTSAL?",
+   "source": "blind",
+   "category": "team_referee",
+   "intent": "matches",
+   "needed_tools": [
+    "find_teams",
+    "list_matches",
+    "get_match_report"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "list_matches",
+    "get_match_report",
+    "get_match",
+    "list_teams"
+   ],
+   "prefetch_expected": "fire",
+   "prefetch_entity": "C.D.E. VIRGEN DEL CERRO FUTSAL",
+   "abstain_reason": null,
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "current",
+   "form": "no_dots",
+   "notes": ""
+  },
+  {
+   "id": "dev_0204",
+   "question": "¿Quién es el máximo goleador de DON PALPIE ARANJUEZ F.S. - AUTO RECAMBIOS LUIS?",
+   "source": "blind",
+   "category": "team_team_scorer",
+   "intent": "scorers",
+   "needed_tools": [
+    "find_teams",
+    "get_scorer_table"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "get_scorer_table",
+    "top_scorers",
+    "find_players",
+    "list_teams"
+   ],
+   "prefetch_expected": "fire",
+   "prefetch_entity": "DON P'ALPIE ARANJUEZ F.S. - AUTO RECAMBIOS LUIS",
+   "abstain_reason": null,
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "current",
+   "form": "no_quotes",
+   "notes": ""
+  },
+  {
+   "id": "dev_0205",
+   "question": "¿Cómo va CD RIVAS FUTSAL - YOUFIRST SMART FINACE 'B'?",
+   "source": "blind",
+   "category": "team_status",
+   "intent": "composite",
+   "needed_tools": [
+    "find_teams",
+    "get_standings",
+    "list_matches"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "get_standings",
+    "list_matches",
+    "get_match",
+    "list_teams"
+   ],
+   "prefetch_expected": "fire",
+   "prefetch_entity": "CD RIVAS FUTSAL - YOUFIRST SMART FINACE 'B'",
+   "abstain_reason": null,
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "current",
+   "form": "official",
+   "notes": ""
+  },
+  {
+   "id": "dev_0206",
+   "question": "En PREFERENTE JUVENIL FS (Grupo 2), ¿Cuántos partidos le quedan a CDE FUSION FUTBOL SALA SAN FERNANDO 'A'?",
+   "source": "blind",
+   "category": "team_count",
+   "intent": "matches",
+   "needed_tools": [
+    "find_teams",
+    "list_matches"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "list_matches",
+    "list_teams"
+   ],
+   "prefetch_expected": "fire",
+   "prefetch_entity": "CDE FUSION FUTBOL SALA SAN FERNANDO 'A'",
+   "abstain_reason": null,
+   "entity_ambiguity": "multi_competition",
+   "scope": "resolved",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "current",
+   "form": "official+scope",
+   "notes": ""
+  },
+  {
+   "id": "dev_0207",
+   "question": "¿Cómo va C.D. Futsi Atletico Navalcarnero - Frozen?",
+   "source": "blind",
+   "category": "neg_homonym",
+   "intent": "matches",
+   "needed_tools": [
+    "find_teams"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "list_matches",
+    "get_standings",
+    "list_teams"
+   ],
+   "prefetch_expected": "abstain",
+   "prefetch_entity": null,
+   "abstain_reason": "homonym",
+   "entity_ambiguity": "multi_competition",
+   "scope": "needs_clarification",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "current",
+   "form": null,
+   "notes": ""
+  },
+  {
+   "id": "dev_0208",
+   "question": "¿Contra quién juega F.S. DIAGONAL C el próximo fin de semana?",
+   "source": "blind",
+   "category": "team_next_match",
+   "intent": "matches",
+   "needed_tools": [
+    "find_teams",
+    "list_matches"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "list_matches",
+    "get_match",
+    "list_teams"
+   ],
+   "prefetch_expected": "fire",
+   "prefetch_entity": "F.S. DIAGONAL 'C'",
+   "abstain_reason": null,
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": true,
+   "season": "current",
+   "form": "no_quotes",
+   "notes": ""
+  },
+  {
+   "id": "dev_0209",
+   "question": "¿En qué campo juega GREDOS SAN DIEGO LAS SUERTES ’A’ su próximo partido?",
+   "source": "blind",
+   "category": "team_venue",
+   "intent": "matches",
+   "needed_tools": [
+    "find_teams",
+    "list_matches",
+    "get_match"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "list_matches",
+    "get_match",
+    "list_teams"
+   ],
+   "prefetch_expected": "fire",
+   "prefetch_entity": "GREDOS SAN DIEGO LAS SUERTES 'A'",
+   "abstain_reason": null,
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "current",
+   "form": "curly_quotes",
+   "notes": ""
+  },
+  {
+   "id": "dev_0210",
+   "question": "¿Cómo quedó CD RIVAS FUTSAL - YOUFIRST SMART FINACE 'B' en la temporada 2019/20?",
+   "source": "blind",
+   "category": "neg_history",
+   "intent": "unrecognized",
+   "needed_tools": [],
+   "plausible_tools": [
+    "find_teams"
+   ],
+   "prefetch_expected": "abstain",
+   "prefetch_entity": null,
+   "abstain_reason": "historical",
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "historical",
+   "form": null,
+   "notes": ""
+  },
+  {
+   "id": "dev_0211",
+   "question": "¿Qué puesto ocupa COLEGIO ALEMAN en la clasificación?",
+   "source": "blind",
+   "category": "neg_partial",
+   "intent": "matches",
+   "needed_tools": [
+    "find_teams"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "list_matches",
+    "get_standings",
+    "list_teams"
+   ],
+   "prefetch_expected": "abstain",
+   "prefetch_entity": null,
+   "abstain_reason": "partial_name",
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "current",
+   "form": null,
+   "notes": ""
+  },
+  {
+   "id": "dev_0212",
+   "question": "Dime el marcador del último partido de PARAISO SAGRADOS",
+   "source": "blind",
+   "category": "neg_partial",
+   "intent": "matches",
+   "needed_tools": [
+    "find_teams"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "list_matches",
+    "get_standings",
+    "list_teams"
+   ],
+   "prefetch_expected": "abstain",
+   "prefetch_entity": null,
+   "abstain_reason": "partial_name",
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "current",
+   "form": null,
+   "notes": ""
+  },
+  {
+   "id": "dev_0213",
+   "question": "En PRIMERA AFICIONADO FS (Grupo 1), ¿Qué partido tiene F.S. CHAMBERI - MIBOTICAE.COM 'B' en la jornada 3?",
+   "source": "blind",
+   "category": "team_round_match",
+   "intent": "matches",
+   "needed_tools": [
+    "find_teams",
+    "list_rounds",
+    "list_matches"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "list_rounds",
+    "list_matches",
+    "get_match",
+    "list_teams"
+   ],
+   "prefetch_expected": "fire",
+   "prefetch_entity": "F.S. CHAMBERI - MIBOTICAE.COM 'B'",
+   "abstain_reason": null,
+   "entity_ambiguity": "multi_competition",
+   "scope": "resolved",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "current",
+   "form": "official+scope",
+   "notes": ""
+  },
+  {
+   "id": "dev_0214",
+   "question": "Oye, Según las reglas de juego, ¿Cuánto dura cada mitad de un partido de fútbol sala cuando juega C.D.E. CASCO ANTIGUO CARABANCHEL 'A'?",
+   "source": "blind",
+   "category": "neg_rules_team",
+   "intent": "rules",
+   "needed_tools": [
+    "search_rules"
+   ],
+   "plausible_tools": [
+    "search_rules"
+   ],
+   "prefetch_expected": "abstain",
+   "prefetch_entity": null,
+   "abstain_reason": "rules",
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "current",
+   "form": null,
+   "notes": ""
+  },
+  {
+   "id": "dev_0215",
+   "question": "¿Qué puesto ocupa RACING LA en la clasificación?",
+   "source": "blind",
+   "category": "neg_partial",
+   "intent": "matches",
+   "needed_tools": [
+    "find_teams"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "list_matches",
+    "get_standings",
+    "list_teams"
+   ],
+   "prefetch_expected": "abstain",
+   "prefetch_entity": null,
+   "abstain_reason": "partial_name",
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "current",
+   "form": null,
+   "notes": ""
+  },
+  {
+   "id": "dev_0216",
+   "question": "Dime el marcador del último partido de CDE CFS EUROSIRIS - RINCON DE SANABRIA 'B'",
+   "source": "blind",
+   "category": "team_last_result",
+   "intent": "matches",
+   "needed_tools": [
+    "find_teams",
+    "list_matches"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "list_matches",
+    "get_match",
+    "get_match_report",
+    "list_teams"
+   ],
+   "prefetch_expected": "fire",
+   "prefetch_entity": "CDE C.F.S. EUROSIRIS - RINCON DE SANABRIA 'B'",
+   "abstain_reason": null,
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": true,
+   "season": "current",
+   "form": "no_dots",
+   "notes": ""
+  },
+  {
+   "id": "dev_0217",
+   "question": "Una duda: ¿En qué grupo juega COLME FUTSAL?",
+   "source": "blind",
+   "category": "team_group_lookup",
+   "intent": "teams_players",
+   "needed_tools": [
+    "find_teams"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "list_teams",
+    "list_groups"
+   ],
+   "prefetch_expected": "fire",
+   "prefetch_entity": "COLME FUTSAL",
+   "abstain_reason": null,
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": true,
+   "season": "current",
+   "form": "official",
+   "notes": ""
+  },
+  {
+   "id": "dev_0218",
+   "question": "Una duda: ¿Quién es el máximo goleador de CDE VIRGEN DEL CERRO FUTSAL?",
+   "source": "blind",
+   "category": "team_team_scorer",
+   "intent": "scorers",
+   "needed_tools": [
+    "find_teams",
+    "get_scorer_table"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "get_scorer_table",
+    "top_scorers",
+    "find_players",
+    "list_teams"
+   ],
+   "prefetch_expected": "fire",
+   "prefetch_entity": "C.D.E. VIRGEN DEL CERRO FUTSAL",
+   "abstain_reason": null,
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "current",
+   "form": "no_dots",
+   "notes": ""
+  },
+  {
+   "id": "dev_0219",
+   "question": "¿Quién es el máximo goleador de PREFERENTE AFICIONADO FS (Grupo 2)?",
+   "source": "blind",
+   "category": "neg_table",
+   "intent": "scorers",
+   "needed_tools": [
+    "get_scorer_table"
+   ],
+   "plausible_tools": [
+    "get_scorer_table",
+    "list_competitions",
+    "list_groups"
+   ],
+   "prefetch_expected": "abstain",
+   "prefetch_entity": null,
+   "abstain_reason": "no_team",
+   "entity_ambiguity": "none",
+   "scope": "resolved",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "current",
+   "form": null,
+   "notes": ""
+  },
+  {
+   "id": "dev_0220",
+   "question": "Oye, ¿Contra quién juega c.d.e. el valle 'a' el próximo fin de semana?",
+   "source": "blind",
+   "category": "team_next_match",
+   "intent": "matches",
+   "needed_tools": [
+    "find_teams",
+    "list_matches"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "list_matches",
+    "get_match",
+    "list_teams"
+   ],
+   "prefetch_expected": "fire",
+   "prefetch_entity": "C.D.E. EL VALLE 'A'",
+   "abstain_reason": null,
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": true,
+   "season": "current",
+   "form": "lower",
+   "notes": ""
+  },
+  {
+   "id": "dev_0221",
+   "question": "En PREFERENTE AFICIONADO FS (Grupo 1), ¿Cómo terminó el último partido de Cde E.F.S. Humanes?",
+   "source": "blind",
+   "category": "team_last_result",
+   "intent": "matches",
+   "needed_tools": [
+    "find_teams",
+    "list_matches"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "list_matches",
+    "get_match",
+    "get_match_report",
+    "list_teams"
+   ],
+   "prefetch_expected": "fire",
+   "prefetch_entity": "CDE E.F.S. HUMANES",
+   "abstain_reason": null,
+   "entity_ambiguity": "multi_competition",
+   "scope": "resolved",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": true,
+   "season": "current",
+   "form": "title+scope",
+   "notes": ""
+  },
+  {
+   "id": "dev_0222",
+   "question": "¿Cuántos goles ha marcado Hugo Peralta?",
+   "source": "blind",
+   "category": "neg_player",
+   "intent": "scorers",
+   "needed_tools": [
+    "find_players"
+   ],
+   "plausible_tools": [
+    "find_players",
+    "top_scorers",
+    "get_scorer_table",
+    "list_match_events"
+   ],
+   "prefetch_expected": "abstain",
+   "prefetch_entity": null,
+   "abstain_reason": "player",
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "current",
+   "form": null,
+   "notes": ""
+  },
+  {
+   "id": "dev_0223",
+   "question": "Una duda: ¿Cómo terminó el último partido de club union deportiva loeches 'b'?",
+   "source": "blind",
+   "category": "team_last_result",
+   "intent": "matches",
+   "needed_tools": [
+    "find_teams",
+    "list_matches"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "list_matches",
+    "get_match",
+    "get_match_report",
+    "list_teams"
+   ],
+   "prefetch_expected": "fire",
+   "prefetch_entity": "CLUB UNION DEPORTIVA LOECHES 'B'",
+   "abstain_reason": null,
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": true,
+   "season": "current",
+   "form": "lower",
+   "notes": ""
+  },
+  {
+   "id": "dev_0224",
+   "question": "Compara a C.D.E. EL VALLE 'A' con C.D. BUSTARVIEJO",
+   "source": "blind",
+   "category": "neg_multi",
+   "intent": "composite",
+   "needed_tools": [
+    "find_teams"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "list_matches",
+    "get_standings",
+    "list_teams"
+   ],
+   "prefetch_expected": "abstain",
+   "prefetch_entity": null,
+   "abstain_reason": "multi_team",
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "current",
+   "form": null,
+   "notes": ""
+  },
+  {
+   "id": "dev_0225",
+   "question": "Una duda: ¿Cuántos puntos lleva c.d.e. sport sala 12 esta temporada?",
+   "source": "blind",
+   "category": "team_points",
+   "intent": "standings",
+   "needed_tools": [
+    "find_teams",
+    "get_standings"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "get_standings",
+    "list_teams"
+   ],
+   "prefetch_expected": "fire",
+   "prefetch_entity": "C.D.E. SPORT SALA 12",
+   "abstain_reason": null,
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": true,
+   "season": "current",
+   "form": "lower",
+   "notes": ""
+  },
+  {
+   "id": "dev_0226",
+   "question": "Una duda: ¿Cómo terminó el último partido de Aquila Fs?",
+   "source": "blind",
+   "category": "team_last_result",
+   "intent": "matches",
+   "needed_tools": [
+    "find_teams",
+    "list_matches"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "list_matches",
+    "get_match",
+    "get_match_report",
+    "list_teams"
+   ],
+   "prefetch_expected": "fire",
+   "prefetch_entity": "CDE AQUILA (FS)",
+   "abstain_reason": null,
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": true,
+   "season": "current",
+   "form": "core",
+   "notes": "núcleo etiquetado por regla"
+  },
+  {
+   "id": "dev_0227",
+   "question": "¿Cuántos goles ha marcado Lucas Villar?",
+   "source": "blind",
+   "category": "neg_player",
+   "intent": "scorers",
+   "needed_tools": [
+    "find_players"
+   ],
+   "plausible_tools": [
+    "find_players",
+    "top_scorers",
+    "get_scorer_table",
+    "list_match_events"
+   ],
+   "prefetch_expected": "abstain",
+   "prefetch_entity": null,
+   "abstain_reason": "player",
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "current",
+   "form": null,
+   "notes": ""
+  },
+  {
+   "id": "dev_0228",
+   "question": "¿En qué posición está ARGANDA FUTSAL?",
+   "source": "blind",
+   "category": "neg_partial",
+   "intent": "matches",
+   "needed_tools": [
+    "find_teams"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "list_matches",
+    "get_standings",
+    "list_teams"
+   ],
+   "prefetch_expected": "abstain",
+   "prefetch_entity": null,
+   "abstain_reason": "partial_name",
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "current",
+   "form": null,
+   "notes": ""
+  },
+  {
+   "id": "dev_0229",
+   "question": "¿Cómo quedó C.D.E. CASCO ANTIGUO CARABANCHEL 'B' en la temporada 2019/20?",
+   "source": "blind",
+   "category": "neg_history",
+   "intent": "unrecognized",
+   "needed_tools": [],
+   "plausible_tools": [
+    "find_teams"
+   ],
+   "prefetch_expected": "abstain",
+   "prefetch_entity": null,
+   "abstain_reason": "historical",
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "historical",
+   "form": null,
+   "notes": ""
+  },
+  {
+   "id": "dev_0230",
+   "question": "¿Cuándo es el próximo partido de FS DIAGONAL 'A'?",
+   "source": "blind",
+   "category": "neg_homonym",
+   "intent": "matches",
+   "needed_tools": [
+    "find_teams"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "list_matches",
+    "get_standings",
+    "list_teams"
+   ],
+   "prefetch_expected": "abstain",
+   "prefetch_entity": null,
+   "abstain_reason": "homonym",
+   "entity_ambiguity": "multi_competition",
+   "scope": "needs_clarification",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "current",
+   "form": null,
+   "notes": ""
+  },
+  {
+   "id": "dev_0231",
+   "question": "¿Qué tiempo hace hoy?",
+   "source": "blind",
+   "category": "neg_off",
+   "intent": "unrecognized",
+   "needed_tools": [],
+   "plausible_tools": [],
+   "prefetch_expected": "abstain",
+   "prefetch_entity": null,
+   "abstain_reason": "off_topic",
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "current",
+   "form": null,
+   "notes": ""
+  },
+  {
+   "id": "dev_0232",
+   "question": "¿Cuántos partidos ha jugado CDE C.F.S. EUROSIRIS - RINCON DE SANABRIA ’B’?",
+   "source": "blind",
+   "category": "team_count",
+   "intent": "matches",
+   "needed_tools": [
+    "find_teams",
+    "list_matches"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "list_matches",
+    "list_teams"
+   ],
+   "prefetch_expected": "fire",
+   "prefetch_entity": "CDE C.F.S. EUROSIRIS - RINCON DE SANABRIA 'B'",
+   "abstain_reason": null,
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "current",
+   "form": "curly_quotes",
+   "notes": ""
+  },
+  {
+   "id": "dev_0233",
+   "question": "¿Hay algún equipo de Corazones?",
+   "source": "blind",
+   "category": "neg_generic",
+   "intent": "teams_players",
+   "needed_tools": [
+    "list_teams"
+   ],
+   "plausible_tools": [
+    "list_teams",
+    "find_teams",
+    "list_groups"
+   ],
+   "prefetch_expected": "abstain",
+   "prefetch_entity": null,
+   "abstain_reason": "generic_word",
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "current",
+   "form": null,
+   "notes": ""
+  },
+  {
+   "id": "dev_0234",
+   "question": "¿Qué partido tiene TORREJON SALA FIVE PLAY B en la jornada 3?",
+   "source": "blind",
+   "category": "team_round_match",
+   "intent": "matches",
+   "needed_tools": [
+    "find_teams",
+    "list_rounds",
+    "list_matches"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "list_rounds",
+    "list_matches",
+    "get_match",
+    "list_teams"
+   ],
+   "prefetch_expected": "fire",
+   "prefetch_entity": "TORREJON SALA FIVE PLAY 'B'",
+   "abstain_reason": null,
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "current",
+   "form": "no_quotes",
+   "notes": ""
+  },
+  {
+   "id": "dev_0235",
+   "question": "¿Qué dice el reglamento sobre el saque de banda?",
+   "source": "blind",
+   "category": "neg_rules",
+   "intent": "rules",
+   "needed_tools": [
+    "search_rules"
+   ],
+   "plausible_tools": [
+    "search_rules"
+   ],
+   "prefetch_expected": "abstain",
+   "prefetch_entity": null,
+   "abstain_reason": "no_team",
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "current",
+   "form": null,
+   "notes": ""
+  },
+  {
+   "id": "dev_0236",
+   "question": "¿A qué grupo pertenece Cde E.F.S. Humanes 'b'?",
+   "source": "blind",
+   "category": "team_group_lookup",
+   "intent": "teams_players",
+   "needed_tools": [
+    "find_teams"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "list_teams",
+    "list_groups"
+   ],
+   "prefetch_expected": "fire",
+   "prefetch_entity": "CDE E.F.S. HUMANES 'B'",
+   "abstain_reason": null,
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": true,
+   "season": "current",
+   "form": "title",
+   "notes": ""
+  },
+  {
+   "id": "dev_0237",
+   "question": "¿Quién es el máximo goleador de PRIMERA JUVENIL FS (Grupo 4)?",
+   "source": "blind",
+   "category": "neg_table",
+   "intent": "scorers",
+   "needed_tools": [
+    "get_scorer_table"
+   ],
+   "plausible_tools": [
+    "get_scorer_table",
+    "list_competitions",
+    "list_groups"
+   ],
+   "prefetch_expected": "abstain",
+   "prefetch_entity": null,
+   "abstain_reason": "no_team",
+   "entity_ambiguity": "none",
+   "scope": "resolved",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "current",
+   "form": null,
+   "notes": ""
+  },
+  {
+   "id": "dev_0238",
+   "question": "¿Cuántos puntos tiene deportivo caldeiro?",
+   "source": "blind",
+   "category": "neg_homonym",
+   "intent": "matches",
+   "needed_tools": [
+    "find_teams"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "list_matches",
+    "get_standings",
+    "list_teams"
+   ],
+   "prefetch_expected": "abstain",
+   "prefetch_entity": null,
+   "abstain_reason": "homonym",
+   "entity_ambiguity": "multi_competition",
+   "scope": "needs_clarification",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "current",
+   "form": null,
+   "notes": ""
+  },
+  {
+   "id": "dev_0239",
+   "question": "Una duda: Próximo encuentro de GREDOS SAN DIEGO LAS SUERTES 'A'",
+   "source": "blind",
+   "category": "team_next_match",
+   "intent": "matches",
+   "needed_tools": [
+    "find_teams",
+    "list_matches"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "list_matches",
+    "get_match",
+    "list_teams"
+   ],
+   "prefetch_expected": "fire",
+   "prefetch_entity": "GREDOS SAN DIEGO LAS SUERTES 'A'",
+   "abstain_reason": null,
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": true,
+   "season": "current",
+   "form": "official",
+   "notes": ""
+  },
+  {
+   "id": "dev_0240",
+   "question": "Oye, ¿En qué grupo juega FUTSALA PINTO - ESCUELA PATRI CHAMORRO 'A'?",
+   "source": "blind",
+   "category": "team_group_lookup",
+   "intent": "teams_players",
+   "needed_tools": [
+    "find_teams"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "list_teams",
+    "list_groups"
+   ],
+   "prefetch_expected": "fire",
+   "prefetch_entity": "FUTSALA PINTO - ESCUELA PATRI CHAMORRO 'A'",
+   "abstain_reason": null,
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": true,
+   "season": "current",
+   "form": "official",
+   "notes": ""
+  },
+  {
+   "id": "dev_0241",
+   "question": "¿Cuántas faltas acumuladas hay antes del tiro libre?",
+   "source": "blind",
+   "category": "neg_rules",
+   "intent": "rules",
+   "needed_tools": [
+    "search_rules"
+   ],
+   "plausible_tools": [
+    "search_rules"
+   ],
+   "prefetch_expected": "abstain",
+   "prefetch_entity": null,
+   "abstain_reason": "no_team",
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "current",
+   "form": null,
+   "notes": ""
+  },
+  {
+   "id": "dev_0242",
+   "question": "¿Cuándo juega el Rayo Vallecano?",
+   "source": "blind",
+   "category": "neg_foreign",
+   "intent": "matches",
+   "needed_tools": [
+    "find_teams"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "list_matches",
+    "get_standings",
+    "list_teams"
+   ],
+   "prefetch_expected": "abstain",
+   "prefetch_entity": null,
+   "abstain_reason": "not_in_catalog",
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "current",
+   "form": null,
+   "notes": ""
+  },
+  {
+   "id": "dev_0243",
+   "question": "¿Cómo quedó el partido entre E.F.S. CIUDAD DE TORREJON - REDPISO TORREJON 'A' y DON P'ALPIE ARANJUEZ F.S. - AUTO RECAMBIOS LUIS?",
+   "source": "blind",
+   "category": "neg_multi",
+   "intent": "composite",
+   "needed_tools": [
+    "find_teams"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "list_matches",
+    "get_standings",
+    "list_teams"
+   ],
+   "prefetch_expected": "abstain",
+   "prefetch_entity": null,
+   "abstain_reason": "multi_team",
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "current",
+   "form": null,
+   "notes": ""
+  },
+  {
+   "id": "dev_0244",
+   "question": "¿Qué árbitros dirigieron el último encuentro de club corazonistas?",
+   "source": "blind",
+   "category": "team_referee",
+   "intent": "matches",
+   "needed_tools": [
+    "find_teams",
+    "list_matches",
+    "get_match_report"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "list_matches",
+    "get_match_report",
+    "get_match",
+    "list_teams"
+   ],
+   "prefetch_expected": "fire",
+   "prefetch_entity": "CLUB CORAZONISTAS",
+   "abstain_reason": null,
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "current",
+   "form": "lower",
+   "notes": ""
+  },
+  {
+   "id": "dev_0245",
+   "question": "Oye, ¿Quién es el máximo goleador de PREFERENTE JUVENIL FS (Grupo 2)?",
+   "source": "blind",
+   "category": "neg_table",
+   "intent": "scorers",
+   "needed_tools": [
+    "get_scorer_table"
+   ],
+   "plausible_tools": [
+    "get_scorer_table",
+    "list_competitions",
+    "list_groups"
+   ],
+   "prefetch_expected": "abstain",
+   "prefetch_entity": null,
+   "abstain_reason": "no_team",
+   "entity_ambiguity": "none",
+   "scope": "resolved",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "current",
+   "form": null,
+   "notes": ""
+  },
+  {
+   "id": "dev_0246",
+   "question": "¿Qué puesto ocupa parque norte f.s. - rodillito 'b' en la clasificación?",
+   "source": "blind",
+   "category": "neg_homonym",
+   "intent": "matches",
+   "needed_tools": [
+    "find_teams"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "list_matches",
+    "get_standings",
+    "list_teams"
+   ],
+   "prefetch_expected": "abstain",
+   "prefetch_entity": null,
+   "abstain_reason": "homonym",
+   "entity_ambiguity": "multi_competition",
+   "scope": "needs_clarification",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "current",
+   "form": null,
+   "notes": ""
+  },
+  {
+   "id": "dev_0247",
+   "question": "¿En qué posición está c.d. cuatro caminos?",
+   "source": "blind",
+   "category": "neg_homonym",
+   "intent": "matches",
+   "needed_tools": [
+    "find_teams"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "list_matches",
+    "get_standings",
+    "list_teams"
+   ],
+   "prefetch_expected": "abstain",
+   "prefetch_entity": null,
+   "abstain_reason": "homonym",
+   "entity_ambiguity": "multi_competition",
+   "scope": "needs_clarification",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "current",
+   "form": null,
+   "notes": ""
+  },
+  {
+   "id": "dev_0248",
+   "question": "Oye, ¿Dónde juega INTER FUTBOL SALA - JP FINANCIAL ’A’ como local?",
+   "source": "blind",
+   "category": "team_venue",
+   "intent": "matches",
+   "needed_tools": [
+    "find_teams",
+    "list_matches",
+    "get_match"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "list_matches",
+    "get_match",
+    "list_teams"
+   ],
+   "prefetch_expected": "fire",
+   "prefetch_entity": "INTER FUTBOL SALA - JP FINANCIAL 'A'",
+   "abstain_reason": null,
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "current",
+   "form": "curly_quotes",
+   "notes": ""
+  },
+  {
+   "id": "dev_0249",
+   "question": "Una duda: ¿En qué campo juega RACING LA PALOMA su próximo partido?",
+   "source": "blind",
+   "category": "team_venue",
+   "intent": "matches",
+   "needed_tools": [
+    "find_teams",
+    "list_matches",
+    "get_match"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "list_matches",
+    "get_match",
+    "list_teams"
+   ],
+   "prefetch_expected": "fire",
+   "prefetch_entity": "RACING LA PALOMA",
+   "abstain_reason": null,
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "current",
+   "form": "official",
+   "notes": ""
+  },
+  {
+   "id": "dev_0250",
+   "question": "Oye, ¿Cómo ha quedado CDE C.F.S. EUROSIRIS - RINCON DE SANABRIA 'B' en la liga?",
+   "source": "blind",
+   "category": "team_status",
+   "intent": "composite",
+   "needed_tools": [
+    "find_teams",
+    "get_standings",
+    "list_matches"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "get_standings",
+    "list_matches",
+    "get_match",
+    "list_teams"
+   ],
+   "prefetch_expected": "fire",
+   "prefetch_entity": "CDE C.F.S. EUROSIRIS - RINCON DE SANABRIA 'B'",
+   "abstain_reason": null,
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "current",
+   "form": "official",
+   "notes": ""
+  },
+  {
+   "id": "dev_0251",
+   "question": "Una duda: Regla del juego: ¿Cuántas faltas acumuladas hay antes del tiro libre cuando juega C.S.D. PARQUE DE LISBOA FUTSAL?",
+   "source": "blind",
+   "category": "neg_rules_team",
+   "intent": "rules",
+   "needed_tools": [
+    "search_rules"
+   ],
+   "plausible_tools": [
+    "search_rules"
+   ],
+   "prefetch_expected": "abstain",
+   "prefetch_entity": null,
+   "abstain_reason": "rules",
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "current",
+   "form": null,
+   "notes": ""
+  },
+  {
+   "id": "dev_0252",
+   "question": "Oye, ¿Dónde juega CDE CASCO ANTIGUO CARABANCHEL 'B' como local?",
+   "source": "blind",
+   "category": "team_venue",
+   "intent": "matches",
+   "needed_tools": [
+    "find_teams",
+    "list_matches",
+    "get_match"
+   ],
+   "plausible_tools": [
+    "find_teams",
+    "list_matches",
+    "get_match",
+    "list_teams"
+   ],
+   "prefetch_expected": "fire",
+   "prefetch_entity": "C.D.E. CASCO ANTIGUO CARABANCHEL 'B'",
+   "abstain_reason": null,
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "current",
+   "form": "no_dots",
+   "notes": ""
+  },
+  {
+   "id": "dev_0253",
+   "question": "Según las reglas de juego, ¿Qué dice el reglamento sobre el saque de banda cuando juega TORREJON SALA FIVE PLAY 'B'?",
+   "source": "blind",
+   "category": "neg_rules_team",
+   "intent": "rules",
+   "needed_tools": [
+    "search_rules"
+   ],
+   "plausible_tools": [
+    "search_rules"
+   ],
+   "prefetch_expected": "abstain",
+   "prefetch_entity": null,
+   "abstain_reason": "rules",
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "current",
+   "form": null,
+   "notes": ""
+  },
+  {
+   "id": "dev_0254",
+   "question": "¿Cuántos goles ha marcado Lucas Pimpollo?",
+   "source": "blind",
+   "category": "neg_player",
+   "intent": "scorers",
+   "needed_tools": [
+    "find_players"
+   ],
+   "plausible_tools": [
+    "find_players",
+    "top_scorers",
+    "get_scorer_table",
+    "list_match_events"
+   ],
+   "prefetch_expected": "abstain",
+   "prefetch_entity": null,
+   "abstain_reason": "player",
+   "entity_ambiguity": "none",
+   "scope": "n/a",
+   "followup": false,
+   "prev_questions": [],
+   "focus": {},
+   "tier0_eligible": false,
+   "season": "current",
+   "form": null,
+   "notes": ""
+  }
+ ]
+}

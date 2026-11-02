@@ -1,0 +1,39 @@
+{
+ "name": "holdout_b",
+ "sha256": "b52f84d40563c62e69f62b9fe2888ae9e73d6cf04c05811613809fc6af2033b7",
+ "n": 1009,
+ "counts": {
+  "prefetch_expected": {
+   "fire": 430,
+   "abstain": 579
+  },
+  "abstain_reason": {
+   "player": 65,
+   "multi_team": 54,
+   "partial_name": 35,
+   "context": 45,
+   "historical": 46,
+   "rules": 33,
+   "no_team": 95,
+   "off_topic": 38,
+   "generic_word": 66,
+   "homonym": 76,
+   "not_in_catalog": 26
+  },
+  "source": {
+   "blind": 1009
+  },
+  "intent": {
+   "standings": 108,
+   "matches": 415,
+   "scorers": 141,
+   "composite": 92,
+   "unrecognized": 84,
+   "rules": 64,
+   "teams_players": 105
+  }
+ },
+ "sealed_at": "2026-11-02T20:36:07+00:00",
+ "note": "Holdout B: reservado a la evaluación final; el contenido está solo en data/holdout/ (ignorado por Git)",
+ "history": []
+}

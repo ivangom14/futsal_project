@@ -8,6 +8,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from futsal.agent.arms import current_flags
 from futsal.agent.audit import audit_summary, render_audit
 from futsal.agent.evaluate import CaseResult, summarize_results
 from futsal.agent.regression import UNAVAILABLE_METRICS, overall_status
@@ -48,7 +49,8 @@ def build_meta(*, mode: str, suite: str, provider: str, model: str, args: dict[s
     """Metadatos de la ejecución. Nunca incluye claves ni cadenas de conexión."""
     meta: dict[str, Any] = {"schema": 2, "run_id": run_id, "generated_at": datetime.now(UTC).isoformat(), "mode": mode,
                             "suite": suite, "provider": provider, "model": model, "commit": git_commit(),
-                            "commit_dirty": git_dirty(), "args": args, "preflight": preflight}
+                            "commit_dirty": git_dirty(), "args": args, "preflight": preflight,
+                            "agent_flags": current_flags()}  # E0: qué banderas AGENT_* estaban activas en esta ejecución
     if case_ids is not None:
         meta["suite_version"] = suite_version(suite, case_ids)
     return meta

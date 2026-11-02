@@ -1,0 +1,39 @@
+{
+ "name": "holdout_a",
+ "sha256": "4639c9aa3adf387e9e21f5bb055caf5217cce016925a90ec36c16aa02a492adf",
+ "n": 1010,
+ "counts": {
+  "prefetch_expected": {
+   "fire": 430,
+   "abstain": 580
+  },
+  "abstain_reason": {
+   "generic_word": 70,
+   "no_team": 91,
+   "partial_name": 42,
+   "multi_team": 55,
+   "off_topic": 36,
+   "context": 42,
+   "player": 64,
+   "not_in_catalog": 28,
+   "homonym": 74,
+   "historical": 46,
+   "rules": 32
+  },
+  "source": {
+   "blind": 1010
+  },
+  "intent": {
+   "teams_players": 101,
+   "standings": 120,
+   "matches": 429,
+   "composite": 100,
+   "unrecognized": 82,
+   "scorers": 119,
+   "rules": 59
+  }
+ },
+ "sealed_at": "2026-11-02T20:36:06+00:00",
+ "note": "Holdout A: redactado a ciegas (ver docs/datasets.md); sin preguntas reales todavía",
+ "history": []
+}

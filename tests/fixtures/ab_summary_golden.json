@@ -1,0 +1,708 @@
+{
+ "_doc": "Salida de ab_summary ANTES de la Fase E0 sobre los datos sintéticos de tests/test_ab_summary.build(). Debe seguir idéntica: la comparación legacy/compact pendiente del usuario depende de ella.",
+ "summary": {
+  "cases": [
+   {
+    "case": "regresion",
+    "modes": {
+     "legacy": {
+      "reps": {
+       "1": {
+        "status": "pass",
+        "tools": [
+         "list_matches"
+        ],
+        "llm_calls": 3,
+        "mcp_calls": 2,
+        "input_tokens": 9000,
+        "output_tokens": 120,
+        "cached_tokens": 0,
+        "token_source": "provider",
+        "reasons": []
+       },
+       "2": {
+        "status": "pass",
+        "tools": [
+         "list_matches"
+        ],
+        "llm_calls": 3,
+        "mcp_calls": 2,
+        "input_tokens": 9000,
+        "output_tokens": 120,
+        "cached_tokens": 0,
+        "token_source": "provider",
+        "reasons": []
+       },
+       "3": {
+        "status": "pass",
+        "tools": [
+         "list_matches"
+        ],
+        "llm_calls": 3,
+        "mcp_calls": 2,
+        "input_tokens": 9000,
+        "output_tokens": 120,
+        "cached_tokens": 0,
+        "token_source": "provider",
+        "reasons": []
+       }
+      },
+      "decisive": 3,
+      "passes": 3,
+      "rate": 1.0,
+      "flaky": false,
+      "tool_sets": [
+       "list_matches"
+      ],
+      "reasons": []
+     },
+     "compact": {
+      "reps": {
+       "1": {
+        "status": "fail",
+        "tools": [
+         "get_scorer_table"
+        ],
+        "llm_calls": 3,
+        "mcp_calls": 2,
+        "input_tokens": 8800,
+        "output_tokens": 120,
+        "cached_tokens": 0,
+        "token_source": "provider",
+        "reasons": [
+         "capa datos",
+         "respuesta incorrecta",
+         "herramienta no esperada get_scorer_table"
+        ]
+       },
+       "2": {
+        "status": "fail",
+        "tools": [
+         "get_scorer_table"
+        ],
+        "llm_calls": 3,
+        "mcp_calls": 2,
+        "input_tokens": 8800,
+        "output_tokens": 120,
+        "cached_tokens": 0,
+        "token_source": "provider",
+        "reasons": [
+         "capa datos",
+         "respuesta incorrecta",
+         "herramienta no esperada get_scorer_table"
+        ]
+       },
+       "3": {
+        "status": "pass",
+        "tools": [
+         "get_scorer_table"
+        ],
+        "llm_calls": 3,
+        "mcp_calls": 2,
+        "input_tokens": 8800,
+        "output_tokens": 120,
+        "cached_tokens": 0,
+        "token_source": "provider",
+        "reasons": []
+       }
+      },
+      "decisive": 3,
+      "passes": 1,
+      "rate": 0.3333333333333333,
+      "flaky": true,
+      "tool_sets": [
+       "get_scorer_table"
+      ],
+      "reasons": [
+       "capa datos",
+       "herramienta no esperada get_scorer_table",
+       "respuesta incorrecta"
+      ]
+     }
+    },
+    "verdict": "regresión consistente"
+   },
+   {
+    "case": "mejora",
+    "modes": {
+     "legacy": {
+      "reps": {
+       "1": {
+        "status": "fail",
+        "tools": [
+         "list_matches"
+        ],
+        "llm_calls": 3,
+        "mcp_calls": 2,
+        "input_tokens": 9000,
+        "output_tokens": 120,
+        "cached_tokens": 0,
+        "token_source": "provider",
+        "reasons": [
+         "capa datos",
+         "respuesta incorrecta",
+         "herramienta no esperada get_scorer_table"
+        ]
+       },
+       "2": {
+        "status": "fail",
+        "tools": [
+         "list_matches"
+        ],
+        "llm_calls": 3,
+        "mcp_calls": 2,
+        "input_tokens": 9000,
+        "output_tokens": 120,
+        "cached_tokens": 0,
+        "token_source": "provider",
+        "reasons": [
+         "capa datos",
+         "respuesta incorrecta",
+         "herramienta no esperada get_scorer_table"
+        ]
+       },
+       "3": {
+        "status": "pass",
+        "tools": [
+         "list_matches"
+        ],
+        "llm_calls": 3,
+        "mcp_calls": 2,
+        "input_tokens": 9000,
+        "output_tokens": 120,
+        "cached_tokens": 0,
+        "token_source": "provider",
+        "reasons": []
+       }
+      },
+      "decisive": 3,
+      "passes": 1,
+      "rate": 0.3333333333333333,
+      "flaky": true,
+      "tool_sets": [
+       "list_matches"
+      ],
+      "reasons": [
+       "capa datos",
+       "herramienta no esperada get_scorer_table",
+       "respuesta incorrecta"
+      ]
+     },
+     "compact": {
+      "reps": {
+       "1": {
+        "status": "pass",
+        "tools": [
+         "list_matches"
+        ],
+        "llm_calls": 3,
+        "mcp_calls": 2,
+        "input_tokens": 8800,
+        "output_tokens": 120,
+        "cached_tokens": 0,
+        "token_source": "provider",
+        "reasons": []
+       },
+       "2": {
+        "status": "pass",
+        "tools": [
+         "list_matches"
+        ],
+        "llm_calls": 3,
+        "mcp_calls": 2,
+        "input_tokens": 8800,
+        "output_tokens": 120,
+        "cached_tokens": 0,
+        "token_source": "provider",
+        "reasons": []
+       },
+       "3": {
+        "status": "pass",
+        "tools": [
+         "list_matches"
+        ],
+        "llm_calls": 3,
+        "mcp_calls": 2,
+        "input_tokens": 8800,
+        "output_tokens": 120,
+        "cached_tokens": 0,
+        "token_source": "provider",
+        "reasons": []
+       }
+      },
+      "decisive": 3,
+      "passes": 3,
+      "rate": 1.0,
+      "flaky": false,
+      "tool_sets": [
+       "list_matches"
+      ],
+      "reasons": []
+     }
+    },
+    "verdict": "mejora consistente"
+   },
+   {
+    "case": "ruido",
+    "modes": {
+     "legacy": {
+      "reps": {
+       "1": {
+        "status": "pass",
+        "tools": [
+         "list_matches"
+        ],
+        "llm_calls": 3,
+        "mcp_calls": 2,
+        "input_tokens": 9000,
+        "output_tokens": 120,
+        "cached_tokens": 0,
+        "token_source": "provider",
+        "reasons": []
+       },
+       "2": {
+        "status": "fail",
+        "tools": [
+         "list_matches"
+        ],
+        "llm_calls": 3,
+        "mcp_calls": 2,
+        "input_tokens": 9000,
+        "output_tokens": 120,
+        "cached_tokens": 0,
+        "token_source": "provider",
+        "reasons": [
+         "capa datos",
+         "respuesta incorrecta",
+         "herramienta no esperada get_scorer_table"
+        ]
+       },
+       "3": {
+        "status": "pass",
+        "tools": [
+         "list_matches"
+        ],
+        "llm_calls": 3,
+        "mcp_calls": 2,
+        "input_tokens": 9000,
+        "output_tokens": 120,
+        "cached_tokens": 0,
+        "token_source": "provider",
+        "reasons": []
+       }
+      },
+      "decisive": 3,
+      "passes": 2,
+      "rate": 0.6666666666666666,
+      "flaky": true,
+      "tool_sets": [
+       "list_matches"
+      ],
+      "reasons": [
+       "capa datos",
+       "herramienta no esperada get_scorer_table",
+       "respuesta incorrecta"
+      ]
+     },
+     "compact": {
+      "reps": {
+       "1": {
+        "status": "pass",
+        "tools": [
+         "list_matches"
+        ],
+        "llm_calls": 3,
+        "mcp_calls": 2,
+        "input_tokens": 8800,
+        "output_tokens": 120,
+        "cached_tokens": 0,
+        "token_source": "provider",
+        "reasons": []
+       },
+       "2": {
+        "status": "pass",
+        "tools": [
+         "list_matches"
+        ],
+        "llm_calls": 3,
+        "mcp_calls": 2,
+        "input_tokens": 8800,
+        "output_tokens": 120,
+        "cached_tokens": 0,
+        "token_source": "provider",
+        "reasons": []
+       },
+       "3": {
+        "status": "fail",
+        "tools": [
+         "list_matches"
+        ],
+        "llm_calls": 3,
+        "mcp_calls": 2,
+        "input_tokens": 8800,
+        "output_tokens": 120,
+        "cached_tokens": 0,
+        "token_source": "provider",
+        "reasons": [
+         "capa datos",
+         "respuesta incorrecta",
+         "herramienta no esperada get_scorer_table"
+        ]
+       }
+      },
+      "decisive": 3,
+      "passes": 2,
+      "rate": 0.6666666666666666,
+      "flaky": true,
+      "tool_sets": [
+       "list_matches"
+      ],
+      "reasons": [
+       "capa datos",
+       "herramienta no esperada get_scorer_table",
+       "respuesta incorrecta"
+      ]
+     }
+    },
+    "verdict": "variable (ruido)"
+   },
+   {
+    "case": "igual",
+    "modes": {
+     "legacy": {
+      "reps": {
+       "1": {
+        "status": "pass",
+        "tools": [
+         "list_matches"
+        ],
+        "llm_calls": 3,
+        "mcp_calls": 2,
+        "input_tokens": 9000,
+        "output_tokens": 120,
+        "cached_tokens": 0,
+        "token_source": "provider",
+        "reasons": []
+       },
+       "2": {
+        "status": "pass",
+        "tools": [
+         "list_matches"
+        ],
+        "llm_calls": 3,
+        "mcp_calls": 2,
+        "input_tokens": 9000,
+        "output_tokens": 120,
+        "cached_tokens": 0,
+        "token_source": "provider",
+        "reasons": []
+       },
+       "3": {
+        "status": "pass",
+        "tools": [
+         "list_matches"
+        ],
+        "llm_calls": 3,
+        "mcp_calls": 2,
+        "input_tokens": 9000,
+        "output_tokens": 120,
+        "cached_tokens": 0,
+        "token_source": "provider",
+        "reasons": []
+       }
+      },
+      "decisive": 3,
+      "passes": 3,
+      "rate": 1.0,
+      "flaky": false,
+      "tool_sets": [
+       "list_matches"
+      ],
+      "reasons": []
+     },
+     "compact": {
+      "reps": {
+       "1": {
+        "status": "pass",
+        "tools": [
+         "list_matches"
+        ],
+        "llm_calls": 3,
+        "mcp_calls": 2,
+        "input_tokens": 8800,
+        "output_tokens": 120,
+        "cached_tokens": 0,
+        "token_source": "provider",
+        "reasons": []
+       },
+       "2": {
+        "status": "pass",
+        "tools": [
+         "list_matches"
+        ],
+        "llm_calls": 3,
+        "mcp_calls": 2,
+        "input_tokens": 8800,
+        "output_tokens": 120,
+        "cached_tokens": 0,
+        "token_source": "provider",
+        "reasons": []
+       },
+       "3": {
+        "status": "pass",
+        "tools": [
+         "list_matches"
+        ],
+        "llm_calls": 3,
+        "mcp_calls": 2,
+        "input_tokens": 8800,
+        "output_tokens": 120,
+        "cached_tokens": 0,
+        "token_source": "provider",
+        "reasons": []
+       }
+      },
+      "decisive": 3,
+      "passes": 3,
+      "rate": 1.0,
+      "flaky": false,
+      "tool_sets": [
+       "list_matches"
+      ],
+      "reasons": []
+     }
+    },
+    "verdict": "igual"
+   },
+   {
+    "case": "nada",
+    "modes": {
+     "legacy": {
+      "reps": {
+       "1": {
+        "status": "not_evaluable",
+        "tools": [
+         "list_matches"
+        ],
+        "llm_calls": 3,
+        "mcp_calls": 2,
+        "input_tokens": 9000,
+        "output_tokens": 120,
+        "cached_tokens": 0,
+        "token_source": "provider",
+        "reasons": []
+       },
+       "2": {
+        "status": "not_evaluable",
+        "tools": [
+         "list_matches"
+        ],
+        "llm_calls": 3,
+        "mcp_calls": 2,
+        "input_tokens": 9000,
+        "output_tokens": 120,
+        "cached_tokens": 0,
+        "token_source": "provider",
+        "reasons": []
+       },
+       "3": {
+        "status": "not_evaluable",
+        "tools": [
+         "list_matches"
+        ],
+        "llm_calls": 3,
+        "mcp_calls": 2,
+        "input_tokens": 9000,
+        "output_tokens": 120,
+        "cached_tokens": 0,
+        "token_source": "provider",
+        "reasons": []
+       }
+      },
+      "decisive": 0,
+      "passes": 0,
+      "rate": null,
+      "flaky": false,
+      "tool_sets": [
+       "list_matches"
+      ],
+      "reasons": []
+     },
+     "compact": {
+      "reps": {
+       "1": {
+        "status": "not_evaluable",
+        "tools": [
+         "list_matches"
+        ],
+        "llm_calls": 3,
+        "mcp_calls": 2,
+        "input_tokens": 8800,
+        "output_tokens": 120,
+        "cached_tokens": 0,
+        "token_source": "provider",
+        "reasons": []
+       },
+       "2": {
+        "status": "not_evaluable",
+        "tools": [
+         "list_matches"
+        ],
+        "llm_calls": 3,
+        "mcp_calls": 2,
+        "input_tokens": 8800,
+        "output_tokens": 120,
+        "cached_tokens": 0,
+        "token_source": "provider",
+        "reasons": []
+       },
+       "3": {
+        "status": "not_evaluable",
+        "tools": [
+         "list_matches"
+        ],
+        "llm_calls": 3,
+        "mcp_calls": 2,
+        "input_tokens": 8800,
+        "output_tokens": 120,
+        "cached_tokens": 0,
+        "token_source": "provider",
+        "reasons": []
+       }
+      },
+      "decisive": 0,
+      "passes": 0,
+      "rate": null,
+      "flaky": false,
+      "tool_sets": [
+       "list_matches"
+      ],
+      "reasons": []
+     }
+    },
+    "verdict": "sin datos"
+   }
+  ],
+  "totals": {
+   "legacy": {
+    "runs": {
+     "1": {
+      "decisive": 4,
+      "pass": 3,
+      "llm_calls": 12,
+      "mcp_calls": 8,
+      "input_tokens": 36000,
+      "output_tokens": 480,
+      "tokens_all_from_provider": true,
+      "input_per_llm_call": 3000.0
+     },
+     "2": {
+      "decisive": 4,
+      "pass": 2,
+      "llm_calls": 12,
+      "mcp_calls": 8,
+      "input_tokens": 36000,
+      "output_tokens": 480,
+      "tokens_all_from_provider": true,
+      "input_per_llm_call": 3000.0
+     },
+     "3": {
+      "decisive": 4,
+      "pass": 4,
+      "llm_calls": 12,
+      "mcp_calls": 8,
+      "input_tokens": 36000,
+      "output_tokens": 480,
+      "tokens_all_from_provider": true,
+      "input_per_llm_call": 3000.0
+     }
+    },
+    "flaky_cases": 2,
+    "mean_pass": 3,
+    "mean_input_per_llm_call": 3000.0
+   },
+   "compact": {
+    "runs": {
+     "1": {
+      "decisive": 4,
+      "pass": 3,
+      "llm_calls": 12,
+      "mcp_calls": 8,
+      "input_tokens": 35200,
+      "output_tokens": 480,
+      "tokens_all_from_provider": true,
+      "input_per_llm_call": 2933.3
+     },
+     "2": {
+      "decisive": 4,
+      "pass": 3,
+      "llm_calls": 12,
+      "mcp_calls": 8,
+      "input_tokens": 35200,
+      "output_tokens": 480,
+      "tokens_all_from_provider": true,
+      "input_per_llm_call": 2933.3
+     },
+     "3": {
+      "decisive": 4,
+      "pass": 3,
+      "llm_calls": 12,
+      "mcp_calls": 8,
+      "input_tokens": 35200,
+      "output_tokens": 480,
+      "tokens_all_from_provider": true,
+      "input_per_llm_call": 2933.3
+     }
+    },
+    "flaky_cases": 2,
+    "mean_pass": 3,
+    "mean_input_per_llm_call": 2933.3
+   }
+  },
+  "warnings": [],
+  "meta": {
+   "legacy": {
+    "1": {
+     "run_id": "legacy1",
+     "commit": "abc",
+     "model": "gemini-3.5-flash-lite"
+    },
+    "2": {
+     "run_id": "legacy2",
+     "commit": "abc",
+     "model": "gemini-3.5-flash-lite"
+    },
+    "3": {
+     "run_id": "legacy3",
+     "commit": "abc",
+     "model": "gemini-3.5-flash-lite"
+    }
+   },
+   "compact": {
+    "1": {
+     "run_id": "compact1",
+     "commit": "abc",
+     "model": "gemini-3.5-flash-lite"
+    },
+    "2": {
+     "run_id": "compact2",
+     "commit": "abc",
+     "model": "gemini-3.5-flash-lite"
+    },
+    "3": {
+     "run_id": "compact3",
+     "commit": "abc",
+     "model": "gemini-3.5-flash-lite"
+    }
+   }
+  },
+  "verdicts": {
+   "regresión consistente": 1,
+   "mejora consistente": 1,
+   "variable (ruido)": 1,
+   "igual": 1,
+   "sin datos": 1
+  }
+ },
+ "render": "# Comparación controlada legacy / compact (repeticiones por separado)\n\n\n## Por modo y repetición (casos decisivos = pass/fail)\n| modo | rep | casos | pass | llamadas LLM | llamadas MCP | tokens entrada | tokens salida | entrada/llamada |\n|---|---|---|---|---|---|---|---|---|\n| legacy | 1 | 4 | 3 | 12 | 8 | 36000 | 480 | 3000.0 |\n| legacy | 2 | 4 | 2 | 12 | 8 | 36000 | 480 | 3000.0 |\n| legacy | 3 | 4 | 4 | 12 | 8 | 36000 | 480 | 3000.0 |\n| compact | 1 | 4 | 3 | 12 | 8 | 35200 | 480 | 2933.3 |\n| compact | 2 | 4 | 3 | 12 | 8 | 35200 | 480 | 2933.3 |\n| compact | 3 | 4 | 3 | 12 | 8 | 35200 | 480 | 2933.3 |\n\nVariabilidad: casos con resultado distinto entre repeticiones del MISMO modo — legacy: 2, compact: 2 · media de aciertos por repetición — legacy: 3, compact: 3\nVeredictos: regresión consistente: 1, mejora consistente: 1, variable (ruido): 1, igual: 1, sin datos: 1\n\n## Por caso (P = pass, F = fail, · = no decisivo)\n| caso | legacy | compact | veredicto |\n|---|---|---|---|\n| `regresion` | P P P (3/3) | F F P (1/3) | regresión consistente |\n| `mejora` | F F P (1/3) | P P P (3/3) | mejora consistente |\n| `ruido` | P F P (2/3) | P P F (2/3) | variable (ruido) |\n| `igual` | P P P (3/3) | P P P (3/3) | igual |\n| `nada` | · · · | · · · | sin datos |\n\n## Detalle por caso y repetición (herramientas · llamadas LLM/MCP · tokens reales entrada/salida · motivo del fallo)\n\n### `regresion` — regresión consistente\n- legacy r1: pass · list_matches · LLM 3 / MCP 2 · 9000/120\n- legacy r2: pass · list_matches · LLM 3 / MCP 2 · 9000/120\n- legacy r3: pass · list_matches · LLM 3 / MCP 2 · 9000/120\n- compact r1: fail · get_scorer_table · LLM 3 / MCP 2 · 8800/120 · capa datos; respuesta incorrecta; herramienta no esperada get_scorer_table\n- compact r2: fail · get_scorer_table · LLM 3 / MCP 2 · 8800/120 · capa datos; respuesta incorrecta; herramienta no esperada get_scorer_table\n- compact r3: pass · get_scorer_table · LLM 3 / MCP 2 · 8800/120\n\n### `mejora` — mejora consistente\n- legacy r1: fail · list_matches · LLM 3 / MCP 2 · 9000/120 · capa datos; respuesta incorrecta; herramienta no esperada get_scorer_table\n- legacy r2: fail · list_matches · LLM 3 / MCP 2 · 9000/120 · capa datos; respuesta incorrecta; herramienta no esperada get_scorer_table\n- legacy r3: pass · list_matches · LLM 3 / MCP 2 · 9000/120\n- compact r1: pass · list_matches · LLM 3 / MCP 2 · 8800/120\n- compact r2: pass · list_matches · LLM 3 / MCP 2 · 8800/120\n- compact r3: pass · list_matches · LLM 3 / MCP 2 · 8800/120\n\n### `ruido` — variable (ruido)\n- legacy r1: pass · list_matches · LLM 3 / MCP 2 · 9000/120\n- legacy r2: fail · list_matches · LLM 3 / MCP 2 · 9000/120 · capa datos; respuesta incorrecta; herramienta no esperada get_scorer_table\n- legacy r3: pass · list_matches · LLM 3 / MCP 2 · 9000/120\n- compact r1: pass · list_matches · LLM 3 / MCP 2 · 8800/120\n- compact r2: pass · list_matches · LLM 3 / MCP 2 · 8800/120\n- compact r3: fail · list_matches · LLM 3 / MCP 2 · 8800/120 · capa datos; respuesta incorrecta; herramienta no esperada get_scorer_table\n\n### `igual` — igual\n- legacy r1: pass · list_matches · LLM 3 / MCP 2 · 9000/120\n- legacy r2: pass · list_matches · LLM 3 / MCP 2 · 9000/120\n- legacy r3: pass · list_matches · LLM 3 / MCP 2 · 9000/120\n- compact r1: pass · list_matches · LLM 3 / MCP 2 · 8800/120\n- compact r2: pass · list_matches · LLM 3 / MCP 2 · 8800/120\n- compact r3: pass · list_matches · LLM 3 / MCP 2 · 8800/120\n\n### `nada` — sin datos\n- legacy r1: not_evaluable · list_matches · LLM 3 / MCP 2 · 9000/120\n- legacy r2: not_evaluable · list_matches · LLM 3 / MCP 2 · 9000/120\n- legacy r3: not_evaluable · list_matches · LLM 3 / MCP 2 · 9000/120\n- compact r1: not_evaluable · list_matches · LLM 3 / MCP 2 · 8800/120\n- compact r2: not_evaluable · list_matches · LLM 3 / MCP 2 · 8800/120\n- compact r3: not_evaluable · list_matches · LLM 3 / MCP 2 · 8800/120"
+}
