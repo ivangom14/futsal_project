@@ -1,0 +1,63 @@
+{
+ "_doc": "Catálogo real (inventory de la temporada 22) copiado de tests/test_competition_resolution.py. 'single' = solo TERCERA DIVISIÓN FS / Grupo 3.",
+ "full": {
+  "TERCERA DIVISIÓN FS": [
+   "Grupo 3",
+   "Grupo 4"
+  ],
+  "COPA SENIOR I - fase final- FS": [
+   "Eliminatorias"
+  ],
+  "COPA SENIOR I - fase previa- FS": [
+   "Eliminatorias"
+  ],
+  "PRIMERA DIVISION AUTONOMICA AFICIONADO FS": [
+   "Grupo 1",
+   "Grupo 2"
+  ],
+  "PREFERENTE AFICIONADO FS": [
+   "Grupo 1",
+   "Grupo 2"
+  ],
+  "COPA SENIOR II - fase final- FS": [
+   "Eliminatorias"
+  ],
+  "COPA SENIOR II - fase previa- FS": [
+   "Eliminatorias"
+  ],
+  "PRIMERA AFICIONADO FS": [
+   "Grupo 1",
+   "Grupo 2",
+   "Grupo 3",
+   "Grupo 4"
+  ],
+  "TROFEO COMUNIDAD DIVISION HONOR JUVENIL FS": [
+   "Eliminatorias"
+  ],
+  "PRIMERA DIVISION AUTONOMICA JUVENIL FS": [
+   "Grupo Unico"
+  ],
+  "PREFERENTE JUVENIL FS": [
+   "Grupo 1",
+   "Grupo 2"
+  ],
+  "COPA JUVENIL - fase final- FS": [
+   "Eliminatorias"
+  ],
+  "COPA JUVENIL - fase previa- FS": [
+   "Eliminatorias"
+  ],
+  "PRIMERA JUVENIL FS": [
+   "Grupo 1",
+   "Grupo 2",
+   "Grupo 3",
+   "Grupo 4",
+   "Grupo 5"
+  ]
+ },
+ "single": {
+  "TERCERA DIVISIÓN FS": [
+   "Grupo 3"
+  ]
+ }
+}

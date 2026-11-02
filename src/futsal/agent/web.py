@@ -228,27 +228,28 @@ class AgentRunner:
         self._thread.join(timeout=10)
 
     async def ask(self, question: str, history: Sequence[Turn] = (), focus: dict[str, Any] | None = None,
-                  timeout: float | None = None) -> AgentResult:
+                  timeout: float | None = None, conversation_id: str | None = None) -> AgentResult:
         if self._agent is None:  # primer arranque fallido o aún en curso: reintenta
             self.start()
             await asyncio.get_running_loop().run_in_executor(None, self._settled.wait, 30)
         if self._agent is None or self._loop is None:
             raise ChatUnavailable(self.error or "el agente no ha terminado de arrancar")
-        fut = asyncio.run_coroutine_threadsafe(self._run(question, history, focus or {}), self._loop)
+        fut = asyncio.run_coroutine_threadsafe(self._run(question, history, focus or {}, conversation_id), self._loop)
         try:
             return await asyncio.wait_for(asyncio.wrap_future(fut), timeout)
         except TimeoutError as exc:
             fut.cancel()  # cancela la tarea del agente: libera el turno aunque Gemini siga respondiendo
             raise ChatTimeout(f"tiempo máximo de {timeout:.0f}s superado (¿Gemini limitando peticiones?)") from exc
 
-    async def _run(self, question: str, history: Sequence[Turn], focus: dict[str, Any]) -> AgentResult:
+    async def _run(self, question: str, history: Sequence[Turn], focus: dict[str, Any],
+                   conversation_id: str | None = None) -> AgentResult:
         assert self._agent is not None and self._lock is not None
         self.waiting += 1
         try:
             async with self._lock:
                 self.running_since = time.monotonic()
                 try:
-                    return await self._agent.run(question, history, focus)
+                    return await self._agent.run(question, history, focus, conversation_id)
                 finally:
                     self.running_since = None
         finally:
@@ -357,7 +358,7 @@ def create_chat_app(runner: AgentRunner | None = None,
         try:
             started = time.monotonic()
             log.info("pregunta recibida (conversación %s, %d turnos de contexto, en cola: %d)", (cid or "-")[:8], len(context), agent_runner.waiting)
-            result = await agent_runner.ask(question, context, prev_focus, max_seconds)
+            result = await agent_runner.ask(question, context, prev_focus, max_seconds, cid)
             log.info("pregunta resuelta en %.1fs (error=%s, guardarraíl=%s)", time.monotonic() - started, bool(result.error), result.guardrail)
         except ChatTimeout as exc:
             return _failure(TIMEOUT, str(exc))

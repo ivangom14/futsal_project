@@ -47,7 +47,10 @@ from futsal.domain.competitions import (
     scope_note,
     scope_resolved,
 )
+from futsal.agent.router import route
+from futsal.agent.tokens import input_breakdown
 from futsal.agent.trace import LlmCallRecord, RunRecord, ToolCallRecord, redact, write_jsonl
+from futsal.config.settings import env_value
 
 logger = logging.getLogger("futsal.agent")  # (`log` es el callback de traza del bucle)
 OFF_TOPIC_MESSAGE = (
@@ -331,7 +334,7 @@ class Agent:
                  max_rows: int = DEFAULT_MAX_ROWS, preload_context: bool = True,
                  trace_path: Path | None = None, trace_results: bool = False,
                  history_turns: int = DEFAULT_MAX_TURNS, history_chars: int = DEFAULT_MAX_CHARS,
-                 aliases: dict[str, Any] | None = None) -> None:
+                 aliases: dict[str, Any] | None = None, router_shadow: bool | None = None) -> None:
         self._llm = llm
         self._mcp = mcp
         self._max = max_tool_calls
@@ -341,6 +344,8 @@ class Agent:
         self._trace_path = trace_path
         self._trace_results = trace_results
         self._aliases = aliases if aliases is not None else load_aliases()
+        # Fase 0: el router solo OBSERVA (traza). `AGENT_ROUTER=off` lo desactiva; no cambia nunca la ejecución.
+        self._router_shadow = (env_value("AGENT_ROUTER", "shadow") or "shadow").lower() != "off" if router_shadow is None else router_shadow
         self._competitions: list[Competition] = []  # catálogo real (ids y nombres) del contexto precargado
         self._hints = Hints()  # pistas de ámbito de ESTA pregunta (con el contexto de la conversación)
         self._scope_ok = False  # el ámbito (competición y grupo) ya está determinado
@@ -497,10 +502,11 @@ class Agent:
             rec.context_ms, rec.context_tool_calls = _ms(start), self._ctx_calls
         return self._system
 
-    async def run(self, question: str, history: Sequence[Turn] = (), focus: dict[str, Any] | None = None) -> AgentResult:
+    async def run(self, question: str, history: Sequence[Turn] = (), focus: dict[str, Any] | None = None,
+                  conversation_id: str | None = None) -> AgentResult:
         result = AgentResult("", 0)
         rec = RunRecord(question=question, provider=getattr(self._llm, "provider", None),
-                        model=getattr(self._llm, "model", None), max_tool_calls=self._max)
+                        model=getattr(self._llm, "model", None), max_tool_calls=self._max, conversation_id=conversation_id)
         result.run = rec
         started = time.perf_counter()
 
@@ -535,6 +541,8 @@ class Agent:
         ctx = " ".join([*(t.question for t in turns), effective])
         note = self._resolve_scope(turns, effective, result) + focus_note(focus, self._other_groups(focus))
         messages = [*history_messages(turns), Message("user", effective + note)]
+        n_hist = len(messages) - 1
+        self._shadow_route(rec, effective, turns, focus)
         self._question = ctx
         self._raw_question, self._focus_prev = question, focus
         self._teams, self._rounds = set(self._ctx_teams), set(self._ctx_rounds)
@@ -542,6 +550,7 @@ class Agent:
         nudged = False
         log(f"USER\n{question}" + (f"\n→ interpretada como: {effective}" if merged else ""))
         while True:
+            bd = self._breakdown(rec, messages, n_hist, len(effective), len(note), len(HISTORY_RULE) if turns else 0)
             t0 = time.perf_counter()
             try:
                 # En un hilo: la llamada es síncrona y no debe bloquear el bucle (así la pregunta puede cancelarse por tiempo máximo).
@@ -554,7 +563,7 @@ class Agent:
                     len(rec.llm_calls) + 1, max(_ms(t0) - paced_ms, 0.0), None, None, None, None, False, 0,
                     error=redact(str(exc)), paced_ms=paced_ms,
                     retries=max(len(exc.attempts) - 1, 0), attempts=[asdict(a) for a in exc.attempts],
-                    retry_wait_ms=round(waited * 1000, 1)))
+                    retry_wait_ms=round(waited * 1000, 1), input_breakdown=bd))
                 result.error = redact(str(exc))
                 log(f"ERROR\n{result.error}")
                 return
@@ -571,7 +580,8 @@ class Agent:
                 attempts=[asdict(a) for a in resp.attempts],
                 retry_wait_ms=round(sum(a.waited_s for a in resp.attempts) * 1000, 1),
                 token_source="unreported" if u is None else "estimated" if u.estimated else "provider",
-                cached_input_tokens=u.cached_input_tokens if u else None, paced_ms=paced_ms))
+                cached_input_tokens=u.cached_input_tokens if u else None, paced_ms=paced_ms,
+                input_breakdown=self._with_provider(bd, u)))
             if (not resp.tool_calls and result.tool_calls == 0 and self._ambiguous_scope(ctx)
                     and asks_scope_clarification(resp.text, self._catalog, ctx)):
                 if turns and not nudged and user_gave_scope(turns):
@@ -641,6 +651,44 @@ class Agent:
             return UNKNOWN_ID_MESSAGE.format(arg="round_id", value=value, hint=ROUND_HINT)
         return None
 
+    def _shadow_route(self, rec: RunRecord, effective: str, turns: Sequence[Turn], focus: dict[str, Any]) -> None:
+        """Router en SOMBRA: anota en la traza qué ruta habría elegido. No ejecuta nada, no llama al LLM ni a herramientas y,
+        pase lo que pase, no puede alterar la respuesta (cualquier fallo se registra y se ignora)."""
+        if not self._router_shadow:
+            return
+        started = time.perf_counter()
+        try:
+            decision = route(effective, competitions=self._competitions, hints=self._hints, scope_ok=self._scope_ok,
+                             groups_total=sum(len(g) for _, g in self._catalog), focus=focus, has_history=bool(turns))
+            rec.router = decision.to_dict()
+            rec.router_intent, rec.router_reason = decision.intent, decision.reason
+            rec.router_confidence, rec.router_tier = decision.confidence, decision.tier
+        except Exception as exc:  # noqa: BLE001 - observabilidad: nunca debe romper la pregunta
+            rec.router = {"error": type(exc).__name__}
+            logger.warning("router en sombra falló (%s); se ignora", type(exc).__name__)
+        rec.router_ms = _ms(started)
+
+    def _breakdown(self, rec: RunRecord, messages: list[Message], n_hist: int, question_chars: int, note_chars: int,
+                   history_rule_chars: int) -> dict[str, Any] | None:
+        """Reparto ESTIMADO de la entrada de la próxima llamada por origen (solo medición; no modifica nada de lo que se envía)."""
+        try:
+            return input_breakdown(
+                system_prompt_chars=len(SYSTEM_PROMPT), history_rule_chars=history_rule_chars,
+                context_chars=rec.prefix_chars.get("context", 0), tools_chars=rec.prefix_chars.get("tools", 0),
+                messages=messages, history_messages=n_hist, question_chars=question_chars, note_chars=note_chars)
+        except Exception:  # noqa: BLE001 - la medición nunca debe romper la pregunta
+            return None
+
+    @staticmethod
+    def _with_provider(bd: dict[str, Any] | None, usage: Any) -> dict[str, Any] | None:
+        """Añade al reparto estimado el total de entrada REAL del proveedor (si lo informó) y la calibración real/estimado."""
+        if bd is None:
+            return None
+        real = usage.input_tokens if usage is not None and not usage.estimated else None
+        bd = {**bd, "provider_input": real}
+        bd["calibration"] = round(real / bd["est_total"], 3) if real and bd["est_total"] else None
+        return bd
+
     async def _execute(self, call: ToolCall, result: AgentResult, rec: RunRecord, llm_call: int,
                        log: Callable[[str], None]) -> ToolResult:
         result.tool_calls += 1
@@ -659,7 +707,7 @@ class Agent:
             log("MCP\n→ llamada repetida: se reutiliza el resultado anterior")
             rec.tool_calls.append(ToolCallRecord(len(rec.tool_calls) + 1, llm_call, call.name, dict(call.arguments),
                                                  0.0, was_error, len(sent), len(sent), "repetida (resultado reutilizado)", False,
-                                                 sent if self._trace_results else None))
+                                                 sent if self._trace_results else None, reused=True))
             return ToolResult(call.id, sent, was_error)
         try:
             is_error, text = await self._mcp.call_tool(call.name, call.arguments)

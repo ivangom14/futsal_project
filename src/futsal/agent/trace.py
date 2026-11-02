@@ -43,6 +43,8 @@ class LlmCallRecord:
     token_source: str = "unreported"  # provider | estimated | unreported
     cached_input_tokens: int | None = None  # entrada servida desde la caché del proveedor (si la informa)
     paced_ms: float = 0.0  # pausa de ritmo (--min-interval) ANTES de la llamada; no forma parte de latency_ms
+    # Fase 0: reparto ESTIMADO de la entrada por origen (ver `tokens.input_breakdown`); None en trazas antiguas o sin desglose
+    input_breakdown: dict[str, Any] | None = None
 
 
 def _overall_source(calls: list["LlmCallRecord"]) -> str:
@@ -66,6 +68,7 @@ class ToolCallRecord:
     truncated: bool
     result: str | None = None  # texto enviado al LLM; solo se serializa con include_results
     refused: bool = False  # el agente no la ejecutó (ID no obtenido de una tool o equipo ambiguo): cuenta como llamada, no como fallo de la tool
+    reused: bool = False  # llamada idéntica a otra de la misma pregunta: se reutilizó el resultado sin volver a ejecutarla (Fase 0)
 
 
 @dataclass
@@ -86,6 +89,16 @@ class RunRecord:
     guardrail: str | None = None
     raw_answer: str | None = None  # texto del modelo antes de que el guardarraíl lo sustituya (recortado)
     error: str | None = None
+    # --- Fase 0 (instrumentación y router en sombra). Todos opcionales: las trazas anteriores no los tienen ---
+    arch: str = "legacy"  # arquitectura que ejecutó la pregunta (hoy siempre `legacy`)
+    exec_tier: str = "tier2"  # nivel de ejecución REAL (hoy siempre `tier2` = flujo completo actual)
+    conversation_id: str | None = None  # para agrupar el coste por conversación
+    router_intent: str | None = None  # lo que el router en sombra habría decidido (NO se ha aplicado)
+    router_reason: str | None = None
+    router_confidence: str | None = None
+    router_tier: str | None = None
+    router_ms: float = 0.0
+    router: dict[str, Any] | None = None  # decisión completa del router (entidades, ámbito, aptitud Tier 0…)
 
     def totals(self) -> dict[str, Any]:
         """Totales de la ejecución sumando cada llamada UNA vez (el historial reenviado ya va en su input)."""
@@ -111,7 +124,29 @@ class RunRecord:
             "paced_ms": round(paced, 1),
             "latency_ms": round(max(self.latency_ms - paced, 0.0), 1),  # sin las pausas de ritmo
             "wall_ms": round(self.latency_ms, 1),
-            "prefix_chars": dict(self.prefix_chars)}
+            "prefix_chars": dict(self.prefix_chars),
+            # --- Fase 0 ---
+            "arch": self.arch, "exec_tier": self.exec_tier,
+            "mcp_calls": {"requested_by_llm": len(self.tool_calls), "context_preload": self.context_tool_calls,
+                          "refused": sum(t.refused for t in self.tool_calls), "reused": sum(t.reused for t in self.tool_calls),
+                          "errors": sum(t.is_error for t in self.tool_calls)},
+            "token_breakdown": self._token_breakdown()}
+
+    def _token_breakdown(self) -> dict[str, Any] | None:
+        """Suma de los repartos por llamada (ESTIMADOS). Los totales reales del proveedor van aparte, en `input_tokens`."""
+        parts = [c.input_breakdown for c in self.llm_calls if c.input_breakdown]
+        if not parts:
+            return None
+        origins: dict[str, int] = {}
+        for b in parts:
+            for k, v in b["est_tokens"].items():
+                origins[k] = origins.get(k, 0) + v
+        est_total = sum(origins.values())
+        provider = [b["provider_input"] for b in parts if b.get("provider_input") is not None]
+        real = sum(provider) if len(provider) == len(parts) else None  # solo si el proveedor informó TODAS las llamadas
+        return {"basis": parts[0]["basis"], "est_tokens": origins, "est_total": est_total, "provider_input": real,
+                "calibration": round(real / est_total, 3) if real and est_total else None,
+                "calls": len(parts)}
 
     def to_dict(self, include_results: bool = False) -> dict[str, Any]:
         data = asdict(self)
@@ -122,6 +157,31 @@ class RunRecord:
         data["answer"] = redact(self.answer)
         data["totals"] = self.totals()
         return data
+
+
+def read_jsonl(path: Path) -> list[dict[str, Any]]:
+    """Lee una traza JSONL de cualquier versión. Devuelve diccionarios con los campos de la Fase 0 rellenados por defecto si faltan
+    (las trazas anteriores no los tienen) y conserva intactos los campos desconocidos. Líneas vacías o corruptas se omiten."""
+    rows: list[dict[str, Any]] = []
+    with path.open(encoding="utf-8") as fh:
+        for line in fh:
+            if not line.strip():
+                continue
+            try:
+                row = json.loads(line)
+            except ValueError:
+                continue
+            if not isinstance(row, dict):
+                continue
+            for key, default in (("arch", "legacy"), ("exec_tier", "tier2"), ("conversation_id", None), ("router", None),
+                                 ("router_intent", None), ("router_reason", None), ("router_confidence", None), ("router_tier", None)):
+                row.setdefault(key, default)
+            for call in row.get("llm_calls") or []:
+                call.setdefault("input_breakdown", None)
+            for call in row.get("tool_calls") or []:
+                call.setdefault("reused", False)
+            rows.append(row)
+    return rows
 
 
 def write_jsonl(path: Path, record: RunRecord, include_results: bool = False) -> None:
