@@ -90,6 +90,7 @@ class RunRecord:
     raw_answer: str | None = None  # texto del modelo antes de que el guardarraíl lo sustituya (recortado)
     error: str | None = None
     # --- Fase 0 (instrumentación y router en sombra). Todos opcionales: las trazas anteriores no los tienen ---
+    prompt_mode: str = "legacy"  # Fase 1: `legacy` (textos de siempre) o `compact` (prompt y descripciones reducidos)
     arch: str = "legacy"  # arquitectura que ejecutó la pregunta (hoy siempre `legacy`)
     exec_tier: str = "tier2"  # nivel de ejecución REAL (hoy siempre `tier2` = flujo completo actual)
     conversation_id: str | None = None  # para agrupar el coste por conversación
@@ -126,7 +127,7 @@ class RunRecord:
             "wall_ms": round(self.latency_ms, 1),
             "prefix_chars": dict(self.prefix_chars),
             # --- Fase 0 ---
-            "arch": self.arch, "exec_tier": self.exec_tier,
+            "arch": self.arch, "prompt_mode": self.prompt_mode, "exec_tier": self.exec_tier,
             "mcp_calls": {"requested_by_llm": len(self.tool_calls), "context_preload": self.context_tool_calls,
                           "refused": sum(t.refused for t in self.tool_calls), "reused": sum(t.reused for t in self.tool_calls),
                           "errors": sum(t.is_error for t in self.tool_calls)},
@@ -173,7 +174,7 @@ def read_jsonl(path: Path) -> list[dict[str, Any]]:
                 continue
             if not isinstance(row, dict):
                 continue
-            for key, default in (("arch", "legacy"), ("exec_tier", "tier2"), ("conversation_id", None), ("router", None),
+            for key, default in (("arch", "legacy"), ("prompt_mode", "legacy"), ("exec_tier", "tier2"), ("conversation_id", None), ("router", None),
                                  ("router_intent", None), ("router_reason", None), ("router_confidence", None), ("router_tier", None)):
                 row.setdefault(key, default)
             for call in row.get("llm_calls") or []:

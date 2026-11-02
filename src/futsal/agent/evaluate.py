@@ -28,7 +28,7 @@ from futsal.agent.agent import (
     DEFAULT_MAX_ROWS,
     DEFAULT_MAX_TOOL_CALLS,
     OFF_TOPIC_MESSAGE,
-    SYSTEM_PROMPT,
+    PROMPT_SETS,
     Agent,
 )
 from futsal.agent.audit import OFFICIAL_PREFIXES, critical_reasons, expectation
@@ -1113,7 +1113,7 @@ def invention_claims(case: EvalCase, answer: str, truth: Truth, payloads: list[d
     claims += [f"da el marcador {sc}, que no figura en lo devuelto por las herramientas"
                for sc in unsupported_scores(answer, payloads, case.question)]
     claims += [f"cifra de cobertura que no cuadra con coverage: «{c}»" for c in unsupported_coverage_counts(answer, payloads)]
-    if leaks_prompt(answer, SYSTEM_PROMPT, (OFF_TOPIC_MESSAGE, *LIMITATION_REPLIES)):
+    if any(leaks_prompt(answer, prompts.system, (OFF_TOPIC_MESSAGE, *LIMITATION_REPLIES)) for prompts in PROMPT_SETS.values()):  # ambos modos
         claims.append("repite fragmentos de las instrucciones del sistema")
     if any(f.kind in ("rule_cited", "no_evidence_rules") for f in case.facts or []):
         # en reglamento el color de la tarjeta es contenido de la regla: se exige que figure en los fragmentos recuperados

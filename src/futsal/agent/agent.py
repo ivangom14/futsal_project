@@ -47,6 +47,7 @@ from futsal.domain.competitions import (
     scope_note,
     scope_resolved,
 )
+from futsal.agent.prompts import COMPACT, LEGACY, MODES, PromptSet, compact_prompts
 from futsal.agent.router import route
 from futsal.agent.tokens import input_breakdown
 from futsal.agent.trace import LlmCallRecord, RunRecord, ToolCallRecord, redact, write_jsonl
@@ -128,6 +129,17 @@ CATALOG_HEADER = (
     "(find_teams), pide aclaración o muestra las opciones: no elijas una al azar. Equipos y jornadas de un grupo: "
     "list_teams / list_rounds con su group_id:\n"
 )
+PROMPT_SETS: dict[str, PromptSet] = {  # Fase 1: `legacy` = los textos de siempre (arriba, sin tocar); `compact` = mismas reglas, menos palabras
+    LEGACY: PromptSet(LEGACY, SYSTEM_PROMPT, HISTORY_RULE, CONTEXT_HEADER, CATALOG_HEADER),
+    COMPACT: compact_prompts(OFF_TOPIC_MESSAGE)}
+
+
+def resolve_prompt_mode(explicit: str | None = None) -> str:
+    """`AGENT_PROMPT_MODE` (`legacy` por defecto). Un valor desconocido se trata como `legacy`: nunca rompe el arranque."""
+    mode = (explicit or env_value("AGENT_PROMPT_MODE", LEGACY)).strip().lower()
+    return mode if mode in MODES else LEGACY
+
+
 UNKNOWN_ID_MESSAGE = (
     "error_validacion: {arg}={value} no procede de ninguna herramienta consultada en esta pregunta; no se ha ejecutado. {hint}"
 )
@@ -334,7 +346,8 @@ class Agent:
                  max_rows: int = DEFAULT_MAX_ROWS, preload_context: bool = True,
                  trace_path: Path | None = None, trace_results: bool = False,
                  history_turns: int = DEFAULT_MAX_TURNS, history_chars: int = DEFAULT_MAX_CHARS,
-                 aliases: dict[str, Any] | None = None, router_shadow: bool | None = None) -> None:
+                 aliases: dict[str, Any] | None = None, router_shadow: bool | None = None,
+                 prompt_mode: str | None = None) -> None:
         self._llm = llm
         self._mcp = mcp
         self._max = max_tool_calls
@@ -344,6 +357,8 @@ class Agent:
         self._trace_path = trace_path
         self._trace_results = trace_results
         self._aliases = aliases if aliases is not None else load_aliases()
+        self._prompt_mode = resolve_prompt_mode(prompt_mode)  # Fase 1: textos que se envían al LLM (legacy = comportamiento anterior)
+        self._prompts = PROMPT_SETS[self._prompt_mode]
         # Fase 0: el router solo OBSERVA (traza). `AGENT_ROUTER=off` lo desactiva; no cambia nunca la ejecución.
         self._router_shadow = (env_value("AGENT_ROUTER", "shadow") or "shadow").lower() != "off" if router_shadow is None else router_shadow
         self._competitions: list[Competition] = []  # catálogo real (ids y nombres) del contexto precargado
@@ -392,7 +407,7 @@ class Agent:
             total = sum(len(g) for _, g in catalog)
             self._catalog = [(str(c.get('name', '')), [str(g.get('name', '')) for g in gs]) for c, gs in catalog]
             if total > MAX_CONTEXT_GROUPS:
-                return CATALOG_HEADER + "\n".join(
+                return self._prompts.catalog_header + "\n".join(
                     f"- «{c['name']}» (competition_id={c['id']}): "
                     + "; ".join(f"«{g.get('name')}» group_id={g['id']}" for g in groups)
                     for c, groups in catalog if groups)
@@ -408,7 +423,7 @@ class Agent:
                     lines.append(f"- competición «{comp['name']}» (competition_id={comp['id']}), "
                                  f"grupo «{grp['name']}» (group_id={grp['id']}); "
                                  f"jornada=round_id: {pairs}; equipos team_id=nombre: {names}")
-            return CONTEXT_HEADER + "\n".join(lines) if lines else ""
+            return self._prompts.context_header + "\n".join(lines) if lines else ""
         except Exception:  # noqa: BLE001 - el contexto es una optimización, nunca un requisito
             return ""
 
@@ -498,7 +513,7 @@ class Agent:
         if self._system is None:
             start = time.perf_counter()
             self._ctx_calls = 0
-            self._system = SYSTEM_PROMPT + (await self._context() if self._preload else "")
+            self._system = self._prompts.system + (await self._context() if self._preload else "")
             rec.context_ms, rec.context_tool_calls = _ms(start), self._ctx_calls
         return self._system
 
@@ -506,7 +521,8 @@ class Agent:
                   conversation_id: str | None = None) -> AgentResult:
         result = AgentResult("", 0)
         rec = RunRecord(question=question, provider=getattr(self._llm, "provider", None),
-                        model=getattr(self._llm, "model", None), max_tool_calls=self._max, conversation_id=conversation_id)
+                        model=getattr(self._llm, "model", None), max_tool_calls=self._max, conversation_id=conversation_id,
+                        prompt_mode=self._prompt_mode)
         result.run = rec
         started = time.perf_counter()
 
@@ -529,14 +545,14 @@ class Agent:
         if self._tools is None:
             self._tools = slim_tools(await self._mcp.list_tools())
         system = await self._system_prompt(rec)
-        rec.prefix_chars = {"system_prompt": len(SYSTEM_PROMPT), "context": len(system) - len(SYSTEM_PROMPT),
+        rec.prefix_chars = {"system_prompt": len(self._prompts.system), "context": len(system) - len(self._prompts.system),
                             "tools": len(json.dumps(self._tools, ensure_ascii=False, separators=(",", ":")))}
         turns = select_turns(history, self._history_turns, self._history_chars)  # acotado también aquí (defensa en profundidad)
         turns, effective, merged = resolve_pending(turns, question)
         if merged:
             result.resolved_question = effective
         if turns:
-            system += HISTORY_RULE
+            system += self._prompts.history_rule
         # Contexto para los guardarraíles de alcance: la pregunta y lo que el USUARIO dijo antes (nunca las respuestas del asistente).
         ctx = " ".join([*(t.question for t in turns), effective])
         note = self._resolve_scope(turns, effective, result) + focus_note(focus, self._other_groups(focus))
@@ -550,7 +566,7 @@ class Agent:
         nudged = False
         log(f"USER\n{question}" + (f"\n→ interpretada como: {effective}" if merged else ""))
         while True:
-            bd = self._breakdown(rec, messages, n_hist, len(effective), len(note), len(HISTORY_RULE) if turns else 0)
+            bd = self._breakdown(rec, messages, n_hist, len(effective), len(note), len(self._prompts.history_rule) if turns else 0)
             t0 = time.perf_counter()
             try:
                 # En un hilo: la llamada es síncrona y no debe bloquear el bucle (así la pregunta puede cancelarse por tiempo máximo).
@@ -673,7 +689,7 @@ class Agent:
         """Reparto ESTIMADO de la entrada de la próxima llamada por origen (solo medición; no modifica nada de lo que se envía)."""
         try:
             return input_breakdown(
-                system_prompt_chars=len(SYSTEM_PROMPT), history_rule_chars=history_rule_chars,
+                system_prompt_chars=len(self._prompts.system), history_rule_chars=history_rule_chars,
                 context_chars=rec.prefix_chars.get("context", 0), tools_chars=rec.prefix_chars.get("tools", 0),
                 messages=messages, history_messages=n_hist, question_chars=question_chars, note_chars=note_chars)
         except Exception:  # noqa: BLE001 - la medición nunca debe romper la pregunta

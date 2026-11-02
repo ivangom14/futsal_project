@@ -8,6 +8,7 @@ from mcp.server.fastmcp import FastMCP
 from pydantic import Field
 
 from futsal.config.settings import api_base_url
+from futsal.mcp_server.descriptions import overrides, tools_mode
 
 TIMEOUT_SECONDS = 10.0
 
@@ -56,19 +57,28 @@ def _listing(key: str, data: dict[str, Any]) -> dict[str, Any]:
     return out
 
 
-def create_server(client: httpx.Client | None = None) -> FastMCP:
-    """Crea el servidor; `client` permite inyectar un cliente HTTP (tests)."""
+def create_server(client: httpx.Client | None = None, descriptions: str | None = None) -> FastMCP:
+    """Crea el servidor; `client` permite inyectar un cliente HTTP (tests). `descriptions`: `legacy` (predeterminado, los textos de
+    siempre) o `compact` (Fase 1: mismas herramientas y parámetros, descripciones más cortas); sin él, `AGENT_PROMPT_MODE`."""
     http = client or httpx.Client(base_url=api_base_url(), timeout=TIMEOUT_SECONDS)
     mcp = FastMCP("futsal")
+    ov = overrides(tools_mode(descriptions))  # vacío en `legacy`: se usan los docstrings y Field(description=…) de abajo
 
-    @mcp.tool()
+    def desc(key: str, legacy: str) -> str:
+        return ov.get(key, legacy)
+
+    def tool(name: str) -> Any:
+        """@mcp.tool() con la descripción compacta si la hay (si no, el docstring de la función)."""
+        return mcp.tool(description=ov.get(name))
+
+    @tool("list_competitions")
     def list_competitions(
         season_id: Annotated[int | None, Field(description="ID de temporada")] = None,
     ) -> dict[str, Any]:
         """Competiciones con sus grupos (id y nombre); el `id` del grupo es el group_id del resto de tools."""
         return _listing("competitions", _get(http, "/competitions", "temporada", season_id=season_id))
 
-    @mcp.tool()
+    @tool("list_groups")
     def list_groups(
         competition_id: Annotated[int, Field(description="ID de competición")],
     ) -> dict[str, Any]:
@@ -78,7 +88,7 @@ def create_server(client: httpx.Client | None = None) -> FastMCP:
             _get(http, f"/competitions/{competition_id}/groups", f"competición {competition_id}"),
         )
 
-    @mcp.tool()
+    @tool("find_teams")
     def find_teams(
         name: Annotated[str, Field(min_length=2, max_length=80, description="Nombre o parte del nombre")],
     ) -> dict[str, Any]:
@@ -86,30 +96,30 @@ def create_server(client: httpx.Client | None = None) -> FastMCP:
         varios grupos y la pregunta no lo precisa, pregunta cuál en vez de elegir."""
         return _listing("teams", _get(http, "/teams", "equipos", name=name))
 
-    @mcp.tool()
+    @tool("list_rounds")
     def list_rounds(
         group_id: Annotated[int, Field(description="ID de grupo")],
     ) -> dict[str, Any]:
         """Jornadas de un grupo por número; su `id` es el round_id de list_matches."""
         return _listing("rounds", _get(http, f"/groups/{group_id}/rounds", f"grupo {group_id}"))
 
-    @mcp.tool()
+    @tool("list_teams")
     def list_teams(
         group_id: Annotated[int, Field(description="ID de grupo")],
     ) -> dict[str, Any]:
         """Equipos de un grupo por nombre."""
         return _listing("teams", _get(http, f"/groups/{group_id}/teams", f"grupo {group_id}"))
 
-    @mcp.tool()
+    @tool("list_matches")
     def list_matches(
         group_id: Annotated[int, Field(description="ID de grupo")],
         round_id: Annotated[int | None, Field(description="ID de jornada, no número")] = None,
         status: Annotated[MatchStatus | None, Field(description="Estado")] = None,
         team_id: Annotated[int | None, Field(description="Solo partidos de este equipo")] = None,
         has_report: Annotated[bool | None, Field(description="Con/sin acta")] = None,
-        order: Annotated[Literal["asc", "desc", "date_asc"] | None, Field(description=(
+        order: Annotated[Literal["asc", "desc", "date_asc"] | None, Field(description=desc("list_matches.order", (
             "asc (jornada, def.), desc (más reciente primero) o date_asc (más próximo primero): último partido = status=finished, order=desc, "
-            "limit=1; próximo = status=scheduled, order=date_asc, limit=1"))] = None,
+            "limit=1; próximo = status=scheduled, order=date_asc, limit=1")))] = None,
         limit: Annotated[int | None, Field(ge=1, le=200, description=(
             "Solo las N primeras filas; count sigue siendo el total (para contar: limit=1)"))] = None,
     ) -> dict[str, Any]:
@@ -122,14 +132,14 @@ def create_server(client: httpx.Client | None = None) -> FastMCP:
             data = {"items": data["items"][:limit], "count": len(data["items"]), "shown": limit}
         return _listing("matches", data)
 
-    @mcp.tool()
+    @tool("get_match")
     def get_match(
         match_id: Annotated[int, Field(description="ID de partido")],
     ) -> dict[str, Any]:
         """Detalle de un partido: equipos, marcador, estado, pista y zona horaria."""
         return _get(http, f"/matches/{match_id}", f"partido {match_id}")
 
-    @mcp.tool()
+    @tool("get_match_report")
     def get_match_report(
         match_id: Annotated[int, Field(description="ID de partido")],
         sections: Annotated[list[ReportSection] | None, Field(
@@ -140,7 +150,7 @@ def create_server(client: httpx.Client | None = None) -> FastMCP:
         return _get(http, f"/matches/{match_id}/report", f"partido {match_id}",
                     sections=",".join(sections) if sections else None)
 
-    @mcp.tool()
+    @tool("list_match_events")
     def list_match_events(
         group_id: int,
         team_id: Annotated[int | None, Field(description="Jugadores de este equipo")] = None,
@@ -157,7 +167,7 @@ def create_server(client: httpx.Client | None = None) -> FastMCP:
                     against_team_id=against_team_id, round_id=round_id, match_id=match_id,
                     player_id=player_id, event_type=event_type, limit=limit)
 
-    @mcp.tool()
+    @tool("top_scorers")
     def top_scorers(
         group_id: int,
         team_id: int | None = None,
@@ -173,7 +183,7 @@ def create_server(client: httpx.Client | None = None) -> FastMCP:
                     against_team_id=against_team_id, round_id=round_id, match_id=match_id,
                     player_id=player_id, min_goals=min_goals, limit=limit)
 
-    @mcp.tool()
+    @tool("get_standings")
     def get_standings(
         group_id: int,
         round: Annotated[int | None, Field(ge=1, le=200)] = None,
@@ -181,7 +191,7 @@ def create_server(client: httpx.Client | None = None) -> FastMCP:
         """Clasificación OFICIAL RFFM de la jornada `round` (sin él, la última); no la calcules. Indica jornada y captura."""
         return _get(http, f"/groups/{group_id}/standings", f"grupo {group_id}", round=round)
 
-    @mcp.tool()
+    @tool("get_data_freshness")
     def get_data_freshness(
         group_id: int | None = None,
         competition_id: int | None = None,
@@ -194,7 +204,7 @@ def create_server(client: httpx.Client | None = None) -> FastMCP:
             raise ToolError("error_validacion: indica group_id o competition_id")
         return _get(http, f"/competitions/{competition_id}/freshness", f"competición {competition_id}")
 
-    @mcp.tool()
+    @tool("get_scorer_table")
     def get_scorer_table(
         group_id: int | None = None,
         competition_id: int | None = None,
@@ -209,7 +219,7 @@ def create_server(client: httpx.Client | None = None) -> FastMCP:
             raise ToolError("error_validacion: indica group_id o competition_id")
         return _get(http, f"/competitions/{competition_id}/scorer-table", f"competición {competition_id}", limit=limit)
 
-    @mcp.tool()
+    @tool("find_players")
     def find_players(
         group_id: int,
         name: Annotated[str, Field(min_length=2, max_length=80, description="Nombre o apellido")],
@@ -218,11 +228,11 @@ def create_server(client: httpx.Client | None = None) -> FastMCP:
         """Jugadores de las actas por nombre (devuelve player_id). Sin resultados: no consta."""
         return _get(http, f"/groups/{group_id}/players", f"grupo {group_id}", name=name, team_id=team_id)
 
-    @mcp.tool()
+    @tool("search_rules")
     def search_rules(
         query: Annotated[str, Field(min_length=2, max_length=500, description="Palabras clave del reglamento")],
         limit: Annotated[int, Field(ge=1, le=10)] = 5,
-        rule: Annotated[int | None, Field(ge=1, description="Solo esa regla FIFA (las circulares se incluyen siempre); úsalo solo si el usuario nombra la regla")] = None,
+        rule: Annotated[int | None, Field(ge=1, description=desc("search_rules.rule", "Solo esa regla FIFA (las circulares se incluyen siempre); úsalo solo si el usuario nombra la regla"))] = None,
     ) -> dict[str, Any]:
         """Reglas del juego (reglamento FIFA de fútbol sala y circulares de la RFEF sobre reglas y criterios arbitrales, texto literal). Búsqueda por palabras: reformula con el
         vocabulario del reglamento (córner→saque de esquina, pista→terreno de juego, roja→expulsión, cambios→sustituciones,
