@@ -63,6 +63,44 @@ def command(arm: str, rep: int, out: Path, selection: list[str], max_requests: i
     return cmd
 
 
+def pending_cases(doc: dict) -> list[str]:
+    return [c["case_id"] for c in doc.get("cases", []) if c.get("status") == "not_run"]
+
+
+def merge_fill(orig: dict, fill: dict) -> dict:
+    """Sustituye en `orig` los casos `not_run` por los de `fill` que ya se han ejecutado (pass/fail/no evaluable); marca `filled`."""
+    new = {c["case_id"]: c for c in fill.get("cases", []) if c.get("status") != "not_run"}
+    orig["cases"] = [{**new[c["case_id"]], "filled": True} if c.get("status") == "not_run" and c["case_id"] in new else c for c in orig.get("cases", [])]
+    orig.setdefault("meta", {})["filled_cases"] = sorted(new)
+    return orig
+
+
+def fill_missing(arms: list[str], reps: int, out: Path, max_requests: int, min_interval: float | None) -> int:
+    """Repite SOLO los casos `not_run` (429, red) de cada <brazo>-r<n>.json con las banderas de su brazo y los funde en el original (queda .orig.json)."""
+    for arm, rep in schedule(arms, reps):
+        target = out / f"{arm}-r{rep}.json"
+        if not target.exists():
+            continue
+        doc = json.loads(target.read_text(encoding="utf-8"))
+        ids = pending_cases(doc)
+        if not ids:
+            continue
+        print(f"\n== {arm} r{rep}: completando {len(ids)} caso(s) sin ejecutar: {', '.join(ids)} ==", flush=True)
+        part = out / f"{arm}-r{rep}-fill.json"
+        cmd = command(arm, rep, out, ["--only", ",".join(ids)], max_requests, min_interval)
+        cmd[cmd.index("--report-dir") + 1] = str(out / f"{arm}-r{rep}-fill")
+        cmd[cmd.index("--output") + 1] = str(part)
+        res = subprocess.run(cmd, env={**os.environ, **arm_env(arm)}, check=False)
+        if res.returncode not in (0, 1):
+            print(f"La tanda de completado {arm} r{rep} terminó con código {res.returncode}: se detiene.")
+            return res.returncode
+        if part.exists():
+            (out / f"{arm}-r{rep}.orig.json").write_text(target.read_text(encoding="utf-8"), encoding="utf-8")
+            target.write_text(json.dumps(merge_fill(doc, json.loads(part.read_text(encoding="utf-8"))), ensure_ascii=False, indent=1), encoding="utf-8")
+            part.unlink()
+    return 0
+
+
 def plan_numbers(n_arms: int, reps: int, n_cases: int | None, max_requests: int, input_per_call: float, output_per_call: float,
                  price_in: float | None, price_out: float | None) -> dict[str, object]:
     batches = n_arms * reps
@@ -97,6 +135,7 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--plan-evaluator", action="store_true", help="pide el plan al evaluador (sin LLM; necesita API y base de datos)")
     ap.add_argument("--yes", action="store_true", help="ejecuta de verdad (llamadas reales y de pago al LLM)")
     ap.add_argument("--force", action="store_true")
+    ap.add_argument("--fill-missing", action="store_true", help="con --yes: repite solo los casos not_run (429, red) de las tandas existentes y los funde en ellas")
     args = ap.parse_args(argv)
     arms = split_arms(args.arms)
     ids, selection = case_selection(args.cases)
@@ -128,6 +167,11 @@ def main(argv: list[str] | None = None) -> int:
         print("\nNo se ha llamado a ningún LLM. Añade --yes para ejecutar (consume cuota).")
         return 0
     out.mkdir(parents=True, exist_ok=True)
+    if args.fill_missing:
+        code = fill_missing(arms, args.reps, out, args.max_requests, args.min_interval)
+        if code == 0:
+            subprocess.run([sys.executable, "-m", "futsal.agent.arms_summary", str(out), "--json", str(out / "summary.json"), "--md", str(out / "summary.md")], check=False)
+        return code
     manifest = {"started": datetime.now(UTC).isoformat(), "arms": {a: arm_env(a) for a in arms}, "cases": ids or args.cases, "max_requests": args.max_requests, "runs": []}
     for arm, rep in schedule(arms, args.reps):
         target = out / f"{arm}-r{rep}.json"

@@ -203,3 +203,36 @@ def test_n_arm_summary_agrees_with_the_phase1_summary_on_legacy_and_compact(tmp_
     for c_old, c_new in zip(old["cases"], new["cases"], strict=True):
         for mode in ("legacy", "compact"):
             assert c_old["modes"][mode]["passes"] == c_new["arms"][mode]["passes"] and c_old["modes"][mode]["flaky"] == c_new["arms"][mode]["flaky"]
+
+
+# --- completar casos sin ejecutar y veredictos con pocas repeticiones -----------------------------------------------------------------
+def test_few_decisive_runs_are_never_called_consistent_and_429s_are_flagged(tmp_path: Path) -> None:
+    runs = {"legacy": ["pass", "pass", "not_run"], "prefetch": ["not_run", "pass", "fail"]}
+    for arm, sts in runs.items():
+        for rep, st in enumerate(sts, 1):
+            extra = {"detail": "infraestructura (LLM): 429 RESOURCE_EXHAUSTED"} if st == "not_run" else {}
+            (tmp_path / f"{arm}-r{rep}.json").write_text(json.dumps(doc(arm, [ab_tests.case("c", st, **extra)])), encoding="utf-8")
+    s = arms_summary.summarize(arms_summary.load_arms(tmp_path))
+    assert s["cases"][0]["verdicts"]["prefetch"].startswith("insuficiente") and s["verdicts"]["prefetch"]["regresión consistente"] == 0
+    text = arms_summary.render(s)
+    assert "429×1" in text and "--fill-missing" in text
+
+
+def test_fill_missing_reruns_only_not_run_cases_and_merges(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    (tmp_path / "legacy-r1.json").write_text(json.dumps(doc("legacy", [ab_tests.case("a", "pass"), ab_tests.case("b", "not_run")])), encoding="utf-8")
+    (tmp_path / "prefetch-r1.json").write_text(json.dumps(doc("prefetch", [ab_tests.case("a", "pass")])), encoding="utf-8")
+    seen: list[tuple[list[str], dict[str, str]]] = []
+
+    def fake(cmd: list[str], **kw: Any) -> subprocess.CompletedProcess[str]:
+        seen.append((cmd, kw.get("env") or {}))
+        if "--output" in cmd:
+            Path(cmd[cmd.index("--output") + 1]).write_text(json.dumps(doc("legacy", [ab_tests.case("b", "pass")])), encoding="utf-8")
+        return subprocess.CompletedProcess(cmd, 0, "", "")
+
+    monkeypatch.setattr(ab_arms.subprocess, "run", fake)
+    assert ab_arms.main(["--arms", "legacy,prefetch", "--reps", "1", "--yes", "--fill-missing", "--min-interval", "8", "--out", str(tmp_path)]) == 0
+    runs = [(c, e) for c, e in seen if "futsal.agent.evaluate" in c]
+    assert len(runs) == 1 and runs[0][0][runs[0][0].index("--only") + 1] == "b" and runs[0][1]["AGENT_PREFETCH"] == "off" and "8.0" in runs[0][0]
+    merged = json.loads((tmp_path / "legacy-r1.json").read_text(encoding="utf-8"))
+    assert [(c["case_id"], c["status"]) for c in merged["cases"]] == [("a", "pass"), ("b", "pass")] and merged["cases"][1]["filled"]
+    assert (tmp_path / "legacy-r1.orig.json").exists() and not (tmp_path / "legacy-r1-fill.json").exists()

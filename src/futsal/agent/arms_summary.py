@@ -19,6 +19,8 @@ from typing import Any
 from futsal.agent.ab_summary import DECISIVE, MIN_GAP, case_record
 from futsal.agent.arms import ARMS, BASELINE, arm_env
 
+MIN_DECISIVE = 3  # repeticiones decisivas por brazo y caso para llamar «consistente» a una diferencia (con menos es solo indicio)
+RATE_LIMIT = re.compile(r"429|RESOURCE_EXHAUSTED|rate.?limit|quota", re.IGNORECASE)
 FILE = re.compile(r"^([a-z][a-z0-9_]*)-r(\d+)\.json$")
 
 
@@ -56,7 +58,9 @@ def summarize(arms: dict[str, dict[int, dict[str, Any]]], baseline: str | None =
             for c in doc.get("cases", []):
                 if c["case_id"] not in per:
                     order.append(c["case_id"])
-                per.setdefault(c["case_id"], {x: {} for x in names})[a][rep] = case_record(c)
+                rec = case_record(c)
+                rec["rate_limited"] = c.get("status") == "not_run" and bool(RATE_LIMIT.search(str(c.get("detail") or "")))
+                per.setdefault(c["case_id"], {x: {} for x in names})[a][rep] = rec
     cases = []
     for cid in order:
         entry: dict[str, Any] = {"case": cid, "arms": {}, "verdicts": {}}
@@ -65,7 +69,7 @@ def summarize(arms: dict[str, dict[int, dict[str, Any]]], baseline: str | None =
             dec = [r["status"] for r in reps.values() if r["status"] in DECISIVE]
             passes = dec.count("pass")
             entry["arms"][a] = {
-                "reps": {str(k): v for k, v in sorted(reps.items())}, "decisive": len(dec), "passes": passes,
+                "reps": {str(k): v for k, v in sorted(reps.items())}, "decisive": len(dec), "passes": passes, "rate_limited": sum(r["rate_limited"] for r in reps.values()),
                 "rate": passes / len(dec) if dec else None, "flaky": 0 < passes < len(dec),
                 "tool_sets": sorted({",".join(sorted(set(r["tools"]))) for r in reps.values()}),
                 "reasons": sorted({x for r in reps.values() for x in r["reasons"]}),
@@ -77,6 +81,8 @@ def summarize(arms: dict[str, dict[int, dict[str, Any]]], baseline: str | None =
             b, x = entry["arms"].get(base), entry["arms"][a]
             if not b or b["rate"] is None or x["rate"] is None:
                 entry["verdicts"][a] = "sin datos"
+            elif min(b["decisive"], x["decisive"]) < MIN_DECISIVE and x["rate"] != b["rate"]:
+                entry["verdicts"][a] = "insuficiente (<3 repeticiones decisivas)"
             elif x["rate"] - b["rate"] <= -MIN_GAP:
                 entry["verdicts"][a] = "regresión consistente"
             elif x["rate"] - b["rate"] >= MIN_GAP:
@@ -103,7 +109,7 @@ def summarize(arms: dict[str, dict[int, dict[str, Any]]], baseline: str | None =
                      "mean_llm_calls": round(mean([r["llm_calls"] for r in by_rep.values()]), 1) if by_rep else None,
                      "mean_input_per_llm_call": round(mean([r["input_per_llm_call"] for r in by_rep.values() if r["input_per_llm_call"]]), 1)
                      if any(r["input_per_llm_call"] for r in by_rep.values()) else None}
-    verdict_names = ("regresión consistente", "mejora consistente", "variable (ruido)", "igual", "sin datos")
+    verdict_names = ("regresión consistente", "mejora consistente", "variable (ruido)", "igual", "insuficiente (<3 repeticiones decisivas)", "sin datos")
     return {"baseline": base, "arms": names, "cases": cases, "totals": totals, "warnings": warnings,
             "verdicts": {a: {v: sum(c["verdicts"].get(a) == v for c in cases) for v in verdict_names} for a in names if a != base},
             "nature": {"medido": "resultado de cada caso, llamadas LLM y MCP, tokens informados por el proveedor",
@@ -116,6 +122,10 @@ def render(s: dict[str, Any]) -> str:
              "Naturaleza de los datos: **MEDIDO** (resultados, llamadas LLM y MCP, tokens del proveedor). Los tokens que no vengan del proveedor se marcan "
              "«(¡estimados!)». Nada de este informe es simulado.", ""]
     lines += [f"AVISO: {w}" for w in s["warnings"]]
+    limited = sum(d["arms"][a]["rate_limited"] for d in s["cases"] for a in arms)
+    if limited:
+        lines.append(f"AVISO: {limited} ejecuciones quedaron sin ejecutar por límite de peticiones del proveedor (429): desequilibran los brazos. "
+                     "Complétalas con `scripts/ab_arms.py --fill-missing` (y sube --min-interval).")
     lines += ["", "## Por brazo y repetición (casos decisivos = pass/fail)", "| brazo | rep | casos | pass | llamadas LLM | llamadas MCP | tokens entrada | tokens salida | entrada/llamada |",
               "|---|---|---|---|---|---|---|---|---|"]
     for a in arms:
@@ -133,6 +143,7 @@ def render(s: dict[str, Any]) -> str:
         def cell(a: str, c: dict[str, Any] = c) -> str:
             d = c["arms"][a]
             seq = " ".join({"pass": "P", "fail": "F"}.get(r["status"], "·") for r in d["reps"].values())
+            seq += f" [429×{d['rate_limited']}]" if d["rate_limited"] else ""
             return f"{seq} ({d['passes']}/{d['decisive']})" if d["decisive"] else seq
         verdicts = "; ".join(f"{a}: {v}" for a, v in c["verdicts"].items())
         lines.append(f"| `{c['case']}` | " + " | ".join(cell(a) for a in arms) + f" | {verdicts} |")

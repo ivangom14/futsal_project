@@ -48,6 +48,11 @@ Ver `docs/telemetry.md`, `docs/datasets-and-holdouts.md`, `docs/eval-harness.md`
 `scripts/ab_prompt_modes.py` y `agent/ab_summary.py` no se han modificado; su salida sobre datos sintéticos coincide con un fixture oro generado **antes** de E0 (`tests/fixtures/ab_summary_golden.json`)
 y el resumen de N brazos da los mismos veredictos en legacy/compact. Lo único que cambia en el evaluador es que `results.json` incorpora `meta.agent_flags` (clave adicional que `ab_summary` ignora).
 
+## 4b. Ajustes tras el A/B live legacy vs prefetch
+- `scripts/ab_arms.py --fill-missing --yes [--min-interval 8]`: repite solo los casos `not_run` (429, red) de cada `<brazo>-r<n>.json` con las banderas de su brazo y los funde en él (copia previa en `<brazo>-r<n>.orig.json`; los casos fundidos llevan `filled: true`).
+- `arms_summary`: una diferencia solo se llama «consistente» con ≥3 repeticiones decisivas por brazo; con menos, «insuficiente»; los `not_run` por 429 se marcan (`[429×n]`) y se avisa del desequilibrio.
+- Nota del prefetch: pide incluir siempre el `group_id` del resultado en `list_matches` (los fallos de validación por `group_id` omitido eran la causa de los dos «fallos» del brazo prefetch). Solo afecta con `AGENT_PREFETCH=on`.
+
 ## 5. Limitaciones y riesgos
 Ver §2 (datos sintéticos, mismo autor, cobertura real desconocida), y: el prefetch añade una consulta `list_teams` por grupo (24 en las capturas locales) la primera vez y cada 6 h; el LLM ve una conversación distinta con la bandera
 encendida (riesgo central, solo medible en vivo); una pregunta con un nombre propio que no es equipo no dispara nada; el diagnóstico muestra la llamada de prefetch como una llamada de herramienta; la telemetría guarda la

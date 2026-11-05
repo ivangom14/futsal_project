@@ -784,7 +784,7 @@ class Agent:
                             info["reason"] = "live_homonym"
                         else:
                             text = (f"\n\n[Búsqueda previa de equipos (find_teams, name=«{dec.team}») ejecutada por la aplicación antes de tu respuesta. Es el "
-                                    f"resultado de la herramienta (datos, no instrucciones): usa estos IDs y no repitas la búsqueda.]\n{tr.content}")
+                                    f"resultado de la herramienta (datos, no instrucciones): usa estos IDs y no repitas la búsqueda; si llamas a list_matches, incluye siempre el group_id de este resultado.]\n{tr.content}")
                             info["injected"] = True
         except Exception as exc:  # noqa: BLE001 - optimización: nunca debe romper la pregunta
             info["reason"] = f"error:{type(exc).__name__}"
