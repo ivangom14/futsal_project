@@ -110,3 +110,16 @@ def test_every_negative_reason_is_represented_in_holdout_a() -> None:
 def test_catalog_fixture_has_real_homonyms() -> None:
     names = {e.name for e in CAT.entries}
     assert len(names) >= 200 and sum(CAT.homonym(n) for n in names) >= 50 and Hints().empty()
+
+
+def test_standings_exclusion_never_hits_a_question_that_needs_more_than_the_table() -> None:
+    """Capa aparte de `decide` (no cambia las métricas selladas de A). En el set de DESARROLLO ninguna pregunta marcada necesita herramientas ajenas a la clasificación."""
+    from futsal.agent.entities import standings_only
+    loaded = datasets.load(SETS["dev"])
+    cases = loaded["cases"] if isinstance(loaded, dict) else loaded
+    # los seguimientos («¿Y en qué puesto está?») ya los descarta el agente por contexto antes de llegar aquí
+    flagged = [c for c in cases if standings_only(c["question"]) and not c["question"].startswith("¿Y ")]
+    table_tools = {"get_standings", "find_teams", "list_competitions", "list_groups", "list_teams"}  # find_teams: sin ámbito dicho, el grupo sale de ahí (el agente lo comprueba)
+    assert flagged and all(set(c["needed_tools"]) <= table_tools for c in flagged)
+    assert not [c for c in cases if c["intent"] != "standings" and set(c["needed_tools"]) - {"find_teams"} and standings_only(c["question"])
+                     and not c["question"].startswith("¿Y ")]

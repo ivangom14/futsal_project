@@ -16,7 +16,8 @@ from futsal.agent.regression import UNAVAILABLE_METRICS, overall_status
 LAYERS = [("datos", "evidence_ok"), ("herramientas", "tools_ok"), ("respuesta", "answer_ok"),
           ("invención", "invention_ok"), ("advertencia", "warning_ok"), ("presentación", "presentation_ok")]
 SOURCE_LABEL = {"provider": "REALES (informados por el proveedor)", "estimated": "ESTIMADOS localmente (~3,5 car./token)",
-                "mixed": "mezcla de reales y estimados", "unreported": "NO informados por el proveedor"}
+                "mixed": "mezcla de reales y estimados", "unreported": "NO informados por el proveedor",
+                "measured_zero": "0 tokens MEDIDOS (respuesta sin LLM, Tier 0)"}
 
 
 def git_commit() -> str:

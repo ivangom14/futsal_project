@@ -25,6 +25,14 @@ from futsal.domain.competitions import Hints, row_matches
 LEGAL_FORMS = frozenset({"cde", "cd", "cdb", "cf", "cfs", "ad", "ud", "efs", "fs", "sd", "ef", "club"})  # forma jurídica inicial, no distintiva
 GENERIC = frozenset(DOMAIN_WORDS) | frozenset({"equipo", "equipos", "liga", "copa", "senior", "juvenil", "sala", "futsal", "futbol", "norte", "sur", "este", "oeste",
                                                "deportivo", "deportiva", "colegio", "escuela", "union", "ciudad", "villa", "atletico", "sporting", "real"})
+STANDINGS_WORDS = frozenset({"clasificacion", "posicion", "puesto", "puntos", "tabla", "lider", "clasificado", "clasificada"})
+# Cualquiera de estas palabras indica que la pregunta puede necesitar partidos, actas, goleadores o fechas: entonces NO se omite el prefetch.
+NOT_STANDINGS_WORDS = frozenset({
+    "resultado", "resultados", "partido", "partidos", "jugo", "juega", "jugara", "jugado", "jugados", "gano", "ganado", "ganados", "perdio", "perdido", "perdidos",
+    "empato", "empatado", "empatados", "empates", "victoria", "victorias", "derrota", "derrotas", "gol", "goles", "goleador", "goleadores", "marco", "marcado",
+    "proximo", "proxima", "ultimo", "ultima", "ultimos", "ultimas", "anterior", "siguiente", "jornada", "jornadas", "acta", "actas", "contra", "vs", "rival", "rivales",
+    "enfrentamiento", "campo", "pista", "horario", "hora", "fecha", "cuando", "donde", "arbitro", "arbitros", "tarjeta", "tarjetas", "amarilla", "roja", "racha", "forma",
+    "jugador", "jugadores", "entrenador", "recuento", "mejor", "peor", "comparar", "compara", "comparacion", "ademas", "tambien"})
 MIN_CORE_CHARS = 4
 MAX_NGRAM = 9
 _DOTTED = re.compile(r"(?<![a-z0-9])(?:[a-z]\.\s?){2,}")  # c.d.e. · a. d. · e.f.s.
@@ -113,6 +121,13 @@ def _matches(tokens: list[str], catalog: TeamCatalog) -> list[tuple[int, int, tu
                 found.append((i, i + n, form, names))
     # solo las máximas: una coincidencia contenida en otra más larga no cuenta
     return [m for m in found if not any(o is not m and o[0] <= m[0] and m[1] <= o[1] and (o[1] - o[0]) > (m[1] - m[0]) for o in found)]
+
+
+def standings_only(question: str) -> bool:
+    """Pregunta de clasificación pura (posición, puntos, tabla) sin ninguna señal de partidos, fechas, goleadores o preguntas compuestas.
+    Capa APARTE de `decide` (que no cambia: sus métricas selladas en el Holdout A siguen valiendo): se aplica antes. El prefetch no aporta nada ahí (la herramienta de clasificación se pide por grupo) y solo añade tokens; omitirlo devuelve el comportamiento de siempre."""
+    words = set(normalize(question).split())
+    return bool(words & STANDINGS_WORDS) and not words & NOT_STANDINGS_WORDS
 
 
 def decide(question: str, catalog: TeamCatalog, hints: Hints | None = None, aliases: dict[str, Any] | None = None,

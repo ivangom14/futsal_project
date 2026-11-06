@@ -129,7 +129,7 @@ def _error_kind(rec: RunRecord) -> str:
 def build_record(rec: RunRecord, folder: Path, now: datetime | None = None) -> dict[str, Any]:
     question, pii = scrub(rec.question)
     totals = rec.totals()
-    used = Counter(t.name for t in rec.tool_calls if t.via != "prefetch" and not t.refused)
+    used = Counter(t.name for t in rec.tool_calls if t.via is None and not t.refused)
     router = rec.router if isinstance(rec.router, dict) and "error" not in rec.router else None
     pf = rec.prefetch or {}
     return {

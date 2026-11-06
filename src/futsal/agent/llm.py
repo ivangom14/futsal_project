@@ -180,6 +180,40 @@ class PacedLLM:
         return self._inner.complete(system, messages, tools)
 
 
+BUDGET_EXHAUSTED = "presupuesto de peticiones agotado"
+
+
+class BudgetedLLM:
+    """Tope DURO de peticiones HTTP al proveedor (llamadas + reintentos) para todo lo que pase por este cliente.
+
+    Antes de cada llamada lógica comprueba que, en el PEOR caso (1 + reintentos permitidos), el tope no se superaría; si no, lanza `LLMError` SIN enviar nada.
+    Tras la llamada suma las peticiones reales (los intentos). Así el consumo nunca supera `max_requests`, ni siquiera a mitad de un caso."""
+
+    def __init__(self, inner: "LLMClient", max_requests: int, worst_case_per_call: int | None = None) -> None:
+        self._inner, self.max_requests = inner, max(int(max_requests), 0)
+        self._worst = max(worst_case_per_call if worst_case_per_call is not None else RetryPolicy.from_env().max_retries + 1, 1)
+        self.used = 0  # peticiones realmente enviadas
+        self.refused = 0  # llamadas lógicas rechazadas por falta de presupuesto (no enviaron nada)
+
+    def __getattr__(self, name: str) -> Any:  # provider, model, usage…
+        return getattr(self._inner, name)
+
+    def complete(self, system: str, messages: list[Message], tools: list[dict[str, Any]]) -> "LLMResponse":
+        if self.used + self._worst > self.max_requests:
+            self.refused += 1
+            raise LLMError(f"{BUDGET_EXHAUSTED}: {self.used} usadas de {self.max_requests} (una llamada necesita hasta {self._worst}); no se envía nada")
+        try:
+            resp = self._inner.complete(system, messages, tools)
+        except LLMError as exc:
+            self.used += max(len(exc.attempts), 1)
+            raise
+        except Exception:
+            self.used += self._worst  # fallo desconocido: se cuenta lo peor
+            raise
+        self.used += max(len(resp.attempts), 1)
+        return resp
+
+
 class LLMClient(Protocol):
     def complete(self, system: str, messages: list[Message],
                  tools: list[dict[str, Any]]) -> LLMResponse:

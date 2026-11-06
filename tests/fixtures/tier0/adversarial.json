@@ -1,0 +1,1091 @@
+{
+ "_doc": "Dataset ADVERSARIAL del Tier 0 (posición/puntos de un equipo). `expect`: answer = la plantilla debe admitirla; abstain = debe seguir por el flujo normal con LLM. Redactado a mano a partir de los fallos de la auditoría; NO es evidencia de rendimiento real. Las preguntas con {history} necesitan contexto previo.",
+ "cases": [
+  {
+   "id": "adv_000",
+   "category": "admitida",
+   "expect": "answer",
+   "question": "¿En qué posición está el PARQUE NORTE F.S. - RODILLITO 'B'?",
+   "history": [],
+   "note": ""
+  },
+  {
+   "id": "adv_001",
+   "category": "admitida",
+   "expect": "answer",
+   "question": "¿en qué posición está PARQUE NORTE F.S. - RODILLITO 'B' actualmente?",
+   "history": [],
+   "note": ""
+  },
+  {
+   "id": "adv_002",
+   "category": "admitida",
+   "expect": "answer",
+   "question": "¿En qué puesto está el PARQUE NORTE F.S. - RODILLITO 'B'?",
+   "history": [],
+   "note": ""
+  },
+  {
+   "id": "adv_003",
+   "category": "admitida",
+   "expect": "answer",
+   "question": "¿Qué posición ocupa el PARQUE NORTE F.S. - RODILLITO 'B'?",
+   "history": [],
+   "note": ""
+  },
+  {
+   "id": "adv_004",
+   "category": "admitida",
+   "expect": "answer",
+   "question": "¿Qué puesto ocupa el PARQUE NORTE F.S. - RODILLITO 'B' en la clasificación?",
+   "history": [],
+   "note": ""
+  },
+  {
+   "id": "adv_005",
+   "category": "admitida",
+   "expect": "answer",
+   "question": "¿Cuál es la posición del PARQUE NORTE F.S. - RODILLITO 'B'?",
+   "history": [],
+   "note": ""
+  },
+  {
+   "id": "adv_006",
+   "category": "admitida",
+   "expect": "answer",
+   "question": "¿Cuál es el puesto de PARQUE NORTE F.S. - RODILLITO 'B' en la tabla?",
+   "history": [],
+   "note": ""
+  },
+  {
+   "id": "adv_007",
+   "category": "admitida",
+   "expect": "answer",
+   "question": "¿Cuántos puntos tiene el PARQUE NORTE F.S. - RODILLITO 'B'?",
+   "history": [],
+   "note": ""
+  },
+  {
+   "id": "adv_008",
+   "category": "admitida",
+   "expect": "answer",
+   "question": "¿Cuántos puntos lleva el PARQUE NORTE F.S. - RODILLITO 'B'?",
+   "history": [],
+   "note": ""
+  },
+  {
+   "id": "adv_009",
+   "category": "admitida",
+   "expect": "answer",
+   "question": "¿Cuántos puntos suma el PARQUE NORTE F.S. - RODILLITO 'B' ahora mismo?",
+   "history": [],
+   "note": ""
+  },
+  {
+   "id": "adv_010",
+   "category": "admitida",
+   "expect": "answer",
+   "question": "Oye, ¿cuántos puntos tiene el PARQUE NORTE F.S. - RODILLITO 'B'?",
+   "history": [],
+   "note": ""
+  },
+  {
+   "id": "adv_011",
+   "category": "admitida",
+   "expect": "answer",
+   "question": "Hola, ¿en qué posición está el PARQUE NORTE F.S. - RODILLITO 'B'?",
+   "history": [],
+   "note": ""
+  },
+  {
+   "id": "adv_012",
+   "category": "admitida",
+   "expect": "answer",
+   "question": "¿En qué posición de la clasificación está el PARQUE NORTE F.S. - RODILLITO 'B'?",
+   "history": [],
+   "note": ""
+  },
+  {
+   "id": "adv_013",
+   "category": "admitida",
+   "expect": "answer",
+   "question": "¿En qué posición está el PARQUE NORTE F.S. - RODILLITO 'B' esta temporada?",
+   "history": [],
+   "note": ""
+  },
+  {
+   "id": "adv_014",
+   "category": "admitida",
+   "expect": "answer",
+   "question": "¿En qué posición está el PARQUE NORTE F.S. - RODILLITO 'B' y cuántos puntos tiene?",
+   "history": [],
+   "note": ""
+  },
+  {
+   "id": "adv_015",
+   "category": "admitida",
+   "expect": "answer",
+   "question": "¿Cuántos puntos tiene el PARQUE NORTE F.S. - RODILLITO 'B' y en qué posición está?",
+   "history": [],
+   "note": ""
+  },
+  {
+   "id": "adv_016",
+   "category": "admitida",
+   "expect": "answer",
+   "question": "En TERCERA DIVISIÓN FS (Grupo 3), ¿en qué posición está el PARQUE NORTE F.S. - RODILLITO 'B'?",
+   "history": [],
+   "note": ""
+  },
+  {
+   "id": "adv_017",
+   "category": "admitida",
+   "expect": "answer",
+   "question": "¿En qué posición está el PARQUE NORTE F.S. - RODILLITO 'B' en TERCERA DIVISIÓN FS (Grupo 3)?",
+   "history": [],
+   "note": ""
+  },
+  {
+   "id": "adv_018",
+   "category": "admitida",
+   "expect": "answer",
+   "question": "En TERCERA DIVISIÓN FS (Grupo 3), ¿cuántos puntos tiene el C.D. DOSA?",
+   "history": [],
+   "note": ""
+  },
+  {
+   "id": "adv_019",
+   "category": "admitida",
+   "expect": "answer",
+   "question": "En TERCERA DIVISIÓN FS (Grupo 3), ¿en qué posición está el C.D. DOSA y cuántos puntos tiene?",
+   "history": [],
+   "note": ""
+  },
+  {
+   "id": "adv_020",
+   "category": "admitida",
+   "expect": "answer",
+   "question": "En TERCERA DIVISIÓN FS (Grupo 3), ¿qué puesto ocupa el C.D. DOSA?",
+   "history": [],
+   "note": ""
+  },
+  {
+   "id": "adv_021",
+   "category": "admitida",
+   "expect": "answer",
+   "question": "Por favor, ¿en qué posición está el PARQUE NORTE F.S. - RODILLITO 'B'?",
+   "history": [],
+   "note": ""
+  },
+  {
+   "id": "adv_022",
+   "category": "admitida",
+   "expect": "answer",
+   "question": "Dime cuántos puntos tiene el PARQUE NORTE F.S. - RODILLITO 'B'",
+   "history": [],
+   "note": ""
+  },
+  {
+   "id": "adv_023",
+   "category": "admitida",
+   "expect": "answer",
+   "question": "¿En qué posición está el C.D. DOSA en TERCERA DIVISIÓN FS (Grupo 3) hoy?",
+   "history": [],
+   "note": ""
+  },
+  {
+   "id": "adv_024",
+   "category": "admitida",
+   "expect": "answer",
+   "question": "¿Cuántos puntos lleva el C.D. DOSA en TERCERA DIVISIÓN FS (Grupo 3)?",
+   "history": [],
+   "note": ""
+  },
+  {
+   "id": "adv_025",
+   "category": "objetivos_futuros",
+   "expect": "abstain",
+   "question": "¿Cuántos puntos necesita el PARQUE NORTE F.S. - RODILLITO 'B' para ascender?",
+   "history": [],
+   "note": ""
+  },
+  {
+   "id": "adv_026",
+   "category": "objetivos_futuros",
+   "expect": "abstain",
+   "question": "¿Cuántos puntos le faltan al PARQUE NORTE F.S. - RODILLITO 'B' para subir de categoría?",
+   "history": [],
+   "note": ""
+  },
+  {
+   "id": "adv_027",
+   "category": "objetivos_futuros",
+   "expect": "abstain",
+   "question": "¿Puede el PARQUE NORTE F.S. - RODILLITO 'B' bajar a la categoría inferior?",
+   "history": [],
+   "note": ""
+  },
+  {
+   "id": "adv_028",
+   "category": "objetivos_futuros",
+   "expect": "abstain",
+   "question": "¿En qué posición está el PARQUE NORTE F.S. - RODILLITO 'B' y le da para el ascenso?",
+   "history": [],
+   "note": ""
+  },
+  {
+   "id": "adv_029",
+   "category": "objetivos_futuros",
+   "expect": "abstain",
+   "question": "¿Cuántos puntos necesita el PARQUE NORTE F.S. - RODILLITO 'B' para salvarse del descenso?",
+   "history": [],
+   "note": ""
+  },
+  {
+   "id": "adv_030",
+   "category": "objetivos_futuros",
+   "expect": "abstain",
+   "question": "¿Está el PARQUE NORTE F.S. - RODILLITO 'B' en puestos de descenso?",
+   "history": [],
+   "note": ""
+  },
+  {
+   "id": "adv_031",
+   "category": "objetivos_futuros",
+   "expect": "abstain",
+   "question": "¿Cuántos puntos necesita el PARQUE NORTE F.S. - RODILLITO 'B' para entrar en el playoff?",
+   "history": [],
+   "note": ""
+  },
+  {
+   "id": "adv_032",
+   "category": "objetivos_futuros",
+   "expect": "abstain",
+   "question": "¿Está el PARQUE NORTE F.S. - RODILLITO 'B' en zona de ascenso?",
+   "history": [],
+   "note": ""
+  },
+  {
+   "id": "adv_033",
+   "category": "objetivos_futuros",
+   "expect": "abstain",
+   "question": "¿Cuántos puntos le faltan al PARQUE NORTE F.S. - RODILLITO 'B' para ser campeón?",
+   "history": [],
+   "note": ""
+  },
+  {
+   "id": "adv_034",
+   "category": "objetivos_futuros",
+   "expect": "abstain",
+   "question": "¿En qué posición está el PARQUE NORTE F.S. - RODILLITO 'B' y cuántos puntos necesita para clasificarse?",
+   "history": [],
+   "note": ""
+  },
+  {
+   "id": "adv_035",
+   "category": "objetivos_futuros",
+   "expect": "abstain",
+   "question": "¿Qué puesto necesita el PARQUE NORTE F.S. - RODILLITO 'B' para jugar la fase de ascenso?",
+   "history": [],
+   "note": ""
+  },
+  {
+   "id": "adv_036",
+   "category": "ventaja_diferencia",
+   "expect": "abstain",
+   "question": "¿Cuántos puntos de ventaja tiene el PARQUE NORTE F.S. - RODILLITO 'B' sobre el segundo?",
+   "history": [],
+   "note": ""
+  },
+  {
+   "id": "adv_037",
+   "category": "ventaja_diferencia",
+   "expect": "abstain",
+   "question": "¿Cuántos puntos le saca el PARQUE NORTE F.S. - RODILLITO 'B' al segundo clasificado?",
+   "history": [],
+   "note": ""
+  },
+  {
+   "id": "adv_038",
+   "category": "ventaja_diferencia",
+   "expect": "abstain",
+   "question": "¿Qué diferencia de puntos hay entre el PARQUE NORTE F.S. - RODILLITO 'B' y el líder?",
+   "history": [],
+   "note": ""
+  },
+  {
+   "id": "adv_039",
+   "category": "ventaja_diferencia",
+   "expect": "abstain",
+   "question": "¿Cuántos puntos le faltan al PARQUE NORTE F.S. - RODILLITO 'B' para alcanzar al líder?",
+   "history": [],
+   "note": ""
+  },
+  {
+   "id": "adv_040",
+   "category": "ventaja_diferencia",
+   "expect": "abstain",
+   "question": "¿A cuántos puntos está el PARQUE NORTE F.S. - RODILLITO 'B' de la cabeza?",
+   "history": [],
+   "note": ""
+  },
+  {
+   "id": "adv_041",
+   "category": "ventaja_diferencia",
+   "expect": "abstain",
+   "question": "¿En qué posición está el PARQUE NORTE F.S. - RODILLITO 'B' y a cuántos puntos del primero?",
+   "history": [],
+   "note": ""
+  },
+  {
+   "id": "adv_042",
+   "category": "ventaja_diferencia",
+   "expect": "abstain",
+   "question": "¿Cuántos puntos más tiene el PARQUE NORTE F.S. - RODILLITO 'B' que el siguiente?",
+   "history": [],
+   "note": ""
+  },
+  {
+   "id": "adv_043",
+   "category": "ventaja_diferencia",
+   "expect": "abstain",
+   "question": "¿En qué posición está el PARQUE NORTE F.S. - RODILLITO 'B' y quién está por delante?",
+   "history": [],
+   "note": ""
+  },
+  {
+   "id": "adv_044",
+   "category": "ventaja_diferencia",
+   "expect": "abstain",
+   "question": "¿Quién está justo detrás del PARQUE NORTE F.S. - RODILLITO 'B' en la clasificación?",
+   "history": [],
+   "note": ""
+  },
+  {
+   "id": "adv_045",
+   "category": "ventaja_diferencia",
+   "expect": "abstain",
+   "question": "¿Cuál es la diferencia de goles del PARQUE NORTE F.S. - RODILLITO 'B'?",
+   "history": [],
+   "note": ""
+  },
+  {
+   "id": "adv_046",
+   "category": "historico",
+   "expect": "abstain",
+   "question": "¿En qué posición estaba el PARQUE NORTE F.S. - RODILLITO 'B' hace un mes?",
+   "history": [],
+   "note": ""
+  },
+  {
+   "id": "adv_047",
+   "category": "historico",
+   "expect": "abstain",
+   "question": "¿En qué posición estaba el PARQUE NORTE F.S. - RODILLITO 'B' la semana pasada?",
+   "history": [],
+   "note": ""
+  },
+  {
+   "id": "adv_048",
+   "category": "historico",
+   "expect": "abstain",
+   "question": "¿Cuántos puntos tenía el PARQUE NORTE F.S. - RODILLITO 'B' en la jornada 5?",
+   "history": [],
+   "note": ""
+  },
+  {
+   "id": "adv_049",
+   "category": "historico",
+   "expect": "abstain",
+   "question": "¿En qué posición estaba el PARQUE NORTE F.S. - RODILLITO 'B' en la jornada 3?",
+   "history": [],
+   "note": ""
+  },
+  {
+   "id": "adv_050",
+   "category": "historico",
+   "expect": "abstain",
+   "question": "¿Cuántos puntos tuvo el PARQUE NORTE F.S. - RODILLITO 'B' la temporada pasada?",
+   "history": [],
+   "note": ""
+  },
+  {
+   "id": "adv_051",
+   "category": "historico",
+   "expect": "abstain",
+   "question": "¿En qué puesto acabó el PARQUE NORTE F.S. - RODILLITO 'B' el año pasado?",
+   "history": [],
+   "note": ""
+  },
+  {
+   "id": "adv_052",
+   "category": "historico",
+   "expect": "abstain",
+   "question": "¿En qué posición estaba el PARQUE NORTE F.S. - RODILLITO 'B' en 2023?",
+   "history": [],
+   "note": ""
+  },
+  {
+   "id": "adv_053",
+   "category": "historico",
+   "expect": "abstain",
+   "question": "¿Cuántos puntos llevaba el PARQUE NORTE F.S. - RODILLITO 'B' antes del último partido?",
+   "history": [],
+   "note": ""
+  },
+  {
+   "id": "adv_054",
+   "category": "historico",
+   "expect": "abstain",
+   "question": "¿En qué posición estaba el PARQUE NORTE F.S. - RODILLITO 'B' al empezar la temporada?",
+   "history": [],
+   "note": ""
+  },
+  {
+   "id": "adv_055",
+   "category": "historico",
+   "expect": "abstain",
+   "question": "¿Cuántos puntos tenía el PARQUE NORTE F.S. - RODILLITO 'B' hace dos jornadas?",
+   "history": [],
+   "note": ""
+  },
+  {
+   "id": "adv_056",
+   "category": "historico",
+   "expect": "abstain",
+   "question": "¿En qué posición estaba el PARQUE NORTE F.S. - RODILLITO 'B' ayer?",
+   "history": [],
+   "note": ""
+  },
+  {
+   "id": "adv_057",
+   "category": "historico",
+   "expect": "abstain",
+   "question": "¿En qué puesto quedó el PARQUE NORTE F.S. - RODILLITO 'B' en la liga anterior?",
+   "history": [],
+   "note": ""
+  },
+  {
+   "id": "adv_058",
+   "category": "prediccion_escenario",
+   "expect": "abstain",
+   "question": "¿En qué posición terminará el PARQUE NORTE F.S. - RODILLITO 'B'?",
+   "history": [],
+   "note": ""
+  },
+  {
+   "id": "adv_059",
+   "category": "prediccion_escenario",
+   "expect": "abstain",
+   "question": "¿Cuántos puntos tendrá el PARQUE NORTE F.S. - RODILLITO 'B' al final de temporada?",
+   "history": [],
+   "note": ""
+  },
+  {
+   "id": "adv_060",
+   "category": "prediccion_escenario",
+   "expect": "abstain",
+   "question": "¿En qué posición estará el PARQUE NORTE F.S. - RODILLITO 'B' si gana el domingo?",
+   "history": [],
+   "note": ""
+  },
+  {
+   "id": "adv_061",
+   "category": "prediccion_escenario",
+   "expect": "abstain",
+   "question": "¿Cuántos puntos tendrá el PARQUE NORTE F.S. - RODILLITO 'B' si empata el próximo partido?",
+   "history": [],
+   "note": ""
+  },
+  {
+   "id": "adv_062",
+   "category": "prediccion_escenario",
+   "expect": "abstain",
+   "question": "¿Subirá el PARQUE NORTE F.S. - RODILLITO 'B' en la clasificación si gana?",
+   "history": [],
+   "note": ""
+  },
+  {
+   "id": "adv_063",
+   "category": "prediccion_escenario",
+   "expect": "abstain",
+   "question": "¿Qué posición ocupará el PARQUE NORTE F.S. - RODILLITO 'B' si pierde?",
+   "history": [],
+   "note": ""
+  },
+  {
+   "id": "adv_064",
+   "category": "prediccion_escenario",
+   "expect": "abstain",
+   "question": "¿Podría el PARQUE NORTE F.S. - RODILLITO 'B' ser líder la próxima jornada?",
+   "history": [],
+   "note": ""
+  },
+  {
+   "id": "adv_065",
+   "category": "prediccion_escenario",
+   "expect": "abstain",
+   "question": "¿Cuántos puntos sumaría el PARQUE NORTE F.S. - RODILLITO 'B' si gana los tres partidos que le quedan?",
+   "history": [],
+   "note": ""
+  },
+  {
+   "id": "adv_066",
+   "category": "prediccion_escenario",
+   "expect": "abstain",
+   "question": "¿En qué posición acabaría el PARQUE NORTE F.S. - RODILLITO 'B' si el líder pierde?",
+   "history": [],
+   "note": ""
+  },
+  {
+   "id": "adv_067",
+   "category": "prediccion_escenario",
+   "expect": "abstain",
+   "question": "Si gana el PARQUE NORTE F.S. - RODILLITO 'B', ¿cuántos puntos tiene?",
+   "history": [],
+   "note": ""
+  },
+  {
+   "id": "adv_068",
+   "category": "local_visitante",
+   "expect": "abstain",
+   "question": "¿En qué posición está el PARQUE NORTE F.S. - RODILLITO 'B' como local?",
+   "history": [],
+   "note": ""
+  },
+  {
+   "id": "adv_069",
+   "category": "local_visitante",
+   "expect": "abstain",
+   "question": "¿Cuántos puntos tiene el PARQUE NORTE F.S. - RODILLITO 'B' en casa?",
+   "history": [],
+   "note": ""
+  },
+  {
+   "id": "adv_070",
+   "category": "local_visitante",
+   "expect": "abstain",
+   "question": "¿Cuántos puntos ha sacado el PARQUE NORTE F.S. - RODILLITO 'B' fuera de casa?",
+   "history": [],
+   "note": ""
+  },
+  {
+   "id": "adv_071",
+   "category": "local_visitante",
+   "expect": "abstain",
+   "question": "¿Qué puesto ocupa el PARQUE NORTE F.S. - RODILLITO 'B' como visitante?",
+   "history": [],
+   "note": ""
+  },
+  {
+   "id": "adv_072",
+   "category": "local_visitante",
+   "expect": "abstain",
+   "question": "¿En qué posición está el PARQUE NORTE F.S. - RODILLITO 'B' en la clasificación de locales?",
+   "history": [],
+   "note": ""
+  },
+  {
+   "id": "adv_073",
+   "category": "local_visitante",
+   "expect": "abstain",
+   "question": "¿Cuántos puntos lleva el PARQUE NORTE F.S. - RODILLITO 'B' jugando de visitante?",
+   "history": [],
+   "note": ""
+  },
+  {
+   "id": "adv_074",
+   "category": "local_visitante",
+   "expect": "abstain",
+   "question": "¿Cuántos puntos tiene el PARQUE NORTE F.S. - RODILLITO 'B' en su pista?",
+   "history": [],
+   "note": ""
+  },
+  {
+   "id": "adv_075",
+   "category": "sancion_fairplay_no_disponible",
+   "expect": "abstain",
+   "question": "¿Cuántos puntos de sanción tiene el PARQUE NORTE F.S. - RODILLITO 'B'?",
+   "history": [],
+   "note": ""
+  },
+  {
+   "id": "adv_076",
+   "category": "sancion_fairplay_no_disponible",
+   "expect": "abstain",
+   "question": "¿En qué posición está el PARQUE NORTE F.S. - RODILLITO 'B' en la clasificación de fair play?",
+   "history": [],
+   "note": ""
+  },
+  {
+   "id": "adv_077",
+   "category": "sancion_fairplay_no_disponible",
+   "expect": "abstain",
+   "question": "¿Cuántos puntos de fair play tiene el PARQUE NORTE F.S. - RODILLITO 'B'?",
+   "history": [],
+   "note": ""
+  },
+  {
+   "id": "adv_078",
+   "category": "sancion_fairplay_no_disponible",
+   "expect": "abstain",
+   "question": "¿En qué posición está el PARQUE NORTE F.S. - RODILLITO 'B' en la clasificación de goleadores?",
+   "history": [],
+   "note": ""
+  },
+  {
+   "id": "adv_079",
+   "category": "sancion_fairplay_no_disponible",
+   "expect": "abstain",
+   "question": "¿Cuántos puntos tiene el PARQUE NORTE F.S. - RODILLITO 'B' de deportividad?",
+   "history": [],
+   "note": ""
+  },
+  {
+   "id": "adv_080",
+   "category": "sancion_fairplay_no_disponible",
+   "expect": "abstain",
+   "question": "¿En qué posición está el PARQUE NORTE F.S. - RODILLITO 'B' en tarjetas?",
+   "history": [],
+   "note": ""
+  },
+  {
+   "id": "adv_081",
+   "category": "sancion_fairplay_no_disponible",
+   "expect": "abstain",
+   "question": "¿Cuántos puntos le han quitado al PARQUE NORTE F.S. - RODILLITO 'B'?",
+   "history": [],
+   "note": ""
+  },
+  {
+   "id": "adv_082",
+   "category": "sancion_fairplay_no_disponible",
+   "expect": "abstain",
+   "question": "¿En qué posición está el PARQUE NORTE F.S. - RODILLITO 'B' en la clasificación de menos goleados?",
+   "history": [],
+   "note": ""
+  },
+  {
+   "id": "adv_083",
+   "category": "sancion_fairplay_no_disponible",
+   "expect": "abstain",
+   "question": "¿Cuántas faltas lleva el PARQUE NORTE F.S. - RODILLITO 'B' y en qué posición está?",
+   "history": [],
+   "note": ""
+  },
+  {
+   "id": "adv_084",
+   "category": "sancion_fairplay_no_disponible",
+   "expect": "abstain",
+   "question": "¿Cuántos puntos tiene el PARQUE NORTE F.S. - RODILLITO 'B' por categoría juvenil?",
+   "history": [],
+   "note": ""
+  },
+  {
+   "id": "adv_085",
+   "category": "sancion_fairplay_no_disponible",
+   "expect": "abstain",
+   "question": "¿Qué puesto ocupa el PARQUE NORTE F.S. - RODILLITO 'B' en el ranking de asistencias?",
+   "history": [],
+   "note": ""
+  },
+  {
+   "id": "adv_086",
+   "category": "sancion_fairplay_no_disponible",
+   "expect": "abstain",
+   "question": "¿Cuántos puntos de media tiene el PARQUE NORTE F.S. - RODILLITO 'B' por partido?",
+   "history": [],
+   "note": ""
+  },
+  {
+   "id": "adv_087",
+   "category": "comparacion",
+   "expect": "abstain",
+   "question": "¿Quién está mejor clasificado, el PARQUE NORTE F.S. - RODILLITO 'B' o el F.S. DIAGONAL 'A'?",
+   "history": [],
+   "note": ""
+  },
+  {
+   "id": "adv_088",
+   "category": "comparacion",
+   "expect": "abstain",
+   "question": "¿En qué posición está el PARQUE NORTE F.S. - RODILLITO 'B' comparado con el C.D. DOSA?",
+   "history": [],
+   "note": ""
+  },
+  {
+   "id": "adv_089",
+   "category": "comparacion",
+   "expect": "abstain",
+   "question": "¿Cuántos puntos tiene el PARQUE NORTE F.S. - RODILLITO 'B' y cuántos el C.D. DOSA?",
+   "history": [],
+   "note": ""
+  },
+  {
+   "id": "adv_090",
+   "category": "comparacion",
+   "expect": "abstain",
+   "question": "¿En qué posición están el PARQUE NORTE F.S. - RODILLITO 'B' y el F.S. DIAGONAL 'A'?",
+   "history": [],
+   "note": ""
+  },
+  {
+   "id": "adv_091",
+   "category": "comparacion",
+   "expect": "abstain",
+   "question": "¿Quién tiene más puntos, el PARQUE NORTE F.S. - RODILLITO 'B' o el C.D. DOSA?",
+   "history": [],
+   "note": ""
+  },
+  {
+   "id": "adv_092",
+   "category": "comparacion",
+   "expect": "abstain",
+   "question": "¿El PARQUE NORTE F.S. - RODILLITO 'B' está por encima del C.D. DOSA?",
+   "history": [],
+   "note": ""
+  },
+  {
+   "id": "adv_093",
+   "category": "comparacion",
+   "expect": "abstain",
+   "question": "¿Cuántos puntos más tiene el PARQUE NORTE F.S. - RODILLITO 'B' que el C.D. DOSA?",
+   "history": [],
+   "note": ""
+  },
+  {
+   "id": "adv_094",
+   "category": "comparacion",
+   "expect": "abstain",
+   "question": "Compara la posición del PARQUE NORTE F.S. - RODILLITO 'B' y la del C.D. DOSA.",
+   "history": [],
+   "note": ""
+  },
+  {
+   "id": "adv_095",
+   "category": "seguimiento",
+   "expect": "abstain",
+   "question": "¿Y cuántos puntos tiene?",
+   "history": [
+    "¿Cómo va el PARQUE NORTE F.S. - RODILLITO 'B'?"
+   ],
+   "note": ""
+  },
+  {
+   "id": "adv_096",
+   "category": "seguimiento",
+   "expect": "abstain",
+   "question": "¿En qué posición está?",
+   "history": [
+    "¿Cómo va el PARQUE NORTE F.S. - RODILLITO 'B'?"
+   ],
+   "note": ""
+  },
+  {
+   "id": "adv_097",
+   "category": "seguimiento",
+   "expect": "abstain",
+   "question": "¿Y en qué posición está el PARQUE NORTE F.S. - RODILLITO 'B'?",
+   "history": [
+    "¿Cómo va el PARQUE NORTE F.S. - RODILLITO 'B'?"
+   ],
+   "note": ""
+  },
+  {
+   "id": "adv_098",
+   "category": "seguimiento",
+   "expect": "abstain",
+   "question": "¿Y su puesto?",
+   "history": [
+    "¿Cómo va el PARQUE NORTE F.S. - RODILLITO 'B'?"
+   ],
+   "note": ""
+  },
+  {
+   "id": "adv_099",
+   "category": "seguimiento",
+   "expect": "abstain",
+   "question": "¿Y cuántos puntos lleva ahora?",
+   "history": [
+    "¿Cómo va el PARQUE NORTE F.S. - RODILLITO 'B'?"
+   ],
+   "note": ""
+  },
+  {
+   "id": "adv_100",
+   "category": "seguimiento",
+   "expect": "abstain",
+   "question": "¿Cuántos puntos tiene el PARQUE NORTE F.S. - RODILLITO 'B'?",
+   "history": [
+    "¿Cómo va el C.D. DOSA?"
+   ],
+   "note": "hay historial: el flujo normal decide"
+  },
+  {
+   "id": "adv_101",
+   "category": "seguimiento",
+   "expect": "abstain",
+   "question": "¿Y ese equipo en qué puesto está?",
+   "history": [
+    "¿Cómo va el PARQUE NORTE F.S. - RODILLITO 'B'?"
+   ],
+   "note": ""
+  },
+  {
+   "id": "adv_102",
+   "category": "ambito_ambiguo_o_distinto",
+   "expect": "abstain",
+   "question": "¿En qué posición está el F.S. DIAGONAL 'A'?",
+   "history": [],
+   "note": ""
+  },
+  {
+   "id": "adv_103",
+   "category": "ambito_ambiguo_o_distinto",
+   "expect": "abstain",
+   "question": "¿Cuántos puntos tiene el F.S. DIAGONAL 'A'?",
+   "history": [],
+   "note": ""
+  },
+  {
+   "id": "adv_104",
+   "category": "ambito_ambiguo_o_distinto",
+   "expect": "abstain",
+   "question": "¿En qué posición está el C.D. DOSA?",
+   "history": [],
+   "note": ""
+  },
+  {
+   "id": "adv_105",
+   "category": "ambito_ambiguo_o_distinto",
+   "expect": "abstain",
+   "question": "¿Cuántos puntos lleva el C.D. DOSA?",
+   "history": [],
+   "note": ""
+  },
+  {
+   "id": "adv_106",
+   "category": "ambito_ambiguo_o_distinto",
+   "expect": "abstain",
+   "question": "En COPA SENIOR I - fase final- FS, ¿en qué posición está el PARQUE NORTE F.S. - RODILLITO 'B'?",
+   "history": [],
+   "note": ""
+  },
+  {
+   "id": "adv_107",
+   "category": "ambito_ambiguo_o_distinto",
+   "expect": "abstain",
+   "question": "En PRIMERA JUVENIL FS (Grupo 1), ¿cuántos puntos tiene el PARQUE NORTE F.S. - RODILLITO 'B'?",
+   "history": [],
+   "note": ""
+  },
+  {
+   "id": "adv_108",
+   "category": "ambito_ambiguo_o_distinto",
+   "expect": "abstain",
+   "question": "En la liga marciana, ¿en qué posición está el PARQUE NORTE F.S. - RODILLITO 'B'?",
+   "history": [],
+   "note": ""
+  },
+  {
+   "id": "adv_109",
+   "category": "ambito_ambiguo_o_distinto",
+   "expect": "abstain",
+   "question": "En el grupo 7, ¿en qué posición está el PARQUE NORTE F.S. - RODILLITO 'B'?",
+   "history": [],
+   "note": ""
+  },
+  {
+   "id": "adv_110",
+   "category": "ambito_ambiguo_o_distinto",
+   "expect": "abstain",
+   "question": "En la copa, ¿en qué posición está el PARQUE NORTE F.S. - RODILLITO 'B'?",
+   "history": [],
+   "note": ""
+  },
+  {
+   "id": "adv_111",
+   "category": "ambito_ambiguo_o_distinto",
+   "expect": "abstain",
+   "question": "En la preferente, ¿cuántos puntos tiene el PARQUE NORTE F.S. - RODILLITO 'B'?",
+   "history": [],
+   "note": ""
+  },
+  {
+   "id": "adv_112",
+   "category": "ambito_ambiguo_o_distinto",
+   "expect": "abstain",
+   "question": "¿En qué posición está el PARQUE NORTE F.S. - RODILLITO 'B' en la liga juvenil?",
+   "history": [],
+   "note": ""
+  },
+  {
+   "id": "adv_113",
+   "category": "ambito_ambiguo_o_distinto",
+   "expect": "abstain",
+   "question": "En el torneo de verano, ¿en qué posición está el PARQUE NORTE F.S. - RODILLITO 'B'?",
+   "history": [],
+   "note": ""
+  },
+  {
+   "id": "adv_114",
+   "category": "ambito_ambiguo_o_distinto",
+   "expect": "abstain",
+   "question": "En TERCERA DIVISIÓN FS (Grupo 3) y en la copa, ¿en qué posición está el C.D. DOSA?",
+   "history": [],
+   "note": ""
+  },
+  {
+   "id": "adv_115",
+   "category": "forma_no_prevista",
+   "expect": "abstain",
+   "question": "Dime la posición del PARQUE NORTE F.S. - RODILLITO 'B' y de paso cuéntame cómo le va",
+   "history": [],
+   "note": ""
+  },
+  {
+   "id": "adv_116",
+   "category": "forma_no_prevista",
+   "expect": "abstain",
+   "question": "¿Cómo va el PARQUE NORTE F.S. - RODILLITO 'B' en la clasificación?",
+   "history": [],
+   "note": ""
+  },
+  {
+   "id": "adv_117",
+   "category": "forma_no_prevista",
+   "expect": "abstain",
+   "question": "posición PARQUE NORTE F.S. - RODILLITO 'B'",
+   "history": [],
+   "note": ""
+  },
+  {
+   "id": "adv_118",
+   "category": "forma_no_prevista",
+   "expect": "abstain",
+   "question": "¿PARQUE NORTE F.S. - RODILLITO 'B' está arriba o abajo?",
+   "history": [],
+   "note": ""
+  },
+  {
+   "id": "adv_119",
+   "category": "forma_no_prevista",
+   "expect": "abstain",
+   "question": "¿Está el PARQUE NORTE F.S. - RODILLITO 'B' entre los cinco primeros?",
+   "history": [],
+   "note": ""
+  },
+  {
+   "id": "adv_120",
+   "category": "forma_no_prevista",
+   "expect": "abstain",
+   "question": "¿Es líder el PARQUE NORTE F.S. - RODILLITO 'B'?",
+   "history": [],
+   "note": ""
+  },
+  {
+   "id": "adv_121",
+   "category": "forma_no_prevista",
+   "expect": "abstain",
+   "question": "¿Cuántos puntos tiene el PARQUE NORTE F.S. - RODILLITO 'B' y cuándo juega?",
+   "history": [],
+   "note": ""
+  },
+  {
+   "id": "adv_122",
+   "category": "forma_no_prevista",
+   "expect": "abstain",
+   "question": "¿En qué posición está el PARQUE NORTE F.S. - RODILLITO 'B' y cuál fue su último resultado?",
+   "history": [],
+   "note": ""
+  },
+  {
+   "id": "adv_123",
+   "category": "forma_no_prevista",
+   "expect": "abstain",
+   "question": "¿Cuántos partidos ha ganado el PARQUE NORTE F.S. - RODILLITO 'B' y cuántos puntos tiene?",
+   "history": [],
+   "note": ""
+  },
+  {
+   "id": "adv_124",
+   "category": "forma_no_prevista",
+   "expect": "abstain",
+   "question": "¿Qué puesto ocupa el PARQUE NORTE F.S. - RODILLITO 'B', el primero?",
+   "history": [],
+   "note": ""
+  },
+  {
+   "id": "adv_125",
+   "category": "forma_no_prevista",
+   "expect": "abstain",
+   "question": "¿Podrías decirme en qué posición está el PARQUE NORTE F.S. - RODILLITO 'B'?",
+   "history": [],
+   "note": ""
+  },
+  {
+   "id": "adv_126",
+   "category": "forma_no_prevista",
+   "expect": "abstain",
+   "question": "¿Cuántos puntos tiene el PARQUE NORTE F.S. - RODILLITO 'B' esta semana?",
+   "history": [],
+   "note": ""
+  },
+  {
+   "id": "adv_127",
+   "category": "forma_no_prevista",
+   "expect": "abstain",
+   "question": "¿Cuántos puntos tiene el PARQUE NORTE F.S. - RODILLITO 'B' después de la jornada 6?",
+   "history": [],
+   "note": ""
+  },
+  {
+   "id": "adv_128",
+   "category": "forma_no_prevista",
+   "expect": "abstain",
+   "question": "¿En qué posición está el PARQUE NORTE F.S. - RODILLITO 'B' sin contar el último partido?",
+   "history": [],
+   "note": ""
+  },
+  {
+   "id": "adv_129",
+   "category": "forma_no_prevista",
+   "expect": "abstain",
+   "question": "¿En qué posición está el Real Madrid?",
+   "history": [],
+   "note": ""
+  },
+  {
+   "id": "adv_130",
+   "category": "forma_no_prevista",
+   "expect": "abstain",
+   "question": "¿En qué posición está el PARQUE NORTE F.S. - RODILLITO 'B' en el reglamento?",
+   "history": [],
+   "note": ""
+  },
+  {
+   "id": "adv_131",
+   "category": "forma_no_prevista",
+   "expect": "abstain",
+   "question": "¿Cuántos puntos da una victoria al PARQUE NORTE F.S. - RODILLITO 'B'?",
+   "history": [],
+   "note": ""
+  },
+  {
+   "id": "adv_132",
+   "category": "forma_no_prevista",
+   "expect": "abstain",
+   "question": "¿Cuántos puntos tiene el PARQUE NORTE F.S. - RODILLITO 'B' según el reglamento?",
+   "history": [],
+   "note": ""
+  },
+  {
+   "id": "adv_133",
+   "category": "forma_no_prevista",
+   "expect": "abstain",
+   "question": "¿En qué posición está el PARQUE NORTE F.S. - RODILLITO 'B'? Además dime el próximo rival.",
+   "history": [],
+   "note": ""
+  }
+ ]
+}

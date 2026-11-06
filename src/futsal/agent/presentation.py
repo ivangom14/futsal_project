@@ -54,6 +54,9 @@ def compute_focus(rec: RunRecord, names: dict[str, dict[int, str]], groups_used:
             focus["round"] = n
         if isinstance(args.get("group_id"), int) and (g := groups_used.get(args["group_id"])):
             focus["competition"], focus["group"] = g["competition"], g["group"]
+    t0 = rec.tier0 if rec.tier0 and rec.tier0.get("answered") else None
+    if t0 and isinstance(t0.get("team_id"), int) and (n := names["teams"].get(t0["team_id"])):
+        focus["team"] = n  # Tier 0: la herramienta de clasificación no lleva team_id, pero el equipo consultado es el foco del seguimiento
     if re.search(r"\b(maximo goleador|pichichi|mejor goleador)\b", norm(question)):
         for data in official:
             top = [r for r in data.get("scorers") or [] if isinstance(r, dict) and r.get("rank") == 1]

@@ -51,7 +51,7 @@ y el resumen de N brazos da los mismos veredictos en legacy/compact. Lo único q
 ## 4b. Ajustes tras el A/B live legacy vs prefetch
 - `scripts/ab_arms.py --fill-missing --yes [--min-interval 8]`: repite solo los casos `not_run` (429, red) de cada `<brazo>-r<n>.json` con las banderas de su brazo y los funde en él (copia previa en `<brazo>-r<n>.orig.json`; los casos fundidos llevan `filled: true`).
 - `arms_summary`: una diferencia solo se llama «consistente» con ≥3 repeticiones decisivas por brazo; con menos, «insuficiente»; los `not_run` por 429 se marcan (`[429×n]`) y se avisa del desequilibrio.
-- Nota del prefetch: pide incluir siempre el `group_id` del resultado en `list_matches` (los fallos de validación por `group_id` omitido eran la causa de los dos «fallos» del brazo prefetch). Solo afecta con `AGENT_PREFETCH=on`.
+- Nota del prefetch: se revirtió la frase sobre `group_id` (ver `docs/phase-a-i-optimization.md`): `compact_result` quita `group_id` de lo que ve el LLM, así que no podía copiarlo del resultado.
 
 ## 5. Limitaciones y riesgos
 Ver §2 (datos sintéticos, mismo autor, cobertura real desconocida), y: el prefetch añade una consulta `list_teams` por grupo (24 en las capturas locales) la primera vez y cada 6 h; el LLM ve una conversación distinta con la bandera

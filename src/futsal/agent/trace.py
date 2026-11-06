@@ -70,6 +70,8 @@ class ToolCallRecord:
     refused: bool = False  # el agente no la ejecutó (ID no obtenido de una tool o equipo ambiguo): cuenta como llamada, no como fallo de la tool
     reused: bool = False  # llamada idéntica a otra de la misma pregunta: se reutilizó el resultado sin volver a ejecutarla (Fase 0)
     via: str | None = None  # quién la ejecutó: None = la pidió el LLM; "prefetch" = la aplicación, antes del primer LLM (Fase 3A)
+    repaired: dict[str, Any] | None = None  # argumento completado por la aplicación (hoy solo group_id): campo, valor, origen, equipo y motivo; None = se ejecutó tal cual
+    original_arguments: dict[str, Any] | None = None  # argumentos TAL COMO los envió el modelo; `arguments` son los efectivos (los ejecutados)
 
 
 @dataclass
@@ -102,6 +104,8 @@ class RunRecord:
     router_ms: float = 0.0
     router: dict[str, Any] | None = None  # decisión completa del router (entidades, ámbito, aptitud Tier 0…)
     history_turns: int = 0  # nº de turnos de historial enviados (solo el número, nunca el contenido)
+    tier0: dict[str, Any] | None = None  # Fase G: intento de respuesta sin LLM (None = AGENT_TIER0=off)
+    tool_select: dict[str, Any] | None = None  # Fase E: selección dinámica de herramientas (None = AGENT_TOOLS=full)
     prefetch: dict[str, Any] | None = None  # Fase 3A: resultado del prefetch de entidades (None = desactivado o sin intentar)
 
     def totals(self) -> dict[str, Any]:
@@ -120,7 +124,7 @@ class RunRecord:
             "peak_input_tokens": max((c.input_tokens or 0 for c in reported), default=0),
             "calls_without_usage": len(self.llm_calls) - len(reported),
             "tokens_estimated": any(c.tokens_estimated for c in reported),
-            "token_source": _overall_source(self.llm_calls),
+            "token_source": "measured_zero" if self.exec_tier == "tier0" and not self.llm_calls else _overall_source(self.llm_calls),
             "llm_retries": sum(c.retries for c in self.llm_calls),
             "retry_wait_ms": round(sum(c.retry_wait_ms for c in self.llm_calls), 1),
             "llm_ms": round(sum(c.latency_ms for c in self.llm_calls), 1),
@@ -131,7 +135,8 @@ class RunRecord:
             "prefix_chars": dict(self.prefix_chars),
             # --- Fase 0 ---
             "arch": self.arch, "prompt_mode": self.prompt_mode, "exec_tier": self.exec_tier,
-            "mcp_calls": {"requested_by_llm": sum(t.via != "prefetch" for t in self.tool_calls), "prefetch": sum(t.via == "prefetch" for t in self.tool_calls),
+            "mcp_calls": {"requested_by_llm": sum(t.via is None for t in self.tool_calls), "prefetch": sum(t.via == "prefetch" for t in self.tool_calls),
+                          "tier0": sum(t.via == "tier0" for t in self.tool_calls), "repaired": sum(t.repaired is not None for t in self.tool_calls),
                           "context_preload": self.context_tool_calls,
                           "refused": sum(t.refused for t in self.tool_calls), "reused": sum(t.reused for t in self.tool_calls),
                           "errors": sum(t.is_error for t in self.tool_calls)},
@@ -179,13 +184,15 @@ def read_jsonl(path: Path) -> list[dict[str, Any]]:
             if not isinstance(row, dict):
                 continue
             for key, default in (("arch", "legacy"), ("prompt_mode", "legacy"), ("exec_tier", "tier2"), ("conversation_id", None), ("router", None),
-                                 ("router_intent", None), ("router_reason", None), ("router_confidence", None), ("router_tier", None), ("prefetch", None), ("history_turns", 0)):
+                                 ("router_intent", None), ("router_reason", None), ("router_confidence", None), ("router_tier", None), ("prefetch", None), ("tool_select", None), ("tier0", None), ("history_turns", 0)):
                 row.setdefault(key, default)
             for call in row.get("llm_calls") or []:
                 call.setdefault("input_breakdown", None)
             for call in row.get("tool_calls") or []:
                 call.setdefault("reused", False)
                 call.setdefault("via", None)
+                call.setdefault("repaired", None)
+                call.setdefault("original_arguments", None)
             rows.append(row)
     return rows
 

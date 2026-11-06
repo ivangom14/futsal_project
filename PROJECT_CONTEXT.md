@@ -219,3 +219,11 @@ Fases 2A, E0 y 3A (bloque aprobado; `docs/phase2a-e0-3a.md`, `docs/telemetry.md`
 
 
 Ajustes post-A/B live prefetch: `ab_arms.py --fill-missing`; `arms_summary` exige ≥3 repeticiones decisivas para «consistente» y marca 429; la nota de prefetch pide `group_id` en `list_matches` (detalle en `docs/phase2a-e0-3a.md` §4b). Sin commit todavía.
+
+
+## Fases A–I (estabilización y optimización; sin commit, todo opt-in)
+Informe completo: `docs/phase-a-i-optimization.md`. A: causa raíz del `group_id` omitido (`compact_result` lo oculta al LLM) y reparación determinista siempre activa (`ToolCallRecord.repaired`). B: exclusión `standings_only` fuera de `decide()`. D/E: `AGENT_TOOLS=dynamic` (`tool_select.py`, recall 0 omisiones offline, ahorro de esquema ≈33 % ESTIMADO) y brazos `dynamic_tools`, `tier0`, `prefetch_dynamic`. G: `AGENT_TIER0=on` (`tier0.py`, posición/puntos de un equipo sin LLM). F y H omitidas, I solo auditoría. Nada validado en vivo; defaults intactos (legacy, off, full, off).
+
+
+## Fase de corrección de auditoría (sin commit; todo opt-in)
+Detalle: `docs/phase-audit-fixes.md`. C1: Tier 0 con lista blanca cerrada de plantillas + dataset adversarial (134 preguntas, 0 activaciones incorrectas) + frescura (`AGENT_TIER0_MAX_AGE_HOURS`, 72 h) + competición pedida. I1: `AGENT_GROUP_ID_REPAIR=off|on` (off; argumentos originales y efectivos por separado; ya NO está activa por defecto, corrige la nota anterior de las fases A–I). I2: Dynamic Tools amplía solo por señales concretas y una vez (herramienta no ofrecida, limitación declarada, reconsulta), no por errores de herramienta; presets `dynamic_*` y `tier0_probe`. I3: Tier 0 = `exec_tier=tier0`, `token_source=measured_zero`; `arms_summary` separa provider/measured_zero/estimado/no informado. Presupuesto: `--max-total-requests` global real + `BudgetedLLM` (tope duro en el cliente). Entorno de pruebas: Python 3.12/3.11 + mcp 1.30.0 → 1073 tests OK; Python 3.13 → 3 fallos de `test_prompt_compact` por docstrings (entorno). Nada validado en vivo.

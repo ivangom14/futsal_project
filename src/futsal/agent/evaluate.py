@@ -1045,6 +1045,8 @@ class CaseResult:
     answer: str = ""
     expect: str = ""  # situación comprobada (Fase 17): complete | partial | no_data | not_ingested | query_error | unverifiable
     critical: list[str] = field(default_factory=list)  # fallos que ninguna media compensa (invención, fuente oficial sustituida)
+    repaired_calls: int = 0  # llamadas cuyo group_id completó la aplicación (AGENT_GROUP_ID_REPAIR); 0 con la bandera apagada
+    exec_tier: str = ""  # tier2 (LLM con herramientas) | tier0 (respuesta determinista sin LLM)
 
 
 def describe(facts: list[Fact] | None) -> str:
@@ -1084,7 +1086,9 @@ def describe(facts: list[Fact] | None) -> str:
 def verdict_calls(records: list[Any]) -> list[tuple[str, str, bool]]:
     """Llamadas para el veredicto de herramientas. Una llamada que el agente rechazó (ID supuesto) cuenta para el máximo de llamadas
     y las repeticiones, pero no es un error de la herramienta, que nunca se ejecutó."""
-    return [(tc.name, json.dumps(tc.arguments, sort_keys=True), tc.is_error and not tc.refused) for tc in records]
+    # los argumentos que decidió el modelo (no los reparados por la aplicación): el veredicto juzga el comportamiento del modelo
+    return [(tc.name, json.dumps(tc.original_arguments if tc.original_arguments is not None else tc.arguments, sort_keys=True), tc.is_error and not tc.refused)
+            for tc in records]
 
 
 def tools_verdict(case: EvalCase, calls: list[tuple[str, str, bool]], guardrail: str | None) -> list[str]:
@@ -1185,6 +1189,7 @@ async def run_case(case: EvalCase, mcp: McpClient, mode: str, llm: LLMClient | N
     res.cached_tokens = t["cached_input_tokens"]
     res.paced_ms, res.prefix_chars = t["paced_ms"], t["prefix_chars"]
     res.token_source, res.llm_retries, res.tool_calls = t["token_source"], t["llm_retries"], t["tool_calls"]
+    res.repaired_calls, res.exec_tier = t["mcp_calls"]["repaired"], t["exec_tier"]
     res.latency_ms, res.tool_ms, res.run_id, res.answer = t["latency_ms"], t["tool_ms"], rec.run_id, run.answer
     facts = case.facts
     structural = all(f.kind in ("limitation", "refusal", "no_evidence_rules") for f in facts)
@@ -1411,9 +1416,10 @@ async def _main(args: argparse.Namespace) -> int:
     llm: LLMClient | None = None
     if live and not args.plan:
         try:
-            from futsal.agent.llm import PacedLLM
+            from futsal.agent.llm import BudgetedLLM, PacedLLM
 
-            llm = PacedLLM(create_llm(), DEFAULT_MIN_INTERVAL if args.min_interval is None else args.min_interval)  # solo aquí se construye un cliente real; --plan nunca llega a este punto
+            # solo aquí se construye un cliente real; --plan nunca llega a este punto. El tope de peticiones es DURO: el cliente rechaza (sin enviar) toda llamada que pudiera superarlo.
+            llm = PacedLLM(BudgetedLLM(create_llm(), args.max_requests), DEFAULT_MIN_INTERVAL if args.min_interval is None else args.min_interval)
         except LLMError as exc:
             print(f"No se puede iniciar el LLM: {exc}")
             return 2

@@ -20,6 +20,7 @@ from futsal.agent.llm import Message
 
 CHARS_PER_TOKEN = 3.5  # mismo criterio que el evaluador offline (aproximación, no un tokenizador real)
 SOURCE_PROVIDER = "provider"
+SOURCE_MEASURED_ZERO = "measured_zero"  # ejecución sin ninguna llamada al LLM (Tier 0): 0 tokens MEDIDOS (no estimados ni «no informados»)
 SOURCE_ESTIMATED = "estimated"
 SOURCE_CHARS = "chars"
 BASIS = f"estimated_chars/{CHARS_PER_TOKEN}"
@@ -106,6 +107,8 @@ def estimate_cost(totals: dict[str, Any], price: Price | None) -> dict[str, Any]
 
     Los tokens de razonamiento se facturan como salida (`billed_output_tokens`). La entrada en caché, si hay tarifa, se descuenta.
     """
+    if price is not None and totals.get("token_source") == SOURCE_MEASURED_ZERO:
+        return {"usd": 0.0, "price_source": price.source, "price_verified_on": price.verified_on}
     if price is None or totals.get("token_source") != SOURCE_PROVIDER:
         return None
     cached = totals.get("cached_input_tokens") or 0

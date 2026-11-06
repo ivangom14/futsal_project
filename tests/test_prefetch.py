@@ -10,6 +10,7 @@ from typing import Any
 import pytest
 
 from futsal.agent.agent import OFF_TOPIC_MESSAGE, Agent, resolve_prefetch
+from futsal.agent.entities import standings_only
 from futsal.agent.llm import LLMResponse, Message, ToolCall
 from futsal.agent.memory import Turn
 from futsal.agent.presentation import compute_focus
@@ -171,7 +172,8 @@ def test_tool_limit_semantics_do_not_change() -> None:
     ("En TERCERA DIVISIÓN FS (Grupo 3), ¿qué dice el reglamento si el C.D. DOSA saca de banda?", None, "rules"),
     ("En TERCERA DIVISIÓN FS (Grupo 3), ¿cómo quedó el C.D. DOSA en 2019?", None, "historical"),
     ("¿Y su último partido?", [Turn("¿Cómo va el C.D. DOSA en TERCERA DIVISIÓN FS (Grupo 3)?", "Va primero.")], "context"),
-    ("¿Quién lidera la clasificación de TERCERA DIVISIÓN FS (Grupo 3)?", None, "no_match")])
+    ("¿Quién lidera la clasificación de TERCERA DIVISIÓN FS (Grupo 3)?", None, "standings_only"),
+    ("En TERCERA DIVISIÓN FS (Grupo 3), ¿en qué posición está el C.D. DOSA y cuántos puntos tiene?", None, "standings_only")])
 def test_it_abstains_and_the_flow_is_exactly_the_previous_one(question: str, history: list[Turn] | None, reason: str) -> None:
     steps = lambda: [call("get_standings", group_id=6), final("ok")]  # noqa: E731
     on, l_on, m_on = run("on", question=question, steps=steps(), history=list(history or []))
@@ -235,3 +237,23 @@ def test_telemetry_never_stores_the_team_name_from_the_prefetch() -> None:
     with tempfile.TemporaryDirectory() as d:
         row = build_record(res.run, Path(d))
     assert row["prefetch"]["fired"] is True and "team" not in row["prefetch"] and row["tools_used"] == {"list_matches": 1}
+
+
+def test_standings_only_questions_skip_the_prefetch_without_even_loading_the_catalog() -> None:
+    on, _, mcp = run("on", question="En TERCERA DIVISIÓN FS (Grupo 3), ¿en qué posición está el C.D. DOSA?", steps=[call("get_standings", group_id=6), final("ok")])
+    assert on.run.prefetch["reason"] == "standings_only" and not on.run.prefetch["attempted"]
+    assert [n for n, _ in mcp.calls if n == "list_teams"] == []  # sin carga del catálogo
+
+
+@pytest.mark.parametrize("question", [
+    "¿Cuál es el último resultado del C.D. DOSA y en qué posición está?",   # clasificación + partidos
+    "¿Cuándo juega el C.D. DOSA y cuántos puntos tiene?",
+    "¿Quién es el máximo goleador del C.D. DOSA y cómo va en la tabla?",
+    "¿Cómo está el C.D. DOSA en la clasificación y contra quién juega?"])
+def test_compound_questions_are_not_excluded(question: str) -> None:
+    assert not standings_only(question)
+
+
+def test_standings_without_scope_still_prefetches_because_find_teams_gives_the_group() -> None:
+    on, _, _ = run("on", question="¿En qué posición está el PARQUE NORTE F.S. - RODILLITO 'B'?", steps=[call("get_standings", group_id=6), final("ok")])
+    assert on.run.prefetch["reason"] != "standings_only" and on.run.prefetch["fired"]

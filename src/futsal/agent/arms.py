@@ -16,8 +16,11 @@ FLAGS: dict[str, tuple[str, ...]] = {
     "AGENT_PREFETCH": ("off", "on"),
     "AGENT_TELEMETRY": ("off", "on"),
     "AGENT_ROUTER": ("shadow", "off"),
+    "AGENT_TOOLS": ("full", "dynamic"),
+    "AGENT_TIER0": ("off", "on"),
+    "AGENT_GROUP_ID_REPAIR": ("off", "on"),
 }
-DEFAULTS = {"AGENT_PROMPT_MODE": "legacy", "AGENT_PREFETCH": "off", "AGENT_TELEMETRY": "off", "AGENT_ROUTER": "shadow"}
+DEFAULTS = {"AGENT_PROMPT_MODE": "legacy", "AGENT_PREFETCH": "off", "AGENT_TELEMETRY": "off", "AGENT_ROUTER": "shadow", "AGENT_TOOLS": "full", "AGENT_TIER0": "off", "AGENT_GROUP_ID_REPAIR": "off"}
 
 # brazo -> solo lo que se aparta de DEFAULTS (la telemetría siempre apagada)
 ARMS: dict[str, dict[str, str]] = {
@@ -25,6 +28,11 @@ ARMS: dict[str, dict[str, str]] = {
     "compact": {"AGENT_PROMPT_MODE": "compact"},
     "prefetch": {"AGENT_PREFETCH": "on"},
     "compact_prefetch": {"AGENT_PROMPT_MODE": "compact", "AGENT_PREFETCH": "on"},
+    "dynamic_tools": {"AGENT_TOOLS": "dynamic"},  # Fase E: se mide SOLA (sin prompt compacto ni prefetch) para atribuir el efecto
+    "tier0": {"AGENT_TIER0": "on"},
+    "group_repair": {"AGENT_GROUP_ID_REPAIR": "on"},  # se mide SOLA: el legacy de referencia no la lleva
+    "prefetch_dynamic": {"AGENT_PREFETCH": "on", "AGENT_TOOLS": "dynamic"},
+    "prefetch_dynamic_tier0": {"AGENT_PREFETCH": "on", "AGENT_TOOLS": "dynamic", "AGENT_TIER0": "on"},  # etapa 6: la combinación (sin la reparación de group_id ni compact)
 }
 BASELINE = "legacy"
 
@@ -39,6 +47,23 @@ PRESETS: dict[str, list[str]] = {
     "prefetch_probe": ["equipo_resultados", "equipo_proximo_partido", "equipo_recuento", "equipo_jornada_5", "proximo_campo",
                        "acta_goleadores_ultimo", "tabla_clasificacion_posicion_equipo", "resultados_otro_grupo",
                        "equipo_inexistente", "enfrentamiento_ganador", "tabla_clasificacion_comparacion", "fuera_de_alcance"],
+    # Fase de auditoría: presets para medir `dynamic_tools` por tipo de pregunta (ids de `evaluate.build_cases`; el seguimiento conversacional no tiene caso del evaluador:
+    # las preguntas de seguimiento van siempre con las 15 herramientas y se comprueban offline)
+    "dynamic_general": ["tabla_clasificacion_posicion_equipo", "tabla_clasificacion_lider", "tabla_clasificacion_comparacion", "equipo_resultados", "equipo_proximo_partido",
+                        "equipo_recuento", "equipo_jornada_5", "jornada_2_resultados", "proximo_campo", "enfrentamiento_ganador"],
+    "dynamic_actas": ["acta_arbitro", "acta_goleadores_ultimo", "acta_goleadores_contra_equipo", "acta_tarjetas_codigo", "acta_sustituciones_minuto",
+                      "acta_jornada_sin_resultados", "acta_discrepancia_resultado", "acta_partido_sin_acta"],
+    "dynamic_rules": ["regla_duracion_mitad", "regla_tiempo_muerto", "regla_sexta_falta", "regla_roja_mano", "circular10_anula", "circular10_saque_meta_coloquial",
+                      "circular27_comunica", "circular27_fechas_rfef_fifa", "circular27_cesped_coloquial", "regla_sin_evidencia_salario"],
+    "dynamic_scorers": ["tabla_goleadores_maximo", "tabla_goleadores_jugador", "tabla_goleadores_top_n", "tabla_goleadores_nombre_repetido",
+                        "tabla_goleadores_por_jornada_no_verificable", "tabla_goleador_no_figura", "acta_goleadores_ultimo", "acta_goles_agrupados",
+                        "combinada_goleador_y_puesto_de_su_equipo"],
+    "dynamic_ambiguous": ["equipo_ambiguo", "equipo_inexistente", "acta_jugador_ambiguo", "acta_jugador_inexistente", "fuera_de_alcance", "jornada_inexistente",
+                          "resultados_otro_grupo", "tabla_clasificacion_otro_grupo"],
+    # Tier 0: solo el primero encaja en una plantilla admitida; los demás son controles que DEBEN seguir por el flujo con LLM
+    "tier0_probe": ["tabla_clasificacion_posicion_equipo", "tabla_clasificacion_comparacion", "tabla_clasificacion_lider", "tabla_clasificacion_jornada_pasada",
+                    "tabla_clasificacion_otro_grupo", "tabla_clasificacion_incompleta", "tabla_clasificacion_fallo_ingesta", "tabla_clasificacion_jornada_no_ingerida",
+                    "tabla_clasificacion_eliminatorias", "equipo_proximo_partido"],
 }
 
 

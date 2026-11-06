@@ -7,6 +7,9 @@
 Cada tanda fija TODAS las banderas del brazo (ver `futsal.agent.arms`) y apaga la telemetría; el resto de condiciones (modelo, casos, tope de peticiones, pausa)
 es idéntico. Las tandas rotan el orden de los brazos entre repeticiones. Cada una deja su carpeta y su copia `<brazo>-r<n>.json`; si ya existe se omite
 (reanuda) salvo --force. NO sustituye a `scripts/ab_prompt_modes.py` (legacy frente a compact), que sigue intacto.
+Presupuesto GLOBAL REAL: `--max-total-requests` (por defecto, tandas × --max-requests) limita las peticiones al LLM (llamadas + reintentos) de TODA la ejecución
+(todos los brazos, tandas y `--fill-missing`). Cada tanda recibe min(--max-requests, lo que queda) como tope DURO que aplica el propio cliente del evaluador
+(`BudgetedLLM`: no envía ninguna petición que pudiera superarlo); al agotarse el global no se lanza ninguna tanda más.
 Solo biblioteca estándar más `futsal.agent.arms`. No lee ni imprime claves.
 """
 
@@ -15,6 +18,7 @@ import json
 import os
 import subprocess
 import sys
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -67,6 +71,47 @@ def pending_cases(doc: dict) -> list[str]:
     return [c["case_id"] for c in doc.get("cases", []) if c.get("status") == "not_run"]
 
 
+BUDGET_TEXT = "presupuesto de peticiones agotado"
+
+
+@dataclass
+class Budget:
+    """Presupuesto GLOBAL de peticiones al LLM de una ejecución de este script (llamadas + reintentos)."""
+
+    total: int
+    per_batch: int
+    used: int = 0
+
+    def remaining(self) -> int:
+        return max(self.total - self.used, 0)
+
+    def grant(self) -> int:
+        """Tope duro de la próxima tanda: nunca más de lo que queda."""
+        return min(self.per_batch, self.remaining())
+
+    def charge(self, granted: int, actual: int | None) -> int:
+        """Suma lo consumido; si no se puede saber (la tanda no dejó resultados), se cuenta TODO lo concedido."""
+        spent = granted if actual is None else actual
+        self.used += spent
+        return spent
+
+
+def requests_used(path: Path) -> int | None:
+    """Peticiones al LLM de una tanda a partir de su results.json (llamadas + reintentos). None si no hay resultados legibles.
+    Un caso rechazado por el tope duro no envió nada: su registro de llamada no cuenta."""
+    try:
+        doc = json.loads(path.read_text(encoding="utf-8"))
+        total = 0
+        for c in doc.get("cases", []):
+            n = int(c.get("llm_calls") or 0) + int(c.get("llm_retries") or 0)
+            if BUDGET_TEXT in str(c.get("detail") or "") and n:
+                n -= 1
+            total += n
+        return total
+    except (OSError, ValueError, TypeError):
+        return None
+
+
 def merge_fill(orig: dict, fill: dict) -> dict:
     """Sustituye en `orig` los casos `not_run` por los de `fill` que ya se han ejecutado (pass/fail/no evaluable); marca `filled`."""
     new = {c["case_id"]: c for c in fill.get("cases", []) if c.get("status") != "not_run"}
@@ -75,8 +120,9 @@ def merge_fill(orig: dict, fill: dict) -> dict:
     return orig
 
 
-def fill_missing(arms: list[str], reps: int, out: Path, max_requests: int, min_interval: float | None) -> int:
-    """Repite SOLO los casos `not_run` (429, red) de cada <brazo>-r<n>.json con las banderas de su brazo y los funde en el original (queda .orig.json)."""
+def fill_missing(arms: list[str], reps: int, out: Path, min_interval: float | None, budget: Budget) -> int:
+    """Repite SOLO los casos `not_run` (429, red, presupuesto) de cada <brazo>-r<n>.json con las banderas de su brazo y los funde en el original (queda .orig.json).
+    Consume el MISMO presupuesto global que las tandas normales."""
     for arm, rep in schedule(arms, reps):
         target = out / f"{arm}-r{rep}.json"
         if not target.exists():
@@ -85,12 +131,18 @@ def fill_missing(arms: list[str], reps: int, out: Path, max_requests: int, min_i
         ids = pending_cases(doc)
         if not ids:
             continue
-        print(f"\n== {arm} r{rep}: completando {len(ids)} caso(s) sin ejecutar: {', '.join(ids)} ==", flush=True)
+        cap = budget.grant()
+        if cap <= 0:
+            print(f"\nPresupuesto global agotado ({budget.used}/{budget.total}): no se completa {arm} r{rep} ni lo que falte.")
+            return 3
+        print(f"\n== {arm} r{rep}: completando {len(ids)} caso(s) sin ejecutar: {', '.join(ids)} (tope duro de esta tanda: {cap}) ==", flush=True)
         part = out / f"{arm}-r{rep}-fill.json"
-        cmd = command(arm, rep, out, ["--only", ",".join(ids)], max_requests, min_interval)
+        cmd = command(arm, rep, out, ["--only", ",".join(ids)], cap, min_interval)
         cmd[cmd.index("--report-dir") + 1] = str(out / f"{arm}-r{rep}-fill")
         cmd[cmd.index("--output") + 1] = str(part)
         res = subprocess.run(cmd, env={**os.environ, **arm_env(arm)}, check=False)
+        spent = budget.charge(cap, requests_used(part) if res.returncode in (0, 1) else None)
+        print(f"   peticiones usadas: {spent} · global {budget.used}/{budget.total}", flush=True)
         if res.returncode not in (0, 1):
             print(f"La tanda de completado {arm} r{rep} terminó con código {res.returncode}: se detiene.")
             return res.returncode
@@ -104,12 +156,13 @@ def fill_missing(arms: list[str], reps: int, out: Path, max_requests: int, min_i
 def plan_numbers(n_arms: int, reps: int, n_cases: int | None, max_requests: int, input_per_call: float, output_per_call: float,
                  price_in: float | None, price_out: float | None) -> dict[str, object]:
     batches = n_arms * reps
-    out: dict[str, object] = {"batches": batches, "hard_cap_requests": batches * max_requests}
+    out: dict[str, object] = {"batches": batches, "hard_cap_requests": batches * max_requests}  # `hard_cap_requests` = cota por defecto del global (tandas × tope por tanda)
     if n_cases is None:  # suite entera: el nº de casos lo sabe el evaluador (--plan-evaluator)
         out["case_runs"] = None
         return out
     runs = batches * n_cases
     typical = round(runs * ESTIMATED_CALLS_PER_CASE)
+    out.update(calls_per_batch=round(n_cases * ESTIMATED_CALLS_PER_CASE), calls_per_arm=round(reps * n_cases * ESTIMATED_CALLS_PER_CASE))
     out.update(case_runs=runs, calls_typical=typical, calls_design_bound=runs * DESIGN_BOUND_PER_CASE,
                input_tokens=round(typical * input_per_call), output_tokens=round(typical * output_per_call),
                minutes=round(typical * SECONDS_PER_REQUEST / 60))
@@ -124,7 +177,9 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--cases", default="prefetch_probe", help=f"preset ({', '.join(PRESETS)}), suite:all, suite:smoke o ids separados por comas")
     ap.add_argument("--reps", type=int, default=3)
     ap.add_argument("--out", default="data/agent/ab-arms")
-    ap.add_argument("--max-requests", type=int, default=100, help="tope DURO de peticiones al LLM por tanda (llamadas + reintentos)")
+    ap.add_argument("--max-requests", type=int, default=100, help="tope DURO de peticiones al LLM POR TANDA (llamadas + reintentos); la tanda recibe min(esto, lo que quede del global)")
+    ap.add_argument("--max-total-requests", type=int, default=None,
+                    help="tope DURO GLOBAL de peticiones al LLM de TODA la ejecución (brazos, tandas, reintentos y --fill-missing). Por defecto: tandas × --max-requests")
     ap.add_argument("--min-interval", type=float, default=None)
     ap.add_argument("--input-per-call", type=float, default=MEASURED_INPUT_PER_CALL, help="tokens de entrada por llamada para la estimación")
     ap.add_argument("--output-per-call", type=float, default=MEASURED_OUTPUT_PER_CALL)
@@ -149,7 +204,16 @@ def main(argv: list[str] | None = None) -> int:
     for a in arms:
         print(f"  {a}: " + " ".join(f"{k}={v}" for k, v in arm_env(a).items()))
     print(f"Tandas: {n['batches']} · ejecuciones de caso (máximo global): {n['case_runs'] if n['case_runs'] is not None else 'las fija la suite (usa --plan-evaluator)'}")
-    print(f"TOPE DURO de peticiones al LLM (se aplica): {n['hard_cap_requests']} ({args.max_requests} por tanda)")
+    total_cap = args.max_total_requests if args.max_total_requests is not None else int(n["hard_cap_requests"])  # type: ignore[call-overload]
+    if total_cap <= 0 or args.max_requests <= 0:
+        raise SystemExit("--max-requests y --max-total-requests deben ser positivos")
+    pending = [(a, r) for a, r in schedule(arms, args.reps) if not (out / f"{a}-r{r}.json").exists() or args.force]
+    print(f"PRESUPUESTO GLOBAL MÁXIMO (peticiones al LLM incl. reintentos; SE APLICA: cada tanda recibe min({args.max_requests}, lo que quede) como tope duro y no se lanza ninguna "
+          f"tanda cuando se agota): {total_cap}")
+    print(f"Tandas totales: {n['batches']} · pendientes de ejecutar: {len(pending)} · tope duro por tanda: {args.max_requests} · cota por defecto del global: {n['hard_cap_requests']}")
+    if "calls_typical" in n:
+        print(f"Consumo ESTIMADO (a {ESTIMATED_CALLS_PER_CASE} llamadas por caso; es una estimación, no un tope): por tanda ≈ {n['calls_per_batch']} · por brazo ≈ {n['calls_per_arm']} · "
+              f"total ≈ {n['calls_typical']}" + ("  (¡supera el presupuesto global: la ejecución se detendrá al agotarlo!)" if int(n["calls_typical"]) > total_cap else ""))  # type: ignore[call-overload]
     if "calls_typical" in n:
         print(f"Llamadas LLM ESTIMADAS: ~{n['calls_typical']} (a {ESTIMATED_CALLS_PER_CASE} por caso) · cota teórica de diseño (no estimada): {n['calls_design_bound']}")
         print(f"Tokens ESTIMADOS: entrada ≈ {n['input_tokens']:,} (a {args.input_per_call:g} por llamada, MEDIDO en tu ejecución anterior) · salida ≈ {n['output_tokens']:,} "
@@ -167,26 +231,41 @@ def main(argv: list[str] | None = None) -> int:
         print("\nNo se ha llamado a ningún LLM. Añade --yes para ejecutar (consume cuota).")
         return 0
     out.mkdir(parents=True, exist_ok=True)
+    budget = Budget(total_cap, args.max_requests)
     if args.fill_missing:
-        code = fill_missing(arms, args.reps, out, args.max_requests, args.min_interval)
-        if code == 0:
+        todo = {f"{a}-r{r}": pending_cases(json.loads((out / f"{a}-r{r}.json").read_text(encoding="utf-8"))) for a, r in schedule(arms, args.reps) if (out / f"{a}-r{r}.json").exists()}
+        print("Casos sin ejecutar por tanda (--fill-missing): " + (", ".join(f"{k}: {len(v)}" for k, v in todo.items() if v) or "ninguno"))
+        code = fill_missing(arms, args.reps, out, args.min_interval, budget)
+        print(f"\nPeticiones al LLM de esta ejecución: {budget.used}/{budget.total}")
+        if code in (0, 3):
             subprocess.run([sys.executable, "-m", "futsal.agent.arms_summary", str(out), "--json", str(out / "summary.json"), "--md", str(out / "summary.md")], check=False)
         return code
-    manifest = {"started": datetime.now(UTC).isoformat(), "arms": {a: arm_env(a) for a in arms}, "cases": ids or args.cases, "max_requests": args.max_requests, "runs": []}
+    manifest: dict = {"started": datetime.now(UTC).isoformat(), "arms": {a: arm_env(a) for a in arms}, "cases": ids or args.cases, "max_requests": args.max_requests,
+                      "max_total_requests": total_cap, "runs": []}
     for arm, rep in schedule(arms, args.reps):
         target = out / f"{arm}-r{rep}.json"
         if target.exists() and not args.force:
             print(f"\n== {arm} r{rep}: ya existe {target}, se omite ==")
             manifest["runs"].append({"arm": arm, "rep": rep, "skipped": True})
             continue
-        print(f"\n== {arm} r{rep} ==", flush=True)
-        res = subprocess.run(command(arm, rep, out, selection, args.max_requests, args.min_interval), env={**os.environ, **arm_env(arm)}, check=False)
-        manifest["runs"].append({"arm": arm, "rep": rep, "exit": res.returncode, "finished": datetime.now(UTC).isoformat()})
+        cap = budget.grant()
+        if cap <= 0:
+            manifest["budget"] = {"total": total_cap, "used": budget.used, "exhausted": True}
+            (out / "manifest.json").write_text(json.dumps(manifest, indent=1), encoding="utf-8")
+            print(f"\nPresupuesto global agotado ({budget.used}/{total_cap}): no se lanza {arm} r{rep} ni ninguna tanda más.")
+            subprocess.run([sys.executable, "-m", "futsal.agent.arms_summary", str(out), "--json", str(out / "summary.json"), "--md", str(out / "summary.md")], check=False)
+            return 3
+        print(f"\n== {arm} r{rep} (tope duro de la tanda: {cap}; global {budget.used}/{total_cap}) ==", flush=True)
+        res = subprocess.run(command(arm, rep, out, selection, cap, args.min_interval), env={**os.environ, **arm_env(arm)}, check=False)
+        spent = budget.charge(cap, requests_used(target) if res.returncode in (0, 1) else None)
+        manifest["runs"].append({"arm": arm, "rep": rep, "exit": res.returncode, "finished": datetime.now(UTC).isoformat(), "max_requests_granted": cap, "requests_used": spent})
+        manifest["budget"] = {"total": total_cap, "used": budget.used, "exhausted": False}
         (out / "manifest.json").write_text(json.dumps(manifest, indent=1), encoding="utf-8")
         if res.returncode not in (0, 1):  # 1 = hay casos fallidos (esperable); otro código = no se pudo ejecutar
             print(f"La tanda {arm} r{rep} terminó con código {res.returncode}: se detiene para no gastar cuota.")
             return res.returncode
     (out / "manifest.json").write_text(json.dumps(manifest, indent=1), encoding="utf-8")
+    print(f"\nPeticiones al LLM de esta ejecución: {budget.used}/{total_cap}")
     print("\n== Resumen ==", flush=True)
     subprocess.run([sys.executable, "-m", "futsal.agent.arms_summary", str(out), "--json", str(out / "summary.json"), "--md", str(out / "summary.md")], check=False)
     print(f"\nResumen: {out / 'summary.md'} · detalle: {out / 'summary.json'} · trazas saneadas: {out}\\<brazo>-r<n>\\*\\traces.sanitized.jsonl")

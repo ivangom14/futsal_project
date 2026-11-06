@@ -31,7 +31,7 @@ def test_every_arm_fixes_all_flags_and_never_inherits_the_users_environment(monk
     for name in arms.ARMS:
         env = arms.arm_env(name)
         assert set(env) == set(arms.FLAGS) and env["AGENT_TELEMETRY"] == "off"  # una evaluación nunca escribe telemetría de uso real
-    assert arms.arm_env("legacy") == {"AGENT_PROMPT_MODE": "legacy", "AGENT_PREFETCH": "off", "AGENT_TELEMETRY": "off", "AGENT_ROUTER": "shadow"}
+    assert arms.arm_env("legacy") == {"AGENT_PROMPT_MODE": "legacy", "AGENT_PREFETCH": "off", "AGENT_TELEMETRY": "off", "AGENT_ROUTER": "shadow", "AGENT_TOOLS": "full", "AGENT_TIER0": "off", "AGENT_GROUP_ID_REPAIR": "off"}
     assert arms.arm_env("compact_prefetch")["AGENT_PROMPT_MODE"] == "compact" and arms.arm_env("compact_prefetch")["AGENT_PREFETCH"] == "on"
 
 
@@ -47,7 +47,7 @@ def test_unknown_arm_or_flag_is_rejected() -> None:
 def test_defaults_keep_every_experimental_feature_off(monkeypatch: pytest.MonkeyPatch) -> None:
     for key in arms.FLAGS:
         monkeypatch.delenv(key, raising=False)
-    assert arms.DEFAULTS == {"AGENT_PROMPT_MODE": "legacy", "AGENT_PREFETCH": "off", "AGENT_TELEMETRY": "off", "AGENT_ROUTER": "shadow"}
+    assert arms.DEFAULTS == {"AGENT_PROMPT_MODE": "legacy", "AGENT_PREFETCH": "off", "AGENT_TELEMETRY": "off", "AGENT_ROUTER": "shadow", "AGENT_TOOLS": "full", "AGENT_TIER0": "off", "AGENT_GROUP_ID_REPAIR": "off"}
     assert arms.current_flags() == arms.DEFAULTS
     monkeypatch.setenv("AGENT_PREFETCH", "ON")
     monkeypatch.setenv("AGENT_PROMPT_MODE", "raro")
@@ -75,7 +75,7 @@ def test_schedule_rotates_the_order_of_arms() -> None:
 def test_plan_shows_global_maxima_and_separates_estimates_from_measurements(capsys: pytest.CaptureFixture[str]) -> None:
     assert ab_arms.main(["--arms", "legacy,prefetch"]) == 0
     out = capsys.readouterr().out
-    assert "Tandas: 6" in out and "ejecuciones de caso (máximo global): 72" in out and "TOPE DURO de peticiones al LLM (se aplica): 600" in out
+    assert "Tandas: 6" in out and "ejecuciones de caso (máximo global): 72" in out and "PRESUPUESTO GLOBAL MÁXIMO" in out and "SE APLICA" in out and "): 600" in out
     assert "ESTIMADAS" in out and "MEDIDO en tu ejecución anterior" in out and "cota teórica de diseño (no estimada): 504" in out
     assert "Coste: n/d" in out and "No se ha llamado a ningún LLM" in out and "USD" not in out  # sin tarifa verificada no hay coste
 
