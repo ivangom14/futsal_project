@@ -55,7 +55,7 @@ function BarsVisual({ v }: { v: Extract<Visual, { type: "bars" }> }) {
         {v.rows.map((r, i) => (
           <li key={i} className="text-sm">
             <div className="flex justify-between gap-2">
-              <span className="truncate"><span className="mr-1 text-slate-400">{r.rank ?? i + 1}.</span>{r.label}{r.sublabel && <span className="text-slate-500"> · {r.sublabel}</span>}</span>
+              <span className="min-w-0 break-words"><span className="mr-1 text-slate-400">{r.rank ?? i + 1}.</span>{r.label}{r.sublabel && <span className="text-slate-500"> · {r.sublabel}</span>}</span>
               <span className="font-semibold tabular-nums">{r.value}</span>
             </div>
             <div className="mt-0.5 h-2 rounded bg-bear-100" role="img" aria-label={`${r.label}: ${r.value}`}>
@@ -104,7 +104,7 @@ function FormVisual({ v }: { v: Extract<Visual, { type: "form" }> }) {
         {v.rows.map((r, i) => (
           <li key={i} className="flex items-center gap-2 px-3 py-1.5">
             <span className="w-8 text-xs text-slate-400">J{r.round ?? "?"}</span>
-            <span className="flex-1 truncate">{r.home ? "vs" : "@"} {r.rival}</span>
+            <span className="team-name flex-1" title={r.rival}>{r.home ? "vs" : "@"} {r.rival}</span>
             <span className="tabular-nums">{r.score}</span>
             <span className={`w-6 rounded text-center text-xs font-bold ${RESULT_STYLE[r.result]}`} aria-label={{ V: "Victoria", E: "Empate", D: "Derrota" }[r.result]}>{r.result}</span>
           </li>

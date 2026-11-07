@@ -25,6 +25,7 @@ from typing import Annotated
 
 from futsal.agent.agent import DEFAULT_MAX_ROWS, DEFAULT_MAX_TOOL_CALLS, OFF_TOPIC_MESSAGE, Agent, AgentResult
 from futsal.agent import presentation as pres
+from futsal.agent.reconcile import Reconciliation, reconcile_answer
 from futsal.agent.feedback import FeedbackRequest, RunSummaries, record
 from futsal.agent.llm import create_llm
 from futsal.agent.messages import TIMEOUT, FriendlyError, classify_error
@@ -100,6 +101,7 @@ class Diagnostics(BaseModel):
     tools_ms: float = 0.0  # tiempo en herramientas MCP / API de datos
     context_ms: float = 0.0  # preparación del contexto (catálogo) en la primera pregunta tras arrancar
     postprocess_ms: float = 0.0  # fuentes, frescura, visuales y sugeridas
+    reconciliation: dict[str, Any] | None = None  # qué texto repetía los visuales y se omitió (cuántos, por qué; fragmentos cortos, nunca la respuesta completa)
     input_tokens_peak: int = 0  # entrada máxima de una llamada (peso de prompt + contexto + historial)
     resolved_question: str | None = None  # cómo se interpretó el mensaje al unirlo a una aclaración pendiente
     history_turns: int  # turnos anteriores de la conversación enviados al agente como contexto
@@ -114,6 +116,9 @@ class Diagnostics(BaseModel):
 
 class ChatResponse(BaseModel):
     answer: str
+    # Texto ORIGINAL del agente, solo si la conciliación omitió algo de `answer` (lo omitido está en un gráfico, no en el texto). El navegador lo reenvía como historial
+    # cuando el servidor no conoce la conversación: así las preguntas de seguimiento («¿y el segundo?») conservan los datos. No se muestra ni se guarda en logs.
+    answer_original: str | None = None
     guardrail: str | None
     error: str | None  # no vacío = ejecución incompleta (p. ej. límite de herramientas); `answer` sigue siendo el texto seguro
     answer_kind: str = "none"  # official | documental | mixed | none: de dónde sale lo que se muestra
@@ -123,6 +128,11 @@ class ChatResponse(BaseModel):
     suggestions: list[str] = Field(default_factory=list)
     focus: dict[str, str] = Field(default_factory=dict)  # de qué trata la conversación (nombres)
     diagnostics: Diagnostics
+
+
+def reconcile_enabled() -> bool:
+    """`CHAT_RECONCILE=off` apaga la conciliación de texto y visuales (por defecto, activa). Cualquier otro valor la deja activa."""
+    return env_value("CHAT_RECONCILE", "on").strip().lower() != "off"
 
 
 def build_response(result: AgentResult, history_turns: int, question: str, prev_focus: dict[str, str], asked: list[str],
@@ -146,9 +156,21 @@ def build_response(result: AgentResult, history_turns: int, question: str, prev_
     sources = pres.build_sources(question, result.answer, rec, result.official, result.groups_used, freshness)
     kind, analysis = pres.answer_kind(question, result.answer, rec)
     visuals = pres.build_visuals(question, rec, result.official, result.names, focus, result.groups_used) if clean else []
+    # La respuesta VISIBLE se concilia con los visuales; `result.answer` (memoria, historial del LLM, tipo de respuesta, fuentes, sugeridas) NO se toca.
+    # Falla en abierto: si la conciliación está apagada (`CHAT_RECONCILE=off`) o lanza cualquier error, se muestra el texto original.
+    shown = Reconciliation(result.answer, result.answer)
+    if visuals and reconcile_enabled():
+        try:
+            shown = reconcile_answer(result.answer, visuals)
+        except Exception as exc:  # presentación: un fallo aquí jamás debe convertir una respuesta correcta en un error
+            log.exception("la conciliación con los visuales falló (run=%s); se muestra el texto original", rec.run_id)
+            diag.reconciliation = {"considered": 0, "removed": 0, "kept": 0, "pointer_added": False, "removed_items": [], "kept_uncertain": [], "error": type(exc).__name__}
+    if visuals and shown.considered:
+        diag.reconciliation = shown.audit()
+        log.info("conciliación run=%s: %d elementos de texto evaluados, %d omitidos por repetir un visual", rec.run_id, shown.considered, len(shown.removed))
     diag.postprocess_ms = round((time.monotonic() - t_post) * 1000, 1)
     return ChatResponse(
-        answer=result.answer, guardrail=result.guardrail, error=result.error, answer_kind=kind, is_analysis=analysis,
+        answer=shown.text, answer_original=result.answer if shown.changed else None, guardrail=result.guardrail, error=result.error, answer_kind=kind, is_analysis=analysis,
         sources=[Source(**src) for src in sources], visuals=visuals, focus=focus, diagnostics=diag,
         suggestions=pres.build_suggestions(question, result.answer, rec, focus, asked, sources, visuals))
 

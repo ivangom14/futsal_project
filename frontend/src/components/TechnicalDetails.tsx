@@ -30,6 +30,26 @@ export default function TechnicalDetails({ response }: { response: ChatResponse 
           </p>
         )}
         {d.resolved_question && <p>Interpretada como: <em>{d.resolved_question}</em></p>}
+        {d.reconciliation && (
+          <div data-testid="reconciliation">
+            <p>
+              Conciliación con los gráficos: {d.reconciliation.removed} de {d.reconciliation.considered} elementos de lista o tabla se omitieron por repetir un gráfico
+              {d.reconciliation.kept > 0 && <>; {d.reconciliation.kept} se conservaron</>}
+              {d.reconciliation.pointer_added && " (se añadió una frase que remite al gráfico)"}.
+            </p>
+            {d.reconciliation.error && <p className="text-amber-700">La conciliación falló ({d.reconciliation.error}): se muestra el texto original del agente.</p>}
+            {d.reconciliation.removed_items.length > 0 && (
+              <ul className="list-disc pl-4">
+                {d.reconciliation.removed_items.map((r, i) => <li key={`r${i}`}>Omitido: «{r.snippet}» · {r.reason}</li>)}
+              </ul>
+            )}
+            {d.reconciliation.kept_uncertain.length > 0 && (
+              <ul className="list-disc pl-4">
+                {d.reconciliation.kept_uncertain.map((r, i) => <li key={`k${i}`}>Conservado: «{r.snippet}» · {r.reason}{r.left.length > 0 && <> (no respaldado: {r.left.join(", ")})</>}</li>)}
+              </ul>
+            )}
+          </div>
+        )}
         {d.tools.length > 0 && (
           <ul className="space-y-0.5">
             {d.tools.map((t, i) => (

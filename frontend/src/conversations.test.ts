@@ -72,6 +72,18 @@ describe("historyFor", () => {
     expect(historyFor(msgs).map((h) => h.content)).toEqual(["q1", "r1", "q5", "r5"]);
   });
 
+  it("usa el texto ORIGINAL del agente como historial cuando la conciliación omitió algo de lo visible", () => {
+    const original = "Estos son los partidos:\n- A vs B (08/11/2026 a las 11:00)\n- C vs D";
+    const msgs = [user("próximos partidos"), answer("Estos son los partidos:", { answer_original: original }), user("otra"), answer("r2", { answer_original: null }), user("sin campo"), answer("r3")];
+    expect(historyFor(msgs).map((h) => h.content)).toEqual(["próximos partidos", original, "otra", "r2", "sin campo", "r3"]);
+  });
+
+  it("una respuesta antigua guardada en el navegador (sin `answer_original`) sigue funcionando", () => {
+    const old = answer("r1");
+    delete (old.response as unknown as Record<string, unknown>).answer_original;
+    expect(historyFor([user("q1"), old]).map((h) => h.content)).toEqual(["q1", "r1"]);
+  });
+
   it("limita el número de turnos enviados", () => {
     const msgs = Array.from({ length: 50 }, (_, i) => [user(`q${i}`), answer(`r${i}`)]).flat();
     const h = historyFor(msgs);

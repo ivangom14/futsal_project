@@ -65,7 +65,7 @@ export default function Cards({ v }: { v: CardsVisual }) {
       {sides ? (
         <>
           <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] gap-x-2 px-3 pt-2 text-xs font-semibold text-slate-600">
-            <span className="truncate text-right">{v.home}</span><span aria-hidden>🟨🟥</span><span className="truncate">{v.away}</span>
+            <span className="team-name justify-self-end text-right" title={v.home ?? undefined}>{v.home}</span><span aria-hidden>🟨🟥</span><span className="team-name" title={v.away ?? undefined}>{v.away}</span>
           </div>
           <ol className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-x-2 gap-y-1.5 px-3 py-2">
             {v.events.map((e, i) => (

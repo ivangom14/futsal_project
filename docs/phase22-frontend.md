@@ -40,12 +40,13 @@ frontend/                      React 18 + TypeScript + Vite 5 + Tailwind 3
 
 **`POST /chat`** `{"question": "…"}` (1–2000 caracteres tras `strip`) → 200
 ```json
-{"answer":"markdown","guardrail":null,"error":null,
+{"answer":"markdown","answer_original":null,"guardrail":null,"error":null,
  "sources":[{"kind":"rag|official_table","title":"…","detail":"…","pages":"31","text":"…","meta":{}}],
  "diagnostics":{"run_id":"…","provider":"…","model":"…","duration_ms":0,"llm_calls":2,"tool_calls":1,
    "input_tokens":0,"output_tokens":0,"token_source":"provider|estimated|…",
    "tools":[{"name":"…","arguments":{},"duration_ms":0,"is_error":false,"refused":false,"summary":"…"}],"errors":[]}}
 ```
+Campos añadidos después (todos opcionales para un consumidor antiguo): `answer_original` = texto original del agente, solo si la conciliación con los visuales omitió algo de `answer` (se reenvía como historial, no se muestra); `diagnostics.reconciliation` = `null` o `{considered, removed, kept, pointer_added, removed_items[], kept_uncertain[], error?}` (ver `docs/phase-visual-reconciliation.md`). `CHAT_RECONCILE=off` apaga la conciliación.
 - `error` no vacío con `answer` seguro = ejecución incompleta (p. ej. límite de herramientas): se muestra como aviso.
 - 400 entrada inválida · 502 fallo del agente/LLM sin respuesta (cuota, red…) · 503 agente no disponible (sin clave, MCP caído).
   El frontend muestra 502/503/red como **error con «Reintentar»**, nunca como respuesta del agente.

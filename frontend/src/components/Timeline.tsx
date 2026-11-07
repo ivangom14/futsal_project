@@ -9,7 +9,7 @@ export default function Timeline({ v }: { v: TimelineVisual }) {
         {v.subtitle && <p className="text-xs text-slate-500">{v.subtitle}</p>}
       </figcaption>
       <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] gap-x-2 px-3 pt-2 text-xs font-semibold text-slate-600">
-        <span className="truncate text-right">{v.home}</span><span aria-hidden>⚽</span><span className="truncate">{v.away}</span>
+        <span className="team-name justify-self-end text-right" title={v.home}>{v.home}</span><span aria-hidden>⚽</span><span className="team-name" title={v.away}>{v.away}</span>
       </div>
       <ol className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] gap-x-2 gap-y-1 px-3 py-2 text-sm">
         {v.events.map((e, i) => (

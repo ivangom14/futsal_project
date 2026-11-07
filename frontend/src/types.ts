@@ -72,6 +72,17 @@ export interface ToolInfo {
   summary: string;
 }
 
+export interface Reconciliation {
+  considered: number;
+  removed: number;
+  kept: number;
+  pointer_added: boolean;
+  /** Presente solo si la conciliación falló: se mostró el texto original. */
+  error?: string;
+  removed_items: { kind: string; reason: string; snippet: string }[];
+  kept_uncertain: { kind: string; reason: string; left: string[]; snippet: string }[];
+}
+
 export interface Diagnostics {
   run_id: string;
   provider: string | null;
@@ -87,6 +98,8 @@ export interface Diagnostics {
   tools_ms?: number;
   context_ms?: number;
   postprocess_ms?: number;
+  /** Conciliación del texto con los visuales: qué se omitió por repetirlos y por qué (fragmentos cortos, nunca la respuesta completa). `null` = no hubo visuales o texto que evaluar. */
+  reconciliation?: Reconciliation | null;
   input_tokens_peak?: number;
   llm_calls: number;
   tool_calls: number;
@@ -99,6 +112,8 @@ export interface Diagnostics {
 
 export interface ChatResponse {
   answer: string;
+  /** Texto original del agente, solo si la conciliación omitió algo de `answer` (está en un gráfico): se reenvía como historial, no se muestra. */
+  answer_original?: string | null;
   guardrail: string | null;
   error: string | null;
   /** De dónde sale lo que se muestra: datos oficiales, documentos o ambos. */

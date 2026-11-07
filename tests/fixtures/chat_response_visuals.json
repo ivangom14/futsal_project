@@ -1,5 +1,6 @@
 {
   "answer": "El DOSA lidera con 13 puntos.",
+  "answer_original": null,
   "guardrail": null,
   "error": null,
   "answer_kind": "official",
@@ -252,6 +253,7 @@
     "tools_ms": 0,
     "context_ms": 0,
     "postprocess_ms": 0,
+    "reconciliation": null,
     "input_tokens_peak": 0,
     "resolved_question": null,
     "history_turns": 0,
