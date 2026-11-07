@@ -69,6 +69,29 @@ describe("coherencia con el resto de visuales: sin nombres cortados", () => {
   });
 });
 
+describe("comprensión de contexto en «Detalles técnicos»", () => {
+  const base = contract as unknown as ChatResponse;
+  it("muestra modo, estado, intención, competición, suposición, intérprete y recuperación; en legacy (null) no muestra nada", () => {
+    const response: ChatResponse = {
+      ...base,
+      diagnostics: { ...base.diagnostics, context: { mode: "llm", state: "rebuilt", status: "assume", intent: "standings", competitions: ["PREFERENTE JUVENIL FS"],
+        provenance: { scope: "age" }, assumption: "Entiendo que te refieres a PREFERENTE JUVENIL FS.", interpreter_trigger: "ambiguous_scope",
+        interpreter: { competitions: ["PREFERENTE JUVENIL FS"], confidence: "high" }, recovery: "revision", options: ["A", "B"] } },
+    };
+    render(<TechnicalDetails response={response} />);
+    const box = screen.getByTestId("context-info");
+    expect(box).toHaveTextContent("Comprensión (llm): assume · intención standings → PREFERENTE JUVENIL FS · ámbito age · estado reconstruido del historial");
+    expect(box).toHaveTextContent("Suposición declarada: Entiendo que te refieres a PREFERENTE JUVENIL FS.");
+    expect(box).toHaveTextContent("Intérprete LLM consultado (ambiguous_scope) → PREFERENTE JUVENIL FS");
+    expect(box).toHaveTextContent("Opciones ofrecidas: A; B");
+    expect(box).toHaveTextContent("Recuperación: revision");
+  });
+  it("sin comprensión de contexto (legacy: null) no aparece el bloque", () => {
+    render(<TechnicalDetails response={base} />);
+    expect(screen.queryByTestId("context-info")).toBeNull();
+  });
+});
+
 describe("trazabilidad de la conciliación en «Detalles técnicos»", () => {
   const base = contract as unknown as ChatResponse;
   it("muestra cuántos elementos se omitieron, cuáles y por qué, y cuáles se conservaron por falta de certeza", () => {

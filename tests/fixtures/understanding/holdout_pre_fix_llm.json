@@ -1,0 +1,250 @@
+{
+ "cases": 73,
+ "modes": {
+  "llm": {
+   "turns": 100,
+   "cases": 73,
+   "multi_turn_cases": 24,
+   "pass_rate": 0.93,
+   "conversation_pass_rate": 0.9041,
+   "multi_turn_pass_rate": 0.9167,
+   "critical_wrong_competition": 1,
+   "competition_precision_act": 0.8986,
+   "ask_correct": 1.0,
+   "negative_correct": 1.0,
+   "refusals_wrong": 0,
+   "unneeded_clarifications": 4,
+   "missed_clarifications": 0,
+   "false_positives": 0,
+   "blocked_by_context": 0,
+   "assumption_declared_rate": 0.6667,
+   "llm_calls_per_turn": 1.83,
+   "interpreter_calls_total": 10,
+   "est_input_tokens_per_turn": 3240,
+   "by_category": {
+    "ambiguas": {
+     "n": 6,
+     "ok": 6,
+     "critical": 0
+    },
+    "conversaciones": {
+     "n": 51,
+     "ok": 49,
+     "critical": 1
+    },
+    "directas": {
+     "n": 18,
+     "ok": 16,
+     "critical": 0
+    },
+    "equipos_y_ambito": {
+     "n": 8,
+     "ok": 6,
+     "critical": 0
+    },
+    "erratas": {
+     "n": 4,
+     "ok": 3,
+     "critical": 0
+    },
+    "fuera_de_tema": {
+     "n": 4,
+     "ok": 4,
+     "critical": 0
+    },
+    "inexistentes": {
+     "n": 6,
+     "ok": 6,
+     "critical": 0
+    },
+    "temporadas": {
+     "n": 3,
+     "ok": 3,
+     "critical": 0
+    }
+   },
+   "failures": [
+    {
+     "case": "ho-dire-001",
+     "turn": 1,
+     "q": "¿Qué tal va la preferente de juveniles?",
+     "action": "act",
+     "outcome": "data",
+     "tools": [
+      "get_standings(1101)"
+     ],
+     "answer": "PREFERENTE JUVENIL FS · Grupo 1: líder C.D. DOSA con 15 puntos.",
+     "critical": false
+    },
+    {
+     "case": "ho-dire-011",
+     "turn": 1,
+     "q": "Equipos de la copa juvenil fase previa",
+     "action": "act",
+     "outcome": "data",
+     "tools": [
+      "get_standings(1301)"
+     ],
+     "answer": "COPA JUVENIL - fase previa- FS · Eliminatorias: líder EQUIPO 1301A con 15 puntos.",
+     "critical": false
+    },
+    {
+     "case": "ho-equi-023",
+     "turn": 1,
+     "q": "¿Cómo va el Pinto en primera?",
+     "action": "act",
+     "outcome": "clarification",
+     "tools": [],
+     "answer": "¿A qué competición, grupo o equipo te refieres? Opciones: «ATLÉTICO PINTO»; «PINTO C.F.S.». ¿Cuál prefieres?",
+     "critical": false
+    },
+    {
+     "case": "ho-equi-025",
+     "turn": 1,
+     "q": "¿Cómo va el Leganés en la tercera?",
+     "action": "act",
+     "outcome": "clarification",
+     "tools": [],
+     "answer": "¿A qué competición, grupo o equipo te refieres? Opciones: «C.D. LEGANÉS»; «ESCUELA LEGANÉS». ¿Cuál prefieres?",
+     "critical": false
+    },
+    {
+     "case": "ho-erra-047",
+     "turn": 1,
+     "q": "Goleadores de terecra",
+     "action": "act",
+     "outcome": "clarification",
+     "tools": [],
+     "answer": "¿A qué competición, grupo o equipo te refieres? Opciones: . ¿Cuál prefieres?",
+     "critical": false
+    },
+    {
+     "case": "ho-conv-064",
+     "turn": 2,
+     "q": "el segundo",
+     "action": "assume",
+     "outcome": "data",
+     "tools": [
+      "get_standings(1101)"
+     ],
+     "answer": "PREFERENTE JUVENIL FS · Grupo 1: líder C.D. DOSA con 15 puntos.",
+     "critical": true
+    },
+    {
+     "case": "ho-conv-065",
+     "turn": 2,
+     "q": "el tercero",
+     "action": "assume",
+     "outcome": "clarification",
+     "tools": [],
+     "answer": "¿A qué competición, grupo o equipo te refieres? Opciones: «Grupo 1»; «Grupo 2»; «Grupo 3»; «Grupo 4». ¿Cuál prefieres?",
+     "critical": false
+    }
+   ]
+  }
+ },
+ "digests": {
+  "llm": {
+   "ho-dire-001#1": "34e950df92487ef0",
+   "ho-dire-002#1": "5adcdd64e8b61ac1",
+   "ho-dire-003#1": "ed0311b31f568f2a",
+   "ho-dire-004#1": "8ddc87d1f58d50a0",
+   "ho-dire-005#1": "106f9e3f4a7641ff",
+   "ho-dire-006#1": "9d20dd21c65195f3",
+   "ho-dire-007#1": "17966cb7c75c1e50",
+   "ho-dire-008#1": "562e033934fd41c3",
+   "ho-dire-009#1": "35d453050b7fcf38",
+   "ho-dire-010#1": "359f987fc4ecd12a",
+   "ho-dire-011#1": "10484f9921de95cf",
+   "ho-dire-012#1": "794e57a505669057",
+   "ho-dire-013#1": "e7f377f298fdc2c3",
+   "ho-dire-014#1": "ab9dd8cb5d8255c8",
+   "ho-dire-015#1": "2cb7ce08610a2573",
+   "ho-dire-016#1": "ecc61e9c037ccc2c",
+   "ho-dire-017#1": "2bc1b18b06ad9f7e",
+   "ho-dire-018#1": "c95b1cf878434e6f",
+   "ho-equi-019#1": "2597dc81f9f8b435",
+   "ho-equi-020#1": "f05d6719403aaed7",
+   "ho-equi-021#1": "14a272c78e7c08d3",
+   "ho-equi-022#1": "839483aa95f01086",
+   "ho-equi-023#1": "fd0fe119fb51ca6a",
+   "ho-equi-024#1": "42f50cb3b1a879b1",
+   "ho-equi-025#1": "cf4a469f7d88279d",
+   "ho-equi-026#1": "8e81ac6a4af5d567",
+   "ho-inex-027#1": "09da74ff2d797d24",
+   "ho-inex-028#1": "19e026f341bf99ce",
+   "ho-inex-029#1": "94041b31f5502497",
+   "ho-inex-030#1": "be74d566b8d9b5c8",
+   "ho-inex-031#1": "2d84991a3bf1b17b",
+   "ho-inex-032#1": "768a0a6d5c53eaea",
+   "ho-temp-033#1": "4690c2c975dbc664",
+   "ho-temp-034#1": "9eb2e71a530840ea",
+   "ho-temp-035#1": "fac7569672ab6fab",
+   "ho-fuer-036#1": "c2b744f63152680a",
+   "ho-fuer-037#1": "32a8164c2bebb60a",
+   "ho-fuer-038#1": "9196e78043dd89f0",
+   "ho-fuer-039#1": "ef3cbd6ed15d029f",
+   "ho-ambi-040#1": "ecab173e46bf1ed3",
+   "ho-ambi-041#1": "142e64791a740241",
+   "ho-ambi-042#1": "6e08a3359642286e",
+   "ho-ambi-043#1": "a0beb4ca25fdaf04",
+   "ho-ambi-044#1": "a77845064e7afde2",
+   "ho-ambi-045#1": "6f2e997597d217a5",
+   "ho-erra-046#1": "b22d5485da2f106d",
+   "ho-erra-047#1": "b60c24c81abbc10c",
+   "ho-erra-048#1": "4fbb7bd554a9c159",
+   "ho-erra-049#1": "457eb08cf5aa4bd4",
+   "ho-conv-050#1": "57753cba8838089c",
+   "ho-conv-050#2": "cbb41e21b708fd57",
+   "ho-conv-051#1": "76c9986d5b2e84fe",
+   "ho-conv-051#2": "7fb07d49340f0c88",
+   "ho-conv-052#1": "1c6c2ba70d3c6f39",
+   "ho-conv-052#2": "3d86b3ed7453d3d7",
+   "ho-conv-053#1": "77922e4ce3718f88",
+   "ho-conv-053#2": "d8db2f8e58aadb75",
+   "ho-conv-054#1": "b727afc4f4861fc3",
+   "ho-conv-054#2": "6ac62986255d9075",
+   "ho-conv-055#1": "b727afc4f4861fc3",
+   "ho-conv-055#2": "eeff9b30cd37aa13",
+   "ho-conv-056#1": "93a290d948030e2d",
+   "ho-conv-056#2": "3361e921d7747781",
+   "ho-conv-057#1": "93a290d948030e2d",
+   "ho-conv-057#2": "e7090b12ebafea8e",
+   "ho-conv-058#1": "88726bc9f6457430",
+   "ho-conv-058#2": "2a3b680bc33e54ad",
+   "ho-conv-059#1": "88726bc9f6457430",
+   "ho-conv-059#2": "c8834e3e238e3d70",
+   "ho-conv-060#1": "0ee62be069bed5e1",
+   "ho-conv-060#2": "df82304e8f19690f",
+   "ho-conv-061#1": "9f807c8e01bd71b1",
+   "ho-conv-061#2": "e7c6c8efc950f0e9",
+   "ho-conv-062#1": "29801bd21cfe0f45",
+   "ho-conv-062#2": "b284461c062d935e",
+   "ho-conv-063#1": "b7f75ec310f395de",
+   "ho-conv-063#2": "5c29db7ba0084cb7",
+   "ho-conv-064#1": "75ea2540128caae4",
+   "ho-conv-064#2": "0fd76559fbf55b09",
+   "ho-conv-065#1": "044eebf953b3a8cd",
+   "ho-conv-065#2": "c5242411e1e67e1a",
+   "ho-conv-066#1": "d442b43c06935dba",
+   "ho-conv-066#2": "0005dbdab7ed4c8f",
+   "ho-conv-067#1": "7a76e9209f8ca43c",
+   "ho-conv-067#2": "e281621a0d190fa7",
+   "ho-conv-067#3": "c7290edaa607ee74",
+   "ho-conv-068#1": "e2af45777bee5f2f",
+   "ho-conv-068#2": "c47d932ea1341531",
+   "ho-conv-068#3": "c70c535757284cf6",
+   "ho-conv-069#1": "2df44c5ad3e9a698",
+   "ho-conv-069#2": "5e576ea054303571",
+   "ho-conv-069#3": "33e9d650a11e78bd",
+   "ho-conv-070#1": "578b886331c83998",
+   "ho-conv-070#2": "20fb5c60f1bcab7b",
+   "ho-conv-071#1": "b727afc4f4861fc3",
+   "ho-conv-071#2": "9d667a276a4d55e8",
+   "ho-conv-072#1": "d442b43c06935dba",
+   "ho-conv-072#2": "78d94a78de649ca2",
+   "ho-conv-073#1": "f143a897fc263d3f",
+   "ho-conv-073#2": "982d52ef803651a7"
+  }
+ }
+}

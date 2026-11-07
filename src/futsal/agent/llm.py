@@ -263,6 +263,8 @@ class AnthropicLLM:
                  tools: list[dict[str, Any]]) -> LLMResponse:
         body = {"model": self._model, "max_tokens": self._max_tokens, "system": system,
                 "tools": tools, "messages": [_to_wire(m) for m in messages]}
+        if not tools:  # el intérprete del modo `llm` no usa herramientas (con herramientas el cuerpo es idéntico al de siempre)
+            del body["tools"]
         resp, attempts = post_with_retries(self._http, "/v1/messages", body, {
             "x-api-key": self._key, "anthropic-version": "2023-06-01"}, self._retry)
         if resp.status_code != 200:

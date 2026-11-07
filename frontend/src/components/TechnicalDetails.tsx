@@ -29,6 +29,24 @@ export default function TechnicalDetails({ response }: { response: ChatResponse 
             {d.resolved_scope.total > d.resolved_scope.competitions.length && ` y ${d.resolved_scope.total - d.resolved_scope.competitions.length} más`}
           </p>
         )}
+        {d.context && (
+          <div data-testid="context-info">
+            <p>
+              Comprensión ({d.context.mode}): <strong>{d.context.status ?? "—"}</strong>
+              {d.context.intent && <> · intención <code>{d.context.intent}</code></>}
+              {d.context.competitions && d.context.competitions.length > 0 && <> → {d.context.competitions.join("; ")}</>}
+              {d.context.team && <> · equipo {d.context.team}</>}
+              {d.context.provenance?.scope && <> · ámbito {d.context.provenance.scope}</>}
+              {d.context.state && <> · estado {d.context.state === "rebuilt" ? "reconstruido del historial" : "guardado"}</>}
+            </p>
+            {d.context.reason && <p>Motivo: {d.context.reason}</p>}
+            {d.context.options && d.context.options.length > 0 && <p>Opciones ofrecidas: {d.context.options.join("; ")}</p>}
+            {d.context.assumption && <p>Suposición declarada: {d.context.assumption}</p>}
+            {d.context.interpreter_trigger && <p>Intérprete LLM consultado ({d.context.interpreter_trigger}){d.context.interpreter?.competitions?.length ? <> → {d.context.interpreter.competitions.join("; ")}</> : null}{d.context.interpreter_error && <> · falló: {d.context.interpreter_error}</>}</p>}
+            {d.context.recovery !== undefined && <p>Recuperación: <code>{String(d.context.recovery)}</code></p>}
+            {d.context.error && <p className="text-amber-700">La comprensión de contexto falló ({d.context.error}): se usó el flujo legacy.</p>}
+          </div>
+        )}
         {d.resolved_question && <p>Interpretada como: <em>{d.resolved_question}</em></p>}
         {d.reconciliation && (
           <div data-testid="reconciliation">

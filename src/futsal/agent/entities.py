@@ -123,23 +123,9 @@ def _matches(tokens: list[str], catalog: TeamCatalog) -> list[tuple[int, int, tu
     return [m for m in found if not any(o is not m and o[0] <= m[0] and m[1] <= o[1] and (o[1] - o[0]) > (m[1] - m[0]) for o in found)]
 
 
-def standings_only(question: str) -> bool:
-    """Pregunta de clasificación pura (posición, puntos, tabla) sin ninguna señal de partidos, fechas, goleadores o preguntas compuestas.
-    Capa APARTE de `decide` (que no cambia: sus métricas selladas en el Holdout A siguen valiendo): se aplica antes. El prefetch no aporta nada ahí (la herramienta de clasificación se pide por grupo) y solo añade tokens; omitirlo devuelve el comportamiento de siempre."""
-    words = set(normalize(question).split())
-    return bool(words & STANDINGS_WORDS) and not words & NOT_STANDINGS_WORDS
-
-
-def decide(question: str, catalog: TeamCatalog, hints: Hints | None = None, aliases: dict[str, Any] | None = None,
-           has_context: bool = False) -> Decision:
-    """¿Hay UN equipo inequívoco en la pregunta? Si hay la menor duda, `fired=False` con el motivo."""
-    if has_context:
-        return Decision(False, "context")
-    if mentions_rules(question):
-        return Decision(False, "rules")
-    if _YEAR.search(normalize(question)) or _YEAR.search(question.lower()):
-        return Decision(False, "historical")
-    tokens = normalize(question).split()
+def scan(tokens: list[str], catalog: TeamCatalog) -> tuple[dict[str, tuple[str, ...]], bool, bool]:
+    """Equipos que los `tokens` nombran sin duda: (nombre oficial -> forma escrita, ¿hubo una forma que identifica a varios equipos?, ¿solo palabras genéricas?).
+    Es el bucle de `decide`, sin cambios, extraído para que el resolutor de contexto reutilice EXACTAMENTE la misma regla de detección."""
     chosen: dict[str, tuple[str, ...]] = {}
     ambiguous_form = False
     generic_only = False
@@ -157,6 +143,27 @@ def decide(question: str, catalog: TeamCatalog, hints: Hints | None = None, alia
                 generic_only = True
                 continue
         chosen[name] = form
+    return chosen, ambiguous_form, generic_only
+
+
+def standings_only(question: str) -> bool:
+    """Pregunta de clasificación pura (posición, puntos, tabla) sin ninguna señal de partidos, fechas, goleadores o preguntas compuestas.
+    Capa APARTE de `decide` (que no cambia: sus métricas selladas en el Holdout A siguen valiendo): se aplica antes. El prefetch no aporta nada ahí (la herramienta de clasificación se pide por grupo) y solo añade tokens; omitirlo devuelve el comportamiento de siempre."""
+    words = set(normalize(question).split())
+    return bool(words & STANDINGS_WORDS) and not words & NOT_STANDINGS_WORDS
+
+
+def decide(question: str, catalog: TeamCatalog, hints: Hints | None = None, aliases: dict[str, Any] | None = None,
+           has_context: bool = False) -> Decision:
+    """¿Hay UN equipo inequívoco en la pregunta? Si hay la menor duda, `fired=False` con el motivo."""
+    if has_context:
+        return Decision(False, "context")
+    if mentions_rules(question):
+        return Decision(False, "rules")
+    if _YEAR.search(normalize(question)) or _YEAR.search(question.lower()):
+        return Decision(False, "historical")
+    tokens = normalize(question).split()
+    chosen, ambiguous_form, generic_only = scan(tokens, catalog)
     if not chosen:
         return Decision(False, "ambiguous_form" if ambiguous_form else "too_generic" if generic_only else "no_match")
     if len(chosen) > 1 or ambiguous_form:

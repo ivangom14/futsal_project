@@ -107,6 +107,7 @@ class RunRecord:
     tier0: dict[str, Any] | None = None  # Fase G: intento de respuesta sin LLM (None = AGENT_TIER0=off)
     tool_select: dict[str, Any] | None = None  # Fase E: selección dinámica de herramientas (None = AGENT_TOOLS=full)
     prefetch: dict[str, Any] | None = None  # Fase 3A: resultado del prefetch de entidades (None = desactivado o sin intentar)
+    context: dict[str, Any] | None = None  # comprensión de contexto (AGENT_CONTEXT=deterministic|llm): interpretación, intérprete, recuperación (None = legacy)
 
     def totals(self) -> dict[str, Any]:
         """Totales de la ejecución sumando cada llamada UNA vez (el historial reenviado ya va en su input)."""

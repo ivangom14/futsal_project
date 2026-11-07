@@ -99,6 +99,7 @@ export interface Diagnostics {
   context_ms?: number;
   postprocess_ms?: number;
   /** Conciliación del texto con los visuales: qué se omitió por repetirlos y por qué (fragmentos cortos, nunca la respuesta completa). `null` = no hubo visuales o texto que evaluar. */
+  context?: ContextInfo | null;
   reconciliation?: Reconciliation | null;
   input_tokens_peak?: number;
   llm_calls: number;
@@ -166,4 +167,25 @@ export interface Conversation {
   createdAt: number;
   updatedAt: number;
   messages: Message[];
+}
+
+/** Comprensión de contexto (solo con AGENT_CONTEXT=deterministic|llm). */
+export interface ContextInfo {
+  mode?: string;
+  state?: string;
+  status?: string;
+  reason?: string;
+  intent?: string;
+  intent_confidence?: string;
+  competitions?: string[];
+  team?: string;
+  options?: string[];
+  assumption?: string;
+  provenance?: Record<string, string>;
+  recovery?: string | number;
+  interpreter_trigger?: string;
+  interpreter_error?: string;
+  interpreter?: { intent?: string | null; competitions?: string[]; team?: string | null; confidence?: string; discarded?: string[] };
+  error?: string;
+  assumption_prepended?: boolean;
 }

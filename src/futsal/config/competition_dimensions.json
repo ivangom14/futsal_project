@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "_doc": "Vocabulario del resolutor por dimensiones (domain/resolver.py). Las dimensiones de cada competición (tipo, nivel, categoría, fase, grupos) salen de su NOMBRE OFICIAL en el catálogo; aquí solo va lo que el catálogo no puede decir: palabras vacías, competiciones/categorías que NO existen en la base (para decirlo con honestidad), palabras de referencia y señales de temporada.",
+  "stop_tokens": ["fs", "fase", "division", "divisionn", "de", "la", "el", "los", "las", "del", "y"],
+  "absent_phrases": ["segunda division", "segunda b", "segunda", "primera nacional", "liga nacional", "nacional", "division de honor", "tercera b", "cadete", "cadetes", "infantil", "infantiles", "alevin", "alevines", "benjamin", "benjamines", "prebenjamin", "femenino", "femenina", "femeninas", "mixto", "veteranos", "veterano", "sub 23", "sub 19"],
+  "other_words": ["otra", "otro", "otras", "otros"],
+  "pronoun_words": ["ese", "esa", "dicho", "dicha", "mismo", "misma"],
+  "possessive_words": ["su", "sus"],
+  "ordinals": {"primero": 0, "primer": 0, "primera": 0, "segundo": 1, "segunda": 1, "tercero": 2, "tercera": 2, "cuarto": 3, "cuarta": 3, "ultimo": -1, "ultima": -1},
+  "protected_words": ["primero", "segundo", "tercero", "cuarto", "quinto", "ultimo", "penultimo", "primeros", "ultimos"],
+  "season_patterns": ["(?<!\\d)(?:19|20)\\d{2}(?!\\d)", "\\b(?:temporada|ano|anos)\\s+(?:pasad[ao]s?|anterior(?:es)?)\\b", "\\b(?:el\\s+)?ano\\s+pasado\\b", "\\bhace\\s+\\w+\\s+anos?\\b", "\\banos?\\s+anteriores?\\b"]
+}

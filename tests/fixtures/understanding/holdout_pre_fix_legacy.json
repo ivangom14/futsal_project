@@ -1,0 +1,978 @@
+{
+ "cases": 73,
+ "modes": {
+  "legacy": {
+   "turns": 100,
+   "cases": 73,
+   "multi_turn_cases": 24,
+   "pass_rate": 0.2,
+   "conversation_pass_rate": 0.2055,
+   "multi_turn_pass_rate": 0.0833,
+   "critical_wrong_competition": 0,
+   "competition_precision_act": 0.1449,
+   "ask_correct": 0.4,
+   "negative_correct": 0.25,
+   "refusals_wrong": 36,
+   "unneeded_clarifications": 35,
+   "missed_clarifications": 0,
+   "false_positives": 1,
+   "blocked_by_context": 0,
+   "assumption_declared_rate": 0.0,
+   "llm_calls_per_turn": 1.42,
+   "interpreter_calls_total": 0,
+   "est_input_tokens_per_turn": 2386,
+   "by_category": {
+    "ambiguas": {
+     "n": 6,
+     "ok": 5,
+     "critical": 0
+    },
+    "conversaciones": {
+     "n": 51,
+     "ok": 7,
+     "critical": 0
+    },
+    "directas": {
+     "n": 18,
+     "ok": 4,
+     "critical": 0
+    },
+    "equipos_y_ambito": {
+     "n": 8,
+     "ok": 0,
+     "critical": 0
+    },
+    "erratas": {
+     "n": 4,
+     "ok": 0,
+     "critical": 0
+    },
+    "fuera_de_tema": {
+     "n": 4,
+     "ok": 4,
+     "critical": 0
+    },
+    "inexistentes": {
+     "n": 6,
+     "ok": 0,
+     "critical": 0
+    },
+    "temporadas": {
+     "n": 3,
+     "ok": 0,
+     "critical": 0
+    }
+   },
+   "failures": [
+    {
+     "case": "ho-dire-001",
+     "turn": 1,
+     "q": "¿Qué tal va la preferente de juveniles?",
+     "action": "act",
+     "outcome": "refusal",
+     "tools": [],
+     "answer": "Solo puedo responder preguntas sobre la competición de fútbol sala de la RFFM (competiciones, grupos, jornadas, equipos, partidos, resultados, clasificaciones y",
+     "critical": false
+    },
+    {
+     "case": "ho-dire-002",
+     "turn": 1,
+     "q": "¿Cómo está el panorama en tercera?",
+     "action": "act",
+     "outcome": "refusal",
+     "tools": [],
+     "answer": "Solo puedo responder preguntas sobre la competición de fútbol sala de la RFFM (competiciones, grupos, jornadas, equipos, partidos, resultados, clasificaciones y",
+     "critical": false
+    },
+    {
+     "case": "ho-dire-003",
+     "turn": 1,
+     "q": "Dime los goleadores de la liga preferente juvenil",
+     "action": "act",
+     "outcome": "clarification",
+     "tools": [],
+     "answer": "¿De qué grupo quieres consultarlo? Opciones: «Grupo 1»; «Grupo 2». ¿Cuál prefieres?",
+     "critical": false
+    },
+    {
+     "case": "ho-dire-005",
+     "turn": 1,
+     "q": "¿Quién es líder en la autonómica senior?",
+     "action": "act",
+     "outcome": "refusal",
+     "tools": [],
+     "answer": "Solo puedo responder preguntas sobre la competición de fútbol sala de la RFFM (competiciones, grupos, jornadas, equipos, partidos, resultados, clasificaciones y",
+     "critical": false
+    },
+    {
+     "case": "ho-dire-007",
+     "turn": 1,
+     "q": "¿Cuántos equipos hay en la tercera división?",
+     "action": "act",
+     "outcome": "clarification",
+     "tools": [],
+     "answer": "¿De qué grupo quieres consultarlo? Opciones: «Grupo 3»; «Grupo 4». ¿Cuál prefieres?",
+     "critical": false
+    },
+    {
+     "case": "ho-dire-008",
+     "turn": 1,
+     "q": "Clasificación copa senior II",
+     "action": "act",
+     "outcome": "clarification",
+     "tools": [],
+     "answer": "¿De cuál de estas competiciones te refieres? Opciones: «COPA SENIOR I - fase final- FS»; «COPA SENIOR I - fase previa- FS»; «COPA SENIOR II - fase final- FS»; «",
+     "critical": false
+    },
+    {
+     "case": "ho-dire-009",
+     "turn": 1,
+     "q": "¿Quién va el último en la primera aficionado grupo 1?",
+     "action": "act",
+     "outcome": "clarification",
+     "tools": [],
+     "answer": "¿De cuál de estas competiciones te refieres? Opciones: «PRIMERA DIVISION AUTONOMICA AFICIONADO FS»; «PREFERENTE AFICIONADO FS»; «PRIMERA AFICIONADO FS». ¿Cuál p",
+     "critical": false
+    },
+    {
+     "case": "ho-dire-010",
+     "turn": 1,
+     "q": "Goleador de la copa juvenil fase final",
+     "action": "act",
+     "outcome": "clarification",
+     "tools": [],
+     "answer": "¿De cuál de estas competiciones te refieres? Opciones: «COPA JUVENIL - fase final- FS»; «COPA JUVENIL - fase previa- FS». ¿Cuál prefieres?",
+     "critical": false
+    },
+    {
+     "case": "ho-dire-011",
+     "turn": 1,
+     "q": "Equipos de la copa juvenil fase previa",
+     "action": "act",
+     "outcome": "clarification",
+     "tools": [],
+     "answer": "¿De cuál de estas competiciones te refieres? Opciones: «COPA JUVENIL - fase final- FS»; «COPA JUVENIL - fase previa- FS». ¿Cuál prefieres?",
+     "critical": false
+    },
+    {
+     "case": "ho-dire-012",
+     "turn": 1,
+     "q": "¿Cómo le va al Valdemoro en la liga?",
+     "action": "act",
+     "outcome": "refusal",
+     "tools": [],
+     "answer": "Solo puedo responder preguntas sobre la competición de fútbol sala de la RFFM (competiciones, grupos, jornadas, equipos, partidos, resultados, clasificaciones y",
+     "critical": false
+    },
+    {
+     "case": "ho-dire-014",
+     "turn": 1,
+     "q": "¿Cuándo se enfrenta el Móstoles City?",
+     "action": "act",
+     "outcome": "refusal",
+     "tools": [],
+     "answer": "Solo puedo responder preguntas sobre la competición de fútbol sala de la RFFM (competiciones, grupos, jornadas, equipos, partidos, resultados, clasificaciones y",
+     "critical": false
+    },
+    {
+     "case": "ho-dire-015",
+     "turn": 1,
+     "q": "¿Cómo va Atlético Pinto?",
+     "action": "act",
+     "outcome": "refusal",
+     "tools": [],
+     "answer": "Solo puedo responder preguntas sobre la competición de fútbol sala de la RFFM (competiciones, grupos, jornadas, equipos, partidos, resultados, clasificaciones y",
+     "critical": false
+    },
+    {
+     "case": "ho-dire-016",
+     "turn": 1,
+     "q": "Puntos del Escuela Leganés",
+     "action": "act",
+     "outcome": "clarification",
+     "tools": [
+      "find_teams(leganes)"
+     ],
+     "answer": "El equipo figura en: TERCERA DIVISIÓN FS (Grupo 3); PRIMERA JUVENIL FS (Grupo 1). ¿Cuál quieres consultar?",
+     "critical": false
+    },
+    {
+     "case": "ho-dire-018",
+     "turn": 1,
+     "q": "Goleadores de la copa senior I fase final",
+     "action": "act",
+     "outcome": "clarification",
+     "tools": [],
+     "answer": "¿De cuál de estas competiciones te refieres? Opciones: «COPA SENIOR I - fase final- FS»; «COPA SENIOR I - fase previa- FS»; «COPA SENIOR II - fase final- FS»; «",
+     "critical": false
+    },
+    {
+     "case": "ho-equi-019",
+     "turn": 1,
+     "q": "¿Cómo va el Dosa juvenil en la liga?",
+     "action": "ask",
+     "outcome": "refusal",
+     "tools": [],
+     "answer": "Solo puedo responder preguntas sobre la competición de fútbol sala de la RFFM (competiciones, grupos, jornadas, equipos, partidos, resultados, clasificaciones y",
+     "critical": false
+    },
+    {
+     "case": "ho-equi-020",
+     "turn": 1,
+     "q": "¿Cómo va el Dosa en la copa senior?",
+     "action": "act",
+     "outcome": "refusal",
+     "tools": [],
+     "answer": "Solo puedo responder preguntas sobre la competición de fútbol sala de la RFFM (competiciones, grupos, jornadas, equipos, partidos, resultados, clasificaciones y",
+     "critical": false
+    },
+    {
+     "case": "ho-equi-021",
+     "turn": 1,
+     "q": "¿Cómo va el Dosa en preferente?",
+     "action": "act",
+     "outcome": "refusal",
+     "tools": [],
+     "answer": "Solo puedo responder preguntas sobre la competición de fútbol sala de la RFFM (competiciones, grupos, jornadas, equipos, partidos, resultados, clasificaciones y",
+     "critical": false
+    },
+    {
+     "case": "ho-equi-022",
+     "turn": 1,
+     "q": "¿Cómo va el Dosa en primera?",
+     "action": "act",
+     "outcome": "refusal",
+     "tools": [],
+     "answer": "Solo puedo responder preguntas sobre la competición de fútbol sala de la RFFM (competiciones, grupos, jornadas, equipos, partidos, resultados, clasificaciones y",
+     "critical": false
+    },
+    {
+     "case": "ho-equi-023",
+     "turn": 1,
+     "q": "¿Cómo va el Pinto en primera?",
+     "action": "act",
+     "outcome": "refusal",
+     "tools": [],
+     "answer": "Solo puedo responder preguntas sobre la competición de fútbol sala de la RFFM (competiciones, grupos, jornadas, equipos, partidos, resultados, clasificaciones y",
+     "critical": false
+    },
+    {
+     "case": "ho-equi-024",
+     "turn": 1,
+     "q": "¿Cómo anda el Alcobendas Sala?",
+     "action": "act",
+     "outcome": "refusal",
+     "tools": [],
+     "answer": "Solo puedo responder preguntas sobre la competición de fútbol sala de la RFFM (competiciones, grupos, jornadas, equipos, partidos, resultados, clasificaciones y",
+     "critical": false
+    },
+    {
+     "case": "ho-equi-025",
+     "turn": 1,
+     "q": "¿Cómo va el Leganés en la tercera?",
+     "action": "act",
+     "outcome": "refusal",
+     "tools": [],
+     "answer": "Solo puedo responder preguntas sobre la competición de fútbol sala de la RFFM (competiciones, grupos, jornadas, equipos, partidos, resultados, clasificaciones y",
+     "critical": false
+    },
+    {
+     "case": "ho-equi-026",
+     "turn": 1,
+     "q": "¿Cómo va el Valdemoro en la preferente juvenil?",
+     "action": "missing",
+     "outcome": "refusal",
+     "tools": [],
+     "answer": "Solo puedo responder preguntas sobre la competición de fútbol sala de la RFFM (competiciones, grupos, jornadas, equipos, partidos, resultados, clasificaciones y",
+     "critical": false
+    },
+    {
+     "case": "ho-inex-027",
+     "turn": 1,
+     "q": "¿Cómo va la liga de veteranos?",
+     "action": "missing",
+     "outcome": "refusal",
+     "tools": [],
+     "answer": "Solo puedo responder preguntas sobre la competición de fútbol sala de la RFFM (competiciones, grupos, jornadas, equipos, partidos, resultados, clasificaciones y",
+     "critical": false
+    },
+    {
+     "case": "ho-inex-028",
+     "turn": 1,
+     "q": "Clasificación de la sub 23",
+     "action": "missing",
+     "outcome": "clarification",
+     "tools": [],
+     "answer": "¿De qué competición y grupo quieres consultarlo?",
+     "critical": false
+    },
+    {
+     "case": "ho-inex-029",
+     "turn": 1,
+     "q": "Partidos de la segunda b",
+     "action": "missing",
+     "outcome": "clarification",
+     "tools": [],
+     "answer": "¿De qué competición y grupo quieres consultarlo?",
+     "critical": false
+    },
+    {
+     "case": "ho-inex-030",
+     "turn": 1,
+     "q": "Goleadores de la liga benjamín",
+     "action": "missing",
+     "outcome": "clarification",
+     "tools": [],
+     "answer": "¿De cuál de estas competiciones te refieres? Opciones: «TERCERA DIVISIÓN FS»; «PRIMERA DIVISION AUTONOMICA AFICIONADO FS»; «PREFERENTE AFICIONADO FS»; «PRIMERA ",
+     "critical": false
+    },
+    {
+     "case": "ho-inex-031",
+     "turn": 1,
+     "q": "Clasificación de la liga nacional",
+     "action": "missing",
+     "outcome": "clarification",
+     "tools": [],
+     "answer": "¿De cuál de estas competiciones te refieres? Opciones: «TERCERA DIVISIÓN FS»; «PRIMERA DIVISION AUTONOMICA AFICIONADO FS»; «PREFERENTE AFICIONADO FS»; «PRIMERA ",
+     "critical": false
+    },
+    {
+     "case": "ho-inex-032",
+     "turn": 1,
+     "q": "¿Cómo va la tercera b?",
+     "action": "missing",
+     "outcome": "refusal",
+     "tools": [],
+     "answer": "Solo puedo responder preguntas sobre la competición de fútbol sala de la RFFM (competiciones, grupos, jornadas, equipos, partidos, resultados, clasificaciones y",
+     "critical": false
+    },
+    {
+     "case": "ho-temp-033",
+     "turn": 1,
+     "q": "¿Cómo acabó la tercera en 2019?",
+     "action": "nodata",
+     "outcome": "refusal",
+     "tools": [],
+     "answer": "Solo puedo responder preguntas sobre la competición de fútbol sala de la RFFM (competiciones, grupos, jornadas, equipos, partidos, resultados, clasificaciones y",
+     "critical": false
+    },
+    {
+     "case": "ho-temp-034",
+     "turn": 1,
+     "q": "Clasificación final de la temporada anterior de la preferente senior",
+     "action": "nodata",
+     "outcome": "clarification",
+     "tools": [],
+     "answer": "¿De qué grupo quieres consultarlo? Opciones: «Grupo 1»; «Grupo 2». ¿Cuál prefieres?",
+     "critical": false
+    },
+    {
+     "case": "ho-temp-035",
+     "turn": 1,
+     "q": "¿Cómo quedó la autonómica juvenil hace tres años?",
+     "action": "nodata",
+     "outcome": "data",
+     "tools": [
+      "list_matches(1001)"
+     ],
+     "answer": "C.D. DOSA vs EQUIPO 1001A (finished).",
+     "critical": false
+    },
+    {
+     "case": "ho-ambi-040",
+     "turn": 1,
+     "q": "¿Cómo va la primera?",
+     "action": "ask",
+     "outcome": "refusal",
+     "tools": [],
+     "answer": "Solo puedo responder preguntas sobre la competición de fútbol sala de la RFFM (competiciones, grupos, jornadas, equipos, partidos, resultados, clasificaciones y",
+     "critical": false
+    },
+    {
+     "case": "ho-erra-046",
+     "turn": 1,
+     "q": "Clasificación de la prefrente senior",
+     "action": "act",
+     "outcome": "clarification",
+     "tools": [],
+     "answer": "¿De cuál de estas competiciones te refieres? Opciones: «TERCERA DIVISIÓN FS»; «COPA SENIOR I - fase final- FS»; «COPA SENIOR I - fase previa- FS»; «PRIMERA DIVI",
+     "critical": false
+    },
+    {
+     "case": "ho-erra-047",
+     "turn": 1,
+     "q": "Goleadores de terecra",
+     "action": "act",
+     "outcome": "clarification",
+     "tools": [],
+     "answer": "¿De qué competición y grupo quieres consultarlo?",
+     "critical": false
+    },
+    {
+     "case": "ho-erra-048",
+     "turn": 1,
+     "q": "Clasificación de la prefernte juvenill",
+     "action": "act",
+     "outcome": "clarification",
+     "tools": [],
+     "answer": "¿De qué competición y grupo quieres consultarlo?",
+     "critical": false
+    },
+    {
+     "case": "ho-erra-049",
+     "turn": 1,
+     "q": "¿Cómo va el Valdemoru en la lliga?",
+     "action": "act",
+     "outcome": "refusal",
+     "tools": [],
+     "answer": "Solo puedo responder preguntas sobre la competición de fútbol sala de la RFFM (competiciones, grupos, jornadas, equipos, partidos, resultados, clasificaciones y",
+     "critical": false
+    },
+    {
+     "case": "ho-conv-050",
+     "turn": 1,
+     "q": "Clasificación de la copa senior I",
+     "action": "act",
+     "outcome": "clarification",
+     "tools": [],
+     "answer": "¿De cuál de estas competiciones te refieres? Opciones: «COPA SENIOR I - fase final- FS»; «COPA SENIOR I - fase previa- FS»; «COPA SENIOR II - fase final- FS»; «",
+     "critical": false
+    },
+    {
+     "case": "ho-conv-050",
+     "turn": 2,
+     "q": "¿Y los goleadores?",
+     "action": "act",
+     "outcome": "clarification",
+     "tools": [],
+     "answer": "¿De cuál de estas competiciones te refieres? Opciones: «COPA SENIOR I - fase final- FS»; «COPA SENIOR I - fase previa- FS»; «COPA SENIOR II - fase final- FS»; «",
+     "critical": false
+    },
+    {
+     "case": "ho-conv-051",
+     "turn": 1,
+     "q": "Goleadores de la preferente senior",
+     "action": "act",
+     "outcome": "clarification",
+     "tools": [],
+     "answer": "¿De qué grupo quieres consultarlo? Opciones: «Grupo 1»; «Grupo 2». ¿Cuál prefieres?",
+     "critical": false
+    },
+    {
+     "case": "ho-conv-051",
+     "turn": 2,
+     "q": "Y la juvenil",
+     "action": "assume",
+     "outcome": "clarification",
+     "tools": [],
+     "answer": "¿De cuál de estas competiciones te refieres? Opciones: «PREFERENTE AFICIONADO FS»; «PREFERENTE JUVENIL FS». ¿Cuál prefieres?",
+     "critical": false
+    },
+    {
+     "case": "ho-conv-052",
+     "turn": 1,
+     "q": "¿Quién va primero en la tercera?",
+     "action": "act",
+     "outcome": "refusal",
+     "tools": [],
+     "answer": "Solo puedo responder preguntas sobre la competición de fútbol sala de la RFFM (competiciones, grupos, jornadas, equipos, partidos, resultados, clasificaciones y",
+     "critical": false
+    },
+    {
+     "case": "ho-conv-052",
+     "turn": 2,
+     "q": "¿Y último?",
+     "action": "act",
+     "outcome": "refusal",
+     "tools": [],
+     "answer": "Solo puedo responder preguntas sobre la competición de fútbol sala de la RFFM (competiciones, grupos, jornadas, equipos, partidos, resultados, clasificaciones y",
+     "critical": false
+    },
+    {
+     "case": "ho-conv-054",
+     "turn": 1,
+     "q": "¿Cómo va el Getafe Sala?",
+     "action": "act",
+     "outcome": "refusal",
+     "tools": [],
+     "answer": "Solo puedo responder preguntas sobre la competición de fútbol sala de la RFFM (competiciones, grupos, jornadas, equipos, partidos, resultados, clasificaciones y",
+     "critical": false
+    },
+    {
+     "case": "ho-conv-054",
+     "turn": 2,
+     "q": "¿Y el Atlético Pinto?",
+     "action": "act",
+     "outcome": "refusal",
+     "tools": [],
+     "answer": "Solo puedo responder preguntas sobre la competición de fútbol sala de la RFFM (competiciones, grupos, jornadas, equipos, partidos, resultados, clasificaciones y",
+     "critical": false
+    },
+    {
+     "case": "ho-conv-055",
+     "turn": 1,
+     "q": "¿Cómo va el Getafe Sala?",
+     "action": "act",
+     "outcome": "refusal",
+     "tools": [],
+     "answer": "Solo puedo responder preguntas sobre la competición de fútbol sala de la RFFM (competiciones, grupos, jornadas, equipos, partidos, resultados, clasificaciones y",
+     "critical": false
+    },
+    {
+     "case": "ho-conv-055",
+     "turn": 2,
+     "q": "¿Y los goleadores de la preferente juvenil?",
+     "action": "act",
+     "outcome": "clarification",
+     "tools": [],
+     "answer": "¿De qué grupo quieres consultarlo? Opciones: «Grupo 1»; «Grupo 2». ¿Cuál prefieres?",
+     "critical": false
+    },
+    {
+     "case": "ho-conv-056",
+     "turn": 1,
+     "q": "¿Cómo va el Dosa?",
+     "action": "ask",
+     "outcome": "refusal",
+     "tools": [],
+     "answer": "Solo puedo responder preguntas sobre la competición de fútbol sala de la RFFM (competiciones, grupos, jornadas, equipos, partidos, resultados, clasificaciones y",
+     "critical": false
+    },
+    {
+     "case": "ho-conv-056",
+     "turn": 2,
+     "q": "la copa",
+     "action": "ask",
+     "outcome": "refusal",
+     "tools": [],
+     "answer": "Solo puedo responder preguntas sobre la competición de fútbol sala de la RFFM (competiciones, grupos, jornadas, equipos, partidos, resultados, clasificaciones y",
+     "critical": false
+    },
+    {
+     "case": "ho-conv-057",
+     "turn": 1,
+     "q": "¿Cómo va el Dosa?",
+     "action": "ask",
+     "outcome": "refusal",
+     "tools": [],
+     "answer": "Solo puedo responder preguntas sobre la competición de fútbol sala de la RFFM (competiciones, grupos, jornadas, equipos, partidos, resultados, clasificaciones y",
+     "critical": false
+    },
+    {
+     "case": "ho-conv-057",
+     "turn": 2,
+     "q": "la preferente",
+     "action": "act",
+     "outcome": "refusal",
+     "tools": [],
+     "answer": "Solo puedo responder preguntas sobre la competición de fútbol sala de la RFFM (competiciones, grupos, jornadas, equipos, partidos, resultados, clasificaciones y",
+     "critical": false
+    },
+    {
+     "case": "ho-conv-058",
+     "turn": 1,
+     "q": "¿Cómo va la preferente?",
+     "action": "ask",
+     "outcome": "refusal",
+     "tools": [],
+     "answer": "Solo puedo responder preguntas sobre la competición de fútbol sala de la RFFM (competiciones, grupos, jornadas, equipos, partidos, resultados, clasificaciones y",
+     "critical": false
+    },
+    {
+     "case": "ho-conv-058",
+     "turn": 2,
+     "q": "la segunda",
+     "action": "assume",
+     "outcome": "refusal",
+     "tools": [],
+     "answer": "Solo puedo responder preguntas sobre la competición de fútbol sala de la RFFM (competiciones, grupos, jornadas, equipos, partidos, resultados, clasificaciones y",
+     "critical": false
+    },
+    {
+     "case": "ho-conv-059",
+     "turn": 1,
+     "q": "¿Cómo va la preferente?",
+     "action": "ask",
+     "outcome": "refusal",
+     "tools": [],
+     "answer": "Solo puedo responder preguntas sobre la competición de fútbol sala de la RFFM (competiciones, grupos, jornadas, equipos, partidos, resultados, clasificaciones y",
+     "critical": false
+    },
+    {
+     "case": "ho-conv-059",
+     "turn": 2,
+     "q": "la primera",
+     "action": "assume",
+     "outcome": "refusal",
+     "tools": [],
+     "answer": "Solo puedo responder preguntas sobre la competición de fútbol sala de la RFFM (competiciones, grupos, jornadas, equipos, partidos, resultados, clasificaciones y",
+     "critical": false
+    },
+    {
+     "case": "ho-conv-060",
+     "turn": 1,
+     "q": "Clasificación de la copa juvenil",
+     "action": "act",
+     "outcome": "clarification",
+     "tools": [],
+     "answer": "¿De cuál de estas competiciones te refieres? Opciones: «COPA JUVENIL - fase final- FS»; «COPA JUVENIL - fase previa- FS». ¿Cuál prefieres?",
+     "critical": false
+    },
+    {
+     "case": "ho-conv-061",
+     "turn": 1,
+     "q": "¿Qué equipos hay en la tercera?",
+     "action": "act",
+     "outcome": "clarification",
+     "tools": [],
+     "answer": "¿De qué grupo quieres consultarlo? Opciones: «Grupo 3»; «Grupo 4». ¿Cuál prefieres?",
+     "critical": false
+    },
+    {
+     "case": "ho-conv-061",
+     "turn": 2,
+     "q": "¿Y quién va primero?",
+     "action": "act",
+     "outcome": "clarification",
+     "tools": [],
+     "answer": "¿De qué grupo quieres consultarlo? Opciones: «Grupo 3»; «Grupo 4». ¿Cuál prefieres?",
+     "critical": false
+    },
+    {
+     "case": "ho-conv-063",
+     "turn": 2,
+     "q": "Y la autonómica",
+     "action": "assume",
+     "outcome": "clarification",
+     "tools": [],
+     "answer": "¿De cuál de estas competiciones te refieres? Opciones: «PRIMERA DIVISION AUTONOMICA AFICIONADO FS»; «PRIMERA DIVISION AUTONOMICA JUVENIL FS». ¿Cuál prefieres?",
+     "critical": false
+    },
+    {
+     "case": "ho-conv-064",
+     "turn": 1,
+     "q": "¿Cómo va el Pinto?",
+     "action": "ask",
+     "outcome": "refusal",
+     "tools": [],
+     "answer": "Solo puedo responder preguntas sobre la competición de fútbol sala de la RFFM (competiciones, grupos, jornadas, equipos, partidos, resultados, clasificaciones y",
+     "critical": false
+    },
+    {
+     "case": "ho-conv-064",
+     "turn": 2,
+     "q": "el segundo",
+     "action": "assume",
+     "outcome": "refusal",
+     "tools": [],
+     "answer": "Solo puedo responder preguntas sobre la competición de fútbol sala de la RFFM (competiciones, grupos, jornadas, equipos, partidos, resultados, clasificaciones y",
+     "critical": false
+    },
+    {
+     "case": "ho-conv-065",
+     "turn": 1,
+     "q": "Clasificación de primera aficionado",
+     "action": "ask",
+     "outcome": "clarification",
+     "tools": [],
+     "answer": "¿De cuál de estas competiciones te refieres? Opciones: «PRIMERA DIVISION AUTONOMICA AFICIONADO FS»; «PREFERENTE AFICIONADO FS»; «PRIMERA AFICIONADO FS». ¿Cuál p",
+     "critical": false
+    },
+    {
+     "case": "ho-conv-065",
+     "turn": 2,
+     "q": "el tercero",
+     "action": "assume",
+     "outcome": "clarification",
+     "tools": [],
+     "answer": "¿De cuál de estas competiciones te refieres? Opciones: «PRIMERA DIVISION AUTONOMICA AFICIONADO FS»; «PREFERENTE AFICIONADO FS»; «PRIMERA AFICIONADO FS». ¿Cuál p",
+     "critical": false
+    },
+    {
+     "case": "ho-conv-066",
+     "turn": 1,
+     "q": "Clasificación de la preferente senior",
+     "action": "act",
+     "outcome": "clarification",
+     "tools": [],
+     "answer": "¿De qué grupo quieres consultarlo? Opciones: «Grupo 1»; «Grupo 2». ¿Cuál prefieres?",
+     "critical": false
+    },
+    {
+     "case": "ho-conv-066",
+     "turn": 2,
+     "q": "¿Y el goleador?",
+     "action": "act",
+     "outcome": "clarification",
+     "tools": [],
+     "answer": "¿De qué grupo quieres consultarlo? Opciones: «Grupo 1»; «Grupo 2». ¿Cuál prefieres?",
+     "critical": false
+    },
+    {
+     "case": "ho-conv-067",
+     "turn": 1,
+     "q": "Clasificación de la tercera",
+     "action": "act",
+     "outcome": "clarification",
+     "tools": [],
+     "answer": "¿De qué grupo quieres consultarlo? Opciones: «Grupo 3»; «Grupo 4». ¿Cuál prefieres?",
+     "critical": false
+    },
+    {
+     "case": "ho-conv-067",
+     "turn": 2,
+     "q": "¿Y en la segunda división?",
+     "action": "missing",
+     "outcome": "clarification",
+     "tools": [],
+     "answer": "¿De qué grupo quieres consultarlo? Opciones: «Grupo 3»; «Grupo 4». ¿Cuál prefieres?",
+     "critical": false
+    },
+    {
+     "case": "ho-conv-067",
+     "turn": 3,
+     "q": "¿Y los goleadores de la tercera?",
+     "action": "act",
+     "outcome": "clarification",
+     "tools": [],
+     "answer": "¿De qué grupo quieres consultarlo? Opciones: «Grupo 3»; «Grupo 4». ¿Cuál prefieres?",
+     "critical": false
+    },
+    {
+     "case": "ho-conv-068",
+     "turn": 1,
+     "q": "¿Cómo va el C.D. Valdemoro?",
+     "action": "act",
+     "outcome": "refusal",
+     "tools": [],
+     "answer": "Solo puedo responder preguntas sobre la competición de fútbol sala de la RFFM (competiciones, grupos, jornadas, equipos, partidos, resultados, clasificaciones y",
+     "critical": false
+    },
+    {
+     "case": "ho-conv-068",
+     "turn": 2,
+     "q": "¿Y su próximo partido?",
+     "action": "act",
+     "outcome": "clarification",
+     "tools": [],
+     "answer": "¿De qué competición y grupo quieres consultarlo?",
+     "critical": false
+    },
+    {
+     "case": "ho-conv-068",
+     "turn": 3,
+     "q": "¿Cuándo vuelve a jugar?",
+     "action": "act",
+     "outcome": "clarification",
+     "tools": [],
+     "answer": "¿De qué competición y grupo quieres consultarlo?",
+     "critical": false
+    },
+    {
+     "case": "ho-conv-069",
+     "turn": 1,
+     "q": "Clasificación de la preferente juvenil",
+     "action": "act",
+     "outcome": "clarification",
+     "tools": [],
+     "answer": "¿De qué grupo quieres consultarlo? Opciones: «Grupo 1»; «Grupo 2». ¿Cuál prefieres?",
+     "critical": false
+    },
+    {
+     "case": "ho-conv-069",
+     "turn": 2,
+     "q": "¿Cómo quedó el año pasado?",
+     "action": "nodata",
+     "outcome": "clarification",
+     "tools": [],
+     "answer": "¿De qué grupo quieres consultarlo? Opciones: «Grupo 1»; «Grupo 2». ¿Cuál prefieres?",
+     "critical": false
+    },
+    {
+     "case": "ho-conv-069",
+     "turn": 3,
+     "q": "¿Y los partidos de este fin de semana?",
+     "action": "act",
+     "outcome": "clarification",
+     "tools": [],
+     "answer": "¿De qué grupo quieres consultarlo? Opciones: «Grupo 1»; «Grupo 2». ¿Cuál prefieres?",
+     "critical": false
+    },
+    {
+     "case": "ho-conv-070",
+     "turn": 1,
+     "q": "Goleadores de la copa senior II",
+     "action": "act",
+     "outcome": "clarification",
+     "tools": [],
+     "answer": "¿De cuál de estas competiciones te refieres? Opciones: «COPA SENIOR I - fase final- FS»; «COPA SENIOR I - fase previa- FS»; «COPA SENIOR II - fase final- FS»; «",
+     "critical": false
+    },
+    {
+     "case": "ho-conv-070",
+     "turn": 2,
+     "q": "¿Y de la tercera?",
+     "action": "act",
+     "outcome": "clarification",
+     "tools": [],
+     "answer": "¿De qué grupo quieres consultarlo? Opciones: «Grupo 3»; «Grupo 4». ¿Cuál prefieres?",
+     "critical": false
+    },
+    {
+     "case": "ho-conv-071",
+     "turn": 1,
+     "q": "¿Cómo va el Getafe Sala?",
+     "action": "act",
+     "outcome": "refusal",
+     "tools": [],
+     "answer": "Solo puedo responder preguntas sobre la competición de fútbol sala de la RFFM (competiciones, grupos, jornadas, equipos, partidos, resultados, clasificaciones y",
+     "critical": false
+    },
+    {
+     "case": "ho-conv-071",
+     "turn": 2,
+     "q": "¿Y su último resultado?",
+     "action": "act",
+     "outcome": "clarification",
+     "tools": [],
+     "answer": "¿De qué competición y grupo quieres consultarlo?",
+     "critical": false
+    },
+    {
+     "case": "ho-conv-072",
+     "turn": 1,
+     "q": "Clasificación de la preferente senior",
+     "action": "act",
+     "outcome": "clarification",
+     "tools": [],
+     "answer": "¿De qué grupo quieres consultarlo? Opciones: «Grupo 1»; «Grupo 2». ¿Cuál prefieres?",
+     "critical": false
+    },
+    {
+     "case": "ho-conv-072",
+     "turn": 2,
+     "q": "¿Y los partidos de este fin de semana?",
+     "action": "act",
+     "outcome": "clarification",
+     "tools": [],
+     "answer": "¿De qué grupo quieres consultarlo? Opciones: «Grupo 1»; «Grupo 2». ¿Cuál prefieres?",
+     "critical": false
+    },
+    {
+     "case": "ho-conv-073",
+     "turn": 2,
+     "q": "¿Y la preferente juvenil?",
+     "action": "act",
+     "outcome": "clarification",
+     "tools": [],
+     "answer": "¿De qué grupo quieres consultarlo? Opciones: «Grupo 1»; «Grupo 2». ¿Cuál prefieres?",
+     "critical": false
+    }
+   ]
+  }
+ },
+ "digests": {
+  "legacy": {
+   "ho-dire-001#1": "60be87b031bef57b",
+   "ho-dire-002#1": "adfc5978737addd9",
+   "ho-dire-003#1": "34eb410718a3eacf",
+   "ho-dire-004#1": "2fefc926c1feeda0",
+   "ho-dire-005#1": "923282af1d128f13",
+   "ho-dire-006#1": "a632e6266b0db1fe",
+   "ho-dire-007#1": "39f670f6e9e3b4e8",
+   "ho-dire-008#1": "f1ca49aff8b22539",
+   "ho-dire-009#1": "1e0b3f4a0c02c1e6",
+   "ho-dire-010#1": "7a289587937d80c5",
+   "ho-dire-011#1": "da6f58f1eab9b9fc",
+   "ho-dire-012#1": "0878ebd9022e8398",
+   "ho-dire-013#1": "666d51ffda2a01e8",
+   "ho-dire-014#1": "0eedc04085554314",
+   "ho-dire-015#1": "f15c954a47f7661f",
+   "ho-dire-016#1": "db650f40013fe0d8",
+   "ho-dire-017#1": "ece758745a19183d",
+   "ho-dire-018#1": "9824bc02234ba053",
+   "ho-equi-019#1": "f3f966706fb9aeb9",
+   "ho-equi-020#1": "2066279aa7a79b78",
+   "ho-equi-021#1": "de4bcc88e80f2f3d",
+   "ho-equi-022#1": "d14586282aa5e084",
+   "ho-equi-023#1": "6d54630dca3ed78b",
+   "ho-equi-024#1": "b179baa931146238",
+   "ho-equi-025#1": "db3e0be8b3316fe4",
+   "ho-equi-026#1": "03a2534d39cda423",
+   "ho-inex-027#1": "85c5b94663949b79",
+   "ho-inex-028#1": "3cfcc3bed8602e22",
+   "ho-inex-029#1": "2aa1f049df5caf42",
+   "ho-inex-030#1": "ca46d7b70ef3d3f2",
+   "ho-inex-031#1": "4d3fa13d4351e4d8",
+   "ho-inex-032#1": "390fd56465919d14",
+   "ho-temp-033#1": "7ebe67c0f2a4472f",
+   "ho-temp-034#1": "fe00aa9337f1b04b",
+   "ho-temp-035#1": "40624251887ec662",
+   "ho-fuer-036#1": "cac6e5ae3dadfd5f",
+   "ho-fuer-037#1": "5109b57dc9627ddb",
+   "ho-fuer-038#1": "01709a676e5e8619",
+   "ho-fuer-039#1": "d75b9ff56142584f",
+   "ho-ambi-040#1": "7c845c94e5d7ed51",
+   "ho-ambi-041#1": "addd4c06a3833efb",
+   "ho-ambi-042#1": "896f84aa5f2e3aeb",
+   "ho-ambi-043#1": "df48bcee4a617d4f",
+   "ho-ambi-044#1": "7481e81e04655f30",
+   "ho-ambi-045#1": "941c3154855fe992",
+   "ho-erra-046#1": "9167d86ac26f5ea5",
+   "ho-erra-047#1": "6b882a89de89417a",
+   "ho-erra-048#1": "b9c29c5cb47d65f9",
+   "ho-erra-049#1": "6607734bd39d1645",
+   "ho-conv-050#1": "e872c8eae74b0625",
+   "ho-conv-050#2": "1b8dba8d0a2cd96c",
+   "ho-conv-051#1": "1486f92f9c477dc5",
+   "ho-conv-051#2": "e8a7bbf62a73b0c5",
+   "ho-conv-052#1": "6f42ce3e4870ba55",
+   "ho-conv-052#2": "df6182ff2a12a3d5",
+   "ho-conv-053#1": "7900669915cc20b0",
+   "ho-conv-053#2": "dd73b90a0a61f450",
+   "ho-conv-054#1": "368c30ba0a1a7be2",
+   "ho-conv-054#2": "18efb223192ca11f",
+   "ho-conv-055#1": "368c30ba0a1a7be2",
+   "ho-conv-055#2": "dc8d8212e896e181",
+   "ho-conv-056#1": "04170e881707756a",
+   "ho-conv-056#2": "48eba4e170be43a0",
+   "ho-conv-057#1": "04170e881707756a",
+   "ho-conv-057#2": "2a8a6a6477e5ac8c",
+   "ho-conv-058#1": "f67dbb8a65b10447",
+   "ho-conv-058#2": "3d63fda2a408afb6",
+   "ho-conv-059#1": "f67dbb8a65b10447",
+   "ho-conv-059#2": "cf8ff3d64ef70fe4",
+   "ho-conv-060#1": "ba6fc83d7ee19384",
+   "ho-conv-060#2": "abf574dfc4758203",
+   "ho-conv-061#1": "54f8c820eecd9b5d",
+   "ho-conv-061#2": "9fcd8817115bb9d6",
+   "ho-conv-062#1": "f1412b37d6ecb0e9",
+   "ho-conv-062#2": "33dd32b81d85bb85",
+   "ho-conv-063#1": "0fe10bb479d50cd4",
+   "ho-conv-063#2": "a6292567eb9ff283",
+   "ho-conv-064#1": "37aa43433b2dba50",
+   "ho-conv-064#2": "115c90ce06a38b67",
+   "ho-conv-065#1": "3231ec7d156cf628",
+   "ho-conv-065#2": "780067df379145ee",
+   "ho-conv-066#1": "5ccf5520db832b19",
+   "ho-conv-066#2": "bcc02d25674edd34",
+   "ho-conv-067#1": "073221383ed7b232",
+   "ho-conv-067#2": "e6fcf408423f78cc",
+   "ho-conv-067#3": "8c5683b4a7045487",
+   "ho-conv-068#1": "c260dcecb2ab24cd",
+   "ho-conv-068#2": "9157a4bf96459320",
+   "ho-conv-068#3": "14516352b757a02a",
+   "ho-conv-069#1": "7f8bca4b562e0de7",
+   "ho-conv-069#2": "2d193c4b60996986",
+   "ho-conv-069#3": "5b551afe0b9ab0cf",
+   "ho-conv-070#1": "b056a95821c1ee52",
+   "ho-conv-070#2": "308c8c053e908492",
+   "ho-conv-071#1": "368c30ba0a1a7be2",
+   "ho-conv-071#2": "08166ee788812f6f",
+   "ho-conv-072#1": "5ccf5520db832b19",
+   "ho-conv-072#2": "9b9d394cea782c2a",
+   "ho-conv-073#1": "4450feaa31396b77",
+   "ho-conv-073#2": "6d30bc69675f86fb"
+  }
+ }
+}

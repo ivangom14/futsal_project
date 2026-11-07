@@ -101,6 +101,7 @@ class Diagnostics(BaseModel):
     tools_ms: float = 0.0  # tiempo en herramientas MCP / API de datos
     context_ms: float = 0.0  # preparación del contexto (catálogo) en la primera pregunta tras arrancar
     postprocess_ms: float = 0.0  # fuentes, frescura, visuales y sugeridas
+    context: dict[str, Any] | None = None  # comprensión de contexto (solo AGENT_CONTEXT=deterministic|llm): modo, estado, interpretación, intérprete y recuperación; null en legacy
     reconciliation: dict[str, Any] | None = None  # qué texto repetía los visuales y se omitió (cuántos, por qué; fragmentos cortos, nunca la respuesta completa)
     input_tokens_peak: int = 0  # entrada máxima de una llamada (peso de prompt + contexto + historial)
     resolved_question: str | None = None  # cómo se interpretó el mensaje al unirlo a una aclaración pendiente
@@ -135,6 +136,18 @@ def reconcile_enabled() -> bool:
     return env_value("CHAT_RECONCILE", "on").strip().lower() != "off"
 
 
+def context_view(ctx: dict[str, Any] | None) -> dict[str, Any] | None:
+    """Resumen de `RunRecord.context` para el panel de detalles técnicos (sin duplicar lo determinista ni exponer texto del usuario)."""
+    if not ctx:
+        return None
+    keys = ("mode", "state", "status", "reason", "intent", "intent_confidence", "competitions", "team", "options", "assumption", "provenance", "recovery",
+            "interpreter_trigger", "interpreter_error", "error", "assumption_prepended")
+    view = {k: ctx[k] for k in keys if ctx.get(k) not in (None, [], {}, "")}
+    if ctx.get("interpreter"):
+        view["interpreter"] = {k: ctx["interpreter"].get(k) for k in ("intent", "competitions", "team", "confidence", "discarded")}
+    return view or None
+
+
 def build_response(result: AgentResult, history_turns: int, question: str, prev_focus: dict[str, str], asked: list[str],
                    freshness: dict[int, dict[str, Any]]) -> ChatResponse:
     rec = result.run or RunRecord()
@@ -145,7 +158,7 @@ def build_response(result: AgentResult, history_turns: int, question: str, prev_
     errors += [redact(f"llamada LLM {c.index}: {c.error}") for c in rec.llm_calls if c.error]
     diag = Diagnostics(
         run_id=rec.run_id, provider=rec.provider, model=rec.model, duration_ms=round(rec.latency_ms, 1), history_turns=history_turns,
-        resolved_question=result.resolved_question, resolved_scope=result.resolved_scope,
+        resolved_question=result.resolved_question, resolved_scope=result.resolved_scope, context=context_view(rec.context),
         llm_calls=totals["llm_calls"], tool_calls=totals["tool_calls"], input_tokens=totals["input_tokens"],
         llm_ms=totals["llm_ms"], retry_wait_ms=totals["retry_wait_ms"], llm_retries=totals["llm_retries"], tools_ms=totals["tool_ms"],
         context_ms=round(rec.context_ms, 1), input_tokens_peak=totals["peak_input_tokens"],
@@ -250,13 +263,13 @@ class AgentRunner:
         self._thread.join(timeout=10)
 
     async def ask(self, question: str, history: Sequence[Turn] = (), focus: dict[str, Any] | None = None,
-                  timeout: float | None = None, conversation_id: str | None = None) -> AgentResult:
+                  timeout: float | None = None, conversation_id: str | None = None, state: dict[str, Any] | None = None) -> AgentResult:
         if self._agent is None:  # primer arranque fallido o aún en curso: reintenta
             self.start()
             await asyncio.get_running_loop().run_in_executor(None, self._settled.wait, 30)
         if self._agent is None or self._loop is None:
             raise ChatUnavailable(self.error or "el agente no ha terminado de arrancar")
-        fut = asyncio.run_coroutine_threadsafe(self._run(question, history, focus or {}, conversation_id), self._loop)
+        fut = asyncio.run_coroutine_threadsafe(self._run(question, history, focus or {}, conversation_id, state), self._loop)
         try:
             return await asyncio.wait_for(asyncio.wrap_future(fut), timeout)
         except TimeoutError as exc:
@@ -264,14 +277,14 @@ class AgentRunner:
             raise ChatTimeout(f"tiempo máximo de {timeout:.0f}s superado (¿Gemini limitando peticiones?)") from exc
 
     async def _run(self, question: str, history: Sequence[Turn], focus: dict[str, Any],
-                   conversation_id: str | None = None) -> AgentResult:
+                   conversation_id: str | None = None, state: dict[str, Any] | None = None) -> AgentResult:
         assert self._agent is not None and self._lock is not None
         self.waiting += 1
         try:
             async with self._lock:
                 self.running_since = time.monotonic()
                 try:
-                    return await self._agent.run(question, history, focus, conversation_id)
+                    return await (self._agent.run(question, history, focus, conversation_id, state) if state else self._agent.run(question, history, focus, conversation_id))
                 finally:
                     self.running_since = None
         finally:
@@ -380,7 +393,8 @@ def create_chat_app(runner: AgentRunner | None = None,
         try:
             started = time.monotonic()
             log.info("pregunta recibida (conversación %s, %d turnos de contexto, en cola: %d)", (cid or "-")[:8], len(context), agent_runner.waiting)
-            result = await agent_runner.ask(question, context, prev_focus, max_seconds, cid)
+            prev_state = conversations.get_state(cid) if cid and known is not None else None  # estado conversacional (solo modos deterministic/llm); si el servidor no lo conoce, se reconstruye del historial
+            result = await (agent_runner.ask(question, context, prev_focus, max_seconds, cid, prev_state) if prev_state else agent_runner.ask(question, context, prev_focus, max_seconds, cid))
             log.info("pregunta resuelta en %.1fs (error=%s, guardarraíl=%s)", time.monotonic() - started, bool(result.error), result.guardrail)
         except ChatTimeout as exc:
             return _failure(TIMEOUT, str(exc))
@@ -409,6 +423,9 @@ def create_chat_app(runner: AgentRunner | None = None,
                                  "resolved_scope": bool(d.resolved_scope)})
         if cid and response.focus != prev_focus:
             conversations.put_focus(cid, response.focus)
+        state_out = getattr(result, "state", None)
+        if cid and state_out:
+            conversations.put_state(cid, state_out)
         return response
 
     @app.post("/chat/feedback")

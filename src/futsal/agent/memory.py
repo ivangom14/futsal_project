@@ -8,6 +8,7 @@ import re
 from collections import OrderedDict
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
+from typing import Any
 
 from futsal.agent.criteria import SCOPE_WORDS, norm
 from futsal.agent.llm import Message
@@ -107,6 +108,7 @@ class ConversationMemory:
     def __init__(self, max_conversations: int = MAX_CONVERSATIONS) -> None:
         self._data: OrderedDict[str, list[Turn]] = OrderedDict()
         self._focus: OrderedDict[str, dict[str, str]] = OrderedDict()
+        self._state: OrderedDict[str, dict[str, Any]] = OrderedDict()  # estado conversacional estructurado (caché derivable del historial; ver `convstate`)
         self._max = max_conversations
 
     def get(self, conversation_id: str) -> list[Turn] | None:
@@ -130,8 +132,18 @@ class ConversationMemory:
         while len(self._focus) > self._max:
             self._focus.popitem(last=False)
 
+    def get_state(self, conversation_id: str) -> dict[str, Any] | None:
+        return dict(self._state[conversation_id]) if conversation_id in self._state else None
+
+    def put_state(self, conversation_id: str, state: dict[str, Any]) -> None:
+        self._state[conversation_id] = dict(state)
+        self._state.move_to_end(conversation_id)
+        while len(self._state) > self._max:
+            self._state.popitem(last=False)
+
     def forget(self, conversation_id: str) -> bool:
         self._focus.pop(conversation_id, None)
+        self._state.pop(conversation_id, None)
         return self._data.pop(conversation_id, None) is not None
 
     def __len__(self) -> int:
