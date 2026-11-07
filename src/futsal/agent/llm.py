@@ -79,6 +79,18 @@ class LLMError(RuntimeError):
         self.attempts: list[Attempt] = attempts or []
 
 
+QUOTA_MARKER = "cuota del proveedor agotada"
+QUOTA_WAIT_THRESHOLD_S = 600.0  # una espera pedida de 10 min o más no es de ritmo (por minuto): es una cuota diaria o de ventana larga; esperar no tiene sentido
+
+
+class LLMQuotaError(LLMError):
+    """El proveedor pide esperar mucho más que un límite por minuto (p. ej. horas): la cuota está agotada. Seguir llamando solo gasta peticiones inútiles."""
+
+    def __init__(self, message: str, attempts: list[Attempt] | None = None, retry_after: float | None = None) -> None:
+        super().__init__(message, attempts)
+        self.retry_after = retry_after
+
+
 # --- reintentos controlados -------------------------------------------------------------------------
 DEFAULT_MAX_RETRIES = 2  # conservador: como mucho 3 peticiones por llamada lógica
 MAX_RETRIES_CAP = 5
@@ -141,9 +153,12 @@ def post_with_retries(http: httpx.Client, path: str, body: dict[str, Any], heade
         attempts.append(attempt)
         if not transient:
             return resp, attempts  # type: ignore[return-value]  # no transitorio: nunca es None aquí
+        asked = _retry_after(resp) if resp is not None else None
+        if asked is not None and asked >= QUOTA_WAIT_THRESHOLD_S:  # independiente de cuántos reintentos queden
+            raise LLMQuotaError(f"{QUOTA_MARKER}: LLM HTTP {status}: el servidor pide esperar {asked:.0f}s (≈{asked / 3600:.1f} h), por encima del máximo "
+                                f"permitido ({policy.max_wait:.0f}s); no se reintenta", attempts, asked)
         if number > policy.max_retries:
             break
-        asked = _retry_after(resp) if resp is not None else None
         if asked is not None and asked > policy.max_wait:
             raise LLMError(f"LLM HTTP {status}: el servidor pide esperar {asked:.0f}s, por encima del máximo "
                            f"permitido ({policy.max_wait:.0f}s); no se reintenta", attempts)

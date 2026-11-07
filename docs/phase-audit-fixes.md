@@ -64,3 +64,12 @@ Otras versiones relevantes: pydantic 2.14.3, httpx 0.28.1, pytest 9.2.0, sqlalch
 - La frescura usa la hora del proceso del agente; si el reloj del servidor no es fiable el Tier 0 se abstiene por «captura en el futuro» solo con >1 h de desfase.
 - El presupuesto global es por ejecución del script; no hay un contador persistente entre ejecuciones.
 - `tests/integration` (PostgreSQL) sin ejecutar. 3 tests de `test_prompt_compact.py` fallan en Python 3.13 (entorno, no código).
+
+## Ajustes tras la etapa 2 (cuota diaria agotada)
+La etapa 2 se cortó con 67 errores 429 que pedían esperar ≈19,5 h: era la **cuota diaria** del proveedor, no el ritmo. Cambios (no alteran el comportamiento del agente; solo el manejo de ese error y los informes):
+- `llm.py`: una espera pedida ≥ 600 s (`QUOTA_WAIT_THRESHOLD_S`) lanza `LLMQuotaError` (mensaje con `QUOTA_MARKER` = «cuota del proveedor agotada»), con independencia de los reintentos que queden. Esperas menores siguen igual que antes.
+- `evaluate.py`: ante un caso `not_run` por cuota, **se detiene** y marca el resto como `not_run` («no se gastan más peticiones»); sale con el código `QUOTA_EXIT_CODE` = 4 (en `arms.py`) con el informe y `results.json` ya escritos.
+- `scripts/ab_arms.py`: con código 4 cobra lo realmente usado, **no lanza más tandas ni relleno**, conserva lo completado (también en `--fill-missing`), registra `quota_exhausted` en el `manifest.json` con cuándo vuelve la cuota (según lo que pidió el servidor) y regenera el resumen. Termina con código 4.
+- `arms_summary.py`: distingue **cuota agotada** (`[cuota×n]`, también en resultados antiguos por el texto «esperar Ns» ≥ 600 s) de un 429 por minuto (`[429×n]`); las medias por brazo (aciertos, llamadas, tokens por llamada) y las por caso **solo cuentan repeticiones completas/decisivas**; las filas incompletas se marcan «INCOMPLETA», se muestra la columna «sin ejecutar» y «—» en lugar de `None`.
+- Comprobado sobre la carpeta real de la etapa 2: los 67 se clasifican como cuota y las medias salen de las 2 repeticiones completas (legacy 38 llamadas; prefetch 30).
+- Tests: `tests/test_quota.py` (12). Suite offline en Python 3.12 y 3.11: 1085 pasan.

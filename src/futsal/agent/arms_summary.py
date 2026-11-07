@@ -18,11 +18,23 @@ from typing import Any
 
 from futsal.agent.ab_summary import DECISIVE, MIN_GAP, case_record
 from futsal.agent.arms import ARMS, BASELINE, DEFAULTS, arm_env
+from futsal.agent.llm import QUOTA_MARKER, QUOTA_WAIT_THRESHOLD_S
 
 MIN_DECISIVE = 3  # repeticiones decisivas por brazo y caso para llamar «consistente» a una diferencia (con menos es solo indicio)
 RATE_LIMIT = re.compile(r"429|RESOURCE_EXHAUSTED|rate.?limit|quota", re.IGNORECASE)
 MEASURED_SOURCES = ("provider", "measured_zero")  # tokens MEDIDOS: lo que informa el proveedor y el cero de una ejecución sin LLM; el resto no se suma como real
 TOKEN_LABEL = {"provider": "", "measured_zero": " (0 medido: sin LLM)", "estimated": " (estimado)", "mixed": " (parte estimada)", "unreported": " (no informado)"}
+WAIT = re.compile(r"esperar (\d+)s")
+
+
+def is_quota(detail: str) -> bool:
+    """¿La causa es una cuota agotada (espera de horas) y no un límite por minuto? Reconoce el marcador nuevo y el texto de ejecuciones anteriores."""
+    if QUOTA_MARKER in detail:
+        return True
+    m = WAIT.search(detail)
+    return bool(m) and int(m.group(1)) >= QUOTA_WAIT_THRESHOLD_S
+
+
 FILE = re.compile(r"^([a-z][a-z0-9_]*)-r(\d+)\.json$")
 
 
@@ -63,7 +75,9 @@ def summarize(arms: dict[str, dict[int, dict[str, Any]]], baseline: str | None =
                 if c["case_id"] not in per:
                     order.append(c["case_id"])
                 rec = case_record(c)
-                rec["rate_limited"] = c.get("status") == "not_run" and bool(RATE_LIMIT.search(str(c.get("detail") or "")))
+                detail = str(c.get("detail") or "")
+                rec["quota_exhausted"] = c.get("status") == "not_run" and is_quota(detail)
+                rec["rate_limited"] = c.get("status") == "not_run" and not rec["quota_exhausted"] and bool(RATE_LIMIT.search(detail))
                 rec["budget_exhausted"] = c.get("status") == "not_run" and "presupuesto de peticiones agotado" in str(c.get("detail") or "")
                 per.setdefault(c["case_id"], {x: {} for x in names})[a][rep] = rec
     cases = []
@@ -75,12 +89,14 @@ def summarize(arms: dict[str, dict[int, dict[str, Any]]], baseline: str | None =
             passes = dec.count("pass")
             entry["arms"][a] = {
                 "reps": {str(k): v for k, v in sorted(reps.items())}, "decisive": len(dec), "passes": passes, "rate_limited": sum(r["rate_limited"] for r in reps.values()),
+                "quota_exhausted": sum(r["quota_exhausted"] for r in reps.values()),
                 "budget_exhausted": sum(r["budget_exhausted"] for r in reps.values()),
                 "rate": passes / len(dec) if dec else None, "flaky": 0 < passes < len(dec),
                 "tool_sets": sorted({",".join(sorted(set(r["tools"]))) for r in reps.values()}),
                 "reasons": sorted({x for r in reps.values() for x in r["reasons"]}),
-                "mean_llm_calls": round(mean([r["llm_calls"] for r in reps.values()]), 2) if reps else None,
-                "mean_input_tokens": round(mean([r["input_tokens"] or 0 for r in reps.values()]), 1) if reps else None}
+                # solo repeticiones DECISIVAS: un not_run (429, cuota…) no es una medición y arrastraría la media a cero
+                "mean_llm_calls": round(mean([r["llm_calls"] for r in reps.values() if r["status"] in DECISIVE]), 2) if dec else None,
+                "mean_input_tokens": round(mean([r["input_tokens"] or 0 for r in reps.values() if r["status"] in DECISIVE]), 1) if dec else None}
         for a in names:
             if a == base:
                 continue
@@ -108,16 +124,20 @@ def summarize(arms: dict[str, dict[int, dict[str, Any]]], baseline: str | None =
             kinds = {k: sum(r["token_source"] == k for r in dec) for k in ("provider", "measured_zero", "estimated", "mixed", "unreported")}
             kinds["unknown"] = len(dec) - sum(kinds.values())
             calls = sum(r["llm_calls"] for r in dec)
-            by_rep[str(rep)] = {"decisive": len(dec), "pass": sum(r["status"] == "pass" for r in dec), "llm_calls": calls,
+            not_run = sum(r["status"] == "not_run" for r in recs)
+            by_rep[str(rep)] = {"decisive": len(dec), "not_run": not_run, "complete": not_run == 0 and bool(dec),
+                                "pass": sum(r["status"] == "pass" for r in dec), "llm_calls": calls,
                                 "mcp_calls": sum(r["mcp_calls"] for r in dec), "input_tokens": sum(r["input_tokens"] or 0 for r in real),
                                 "output_tokens": sum(r["output_tokens"] or 0 for r in real), "tokens_all_from_provider": len(real) == len(dec),
                                 "token_kinds": {k: v for k, v in kinds.items() if v},
                                 "input_per_llm_call": round(sum(r["input_tokens"] or 0 for r in real) / calls, 1) if calls else None}
+        full = [r for r in by_rep.values() if r["complete"]]  # las medias solo cuentan repeticiones COMPLETAS (sin casos sin ejecutar): una vacía o parcial las falsea
         totals[a] = {"runs": by_rep, "flaky_cases": sum(1 for c in cases if c["arms"][a]["flaky"]),
-                     "mean_pass": round(mean([r["pass"] for r in by_rep.values()]), 2) if by_rep else None,
-                     "mean_llm_calls": round(mean([r["llm_calls"] for r in by_rep.values()]), 1) if by_rep else None,
-                     "mean_input_per_llm_call": round(mean([r["input_per_llm_call"] for r in by_rep.values() if r["input_per_llm_call"]]), 1)
-                     if any(r["input_per_llm_call"] for r in by_rep.values()) else None}
+                     "runs_total": len(by_rep), "runs_complete": len(full), "incomplete_runs": [k for k, r in by_rep.items() if not r["complete"]],
+                     "mean_pass": round(mean([r["pass"] for r in full]), 2) if full else None,
+                     "mean_llm_calls": round(mean([r["llm_calls"] for r in full]), 1) if full else None,
+                     "mean_input_per_llm_call": round(mean([r["input_per_llm_call"] for r in full if r["input_per_llm_call"]]), 1)
+                     if any(r["input_per_llm_call"] for r in full) else None}
     verdict_names = ("regresión consistente", "mejora consistente", "variable (ruido)", "igual", "insuficiente (<3 repeticiones decisivas)", "sin datos")
     return {"baseline": base, "arms": names, "cases": cases, "totals": totals, "warnings": warnings,
             "verdicts": {a: {v: sum(c["verdicts"].get(a) == v for c in cases) for v in verdict_names} for a in names if a != base},
@@ -132,6 +152,10 @@ def render(s: dict[str, Any]) -> str:
              "«(¡estimados!)». Nada de este informe es simulado.", ""]
     lines += [f"AVISO: {w}" for w in s["warnings"]]
     limited = sum(d["arms"][a]["rate_limited"] for d in s["cases"] for a in arms)
+    quota = sum(d["arms"][a]["quota_exhausted"] for d in s["cases"] for a in arms)
+    if quota:
+        lines.append(f"AVISO: {quota} ejecuciones NO se ejecutaron porque el proveedor agotó su CUOTA (espera de horas, no un límite por minuto): subir --min-interval no ayuda. "
+                     "Espera al restablecimiento (el mensaje del proveedor indica cuándo) y completa con `scripts/ab_arms.py --fill-missing`.")
     exhausted = sum(d["arms"][a]["budget_exhausted"] for d in s["cases"] for a in arms)
     if exhausted:
         lines.append(f"AVISO: {exhausted} ejecuciones NO se ejecutaron porque se agotó el presupuesto de peticiones (tope duro): los brazos no son comparables hasta completarlas "
@@ -139,17 +163,23 @@ def render(s: dict[str, Any]) -> str:
     if limited:
         lines.append(f"AVISO: {limited} ejecuciones quedaron sin ejecutar por límite de peticiones del proveedor (429): desequilibran los brazos. "
                      "Complétalas con `scripts/ab_arms.py --fill-missing` (y sube --min-interval).")
-    lines += ["", "## Por brazo y repetición (casos decisivos = pass/fail)", "| brazo | rep | casos | pass | llamadas LLM | llamadas MCP | tokens entrada | tokens salida | entrada/llamada | origen de los tokens |",
-              "|---|---|---|---|---|---|---|---|---|---|"]
+    lines += ["", "## Por brazo y repetición (casos decisivos = pass/fail)", "| brazo | rep | casos | sin ejecutar | pass | llamadas LLM | llamadas MCP | tokens entrada | tokens salida | entrada/llamada | origen de los tokens |",
+              "|---|---|---|---|---|---|---|---|---|---|---|"]
     for a in arms:
         for rep, r in s["totals"][a]["runs"].items():
             real = "" if r["tokens_all_from_provider"] else " (¡estimados!)"
             kinds = ", ".join(f"{n} {k}" for k, n in r["token_kinds"].items())
-            lines.append(f"| {a} | {rep} | {r['decisive']} | {r['pass']} | {r['llm_calls']} | {r['mcp_calls']} | {r['input_tokens']}{real} | {r['output_tokens']} | {r['input_per_llm_call']} | {kinds} |")
+            per_call = r["input_per_llm_call"] if r["input_per_llm_call"] is not None else "—"
+            note = "" if r["complete"] else " (INCOMPLETA: no entra en las medias)"
+            lines.append(f"| {a} | {rep}{note} | {r['decisive']} | {r['not_run']} | {r['pass']} | {r['llm_calls']} | {r['mcp_calls']} | {r['input_tokens']}{real} | {r['output_tokens']} | {per_call} | {kinds or '—'} |")
     lines += ["", "Variabilidad (casos con resultado distinto entre repeticiones del MISMO brazo) · media de aciertos · media de llamadas LLM por repetición:"]
     for a in arms:
         t = s["totals"][a]
-        lines.append(f"- {a}: {t['flaky_cases']} variables · {t['mean_pass']} aciertos · {t['mean_llm_calls']} llamadas LLM · {t['mean_input_per_llm_call']} tokens de entrada por llamada")
+        basis = f"medias sobre {t['runs_complete']} de {t['runs_total']} repeticiones completas"
+        if not t["runs_complete"]:
+            lines.append(f"- {a}: {t['flaky_cases']} variables · SIN repeticiones completas: no hay medias que mostrar")
+            continue
+        lines.append(f"- {a}: {t['flaky_cases']} variables · {t['mean_pass']} aciertos · {t['mean_llm_calls']} llamadas LLM · {t['mean_input_per_llm_call']} tokens de entrada por llamada ({basis})")
     for a, v in s["verdicts"].items():
         lines.append(f"Veredictos de {a} frente a {s['baseline']}: " + ", ".join(f"{k}: {n}" for k, n in v.items()))
     lines += ["", "## Por caso (P = pass, F = fail, · = no decisivo)", "| caso | " + " | ".join(arms) + " | veredictos |", "|---|" + "---|" * (len(arms) + 1)]
@@ -158,6 +188,7 @@ def render(s: dict[str, Any]) -> str:
             d = c["arms"][a]
             seq = " ".join({"pass": "P", "fail": "F"}.get(r["status"], "·") for r in d["reps"].values())
             seq += f" [429×{d['rate_limited']}]" if d["rate_limited"] else ""
+            seq += f" [cuota×{d['quota_exhausted']}]" if d["quota_exhausted"] else ""
             return f"{seq} ({d['passes']}/{d['decisive']})" if d["decisive"] else seq
         verdicts = "; ".join(f"{a}: {v}" for a, v in c["verdicts"].items())
         lines.append(f"| `{c['case']}` | " + " | ".join(cell(a) for a in arms) + f" | {verdicts} |")

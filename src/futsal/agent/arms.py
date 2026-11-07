@@ -11,6 +11,8 @@ Naturaleza de los datos que producen las evaluaciones (se etiqueta siempre así 
 
 from futsal.config.settings import env_value
 
+QUOTA_EXIT_CODE = 4  # `futsal.agent.evaluate` termina con este código si el proveedor declara agotada su cuota (el resto de casos no se ejecuta)
+
 FLAGS: dict[str, tuple[str, ...]] = {
     "AGENT_PROMPT_MODE": ("legacy", "compact"),
     "AGENT_PREFETCH": ("off", "on"),

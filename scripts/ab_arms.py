@@ -16,13 +16,14 @@ Solo biblioteca estándar más `futsal.agent.arms`. No lee ni imprime claves.
 import argparse
 import json
 import os
+import re
 import subprocess
 import sys
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
-from futsal.agent.arms import ARMS, PRESETS, arm_env
+from futsal.agent.arms import ARMS, PRESETS, QUOTA_EXIT_CODE, arm_env
 
 MEASURED_INPUT_PER_CALL = 4626  # MEDIDO: 744.865 tokens de entrada / 161 llamadas en tu comparación live legacy (63 casos comunes)
 MEASURED_OUTPUT_PER_CALL = 49   # MEDIDO: 2.040 tokens de salida / 42 llamadas en tu ejecución live legacy de 13 casos
@@ -112,6 +113,19 @@ def requests_used(path: Path) -> int | None:
         return None
 
 
+def quota_hint(path: Path) -> str:
+    """Cuándo vuelve la cuota, según lo que pidió el servidor en los casos afectados (el mayor tiempo de espera pedido)."""
+    try:
+        text = json.dumps(json.loads(path.read_text(encoding="utf-8")).get("cases", []), ensure_ascii=False)
+        waits = [int(m) for m in re.findall(r"esperar (\d+)s", text)]
+    except (OSError, ValueError):
+        waits = []
+    if not waits:
+        return "el servidor no indicó cuándo se restablece"
+    when = datetime.now(UTC) + timedelta(seconds=max(waits))
+    return f"el servidor pide esperar {max(waits)} s (≈{max(waits) / 3600:.1f} h): se restablece hacia las {when:%Y-%m-%d %H:%M} UTC"
+
+
 def merge_fill(orig: dict, fill: dict) -> dict:
     """Sustituye en `orig` los casos `not_run` por los de `fill` que ya se han ejecutado (pass/fail/no evaluable); marca `filled`."""
     new = {c["case_id"]: c for c in fill.get("cases", []) if c.get("status") != "not_run"}
@@ -141,15 +155,19 @@ def fill_missing(arms: list[str], reps: int, out: Path, min_interval: float | No
         cmd[cmd.index("--report-dir") + 1] = str(out / f"{arm}-r{rep}-fill")
         cmd[cmd.index("--output") + 1] = str(part)
         res = subprocess.run(cmd, env={**os.environ, **arm_env(arm)}, check=False)
-        spent = budget.charge(cap, requests_used(part) if res.returncode in (0, 1) else None)
+        spent = budget.charge(cap, requests_used(part) if res.returncode in (0, 1, QUOTA_EXIT_CODE) else None)
         print(f"   peticiones usadas: {spent} · global {budget.used}/{budget.total}", flush=True)
-        if res.returncode not in (0, 1):
+        if res.returncode not in (0, 1, QUOTA_EXIT_CODE):
             print(f"La tanda de completado {arm} r{rep} terminó con código {res.returncode}: se detiene.")
             return res.returncode
-        if part.exists():
+        hint = quota_hint(part) if res.returncode == QUOTA_EXIT_CODE else ""
+        if part.exists():  # también con la cuota agotada: lo que sí se completó se conserva
             (out / f"{arm}-r{rep}.orig.json").write_text(target.read_text(encoding="utf-8"), encoding="utf-8")
             target.write_text(json.dumps(merge_fill(doc, json.loads(part.read_text(encoding="utf-8"))), ensure_ascii=False, indent=1), encoding="utf-8")
             part.unlink()
+        if res.returncode == QUOTA_EXIT_CODE:
+            print(f"\nCUOTA DEL PROVEEDOR AGOTADA: se detiene el relleno sin gastar más peticiones; {hint}.")
+            return QUOTA_EXIT_CODE
     return 0
 
 
@@ -237,7 +255,7 @@ def main(argv: list[str] | None = None) -> int:
         print("Casos sin ejecutar por tanda (--fill-missing): " + (", ".join(f"{k}: {len(v)}" for k, v in todo.items() if v) or "ninguno"))
         code = fill_missing(arms, args.reps, out, args.min_interval, budget)
         print(f"\nPeticiones al LLM de esta ejecución: {budget.used}/{budget.total}")
-        if code in (0, 3):
+        if code in (0, 3, QUOTA_EXIT_CODE):
             subprocess.run([sys.executable, "-m", "futsal.agent.arms_summary", str(out), "--json", str(out / "summary.json"), "--md", str(out / "summary.md")], check=False)
         return code
     manifest: dict = {"started": datetime.now(UTC).isoformat(), "arms": {a: arm_env(a) for a in arms}, "cases": ids or args.cases, "max_requests": args.max_requests,
@@ -257,9 +275,17 @@ def main(argv: list[str] | None = None) -> int:
             return 3
         print(f"\n== {arm} r{rep} (tope duro de la tanda: {cap}; global {budget.used}/{total_cap}) ==", flush=True)
         res = subprocess.run(command(arm, rep, out, selection, cap, args.min_interval), env={**os.environ, **arm_env(arm)}, check=False)
-        spent = budget.charge(cap, requests_used(target) if res.returncode in (0, 1) else None)
+        spent = budget.charge(cap, requests_used(target) if res.returncode in (0, 1, QUOTA_EXIT_CODE) else None)
         manifest["runs"].append({"arm": arm, "rep": rep, "exit": res.returncode, "finished": datetime.now(UTC).isoformat(), "max_requests_granted": cap, "requests_used": spent})
         manifest["budget"] = {"total": total_cap, "used": budget.used, "exhausted": False}
+        if res.returncode == QUOTA_EXIT_CODE:
+            manifest["quota_exhausted"] = {"at": f"{arm} r{rep}", "hint": quota_hint(target)}
+            (out / "manifest.json").write_text(json.dumps(manifest, indent=1), encoding="utf-8")
+            print(f"\nCUOTA DEL PROVEEDOR AGOTADA en {arm} r{rep}: no se lanza ninguna tanda más; {manifest['quota_exhausted']['hint']}.")
+            print(f"Peticiones al LLM de esta ejecución: {budget.used}/{total_cap}")
+            subprocess.run([sys.executable, "-m", "futsal.agent.arms_summary", str(out), "--json", str(out / "summary.json"), "--md", str(out / "summary.md")], check=False)
+            print("Cuando se restablezca, completa lo pendiente con --fill-missing (no hagas git pull antes: todas las repeticiones deben salir del mismo código).")
+            return QUOTA_EXIT_CODE
         (out / "manifest.json").write_text(json.dumps(manifest, indent=1), encoding="utf-8")
         if res.returncode not in (0, 1):  # 1 = hay casos fallidos (esperable); otro código = no se pudo ejecutar
             print(f"La tanda {arm} r{rep} terminó con código {res.returncode}: se detiene para no gastar cuota.")

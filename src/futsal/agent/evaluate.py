@@ -58,7 +58,8 @@ from futsal.agent.criteria import (
     unsupported_scores,
 )
 from futsal.agent.messages import LIMITATION_REPLIES
-from futsal.agent.llm import LLMClient, LLMResponse, Message, ToolCall, Usage
+from futsal.agent.arms import QUOTA_EXIT_CODE
+from futsal.agent.llm import QUOTA_MARKER, LLMClient, LLMResponse, Message, ToolCall, Usage
 from futsal.agent.llm import _gemini_tools as gemini_tools
 from futsal.agent.mcp_client import McpClient
 
@@ -1288,6 +1289,12 @@ async def evaluate(truth: Truth, mcp: McpClient, mode: str, llm: LLMClient | Non
         r = await run_case(c, mcp, mode, llm, max_tool_calls, max_rows, trace_path, strip_args, truth)
         requests += r.llm_calls + r.llm_retries
         results.append(r)
+        if r.status == "not_run" and QUOTA_MARKER in r.detail:
+            # El proveedor declara agotada su cuota (espera de horas): seguir solo gastaría una petición inútil por caso. Se para aquí, sin ejecutar nada más.
+            say(f"    -> CUOTA DEL PROVEEDOR AGOTADA: se detiene la ejecución; los {len(cases) - n} casos restantes no se ejecutan")
+            results += [CaseResult(x.id, x.category, x.question, "not_run", criteria=describe(x.facts),
+                                   detail=f"{QUOTA_MARKER}: no se ejecuta (la ejecución se detuvo en {c.id}; no se gastan más peticiones)") for x in cases[n:]]
+            break
         say(f"    -> {r.status.upper()}" + (" CRÍTICO" if r.critical else "")
             + (f" · {r.llm_calls} llamadas LLM · {r.tool_calls} tools · {r.input_tokens} tok entrada · {r.latency_ms / 1000:.1f} s"
                if r.llm_calls else "")
@@ -1460,6 +1467,9 @@ async def _main(args: argparse.Namespace) -> int:
     exit_code = 1 if any(r.status == "fail" for r in results) else 0
     if args.baseline:
         exit_code = max(exit_code, _compare_with_baseline(args, paths, run_dir))
+    if any(r.status == "not_run" and QUOTA_MARKER in r.detail for r in results):
+        exit_code = QUOTA_EXIT_CODE  # el informe y results.json ya están escritos; quien orquesta (ab_arms) lo distingue de un fallo de casos
+        print(f"\nLa cuota del proveedor está agotada: hay casos sin ejecutar. Espera al restablecimiento y repite con --only-failed {paths['results']}")
     if trace.exists():
         sanitize_trace_file(trace, run_dir / "traces.sanitized.jsonl")
     if args.output:
