@@ -14,7 +14,7 @@ import re
 import unicodedata
 from collections import Counter
 from dataclasses import dataclass, field
-from datetime import UTC, date, datetime, time, timedelta
+from datetime import UTC, date, datetime, time, timedelta, timezone
 from typing import Any
 
 MAX_SNIPPET = 80  # lo que se registra de un elemento omitido (no se guardan respuestas completas)
@@ -39,6 +39,22 @@ def madrid(moment: datetime) -> datetime:
     start = datetime.combine(_last_sunday(utc.year, 3), time(1), tzinfo=UTC)
     end = datetime.combine(_last_sunday(utc.year, 10), time(1), tzinfo=UTC)
     return (utc + timedelta(hours=2 if start <= utc < end else 1)).replace(tzinfo=None)
+
+
+def to_madrid_iso(iso: Any) -> str | None:
+    """`date` con zona (p. ej. «…T17:30:00+00:00») -> la misma hora en Europe/Madrid con su desfase real («…T18:30:00+01:00»). None si no hay nada que convertir
+    (no es texto, es solo fecha, no tiene zona o no es una fecha): quien llama deja el valor como está."""
+    if not isinstance(iso, str) or len(iso.strip()) <= 10:
+        return None
+    try:
+        moment = datetime.fromisoformat(iso.strip())
+    except ValueError:
+        return None
+    if moment.tzinfo is None:
+        return None
+    local = madrid(moment)
+    offset = local - moment.astimezone(UTC).replace(tzinfo=None)
+    return local.replace(tzinfo=timezone(offset)).isoformat(timespec="seconds")
 
 
 def kickoff(iso: str | None) -> tuple[date, time | None] | None:

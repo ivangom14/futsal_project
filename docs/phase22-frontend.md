@@ -18,7 +18,7 @@
   pregunta actual**; la UI lo indica. Mejora futura: `Agent.run(question, history=…)` (ver abajo).
 - Sin traza JSONL en disco en este servicio; los resultados de tools se guardan solo en memoria para extraer fuentes.
 - CORS solo para `http://localhost:5173` y `http://127.0.0.1:5173` (`CHAT_CORS_ORIGINS`, separados por comas).
-- Las «fuentes» son lo **recuperado** en esa ejecución (no se afirma que cada una esté citada en el texto).
+- (La UI ya no muestra fuentes; el contrato sigue devolviéndolas.) Las «fuentes» son lo **recuperado** en esa ejecución (no se afirma que cada una esté citada en el texto).
 
 ## Estructura
 ```

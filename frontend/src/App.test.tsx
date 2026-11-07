@@ -44,7 +44,7 @@ describe("App", () => {
     expect(await screen.findByText("Conectado")).toBeInTheDocument();
   });
 
-  it("envía con Enter, muestra carga, Markdown, fuentes y detalles técnicos del contrato real", async () => {
+  it("envía con Enter, muestra carga, Markdown y detalles técnicos del contrato real", async () => {
     let release!: () => void;
     const gate = new Promise<void>((r) => (release = r));
     const m = backend(async () => { await gate; return reply({ ...contract, answer: "Cada mitad dura **20 minutos**." }); });
@@ -56,19 +56,19 @@ describe("App", () => {
     const agent = await screen.findByTestId("msg-agent");
     expect(within(agent).getByText("20 minutos").tagName).toBe("STRONG");
     expect(chatCalls(m)).toHaveLength(1);
-    expect(screen.getByText("Normativa citada")).toBeInTheDocument(); // solo los fragmentos en los que se apoya la respuesta
-    expect(screen.queryByText(/Otros fragmentos consultados/)).not.toBeInTheDocument(); // ambos fragmentos están citados (Regla 7)
     expect(screen.getByText("Detalles técnicos")).toBeInTheDocument();
     expect(screen.getByText(/search_rules/)).toBeInTheDocument();
     expect(screen.queryByTestId("welcome")).not.toBeInTheDocument();
   });
 
-  it("no muestra fuentes si el agente no devuelve ninguna", async () => {
-    backend(() => reply({ ...contract, sources: [] }));
+  it("no muestra ninguna sección de fuentes, ni con fuentes en la respuesta ni sin ellas", async () => {
+    backend(() => reply(contract));  // el contrato real trae 2 fuentes documentales
     render(<App />);
-    await userEvent.type(screen.getByLabelText("Pregunta"), "hola{Enter}");
-    await screen.findByTestId("msg-agent");
+    await userEvent.type(screen.getByLabelText("Pregunta"), "¿Cuánto dura cada mitad?{Enter}");
+    const agent = await screen.findByTestId("msg-agent");
+    expect(contract.sources.length).toBeGreaterThan(0);
     expect(screen.queryByRole("region", { name: "Fuentes" })).not.toBeInTheDocument();
+    expect(within(agent).queryByText(/Normativa citada|Otros fragmentos consultados|Datos actualizados el/)).not.toBeInTheDocument();
   });
 
   it("distingue un error del backend de una respuesta y permite reintentar", async () => {

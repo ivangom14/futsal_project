@@ -51,6 +51,7 @@ from futsal.domain.competitions import (
 from futsal.agent.prompts import COMPACT, LEGACY, MODES, PromptSet, compact_prompts
 from futsal.agent import telemetry
 from futsal.agent.entities import TeamCatalog, decide, normalize, standings_only
+from futsal.agent.reconcile import to_madrid_iso
 from futsal.agent.tier0 import compose as tier0_compose
 from futsal.agent.tier0 import candidate as tier0_candidate
 from futsal.agent.tier0 import match as tier0_match
@@ -201,6 +202,22 @@ def _strip(obj: Any) -> Any:
     if isinstance(obj, list):
         return [_strip(x) for x in obj]
     return obj
+
+
+def localize_match_dates(text: str) -> str:
+    """Fecha y hora de cada partido (`date`) en Europe/Madrid, con su desfase real, para lo que ve el LLM. La API entrega UTC («…T17:30:00+00:00») y el modelo
+    escribía esa hora como si fuera local (una hora menos en invierno, dos en verano). Mismo instante, mismo formato y misma longitud: solo cambia el desfase."""
+    try:
+        data = json.loads(text)
+    except ValueError:
+        return text
+    rows = data.get("matches") if isinstance(data, dict) and isinstance(data.get("matches"), list) else [data] if isinstance(data, dict) else []
+    changed = False
+    for row in rows:
+        local = to_madrid_iso(row.get("date")) if isinstance(row, dict) else None
+        if local is not None:
+            row["date"], changed = local, True
+    return json.dumps(data, ensure_ascii=False, separators=(",", ":")) if changed else text
 
 
 def compact_result(text: str, max_rows: int = DEFAULT_MAX_ROWS) -> str:
@@ -415,6 +432,7 @@ class Agent:
         self._active_tools: list[dict[str, Any]] | None = None
         self._clock: Callable[[], datetime] = lambda: datetime.now(UTC)  # reloj de la frescura del Tier 0 (los tests lo sustituyen)
         self._group_repair_on = resolve_group_repair(group_repair)  # Fase de auditoría: completar un group_id omitido (apagado por defecto)
+        self._scope_mentioned = False  # ¿la pregunta ACTUAL nombra una competición/categoría/alias/grupo que la aplicación reconoce? (ver `_resolve_scope`)
         self._tier0_on = resolve_tier0(tier0)  # Fase G: posición/puntos de un equipo sin LLM (apagado por defecto)
         self._prefetch_on = resolve_prefetch(prefetch)  # Fase 3A: find_teams en código antes del primer LLM (apagado por defecto)
         self._team_catalog: tuple[float, TeamCatalog] | None = None
@@ -512,6 +530,7 @@ class Agent:
     def _resolve_scope(self, turns: Sequence[Turn], effective: str, result: AgentResult) -> str:
         """Tipo, categoría, alias y grupo que el usuario ha dado (mensaje actual y anteriores, lo nuevo manda) → competiciones del
         catálogo real. Devuelve la nota para el LLM; `find_teams` se filtra con las mismas pistas (ver `_scope_filter`)."""
+        self._scope_mentioned = False
         if not self._competitions:
             self._hints, self._scope_ok = Hints(), False
             return ""
@@ -519,6 +538,7 @@ class Agent:
         for t in turns:
             merged = merge_hints(merged, extract_hints(t.question, self._aliases, self._competitions), self._aliases)
         current = extract_hints(effective, self._aliases, self._competitions)
+        self._scope_mentioned = not current.empty()
         self._hints = merge_hints(merged, current, self._aliases)
         cands = candidates(self._competitions, self._hints, self._aliases)
         self._scope_ok = scope_resolved(cands, self._hints)
@@ -698,9 +718,10 @@ class Agent:
                 messages += [Message("assistant", resp.text), Message("user", RULES_RECONSIDER_MESSAGE)]
                 log("GUARDRAIL\n→ pregunta de reglamento sin consultar search_rules: se pide consultarlo antes de aceptar la respuesta")
                 continue
-            if (not resp.tool_calls and result.tool_calls == 0 and not nudged and mentions_domain(ctx)
+            if (not resp.tool_calls and result.tool_calls == 0 and not nudged and (mentions_domain(ctx) or self._scope_mentioned)
                     and (resp.text.strip() == OFF_TOPIC_MESSAGE or not states_tool_limit(resp.text))):
-                # La pregunta habla de la competición: se pide UNA vez consultar las tools antes de darla por ajena.
+                # La pregunta habla de la competición (vocabulario de dominio, o una competición/categoría/alias que la propia aplicación reconoce, p. ej. «¿Cómo va
+                # la liga preferente?»): se pide UNA vez consultar las tools antes de darla por ajena.
                 nudged = True
                 self._widen_tools(rec, "reconsulta", log)
                 rec.raw_answer = redact(resp.text.strip()[:300])
@@ -1021,7 +1042,7 @@ class Agent:
             if isinstance(data, dict) and data.get("status") in ("ok", "incomplete"):
                 result.official.append(data)
         log(f"MCP\n→ {summarize(is_error, text)}")
-        sent = text if is_error else compact_result(text, self._max_rows)
+        sent = text if is_error else compact_result(localize_match_dates(text) if call.name in ("list_matches", "get_match") else text, self._max_rows)
         self._seen[key] = (is_error, sent)
         if not is_error:
             try:

@@ -79,21 +79,7 @@ describe("visuales estructurados (contrato real)", () => {
   });
 });
 
-describe("fuentes y frescura", () => {
-  it("muestra fecha de actualización de los datos oficiales y avisa cuando no se conoce", async () => {
-    const withUnknown = { ...visuals, sources: [...visuals.sources, { ...visuals.sources[0], title: "Actas de partidos · RFFM", updated_at: null, freshness: "unknown",
-      updated_note: "No se conoce la fecha de actualización de estos datos." }] };
-    backend(() => reply(withUnknown));
-    render(<App />);
-    await ask("Compara");
-    const region = screen.getByRole("region", { name: "Fuentes" });
-    expect(within(region).getByText("Datos oficiales RFFM")).toBeInTheDocument();
-    await userEvent.click(within(region).getByText(/Clasificación oficial · RFFM/));
-    expect(within(region).getAllByText(/Datos actualizados el 28\/10\/2026/)).toHaveLength(2); // clasificación y goleadores
-    await userEvent.click(within(region).getByText(/Actas de partidos · RFFM/));
-    expect(within(region).getByText("No se conoce la fecha de actualización de estos datos.")).toBeInTheDocument();
-  });
-
+describe("origen y análisis", () => {
   it("identifica el análisis como no oficial y etiqueta el origen", async () => {
     backend(() => reply({ ...visuals, is_analysis: true }));
     render(<App />);
@@ -103,16 +89,14 @@ describe("fuentes y frescura", () => {
   });
 });
 
-describe("correspondencia respuesta-fuentes", () => {
-  it("los fragmentos no citados quedan aparte y plegados, no como respaldo de la respuesta", async () => {
-    const [first, second] = contract.sources;
-    backend(() => reply({ ...contract, sources: [{ ...first, cited: true }, { ...second, cited: false, pages: "99" }] }));
+describe("sin sección de fuentes", () => {
+  it("las fuentes siguen en el contrato (datos) pero la interfaz no las pinta", async () => {
+    backend(() => reply(visuals));
     render(<App />);
-    await ask("hola");
-    const region = screen.getByRole("region", { name: "Fuentes" });
-    expect(within(region).getByText("Normativa citada")).toBeInTheDocument();
-    const others = within(region).getByText(/Otros fragmentos consultados, no citados en la respuesta \(1\)/);
-    expect(others.closest("details")).not.toHaveAttribute("open");
+    await ask("Compara");
+    expect(visuals.sources.length).toBeGreaterThan(0);
+    expect(screen.queryByRole("region", { name: "Fuentes" })).not.toBeInTheDocument();
+    expect(screen.queryByText(/Datos actualizados el/)).not.toBeInTheDocument();
   });
 });
 

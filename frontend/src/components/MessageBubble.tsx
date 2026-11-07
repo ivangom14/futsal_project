@@ -2,7 +2,6 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { LogoMark } from "./Logo";
 import FeedbackBar from "./FeedbackBar";
-import Sources from "./Sources";
 import Suggestions from "./Suggestions";
 import TechnicalDetails from "./TechnicalDetails";
 import Visuals from "./Visuals";
@@ -78,7 +77,6 @@ export default function MessageBubble({ message, onRetry, onSuggest, suggestDisa
           </p>
         )}
         {r && <Visuals visuals={r.visuals ?? []} />}
-        {r && <Sources sources={r.sources} />}
         {r && onSuggest && <Suggestions items={r.suggestions ?? []} onPick={onSuggest} disabled={suggestDisabled} />}
         {r && <FeedbackBar value={message.feedback} onSubmit={(fb) => onFeedback(message.id, r.diagnostics.run_id, fb)} />}
         {r && <TechnicalDetails response={r} />}
