@@ -242,3 +242,14 @@ estado conversacional estructurado reconstruible del historial (`convstate.py`),
 contra el catálogo (`interpreter.py`) y recuperación en tres niveles tras un rechazo erróneo. Todo tras el flag (`legacy` por defecto, idéntico a antes: huella del LLM comprobada contra c80095a; A/B intacto). Banco `understanding_eval`:
 262 conversaciones/359 turnos (89 multi-turno; 73 son un conjunto ciego). Offline con LLM simulado: legacy 29 %/20 % (dev/ciego), deterministic 100 %/99 %, llm 100 %/100 %; 0 competiciones equivocadas; en el ciego ANTES de corregir 93 %/93 % (1 crítico en llm).
 Backend 1209 tests OK (3.12 y 3.11; el único error es el de PostgreSQL de siempre). No validado en vivo.
+
+## Plataforma v2 (diseño aprobado en líneas generales, 2026-11-08; SIN implementar)
+Plan y diseño en `docs/v2/` (README = oleadas, dependencias y aprobaciones A1–A9). Decisiones: todo el FS de la RFFM sin lista manual
+(temporada actual primero, después el histórico; diseño multi-federación por `source`); catálogo estructurado con confianza (nunca
+senior por defecto: `unknown` + revisión); clubes por el código del escudo [H] y linaje de equipo como vista; cola `ingest_jobs` con
+planificador anclado a los horarios (más frecuencia en la jornada del fin de semana); resolutor obligatorio, 9 herramientas v2 de alto
+nivel, niveles T0/T1/T2 tras `AGENT_ARCH=v2` y retirada de banderas R1–R5 con la evaluación como puerta; Futsito-Eval v1 (snapshot
+congelado, 160 casos en 9 estratos, 3 repeticiones, ruido medido); pasarela de modelos por tarea con adaptador OpenAI; comparativa
+por fases (F-A económicos, F-B medios; ≈ 35 USD). Modelos y precios verificados el 2026-11-08 en `docs/v2/models.md`.
+Hallazgos: la RFFM da `NombreCategoria`/`CodigoCategoria`/`Activa` y `nombre_delegacion` (se leen y no se guardan); el predeterminado
+`claude-haiku-4-5` está obsoleto. Siguiente: oleada 0 (T01–T04, delegables en paralelo) y sondeo de la RFFM (A1, requiere autorización).
