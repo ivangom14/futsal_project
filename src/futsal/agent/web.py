@@ -23,7 +23,7 @@ from mcp.client.stdio import stdio_client
 from pydantic import BaseModel, Field, StringConstraints
 from typing import Annotated
 
-from futsal.agent.agent import DEFAULT_MAX_ROWS, DEFAULT_MAX_TOOL_CALLS, OFF_TOPIC_MESSAGE, Agent, AgentResult
+from futsal.agent.agent import DEFAULT_MAX_ROWS, DEFAULT_MAX_TOOL_CALLS, OFF_TOPIC_MESSAGE, Agent, AgentResult, resolve_context_mode
 from futsal.agent import presentation as pres
 from futsal.agent.reconcile import Reconciliation, reconcile_answer
 from futsal.agent.feedback import FeedbackRequest, RunSummaries, record
@@ -376,7 +376,7 @@ def create_chat_app(runner: AgentRunner | None = None,
         running = agent_runner.running_since
         queue = {"busy": running is not None, "running_for_s": None if running is None else round(time.monotonic() - running, 1),
                  "waiting": max(agent_runner.waiting - (1 if running is not None else 0), 0)}
-        return {"status": "ok" if ok else "degraded", "agent": agent, "llm": llm, "data_api": data, "queue": queue}
+        return {"status": "ok" if ok else "degraded", "agent": agent, "llm": llm, "data_api": data, "queue": queue, "context_mode": resolve_context_mode()}
 
     @app.post("/chat", response_model=ChatResponse)
     async def chat(body: ChatRequest) -> ChatResponse | JSONResponse:

@@ -26,6 +26,9 @@ export default function ConnectionBadge({ connection, onRefresh }: { connection:
     <button onClick={onRefresh} title={d.title} aria-label={`Estado: ${d.label}. ${d.title}`} className="flex items-center gap-1.5 rounded-full px-2 py-1 text-xs text-slate-500 hover:bg-bear-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand-500">
       <span className={`h-2 w-2 rounded-full ${d.tone}`} />
       {d.label}
+      {(connection.state === "ok" || connection.state === "degraded") && connection.health.context_mode && (
+        <span data-testid="context-mode" className="text-[10px] text-slate-400">· {connection.health.context_mode}</span>
+      )}
     </button>
   );
 }

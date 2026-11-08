@@ -156,6 +156,17 @@ def test_server_keeps_the_state_per_conversation_and_forgets_it() -> None:
     assert mem.forget("c") and mem.get_state("c") is None
 
 
+def test_health_reports_the_context_mode_the_backend_started_with(monkeypatch: pytest.MonkeyPatch) -> None:
+    @asynccontextmanager
+    async def factory() -> AsyncIterator[Agent]:
+        yield Agent(Seq([]), FakeMcp(), 8, router_shadow=False)
+
+    for mode in ("legacy", "deterministic", "llm"):
+        monkeypatch.setenv("AGENT_CONTEXT", mode)
+        client = TestClient(create_chat_app(AgentRunner(factory), lambda: {"reachable": True, "detail": None}))
+        assert client.get("/chat/health").json()["context_mode"] == mode
+
+
 def test_web_service_persists_state_and_rebuilds_it_after_a_restart() -> None:
     def build(llm: Seq) -> TestClient:
         @asynccontextmanager

@@ -44,6 +44,13 @@ describe("App", () => {
     expect(await screen.findByText("Conectado")).toBeInTheDocument();
   });
 
+  it("muestra en la cabecera con qué modo de comprensión arrancó el backend (para saber si está activo)", async () => {
+    backend(() => reply(contract), () => reply({ ...HEALTH_OK, context_mode: "deterministic" }));
+    render(<App />);
+    expect(await screen.findByText("Conectado")).toBeInTheDocument();
+    expect(screen.getByTestId("context-mode")).toHaveTextContent("deterministic");
+  });
+
   it("envía con Enter, muestra carga, Markdown y detalles técnicos del contrato real", async () => {
     let release!: () => void;
     const gate = new Promise<void>((r) => (release = r));

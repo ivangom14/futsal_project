@@ -139,6 +139,8 @@ export interface Health {
   llm: { provider: string; key_configured: boolean };
   data_api: { reachable: boolean; detail: string | null };
   queue?: { busy: boolean; running_for_s: number | null; waiting: number };
+  /** AGENT_CONTEXT con el que arrancó el backend (legacy | deterministic | llm). */
+  context_mode?: string;
 }
 
 /** Estado de conexión mostrado en la interfaz. */
