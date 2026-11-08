@@ -3,6 +3,8 @@
 @tailwind utilities;
 
 html, body, #root { height: 100%; }
+/* Nunca más ancho que la pantalla (un texto largo o el zoom de iOS al enfocar un campo no deben descuadrar la página); el zoom manual del usuario sigue permitido. */
+html, body { overflow-x: hidden; max-width: 100%; -webkit-text-size-adjust: 100%; }
 
 /* Nombres de equipo: completos, con salto de línea (hasta 4 líneas, suficiente para el nombre más largo del catálogo real incluso a 320 px; solo un nombre absurdamente largo se recorta, y su texto íntegro va en `title`). */
 @layer components {

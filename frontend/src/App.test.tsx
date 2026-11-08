@@ -51,6 +51,13 @@ describe("App", () => {
     expect(screen.getByTestId("context-mode")).toHaveTextContent("deterministic");
   });
 
+  it("el campo de pregunta usa 16 px en móvil (por debajo, iOS Safari amplía la página al enfocar y deja el envío fuera de pantalla)", () => {
+    backend(() => reply(contract));
+    render(<App />);
+    expect(screen.getByLabelText("Pregunta").className).toMatch(/\btext-base\b/);
+    expect(screen.getByLabelText("Pregunta").className).toMatch(/\bmin-w-0\b/);
+  });
+
   it("envía con Enter, muestra carga, Markdown y detalles técnicos del contrato real", async () => {
     let release!: () => void;
     const gate = new Promise<void>((r) => (release = r));

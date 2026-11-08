@@ -58,7 +58,7 @@ export default function FeedbackBar({ value, onSubmit }: { value?: Feedback; onS
           </fieldset>
           <label className="block">
             <span className="sr-only">Comentario opcional</span>
-            <textarea value={comment} onChange={(e) => setComment(e.target.value)} maxLength={1000} rows={2} placeholder="Comentario (opcional)" className="w-full rounded border border-slate-300 px-2 py-1" />
+            <textarea value={comment} onChange={(e) => setComment(e.target.value)} maxLength={1000} rows={2} placeholder="Comentario (opcional)" className="w-full rounded border border-slate-300 px-2 py-1 text-base sm:text-sm" />
           </label>
           {error && <p role="alert" className="text-red-700">No se ha podido guardar la valoración. Inténtalo de nuevo.</p>}
           <div className="flex gap-2">

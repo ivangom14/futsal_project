@@ -123,7 +123,7 @@ export default function App() {
           <h1 className="flex-1 truncate text-base font-extrabold tracking-tight text-brand-700">Futsito <span className="hidden font-normal text-slate-500 sm:inline">· Asistente de fútbol sala RFFM</span></h1>
           <ConnectionBadge connection={connection} onRefresh={() => void refreshHealth()} />
         </header>
-        <div className="flex-1 overflow-y-auto px-4 py-4" data-testid="messages">
+        <div className="flex-1 overflow-y-auto overflow-x-hidden px-4 py-4" data-testid="messages">
           <div className="mx-auto max-w-3xl space-y-4">
             {active && active.messages.length === 0 && <Welcome onPick={send} disabled={loading} />}
             {active?.messages.map((m, i) => (

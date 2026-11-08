@@ -32,9 +32,9 @@ export default function Composer({ onSend, loading, usesContext = false }: { onS
           rows={2}
           placeholder="Escribe tu pregunta… (Enter envía, Shift+Enter nueva línea)"
           aria-label="Pregunta"
-          className="flex-1 resize-none rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-200"
+          className="min-w-0 flex-1 resize-none rounded-lg border border-slate-300 px-3 py-2 text-base sm:text-sm focus:border-brand-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-200"
         />
-        <button onClick={submit} disabled={loading || !text.trim()} className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-50">
+        <button onClick={submit} disabled={loading || !text.trim()} className="shrink-0 rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-50">
           Enviar
         </button>
       </div>

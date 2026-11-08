@@ -39,7 +39,7 @@ export default function MessageBubble({ message, onRetry, onSuggest, suggestDisa
   if (message.role === "user") {
     return (
       <div className="flex justify-end" data-testid="msg-user">
-        <p className="max-w-[85%] whitespace-pre-wrap rounded-2xl rounded-br-sm bg-brand-600 px-4 py-2 text-white shadow-sm">{message.content}</p>
+        <p className="min-w-0 max-w-[85%] whitespace-pre-wrap break-words [overflow-wrap:anywhere] rounded-2xl rounded-br-sm bg-brand-600 px-4 py-2 text-white shadow-sm">{message.content}</p>
       </div>
     );
   }
@@ -68,7 +68,7 @@ export default function MessageBubble({ message, onRetry, onSuggest, suggestDisa
       <LogoMark className="mt-1 h-8 w-8 shrink-0" />
       <div className="min-w-0 max-w-[92%] flex-1 rounded-2xl rounded-tl-sm border border-bear-100 bg-white px-4 py-3 shadow-sm">
         {r && <Badges r={r} />}
-        <div className="prose prose-sm max-w-none prose-table:text-sm">
+        <div className="prose prose-sm max-w-none break-words [overflow-wrap:anywhere] prose-table:text-sm">
           <ReactMarkdown remarkPlugins={[remarkGfm]}>{message.content}</ReactMarkdown>
         </div>
         {r?.error && (
