@@ -1,0 +1,329 @@
+# Futsito-Eval v1 · S1 · dev. Formato: docs/v2/evaluation.md §3.
+
+- id: s1_puntos
+  stratum: S1
+  holdout: false
+  requires: ["standings"]
+  capability: v1
+  select:
+    team: {kind: "team", unique_in_snapshot: true, with: ["standings"]}
+  turns:
+    - user: "¿Cuántos puntos tiene {team.name}?"
+      expect:
+        behavior: "answer"
+        facts: [{kind: "number", value: "{team.points}", label: "puntos"}]
+        tools: {needed: ["get_standings"], allowed: ["find_teams", "get_data_freshness", "get_standings", "list_competitions", "list_groups", "list_matches", "list_rounds", "list_teams"]}
+        source: "official_table"
+        max_llm_calls: 5
+
+- id: s1_puntos_coloquial
+  stratum: S1
+  holdout: false
+  requires: ["standings"]
+  capability: v1
+  select:
+    team: {kind: "team", unique_in_snapshot: true, with: ["standings"]}
+  turns:
+    - user: "¿Cuántos puntos lleva {team.name} esta temporada?"
+      expect:
+        behavior: "answer"
+        facts: [{kind: "number", value: "{team.points}", label: "puntos"}]
+        tools: {needed: ["get_standings"], allowed: ["find_teams", "get_data_freshness", "get_standings", "list_competitions", "list_groups", "list_matches", "list_rounds", "list_teams"]}
+        source: "official_table"
+        max_llm_calls: 5
+
+- id: s1_puesto
+  stratum: S1
+  holdout: false
+  requires: ["standings"]
+  capability: v1
+  select:
+    team: {kind: "team", unique_in_snapshot: true, with: ["standings"]}
+  turns:
+    - user: "¿Qué puesto ocupa {team.name} en su grupo?"
+      expect:
+        behavior: "answer"
+        facts: [{kind: "position", value: "{team.position}", team: "{team.name}", label: "posición"}]
+        tools: {needed: ["get_standings"], allowed: ["find_teams", "get_data_freshness", "get_standings", "list_competitions", "list_groups", "list_matches", "list_rounds", "list_teams"]}
+        source: "official_table"
+        max_llm_calls: 5
+
+- id: s1_puntos_y_posicion
+  stratum: S1
+  holdout: false
+  requires: ["standings"]
+  capability: v1
+  select:
+    team: {kind: "team", unique_in_snapshot: true, with: ["standings"]}
+  turns:
+    - user: "Dime la posición y los puntos de {team.name}."
+      expect:
+        behavior: "answer"
+        facts: [{kind: "position", value: "{team.position}", team: "{team.name}", label: "posición"}, {kind: "number", value: "{team.points}", label: "puntos"}]
+        tools: {needed: ["get_standings"], allowed: ["find_teams", "get_data_freshness", "get_standings", "list_competitions", "list_groups", "list_matches", "list_rounds", "list_teams"]}
+        source: "official_table"
+        max_llm_calls: 5
+
+- id: s1_victorias
+  stratum: S1
+  holdout: false
+  requires: ["standings"]
+  capability: v1
+  select:
+    team: {kind: "team", unique_in_snapshot: true, with: ["standings"]}
+  turns:
+    - user: "¿Cuántos partidos ha ganado {team.name}?"
+      expect:
+        behavior: "answer"
+        facts: [{kind: "number", value: "{team.won}", label: "partidos ganados"}]
+        tools: {needed: ["get_standings"], allowed: ["find_teams", "get_data_freshness", "get_standings", "list_competitions", "list_groups", "list_matches", "list_rounds", "list_teams"]}
+        source: "official_table"
+        max_llm_calls: 5
+
+- id: s1_derrotas
+  stratum: S1
+  holdout: false
+  requires: ["standings"]
+  capability: v1
+  select:
+    team: {kind: "team", unique_in_snapshot: true, with: ["standings"]}
+  turns:
+    - user: "¿Cuántos partidos ha perdido {team.name}?"
+      expect:
+        behavior: "answer"
+        facts: [{kind: "number", value: "{team.lost}", label: "partidos perdidos"}]
+        tools: {needed: ["get_standings"], allowed: ["find_teams", "get_data_freshness", "get_standings", "list_competitions", "list_groups", "list_matches", "list_rounds", "list_teams"]}
+        source: "official_table"
+        max_llm_calls: 5
+
+- id: s1_goles_favor
+  stratum: S1
+  holdout: false
+  requires: ["standings"]
+  capability: v1
+  select:
+    team: {kind: "team", unique_in_snapshot: true, with: ["standings"]}
+  turns:
+    - user: "¿Cuántos goles a favor tiene {team.name} en la clasificación?"
+      expect:
+        behavior: "answer"
+        facts: [{kind: "number", value: "{team.gf}", label: "goles a favor"}]
+        tools: {needed: ["get_standings"], allowed: ["find_teams", "get_data_freshness", "get_standings", "list_competitions", "list_groups", "list_matches", "list_rounds", "list_teams"]}
+        source: "official_table"
+        max_llm_calls: 5
+
+- id: s1_goles_contra
+  stratum: S1
+  holdout: false
+  requires: ["standings"]
+  capability: v1
+  select:
+    team: {kind: "team", unique_in_snapshot: true, with: ["standings"]}
+  turns:
+    - user: "¿Cuántos goles en contra lleva {team.name}?"
+      expect:
+        behavior: "answer"
+        facts: [{kind: "number", value: "{team.ga}", label: "goles en contra"}]
+        tools: {needed: ["get_standings"], allowed: ["find_teams", "get_data_freshness", "get_standings", "list_competitions", "list_groups", "list_matches", "list_rounds", "list_teams"]}
+        source: "official_table"
+        max_llm_calls: 5
+
+- id: s1_proximo_fecha
+  stratum: S1
+  holdout: false
+  requires: ["calendar", "standings"]
+  capability: v1
+  select:
+    team: {kind: "team", unique_in_snapshot: true, with: ["standings", "pending"]}
+  turns:
+    - user: "¿Cuándo juega su próximo partido {team.name}?"
+      expect:
+        behavior: "answer"
+        facts: [{kind: "date", value: "{team.next_match.date}"}]
+        tools: {needed: ["list_matches"], allowed: ["find_teams", "get_data_freshness", "get_standings", "list_competitions", "list_groups", "list_matches", "list_rounds", "list_teams"]}
+        max_llm_calls: 5
+
+- id: s1_proximo_campo
+  stratum: S1
+  holdout: false
+  requires: ["calendar"]
+  capability: v1
+  select:
+    team: {kind: "team", unique_in_snapshot: true, with: ["pending"]}
+  turns:
+    - user: "¿En qué campo juega {team.name} su próximo partido?"
+      expect:
+        behavior: "answer"
+        facts: [{kind: "name", value: "{team.next_match.venue}"}]
+        tools: {needed: ["list_matches"], allowed: ["find_teams", "get_data_freshness", "get_standings", "list_competitions", "list_groups", "list_matches", "list_rounds", "list_teams"]}
+        max_llm_calls: 5
+
+- id: s1_ultimo_rival
+  stratum: S1
+  holdout: false
+  requires: ["results", "standings"]
+  capability: v1
+  select:
+    team: {kind: "team", unique_in_snapshot: true, with: ["standings", "finished"]}
+  turns:
+    - user: "¿Contra quién jugó {team.name} su último partido?"
+      expect:
+        behavior: "answer"
+        facts: [{kind: "name", value: "{team.last_match.rival}"}]
+        tools: {needed: ["list_matches"], allowed: ["find_teams", "get_data_freshness", "get_standings", "list_competitions", "list_groups", "list_matches", "list_rounds", "list_teams"]}
+        max_llm_calls: 5
+
+- id: s1_ultimo_jornada
+  stratum: S1
+  holdout: false
+  requires: ["results", "standings"]
+  capability: v1
+  select:
+    team: {kind: "team", unique_in_snapshot: true, with: ["standings", "finished"]}
+  turns:
+    - user: "¿En qué jornada fue el último partido de {team.name}?"
+      expect:
+        behavior: "answer"
+        facts: [{kind: "number", value: "{team.last_match.round}", label: "jornada"}]
+        tools: {needed: ["list_matches"], allowed: ["find_teams", "get_data_freshness", "get_standings", "list_competitions", "list_groups", "list_matches", "list_rounds", "list_teams"]}
+        max_llm_calls: 5
+
+- id: s1_pendientes
+  stratum: S1
+  holdout: false
+  requires: ["calendar", "results"]
+  capability: v1
+  select:
+    team: {kind: "team", unique_in_snapshot: true, with: ["pending", "finished"]}
+  turns:
+    - user: "¿Cuántos partidos le quedan por jugar a {team.name}?"
+      expect:
+        behavior: "answer"
+        facts: [{kind: "number", value: "{team.pending}", label: "partidos pendientes"}]
+        tools: {needed: ["list_matches"], allowed: ["find_teams", "get_data_freshness", "get_standings", "list_competitions", "list_groups", "list_matches", "list_rounds", "list_teams"]}
+        max_llm_calls: 5
+
+- id: s1_jugados_resultados
+  stratum: S1
+  holdout: false
+  requires: ["results", "standings"]
+  capability: v1
+  select:
+    team: {kind: "team", unique_in_snapshot: true, with: ["standings", "finished"]}
+  turns:
+    - user: "¿Cuántos partidos ha disputado ya {team.name}?"
+      expect:
+        behavior: "answer"
+        facts: [{kind: "number", value: "{team.finished}", label: "partidos jugados"}]
+        tools: {needed: ["list_matches"], allowed: ["find_teams", "get_data_freshness", "get_standings", "list_competitions", "list_groups", "list_matches", "list_rounds", "list_teams"]}
+        max_llm_calls: 5
+
+- id: s1_lider_puntos
+  stratum: S1
+  holdout: false
+  requires: ["standings"]
+  capability: v1
+  select:
+    group: {kind: "group", with: ["standings"]}
+  turns:
+    - user: "¿Quién lidera {group.competition} {group.name} y con cuántos puntos?"
+      expect:
+        behavior: "answer"
+        facts: [{kind: "name", value: "{group.leader.name}"}, {kind: "number", value: "{group.leader.points}", label: "puntos"}]
+        tools: {needed: ["get_standings"], allowed: ["find_teams", "get_data_freshness", "get_standings", "list_competitions", "list_groups", "list_matches", "list_rounds", "list_teams"]}
+        source: "official_table"
+        max_llm_calls: 5
+
+- id: s1_colista
+  stratum: S1
+  holdout: false
+  requires: ["standings"]
+  capability: v1
+  select:
+    group: {kind: "group", with: ["standings"]}
+  turns:
+    - user: "¿Quién es el último clasificado de {group.competition} {group.name}?"
+      expect:
+        behavior: "answer"
+        facts: [{kind: "name", value: "{group.last_place.name}"}]
+        tools: {needed: ["get_standings"], allowed: ["find_teams", "get_data_freshness", "get_standings", "list_competitions", "list_groups", "list_matches", "list_rounds", "list_teams"]}
+        source: "official_table"
+        max_llm_calls: 5
+
+- id: s1_goleador
+  stratum: S1
+  holdout: false
+  requires: ["scorers", "standings"]
+  capability: v1
+  select:
+    group: {kind: "group", with: ["standings", "scorers"]}
+  turns:
+    - user: "¿Quién es el máximo goleador de {group.competition} {group.name}?"
+      expect:
+        behavior: "answer"
+        facts: [{kind: "name", value: "{group.top_scorer.name}"}]
+        tools: {needed: ["get_scorer_table"], allowed: ["find_teams", "get_data_freshness", "get_scorer_table", "get_standings", "list_competitions", "list_groups", "list_matches", "list_rounds", "list_teams"]}
+        source: "official_table"
+        max_llm_calls: 5
+
+- id: s1_goles_goleador
+  stratum: S1
+  holdout: false
+  requires: ["scorers", "standings"]
+  capability: v1
+  select:
+    group: {kind: "group", with: ["standings", "scorers"]}
+  turns:
+    - user: "¿Cuántos goles lleva el máximo goleador de {group.competition} {group.name}?"
+      expect:
+        behavior: "answer"
+        facts: [{kind: "number", value: "{group.top_scorer.goals}", label: "goles"}]
+        tools: {needed: ["get_scorer_table"], allowed: ["find_teams", "get_data_freshness", "get_scorer_table", "get_standings", "list_competitions", "list_groups", "list_matches", "list_rounds", "list_teams"]}
+        source: "official_table"
+        max_llm_calls: 5
+
+- id: s1_jornada_actual
+  stratum: S1
+  holdout: false
+  requires: ["results"]
+  capability: v1
+  select:
+    group: {kind: "group", with: ["finished"]}
+  turns:
+    - user: "¿Hasta qué jornada se ha jugado en {group.competition} {group.name}?"
+      expect:
+        behavior: "answer"
+        facts: [{kind: "number", value: "{group.last_round}", label: "jornada"}]
+        tools: {needed: ["list_matches"], allowed: ["find_teams", "get_data_freshness", "get_standings", "list_competitions", "list_groups", "list_matches", "list_rounds", "list_teams"]}
+        max_llm_calls: 5
+
+- id: s1_competicion_equipo
+  stratum: S1
+  holdout: false
+  requires: ["standings"]
+  capability: v1
+  select:
+    team: {kind: "team", unique_in_snapshot: true, with: ["standings"]}
+  turns:
+    - user: "¿En qué competición y grupo juega {team.name}?"
+      expect:
+        behavior: "answer"
+        facts: [{kind: "name", value: "{team.competition}"}, {kind: "name", value: "{team.group}"}]
+        tools: {needed: [], allowed: ["find_teams", "get_data_freshness", "get_standings", "list_competitions", "list_groups", "list_matches", "list_rounds", "list_teams"]}
+        max_llm_calls: 5
+
+- id: s1_puntos_lider_equipo
+  stratum: S1
+  holdout: false
+  requires: ["standings"]
+  capability: v1
+  select:
+    group: {kind: "group", with: ["standings"]}
+  turns:
+    - user: "¿Cuántos puntos tiene el último clasificado de {group.competition} {group.name}?"
+      expect:
+        behavior: "answer"
+        facts: [{kind: "number", value: "{group.last_place.points}", label: "puntos"}]
+        tools: {needed: ["get_standings"], allowed: ["find_teams", "get_data_freshness", "get_standings", "list_competitions", "list_groups", "list_matches", "list_rounds", "list_teams"]}
+        source: "official_table"
+        max_llm_calls: 5

@@ -1,5 +1,45 @@
 # v2 · Descubrimiento, ingesta y mantenimiento
 
+## Revisión tras el sondeo A1 (2026-11-09) — plan de peticiones para A4 (NO ejecutado)
+
+> **Actualizado con P0** ([p0-catalog.md](p0-catalog.md)): G = 89 grupos (71 activos), no 120. P1 ≈ 765 peticiones, P2 ≈ 880, P3 ≈ 800, fin de semana ≈ 2.060.
+
+Fuentes verificadas en [probe-a1.md](probe-a1.md) y su coste por petición:
+
+| Uso | Endpoint | Tamaño medido | Trae |
+|---|---|---|---|
+| Catálogo de una temporada | `GET /api/competitions?temporada=N&tipojuego=3` | 21–56 KB | todas las competiciones FS con metadatos oficiales |
+| Grupos | `GET /api/groups?competicion=C` | 0,2–2 KB | grupos, jornadas y equipos esperados, delegación, flags de tablas |
+| Temporada completa de un grupo | `GET /competicion/calendario?temporada&competicion&grupo&tipojuego` | ~360 KB | todas las jornadas: fecha, hora, campo, marcador, códigos de equipo (sin estado ni acta) |
+| Jornada (estado y acta) | `GET /api/results?idGroup=G&round=R` | ~9 KB | lo mismo que la página de jornada (`estado`, `acta_cerrada`, `motivo_estado`) |
+| Clasificación / goleadores | páginas actuales (`clasificaciones`, `goleadores`) | ~300 KB | sin cambios (Fase 16) |
+| Acta | `acta-partido/<codacta>` | ~300 KB | sin cambios (Fase 4) |
+| Club de un equipo | `/fichaequipo/<CodEquipo>` | ~260 KB | `codigo_club`; **solo se guardan códigos, nombres y escudo** |
+
+Variables: C = competiciones de la temporada (T22: 50 [C]); G = grupos (T22: **no medido**; muestra 2–9 por competición,
+estimación 80–180, central 120 [E]); R = jornadas jugadas (T22 a 9‑11: ~7 [C en un grupo]).
+
+| Paso | Peticiones | Duración a 1 petición / 3 s | Requiere |
+|---|---|---|---|
+| **P0** Medir G (catálogo + grupos de T22) | 1 + C = **51** | ~3 min | autorización (este documento) |
+| **P1** Temporada actual sin actas: calendario + clasificación + goleadores por grupo, más `/api/results` de las jornadas jugadas | 3·G + R·G ≈ **1.200** (800–1.800) | ~1 h | P0, cola T06 probada offline |
+| **P2** Actas de la temporada actual, solo categorías senior (A9) | ≈ 7 partidos · R · G_senior ≈ **1.500** [E] | ~1 h 15 min | P1 |
+| **P3** Clubes (`fichaequipo` por equipo nuevo, una vez por temporada) | ≈ 10·G ≈ **1.200** | ~1 h | P1; baja prioridad |
+| **Mantenimiento** fin de semana (tabla §3 con `/api/results`) | ≈ 29·G_activos ≈ **3.500** por fin de semana | repartidas en 3 días | P1 |
+| **Mantenimiento** entre semana | calendario por grupo activo 1/día ≈ **120/día** | | P1 |
+| **H** Histórico por temporada (catálogo, grupos, calendario y tablas finales; sin actas) | ≈ 1 + C + 2·G ≈ **350** por temporada; 12 temporadas ≈ **4.200** | ~3,5 h en total, por tandas nocturnas | temporada actual estable |
+
+Límites propuestos (configurables en `config/ingest_schedule.json`): 1 petición cada 3 s por host, **sin concurrencia**
+(1 trabajador), tope por ejecución (`--max-requests`, 500 por defecto), espera adaptativa ×2 ante 429/5xx/`null`
+hasta 60 s, interruptor si > 20 % de validaciones de forma fallan en un tick, ventana nocturna para el histórico
+(01:00–07:00 Europe/Madrid). Reintentos: 3 con espera exponencial; después `dead` y alerta. Checkpoint = un trabajo por
+(grupo, endpoint, jornada): perder el proceso cuesta como mucho una petición.
+
+Cambios de diseño derivados de A1: semilla del descubrimiento = `/api/competitions` (desaparece el problema del
+arranque); el barrido de calendario sustituye a las 26 páginas de jornada por grupo (÷26 en la carga inicial);
+validación de ámbito en cada página (la RFFM devuelve 200 con otra temporada o modalidad si faltan parámetros);
+identidad de equipo por `CodEquipo` y de club por `codigo_club`.
+
 Hay tres procesos separados que se coordinan a través de PostgreSQL:
 **descubrimiento** (qué existe) → **ingesta y mantenimiento** (obtener y actualizar) → **consulta** (el agente, solo lectura).
 

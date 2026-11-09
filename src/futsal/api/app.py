@@ -7,7 +7,7 @@ from typing import Annotated, Any
 from fastapi import Depends, FastAPI, HTTPException, Query, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
-from sqlalchemy import Engine, select, text
+from sqlalchemy import Engine, func, select, text
 from sqlalchemy.orm import Session, aliased
 
 from futsal.db.models import (
@@ -128,7 +128,7 @@ def create_app(engine: Engine | None = None, today: Callable[[], date] = date.to
                     select(Team, CompetitionGroup, Competition)
                     .join(CompetitionGroup, CompetitionGroup.id == Team.group_id)
                     .join(Competition, Competition.id == CompetitionGroup.competition_id)
-                    .where(Team.name.ilike(like, escape="\\"))
+                    .where(func.kb_unaccent(Team.name).ilike(func.kb_unaccent(like), escape="\\"))
                     .order_by(Competition.id, CompetitionGroup.id, Team.name))]
         if len(rows) > limit:
             return {"items": rows[:limit], "count": len(rows), "shown": limit}

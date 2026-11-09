@@ -1,0 +1,175 @@
+# Futsito-Eval v1 · S7 · dev. Formato: docs/v2/evaluation.md §3.
+
+- id: s7_comparar_grupos_puntos
+  stratum: S7
+  holdout: false
+  requires: ["multi_group", "standings"]
+  capability: v1
+  select:
+    a: {kind: "team", unique_in_snapshot: true, with: ["standings"]}
+    b: {kind: "team", unique_in_snapshot: true, with: ["standings"], other_group_than: "a"}
+  turns:
+    - user: "Compara a {a.name} ({a.competition} {a.group}) con {b.name} ({b.competition} {b.group}): ¿cuántos puntos tiene cada uno?"
+      expect:
+        behavior: "answer"
+        facts: [{kind: "number", value: "{a.points}", label: "puntos {a.name}", lenient: true}, {kind: "number", value: "{b.points}", label: "puntos {b.name}", lenient: true}]
+        tools: {needed: ["get_standings"], allowed: ["find_teams", "get_data_freshness", "get_standings", "list_competitions", "list_groups", "list_rounds", "list_teams"]}
+        source: "official_table"
+        max_llm_calls: 5
+
+- id: s7_comparar_grupos_posicion
+  stratum: S7
+  holdout: false
+  requires: ["multi_group", "standings"]
+  capability: v1
+  select:
+    a: {kind: "team", unique_in_snapshot: true, with: ["standings"]}
+    b: {kind: "team", unique_in_snapshot: true, with: ["standings"], other_group_than: "a"}
+  turns:
+    - user: "¿En qué posición están {a.name} ({a.group}) y {b.name} ({b.group}) en sus respectivos grupos?"
+      expect:
+        behavior: "answer"
+        facts: [{kind: "position", value: "{a.position}", team: "{a.name}", label: "posición"}, {kind: "position", value: "{b.position}", team: "{b.name}", label: "posición"}]
+        tools: {needed: ["get_standings"], allowed: ["find_teams", "get_data_freshness", "get_standings", "list_competitions", "list_groups", "list_rounds", "list_teams"]}
+        source: "official_table"
+        max_llm_calls: 5
+
+- id: s7_comparar_grupos_puntos_lider
+  stratum: S7
+  holdout: false
+  requires: ["multi_group", "standings"]
+  capability: v1
+  select:
+    g1: {kind: "group", with: ["standings"]}
+    g2: {kind: "group", with: ["standings"], other_group_than: "g1"}
+  turns:
+    - user: "¿Cuántos puntos tiene el líder de {g1.competition} {g1.name} y cuántos el de {g2.competition} {g2.name}?"
+      expect:
+        behavior: "answer"
+        facts: [{kind: "number", value: "{g1.leader.points}", label: "puntos líder {g1.name}", lenient: true}, {kind: "number", value: "{g2.leader.points}", label: "puntos líder {g2.name}", lenient: true}]
+        tools: {needed: ["get_standings"], allowed: ["find_teams", "get_data_freshness", "get_standings", "list_competitions", "list_groups", "list_rounds", "list_teams"]}
+        source: "official_table"
+        max_llm_calls: 5
+
+- id: s7_club_todos_equipos
+  stratum: S7
+  holdout: false
+  requires: ["standings"]
+  capability: v2
+  select:
+    club: {kind: "club", with: ["standings"]}
+  turns:
+    - user: "¿Cómo quedan todos los equipos del club {club.base_name}?"
+      expect:
+        behavior: "abstain"
+        tools: {needed: [], allowed: ["find_teams", "get_data_freshness", "list_competitions", "list_groups", "list_rounds", "list_teams"]}
+        note: "capacidad v2: se espera responder con todos los equipos del club"
+
+- id: s7_club_todos_puntos
+  stratum: S7
+  holdout: false
+  requires: ["standings"]
+  capability: v2
+  select:
+    club: {kind: "club", with: ["standings"]}
+  turns:
+    - user: "Dame la clasificación de todos los equipos del {club.base_name}."
+      expect:
+        behavior: "abstain"
+        tools: {needed: [], allowed: ["find_teams", "get_data_freshness", "list_competitions", "list_groups", "list_rounds", "list_teams"]}
+        note: "capacidad v2"
+
+- id: s7_mismo_club_competicion
+  stratum: S7
+  holdout: false
+  requires: ["multi_category", "standings"]
+  capability: v1
+  select:
+    team: {kind: "team", with: ["standings"], diff_category: true}
+  turns:
+    - user: "¿Cuántos puntos tiene {team.name} en {team.competition}? Es el de {team.category}."
+      expect:
+        behavior: "answer"
+        facts: [{kind: "number", value: "{team.points}", label: "puntos"}]
+        tools: {needed: ["get_standings"], allowed: ["find_teams", "get_data_freshness", "get_standings", "list_competitions", "list_groups", "list_rounds", "list_teams"]}
+        source: "official_table"
+        max_llm_calls: 5
+
+- id: s7_fin_de_semana_grupo
+  stratum: S7
+  holdout: false
+  requires: ["calendar"]
+  capability: v1
+  select:
+    group: {kind: "group", with: ["pending"]}
+  turns:
+    - user: "¿Qué partidos hay este fin de semana en {group.competition} {group.name}?"
+      expect:
+        behavior: "answer"
+        facts: [{kind: "name", value: "{group.weekend[*].home}"}]
+        tools: {needed: ["list_matches"], allowed: ["find_teams", "get_data_freshness", "list_competitions", "list_groups", "list_matches", "list_rounds", "list_teams"]}
+        max_llm_calls: 5
+
+- id: s7_fin_de_semana_senior
+  stratum: S7
+  holdout: false
+  requires: ["calendar"]
+  capability: v1
+  select:
+    group: {kind: "group", with: ["pending"], category: "senior"}
+  turns:
+    - user: "¿Quién juega este fin de semana en {group.competition} {group.name}?"
+      expect:
+        behavior: "answer"
+        facts: [{kind: "name", value: "{group.weekend[*].home}"}]
+        tools: {needed: ["list_matches"], allowed: ["find_teams", "get_data_freshness", "list_competitions", "list_groups", "list_matches", "list_rounds", "list_teams"]}
+        max_llm_calls: 5
+
+- id: s7_temporada_actual_homonimo
+  stratum: S7
+  holdout: false
+  requires: ["multi_season", "standings"]
+  capability: v1
+  select:
+    team: {kind: "team", with: ["standings"], diff_season: true}
+  turns:
+    - user: "¿Cuántos puntos tiene {team.name} esta temporada ({team.season}) en {team.competition}?"
+      expect:
+        behavior: "answer"
+        facts: [{kind: "number", value: "{team.points}", label: "puntos"}]
+        tools: {needed: ["get_standings"], allowed: ["find_teams", "get_data_freshness", "get_standings", "list_competitions", "list_groups", "list_rounds", "list_teams"]}
+        source: "official_table"
+        max_llm_calls: 5
+
+- id: s7_otra_categoria_lider
+  stratum: S7
+  holdout: false
+  requires: ["standings"]
+  capability: v1
+  select:
+    g1: {kind: "group", with: ["standings"], category: "senior"}
+    g2: {kind: "group", with: ["standings"], other_competition_than: "g1"}
+  turns:
+    - user: "Dime el líder de {g2.competition} {g2.name}, no el de {g1.competition}."
+      expect:
+        behavior: "answer"
+        facts: [{kind: "name", value: "{g2.leader.name}"}]
+        tools: {needed: ["get_standings"], allowed: ["find_teams", "get_data_freshness", "get_standings", "list_competitions", "list_groups", "list_rounds", "list_teams"]}
+        source: "official_table"
+        max_llm_calls: 5
+
+- id: s7_puntos_dos_categorias
+  stratum: S7
+  holdout: false
+  requires: ["homonyms", "standings"]
+  capability: v1
+  select:
+    team: {kind: "team", with: ["standings"], homonym_groups: ">=2", same_category: true}
+  turns:
+    - user: "¿Cuántos puntos tiene {team.name} en el {team.group} de {team.competition}?"
+      expect:
+        behavior: "answer"
+        facts: [{kind: "number", value: "{team.points}", label: "puntos"}]
+        tools: {needed: ["get_standings"], allowed: ["find_teams", "get_data_freshness", "get_standings", "list_competitions", "list_groups", "list_rounds", "list_teams"]}
+        source: "official_table"
+        max_llm_calls: 5

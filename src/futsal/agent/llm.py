@@ -1,9 +1,12 @@
 """Cliente LLM mínimo con tool calling. Tipos neutrales + adaptador Anthropic (httpx)."""
 
+import json
 import re
 import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
+from functools import lru_cache
+from pathlib import Path
 from typing import Any, Protocol
 
 import httpx
@@ -46,6 +49,8 @@ class Usage:
     total_tokens: int | None = None  # el que informa el proveedor, si lo hace
     estimated: bool = False
     cached_input_tokens: int | None = None  # parte de la entrada servida desde caché del proveedor (suele facturarse menos)
+    # Normalización entre proveedores: `output_tokens` = salida VISIBLE y `thinking_tokens` = razonamiento, siempre por separado.
+    # Gemini ya los informa separados; OpenAI informa `output_tokens` INCLUYENDO el razonamiento y el adaptador lo descuenta.
 
 
 @dataclass
@@ -71,6 +76,8 @@ class LLMResponse:
 
 
 DEFAULT_GEMINI_MODEL = "gemini-3.5-flash-lite"
+DEFAULT_ANTHROPIC_MODEL = "claude-haiku-5-5"
+DEFAULT_OPENAI_MODEL = "gpt-6-luna"
 
 
 class LLMError(RuntimeError):
@@ -134,8 +141,10 @@ def _retry_after(resp: httpx.Response) -> float | None:
 
 
 def post_with_retries(http: httpx.Client, path: str, body: dict[str, Any], headers: dict[str, str],
-                      policy: RetryPolicy) -> tuple[httpx.Response, list[Attempt]]:
-    """POST con reintentos acotados. Devuelve la respuesta final (la que el llamador evalúa) y TODOS los intentos."""
+                      policy: RetryPolicy, quota_check: Callable[[httpx.Response], str | None] | None = None
+                      ) -> tuple[httpx.Response, list[Attempt]]:
+    """POST con reintentos acotados. Devuelve la respuesta final (la que el llamador evalúa) y TODOS los intentos.
+    `quota_check(resp)`: si devuelve un texto para una respuesta transitoria (429), es cuota agotada: `LLMQuotaError` sin reintentar."""
     attempts: list[Attempt] = []
     for number in range(1, policy.max_retries + 2):
         resp: httpx.Response | None = None
@@ -153,6 +162,10 @@ def post_with_retries(http: httpx.Client, path: str, body: dict[str, Any], heade
         attempts.append(attempt)
         if not transient:
             return resp, attempts  # type: ignore[return-value]  # no transitorio: nunca es None aquí
+        if resp is not None and quota_check is not None:
+            quota_msg = quota_check(resp)
+            if quota_msg:
+                raise LLMQuotaError(f"{QUOTA_MARKER}: LLM HTTP {status}: {quota_msg}", attempts)
         asked = _retry_after(resp) if resp is not None else None
         if asked is not None and asked >= QUOTA_WAIT_THRESHOLD_S:  # independiente de cuántos reintentos queden
             raise LLMQuotaError(f"{QUOTA_MARKER}: LLM HTTP {status}: el servidor pide esperar {asked:.0f}s (≈{asked / 3600:.1f} h), por encima del máximo "
@@ -241,28 +254,34 @@ class AnthropicLLM:
 
     def __init__(self, api_key: str, model: str, base_url: str = "https://api.anthropic.com",
                  max_tokens: int = 1024, client: httpx.Client | None = None,
-                 retry: RetryPolicy | None = None) -> None:
+                 retry: RetryPolicy | None = None, prompt_cache: bool = False) -> None:
         self._key = api_key
         self._model = model
         self._max_tokens = max_tokens
         self._http = client or httpx.Client(base_url=base_url, timeout=60)
         self._retry = retry or RetryPolicy()
+        self._prompt_cache = prompt_cache  # `ANTHROPIC_PROMPT_CACHE=on`: cache_control en el system y en la última herramienta
         self.provider, self.model = "anthropic", model
         self.usage = {"input_tokens": 0, "output_tokens": 0}  # ACUMULADO de la instancia (todas las llamadas)
 
     @classmethod
-    def from_env(cls) -> "AnthropicLLM":
+    def from_env(cls, model: str | None = None) -> "AnthropicLLM":
         key = env_value("ANTHROPIC_API_KEY")
         if not key:
             raise LLMError("ANTHROPIC_API_KEY no definida (ver .env.example)")
-        return cls(key, env_value("LLM_MODEL", "claude-haiku-4-5-20251001"),
+        return cls(key, model or env_value("LLM_MODEL", DEFAULT_ANTHROPIC_MODEL),
                    env_value("ANTHROPIC_BASE_URL", "https://api.anthropic.com").rstrip("/"),
-                   retry=RetryPolicy.from_env())
+                   retry=RetryPolicy.from_env(), prompt_cache=env_value("ANTHROPIC_PROMPT_CACHE").lower() == "on")
 
     def complete(self, system: str, messages: list[Message],
                  tools: list[dict[str, Any]]) -> LLMResponse:
         body = {"model": self._model, "max_tokens": self._max_tokens, "system": system,
                 "tools": tools, "messages": [_to_wire(m) for m in messages]}
+        if self._prompt_cache:
+            cache = {"type": "ephemeral"}
+            body["system"] = [{"type": "text", "text": system, "cache_control": cache}]
+            if tools:
+                body["tools"] = [*tools[:-1], {**tools[-1], "cache_control": cache}]
         if not tools:  # el intérprete del modo `llm` no usa herramientas (con herramientas el cuerpo es idéntico al de siempre)
             del body["tools"]
         resp, attempts = post_with_retries(self._http, "/v1/messages", body, {
@@ -351,21 +370,23 @@ class GeminiLLM:
     def __init__(self, api_key: str, model: str,
                  base_url: str = "https://generativelanguage.googleapis.com",
                  max_tokens: int = 1024, client: httpx.Client | None = None,
-                 retry: RetryPolicy | None = None) -> None:
+                 retry: RetryPolicy | None = None, thinking_level: str | None = None) -> None:
         self._key = api_key
         self._model = model
         self._max_tokens = max_tokens
         self._http = client or httpx.Client(base_url=base_url, timeout=60)
         self._retry = retry or RetryPolicy()
+        self._thinking_level = thinking_level  # `GEMINI_THINKING_LEVEL`; None = la petición no lleva thinkingConfig
         self.provider, self.model = "gemini", model
         self.usage = {"input_tokens": 0, "output_tokens": 0}  # ACUMULADO de la instancia (todas las llamadas)
 
     @classmethod
-    def from_env(cls) -> "GeminiLLM":
+    def from_env(cls, model: str | None = None) -> "GeminiLLM":
         key = env_value("GEMINI_API_KEY")
         if not key:
             raise LLMError("GEMINI_API_KEY no definida (ver .env.example)")
-        return cls(key, env_value("GEMINI_MODEL", DEFAULT_GEMINI_MODEL), retry=RetryPolicy.from_env())
+        return cls(key, model or env_value("GEMINI_MODEL", DEFAULT_GEMINI_MODEL), retry=RetryPolicy.from_env(),
+                   thinking_level=env_value("GEMINI_THINKING_LEVEL") or None)
 
     def complete(self, system: str, messages: list[Message],
                  tools: list[dict[str, Any]]) -> LLMResponse:
@@ -373,6 +394,8 @@ class GeminiLLM:
             "systemInstruction": {"parts": [{"text": system}]},
             "contents": _gemini_contents(messages),
             "generationConfig": {"maxOutputTokens": self._max_tokens}}
+        if self._thinking_level:
+            body["generationConfig"]["thinkingConfig"] = {"thinkingLevel": self._thinking_level}
         if tools:
             body["tools"] = _gemini_tools(tools)
         resp, attempts = post_with_retries(self._http, f"/v1beta/models/{self._model}:generateContent", body,
@@ -401,11 +424,162 @@ class GeminiLLM:
         return LLMResponse(text, calls, usage, attempts)
 
 
-def create_llm() -> LLMClient:
-    """Adaptador según `LLM_PROVIDER` (`anthropic` por defecto, o `gemini`)."""
-    provider = env_value("LLM_PROVIDER", "anthropic").lower()
+# --- OpenAI (Responses API, sin estado) ------------------------------------------------------------
+def _openai_input(messages: list[Message]) -> list[dict[str, Any]]:
+    """Mensajes neutrales -> items de la Responses API. Los items `reasoning` que el modelo devolvió junto a sus llamadas de función
+    viajan opacos (JSON) en `ToolCall.signature` de la primera llamada y se reenvían ANTES de ella (la petición es `store: false`)."""
+    items: list[dict[str, Any]] = []
+    for m in messages:
+        if m.role == "tool":
+            items += [{"type": "function_call_output", "call_id": r.call_id, "output": r.content} for r in m.tool_results]
+        elif m.role == "assistant":
+            for c in m.tool_calls:
+                if c.signature:
+                    items += json.loads(c.signature)
+                    break
+            if m.text:
+                items.append({"type": "message", "role": "assistant", "content": [{"type": "output_text", "text": m.text}]})
+            items += [{"type": "function_call", "call_id": c.id, "name": c.name, "arguments": json.dumps(c.arguments)}
+                      for c in m.tool_calls]
+        else:
+            items.append({"type": "message", "role": "user", "content": [{"type": "input_text", "text": m.text}]})
+    return items
+
+
+def _openai_quota(resp: httpx.Response) -> str | None:
+    if resp.status_code != 429:
+        return None
+    try:
+        err = resp.json().get("error") or {}
+    except (ValueError, AttributeError):
+        return None
+    return "insufficient_quota" if isinstance(err, dict) and err.get("code") == "insufficient_quota" else None
+
+
+class OpenAILLM:
+    """Responses API de OpenAI (`POST /v1/responses`) vía httpx, sin estado (`store: false`). La clave solo viaja en cabecera."""
+
+    def __init__(self, api_key: str, model: str, base_url: str = "https://api.openai.com",
+                 max_tokens: int = 1024, client: httpx.Client | None = None,
+                 retry: RetryPolicy | None = None, reasoning_effort: str | None = None) -> None:
+        self._key = api_key
+        self._model = model
+        self._max_tokens = max_tokens
+        self._http = client or httpx.Client(base_url=base_url, timeout=60)
+        self._retry = retry or RetryPolicy()
+        self._effort = reasoning_effort  # `OPENAI_REASONING_EFFORT`; None = no se envía `reasoning`
+        self.provider, self.model = "openai", model
+        self.usage = {"input_tokens": 0, "output_tokens": 0}  # ACUMULADO de la instancia (todas las llamadas)
+
+    @classmethod
+    def from_env(cls, model: str | None = None) -> "OpenAILLM":
+        key = env_value("OPENAI_API_KEY")
+        if not key:
+            raise LLMError("OPENAI_API_KEY no definida (ver .env.example)")
+        return cls(key, model or env_value("OPENAI_MODEL", DEFAULT_OPENAI_MODEL),
+                   env_value("OPENAI_BASE_URL", "https://api.openai.com").rstrip("/"),
+                   retry=RetryPolicy.from_env(), reasoning_effort=env_value("OPENAI_REASONING_EFFORT") or None)
+
+    def complete(self, system: str, messages: list[Message],
+                 tools: list[dict[str, Any]]) -> LLMResponse:
+        body: dict[str, Any] = {"model": self._model, "instructions": system, "input": _openai_input(messages),
+                                "max_output_tokens": self._max_tokens, "store": False,
+                                "include": ["reasoning.encrypted_content"]}
+        if tools:
+            body["tools"] = [{"type": "function", "name": t["name"], "description": t.get("description", ""),
+                              "parameters": t.get("input_schema") or {"type": "object", "properties": {}}} for t in tools]
+        if self._effort:
+            body["reasoning"] = {"effort": self._effort}
+        resp, attempts = post_with_retries(self._http, "/v1/responses", body, {"Authorization": f"Bearer {self._key}"},
+                                           self._retry, _openai_quota)
+        if resp.status_code != 200:
+            raise LLMError(f"LLM HTTP {resp.status_code}: {resp.text[:200].replace(self._key, '***')}", attempts)
+        try:
+            data = resp.json()
+            raw = data.get("usage") or {}
+            cached = (raw.get("input_tokens_details") or {}).get("cached_tokens")
+            reasoning = int((raw.get("output_tokens_details") or {}).get("reasoning_tokens") or 0)
+            total = raw.get("total_tokens")
+            out_total = int(raw.get("output_tokens", 0))
+            # OpenAI: `output_tokens` YA incluye el razonamiento. Aquí `output_tokens` son los visibles (como Gemini, donde van separados).
+            usage = Usage(int(raw.get("input_tokens", 0)), max(out_total - reasoning, 0), reasoning,
+                          int(total) if total is not None else None,
+                          cached_input_tokens=int(cached) if cached is not None else None)
+            output = data.get("output") or []
+            text = "".join(c["text"] for it in output if it.get("type") == "message"
+                           for c in it.get("content") or [] if c.get("type") == "output_text")
+            reasoning_items = [it for it in output if it.get("type") == "reasoning"]
+            signature = json.dumps(reasoning_items) if reasoning_items else None
+            calls: list[ToolCall] = []
+            for it in (q for q in output if q.get("type") == "function_call"):
+                args = json.loads(it.get("arguments") or "{}")
+                if not isinstance(args, dict):
+                    raise TypeError("arguments no es un objeto")
+                calls.append(ToolCall(it["call_id"], it["name"], args, signature if not calls else None))
+        except (ValueError, KeyError, TypeError, AttributeError) as exc:  # respuesta inválida: no se reintenta
+            raise LLMError(f"respuesta inválida del LLM ({type(exc).__name__})", attempts) from exc
+        self.usage["input_tokens"] += usage.input_tokens
+        self.usage["output_tokens"] += usage.output_tokens
+        return LLMResponse(text, calls, usage, attempts)
+
+
+# --- tarifas y coste --------------------------------------------------------------------------------
+PRICES_FILE = Path(__file__).resolve().parent.parent / "config" / "llm_prices.json"
+
+
+@lru_cache(maxsize=1)
+def _load_prices() -> dict[str, Any]:
+    try:
+        models = json.loads(PRICES_FILE.read_text(encoding="utf-8")).get("models", {})
+        return models if isinstance(models, dict) else {}
+    except (OSError, ValueError, AttributeError):
+        return {}
+
+
+def estimate_cost(provider: str, model: str, usage: Usage | None) -> float | None:
+    """Coste en USD de UNA llamada según `config/llm_prices.json`; `None` sin tarifa o sin usage (nunca se inventa).
+    entrada no cacheada × input + cacheada × cached_input + (salida + razonamiento) × salida. Precios por 1M de tokens."""
+    rate = _load_prices().get(f"{provider}:{model}")
+    if usage is None or not isinstance(rate, dict):
+        return None
+    try:
+        cached = usage.cached_input_tokens or 0
+        # Anthropic informa `input_tokens` SIN las lecturas de caché (van aparte); Gemini y OpenAI las incluyen en la entrada.
+        uncached = usage.input_tokens if provider == "anthropic" else max(usage.input_tokens - cached, 0)
+        in_rate, out_rate = float(rate["input"]), float(rate["output"])
+        cached_rate = float(rate["cached_input"]) if rate.get("cached_input") is not None else in_rate
+        return (uncached * in_rate + cached * cached_rate + (usage.output_tokens + usage.thinking_tokens) * out_rate) / 1_000_000
+    except (KeyError, TypeError):
+        return None
+
+
+# --- fábrica ----------------------------------------------------------------------------------------
+LLM_PROVIDERS = ("anthropic", "gemini", "openai")
+LLM_TASKS = ("router", "interpreter", "simple", "complex", "judge")
+
+
+def _build(provider: str, model: str | None = None) -> LLMClient:
     if provider == "anthropic":
-        return AnthropicLLM.from_env()
+        return AnthropicLLM.from_env(model)
     if provider == "gemini":
-        return GeminiLLM.from_env()
-    raise LLMError(f"LLM_PROVIDER desconocido: {provider!r} (anthropic|gemini)")
+        return GeminiLLM.from_env(model)
+    if provider == "openai":
+        return OpenAILLM.from_env(model)
+    raise LLMError(f"LLM_PROVIDER desconocido: {provider!r} (anthropic|gemini|openai)")
+
+
+def create_llm(task: str | None = None) -> LLMClient:
+    """Adaptador según `LLM_PROVIDER` (`anthropic` por defecto, `gemini` u `openai`).
+    Con `task` (router|interpreter|simple|complex|judge), `LLM_MODEL_<TAREA>=proveedor:modelo` tiene prioridad; si no existe, conducta sin tarea."""
+    if task is not None:
+        if task not in LLM_TASKS:
+            raise LLMError(f"tarea LLM desconocida: {task!r} ({'|'.join(LLM_TASKS)})")
+        var = f"LLM_MODEL_{task.upper()}"
+        spec = env_value(var).strip()
+        if spec:
+            provider, sep, model = spec.partition(":")
+            provider, model = provider.strip().lower(), model.strip()
+            if not sep or not model or provider not in LLM_PROVIDERS:
+                raise LLMError(f"{var} inválida: se espera 'proveedor:modelo' con proveedor {'|'.join(LLM_PROVIDERS)} (p. ej. anthropic:claude-haiku-5-5)")
+            return _build(provider, model)
+    return _build(env_value("LLM_PROVIDER", "anthropic").lower())

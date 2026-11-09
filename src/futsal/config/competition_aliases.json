@@ -4,9 +4,19 @@
   "kind_words": {"league": ["liga"], "cup": ["copa"], "tournament": ["torneo", "trofeo"]},
   "age_words": {"senior": ["senior", "seniors", "absoluto"], "juvenil": ["juvenil", "juveniles"]},
   "kind_from_name": {"cup": ["copa"], "tournament": ["trofeo", "torneo"]},
-  "age_from_name": {"juvenil": ["juvenil"]},
+  "age_from_name": {
+    "senior": ["aficionado", "senior", "tercera division"],
+    "veteranos": ["veteranos", "veterano"],
+    "universitario": ["universitario", "universitaria"],
+    "prebenjamin": ["prebenjamin"],
+    "benjamin": ["benjamin"],
+    "alevin": ["alevin"],
+    "infantil": ["infantil"],
+    "cadete": ["cadete"],
+    "juvenil": ["juvenil"]
+  },
   "default_kind": "league",
-  "default_age": "senior",
+  "default_age": "unknown",
   "overrides": {},
   "aliases": [
     {"phrases": ["regional", "primera regional", "liga regional", "regional senior", "liga regional senior", "primera regional senior", "regional aficionado"],

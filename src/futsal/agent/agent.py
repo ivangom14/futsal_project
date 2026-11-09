@@ -20,7 +20,7 @@ from futsal.agent.criteria import (
     user_gave_scope,
     states_tool_limit,
 )
-from futsal.agent.llm import LLMClient, LLMError, Message, ToolCall, ToolResult
+from futsal.agent.llm import LLMClient, LLMError, Message, ToolCall, ToolResult, Usage, estimate_cost
 from futsal.agent.mcp_client import McpClient
 from futsal.agent.messages import (
     NEEDS_DETAIL,
@@ -422,6 +422,13 @@ def focus_note(focus: dict[str, Any], other_groups: list[str]) -> str:
               "find_players, list_rounds) usando estos nombres." + others)
 
 
+
+def _call_cost(llm: LLMClient, usage: Usage | None) -> float | None:
+    """Coste de UNA llamada con tokens INFORMADOS por el proveedor y tarifa registrada (`config/llm_prices.json`); si no, None."""
+    if usage is None or usage.estimated:
+        return None
+    return estimate_cost(str(getattr(llm, "provider", "")), str(getattr(llm, "model", "")), usage)
+
 class Agent:
     def __init__(self, llm: LLMClient, mcp: McpClient,
                  max_tool_calls: int = DEFAULT_MAX_TOOL_CALLS,
@@ -649,7 +656,8 @@ class Agent:
         rec.llm_calls.append(LlmCallRecord(
             call_no, max(_ms(t0) - _paced_ms(self._llm), 0.0), u.input_tokens if u else None, u.output_tokens if u else None, u.thinking_tokens if u else None,
             u.total_tokens if u else None, bool(u and u.estimated), 0, token_source="unreported" if u is None else "estimated" if u.estimated else "provider",
-            paced_ms=_paced_ms(self._llm), input_breakdown={"purpose": "interpreter", "payload_chars": len(payload)}))
+            paced_ms=_paced_ms(self._llm), input_breakdown={"purpose": "interpreter", "payload_chars": len(payload)},
+            cost_usd=_call_cost(self._llm, u)))
         info["interpreter_trigger"] = und.trigger
         if interp is None:
             info["interpreter_error"] = "salida no válida"
@@ -903,7 +911,7 @@ class Agent:
                 attempts=[asdict(a) for a in resp.attempts],
                 retry_wait_ms=round(sum(a.waited_s for a in resp.attempts) * 1000, 1),
                 token_source="unreported" if u is None else "estimated" if u.estimated else "provider",
-                cached_input_tokens=u.cached_input_tokens if u else None, paced_ms=paced_ms,
+                cached_input_tokens=u.cached_input_tokens if u else None, paced_ms=paced_ms, cost_usd=_call_cost(self._llm, u),
                 input_breakdown=self._with_provider(bd, u)))
             if self._ctx_on and not resp.tool_calls and self._und is not None:
                 verdict = await self._ctx_guard(resp.text, messages, result, rec, recovery, log)
@@ -975,8 +983,38 @@ class Agent:
             if self._subset_active() and any(c.name not in self._offered_names() for c in resp.tool_calls):
                 self._widen_tools(rec, "herramienta_no_ofrecida", log)  # el modelo pidió una herramienta real que no se le declaró: queda disponible desde ahora
             messages.append(Message("assistant", resp.text, resp.tool_calls))
-            results = [await self._execute(c, result, rec, call_no, log) for c in resp.tool_calls]
+            results = await self._execute_batch(resp.tool_calls, result, rec, call_no, log)
             messages.append(Message("tool", tool_results=results))
+
+    def _batch_independent(self, calls: Sequence[ToolCall]) -> bool:
+        """Regla de paralelismo. Hoy, en secuencial, una llamada puede depender de sus hermanas de la misma respuesta (un `team_id`/`round_id` que mostró la
+        anterior, la reparación de `group_id`, la reutilización de una llamada idéntica). Solo se ejecutan en paralelo las llamadas del MCP cuando NINGUNA
+        puede verse afectada: 2 o más llamadas, sin `team_id`/`against_team_id`/`round_id` (ni validación ni reparación dependen del estado), con claves
+        distintas entre sí y no vistas aún. En cualquier otro caso se ejecuta en secuencial, como siempre."""
+        if len(calls) < 2:
+            return False
+        keys = {f"{c.name}:{json.dumps(c.arguments, sort_keys=True)}" for c in calls}
+        return (len(keys) == len(calls) and not keys & self._seen.keys()
+                and not any(a in c.arguments for c in calls for a in (*TEAM_ARGS, "round_id")))
+
+    async def _execute_batch(self, calls: Sequence[ToolCall], result: AgentResult, rec: RunRecord, llm_call: int,
+                             log: Callable[[str], None]) -> list[ToolResult]:
+        """Ejecuta las tool_calls de una respuesta. Con llamadas independientes (`_batch_independent`) solo la E/S del MCP va concurrente (`asyncio.gather`);
+        el resto de `_execute` (estado, registro, traza, logs) corre después en el orden original, así que resultados, mensajes, ToolCallRecord y traza son
+        idénticos a los de la ejecución secuencial."""
+        if not self._batch_independent(calls):
+            return [await self._execute(c, result, rec, llm_call, log) for c in calls]
+
+        async def fetch(c: ToolCall) -> tuple[bool, str, float]:
+            t0 = time.perf_counter()
+            try:
+                is_error, text = await self._mcp.call_tool(c.name, c.arguments)
+            except Exception as exc:  # igual que en _execute
+                is_error, text = True, f"error_dependencia: {type(exc).__name__}"
+            return is_error, text, _ms(t0)
+
+        fetched = await asyncio.gather(*(fetch(c) for c in calls))
+        return [await self._execute(c, result, rec, llm_call, log, fetched=f) for c, f in zip(calls, fetched, strict=True)]
 
     async def _tier0(self, effective: str, turns: Sequence[Turn], focus: dict[str, Any], result: AgentResult, rec: RunRecord,
                      log: Callable[[str], None]) -> bool:
@@ -1216,7 +1254,7 @@ class Agent:
         return text
 
     async def _execute(self, call: ToolCall, result: AgentResult, rec: RunRecord, llm_call: int,
-                       log: Callable[[str], None], via: str | None = None) -> ToolResult:
+                       log: Callable[[str], None], via: str | None = None, fetched: tuple[bool, str, float] | None = None) -> ToolResult:
         result.tool_calls += 1
         log(f"{'PREFETCH' if via == 'prefetch' else 'LLM'}\n→ tool: {call.name}\n→ arguments: {json.dumps(call.arguments)}")
         t0 = time.perf_counter()
@@ -1239,11 +1277,14 @@ class Agent:
                                                  0.0, was_error, len(sent), len(sent), "repetida (resultado reutilizado)", False,
                                                  sent if self._trace_results else None, reused=True, via=via, repaired=repaired, original_arguments=original_args))
             return ToolResult(call.id, sent, was_error)
-        try:
-            is_error, text = await self._mcp.call_tool(call.name, call.arguments)
-        except Exception as exc:  # el error vuelve al LLM, no rompe el ciclo
-            is_error, text = True, f"error_dependencia: {type(exc).__name__}"
-        duration = _ms(t0)
+        if fetched is not None:  # respuesta del MCP ya obtenida en paralelo (`_execute_batch`)
+            is_error, text, duration = fetched
+        else:
+            try:
+                is_error, text = await self._mcp.call_tool(call.name, call.arguments)
+            except Exception as exc:  # el error vuelve al LLM, no rompe el ciclo
+                is_error, text = True, f"error_dependencia: {type(exc).__name__}"
+            duration = _ms(t0)
         if not is_error:
             self._record_evidence(call, text, result)
         if not is_error and call.name == "find_teams":

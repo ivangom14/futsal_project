@@ -1,0 +1,147 @@
+# Futsito-Eval v1 · S5 · dev. Formato: docs/v2/evaluation.md §3.
+
+- id: s5_sin_clasificacion_lider
+  stratum: S5
+  holdout: false
+  requires: ["group_without_standings"]
+  capability: v1
+  select:
+    group: {kind: "group", with: ["no_standings"]}
+  turns:
+    - user: "¿Quién lidera la clasificación de {group.competition} {group.name}?"
+      expect:
+        behavior: "abstain"
+        tools: {needed: [], allowed: ["find_teams", "get_data_freshness", "list_competitions", "list_groups", "list_rounds", "list_teams"]}
+        forbid_any_score: true
+        source: "official_table"
+        forbid_tools: ["list_matches", "get_match", "get_match_report", "list_match_events", "top_scorers"]
+
+- id: s5_sin_clasificacion_puntos
+  stratum: S5
+  holdout: false
+  requires: ["group_without_standings"]
+  capability: v1
+  select:
+    team: {kind: "team", group_with: ["no_standings"], unique_in_snapshot: true}
+  turns:
+    - user: "¿Cuántos puntos tiene {team.name} en la clasificación oficial?"
+      expect:
+        behavior: "abstain"
+        tools: {needed: [], allowed: ["find_teams", "get_data_freshness", "list_competitions", "list_groups", "list_rounds", "list_teams"]}
+        source: "official_table"
+        forbid_tools: ["list_matches", "get_match", "get_match_report", "list_match_events", "top_scorers"]
+
+- id: s5_sin_acta_goleadores
+  stratum: S5
+  holdout: false
+  requires: ["finished_without_report"]
+  capability: v1
+  select:
+    match: {kind: "match", finished: true, no_report: true}
+  turns:
+    - user: "¿Quién marcó en el partido {match.home} - {match.away} de la jornada {match.round}?"
+      expect:
+        behavior: "abstain"
+        tools: {needed: [], allowed: ["find_teams", "get_data_freshness", "list_competitions", "list_groups", "list_rounds", "list_teams"]}
+
+- id: s5_sin_acta_tarjetas
+  stratum: S5
+  holdout: false
+  requires: ["finished_without_report"]
+  capability: v1
+  select:
+    match: {kind: "match", finished: true, no_report: true}
+  turns:
+    - user: "¿Cuántas tarjetas hubo en el {match.home} - {match.away} de la jornada {match.round}?"
+      expect:
+        behavior: "abstain"
+        tools: {needed: [], allowed: ["find_teams", "get_data_freshness", "list_competitions", "list_groups", "list_rounds", "list_teams"]}
+
+- id: s5_temporada_no_ingerida
+  stratum: S5
+  holdout: false
+  requires: []
+  capability: v1
+  select:
+    season: {kind: "season_absent"}
+  turns:
+    - user: "¿Quién ganó la liga en la temporada {season.name}?"
+      expect:
+        behavior: "abstain"
+        tools: {needed: [], allowed: ["find_teams", "get_data_freshness", "list_competitions", "list_groups", "list_rounds", "list_teams"]}
+        forbid_any_score: true
+        source: "official_table"
+
+- id: s5_jugador_inexistente
+  stratum: S5
+  holdout: false
+  requires: []
+  capability: v1
+  select:
+    player: {kind: "fictional_player"}
+  turns:
+    - user: "¿Cuántos goles ha marcado {player.name}?"
+      expect:
+        behavior: "abstain"
+        tools: {needed: [], allowed: ["find_teams", "get_data_freshness", "list_competitions", "list_groups", "list_rounds", "list_teams"]}
+        forbid_any_score: true
+        source: "official_table"
+
+- id: s5_jugador_inexistente_equipo
+  stratum: S5
+  holdout: false
+  requires: []
+  capability: v1
+  select:
+    player: {kind: "fictional_player"}
+  turns:
+    - user: "¿En qué equipo juega {player.name} y cuántos partidos lleva?"
+      expect:
+        behavior: "abstain"
+        tools: {needed: [], allowed: ["find_teams", "get_data_freshness", "list_competitions", "list_groups", "list_rounds", "list_teams"]}
+        forbid_any_score: true
+        source: "official_table"
+
+- id: s5_sustituciones_cambios
+  stratum: S5
+  holdout: false
+  requires: ["reports"]
+  capability: v1
+  select:
+    team: {kind: "team", unique_in_snapshot: true, with: ["reports"]}
+  turns:
+    - user: "¿Cuántos cambios hizo {team.name} en su último partido con acta y en qué minutos?"
+      expect:
+        behavior: "abstain"
+        tools: {needed: [], allowed: ["find_teams", "get_data_freshness", "list_competitions", "list_groups", "list_rounds", "list_teams"]}
+        forbid_phrases: ["en el minuto"]
+
+- id: s5_sin_goleadores_tabla
+  stratum: S5
+  holdout: false
+  requires: ["group_without_standings"]
+  capability: v1
+  select:
+    group: {kind: "group", with: ["no_scorers"]}
+  turns:
+    - user: "¿Quién es el máximo goleador de {group.competition} {group.name}?"
+      expect:
+        behavior: "abstain"
+        tools: {needed: [], allowed: ["find_teams", "get_data_freshness", "list_competitions", "list_groups", "list_rounds", "list_teams"]}
+        source: "official_table"
+        forbid_tools: ["list_matches", "get_match", "get_match_report", "list_match_events", "top_scorers"]
+
+- id: s5_categoria_inexistente
+  stratum: S5
+  holdout: false
+  requires: []
+  capability: v1
+  select:
+    cat: {kind: "category_absent"}
+  turns:
+    - user: "¿Quién va primero en la liga {cat.name}?"
+      expect:
+        behavior: "abstain"
+        tools: {needed: [], allowed: ["find_teams", "get_data_freshness", "list_competitions", "list_groups", "list_rounds", "list_teams"]}
+        forbid_any_score: true
+        source: "official_table"

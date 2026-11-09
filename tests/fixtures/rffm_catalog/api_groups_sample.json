@@ -1,0 +1,197 @@
+{
+"24038111": [
+{
+"codigo": "24270140",
+"nombre": "Grupo 1",
+"total_jornadas": "26",
+"total_equipos": "14",
+"clasificacion_porteros": "0",
+"ver_clasificacion": "1",
+"clasificacion_goleadores": "1",
+"orden": "0",
+"nombre_delegacion": "CENTRAL R.F.F.M."
+},
+{
+"codigo": "24270141",
+"nombre": "Grupo 2",
+"total_jornadas": "26",
+"total_equipos": "14",
+"clasificacion_porteros": "0",
+"ver_clasificacion": "1",
+"clasificacion_goleadores": "1",
+"orden": "0",
+"nombre_delegacion": "CENTRAL R.F.F.M."
+}
+],
+"26750017": [
+{
+"codigo": "27413576",
+"nombre": "Grupo 1",
+"total_jornadas": "9",
+"total_equipos": "10",
+"clasificacion_porteros": "0",
+"ver_clasificacion": "1",
+"clasificacion_goleadores": "1",
+"orden": "0",
+"nombre_delegacion": "CENTRAL R.F.F.M."
+},
+{
+"codigo": "27597476",
+"nombre": "Grupo 2",
+"total_jornadas": "9",
+"total_equipos": "10",
+"clasificacion_porteros": "0",
+"ver_clasificacion": "1",
+"clasificacion_goleadores": "1",
+"orden": "0",
+"nombre_delegacion": "CENTRAL R.F.F.M."
+},
+{
+"codigo": "28105877",
+"nombre": "Grupo 3",
+"total_jornadas": "9",
+"total_equipos": "10",
+"clasificacion_porteros": "0",
+"ver_clasificacion": "1",
+"clasificacion_goleadores": "1",
+"orden": "0",
+"nombre_delegacion": "CENTRAL R.F.F.M."
+},
+{
+"codigo": "28105968",
+"nombre": "Grupo 4",
+"total_jornadas": "9",
+"total_equipos": "10",
+"clasificacion_porteros": "0",
+"ver_clasificacion": "1",
+"clasificacion_goleadores": "1",
+"orden": "0",
+"nombre_delegacion": "CENTRAL R.F.F.M."
+},
+{
+"codigo": "28105999",
+"nombre": "Grupo 5",
+"total_jornadas": "9",
+"total_equipos": "10",
+"clasificacion_porteros": "0",
+"ver_clasificacion": "1",
+"clasificacion_goleadores": "1",
+"orden": "0",
+"nombre_delegacion": "CENTRAL R.F.F.M."
+},
+{
+"codigo": "28106008",
+"nombre": "Grupo 6",
+"total_jornadas": "9",
+"total_equipos": "10",
+"clasificacion_porteros": "0",
+"ver_clasificacion": "1",
+"clasificacion_goleadores": "1",
+"orden": "0",
+"nombre_delegacion": "CENTRAL R.F.F.M."
+},
+{
+"codigo": "28106045",
+"nombre": "Grupo 7",
+"total_jornadas": "9",
+"total_equipos": "10",
+"clasificacion_porteros": "0",
+"ver_clasificacion": "1",
+"clasificacion_goleadores": "1",
+"orden": "0",
+"nombre_delegacion": "CENTRAL R.F.F.M."
+},
+{
+"codigo": "28106230",
+"nombre": "Grupo 8",
+"total_jornadas": "9",
+"total_equipos": "10",
+"clasificacion_porteros": "0",
+"ver_clasificacion": "1",
+"clasificacion_goleadores": "1",
+"orden": "0",
+"nombre_delegacion": "CENTRAL R.F.F.M."
+},
+{
+"codigo": "28113674",
+"nombre": "Grupo 9",
+"total_jornadas": "9",
+"total_equipos": "10",
+"clasificacion_porteros": "0",
+"ver_clasificacion": "1",
+"clasificacion_goleadores": "1",
+"orden": "90",
+"nombre_delegacion": "CENTRAL R.F.F.M."
+}
+],
+"26750019": [
+{
+"codigo": "27505422",
+"nombre": "Grupo 1",
+"total_jornadas": "9",
+"total_equipos": "10",
+"clasificacion_porteros": "0",
+"ver_clasificacion": "1",
+"clasificacion_goleadores": "1",
+"orden": "0",
+"nombre_delegacion": "CENTRAL R.F.F.M."
+},
+{
+"codigo": "27505433",
+"nombre": "Grupo 2",
+"total_jornadas": "9",
+"total_equipos": "10",
+"clasificacion_porteros": "0",
+"ver_clasificacion": "1",
+"clasificacion_goleadores": "1",
+"orden": "0",
+"nombre_delegacion": "CENTRAL R.F.F.M."
+},
+{
+"codigo": "28118332",
+"nombre": "Grupo 3",
+"total_jornadas": "9",
+"total_equipos": "9",
+"clasificacion_porteros": "0",
+"ver_clasificacion": "1",
+"clasificacion_goleadores": "1",
+"orden": "0",
+"nombre_delegacion": "CENTRAL R.F.F.M."
+},
+{
+"codigo": "28118560",
+"nombre": "Grupo 4",
+"total_jornadas": "9",
+"total_equipos": "10",
+"clasificacion_porteros": "0",
+"ver_clasificacion": "1",
+"clasificacion_goleadores": "1",
+"orden": "0",
+"nombre_delegacion": "CENTRAL R.F.F.M."
+},
+{
+"codigo": "28118579",
+"nombre": "Grupo 5",
+"total_jornadas": "9",
+"total_equipos": "10",
+"clasificacion_porteros": "0",
+"ver_clasificacion": "1",
+"clasificacion_goleadores": "1",
+"orden": "0",
+"nombre_delegacion": "CENTRAL R.F.F.M."
+}
+],
+"18329896": [
+{
+"codigo": "18298068",
+"nombre": "Eliminatorias",
+"total_jornadas": "5",
+"total_equipos": "30",
+"clasificacion_porteros": "1",
+"ver_clasificacion": "1",
+"clasificacion_goleadores": "0",
+"orden": "1",
+"nombre_delegacion": "CENTRAL R.F.F.M."
+}
+]
+}

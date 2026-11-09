@@ -1,0 +1,209 @@
+# Futsito-Eval v1 · S9 · dev. Formato: docs/v2/evaluation.md §3.
+
+- id: s9_regla_duracion_mitad
+  stratum: S9
+  holdout: false
+  requires: ["kb:fifa-futsal-laws-2025-26"]
+  capability: v1
+  select: {}
+  turns:
+    - user: "¿Cuánto dura cada mitad del partido?"
+      expect:
+        behavior: "answer"
+        rule_case: "regla_duracion_mitad"
+        source: "rules"
+        tools: {needed: ["search_rules"], allowed: ["search_rules"]}
+        max_llm_calls: 4
+
+- id: s9_regla_sexta_falta
+  stratum: S9
+  holdout: false
+  requires: ["kb:fifa-futsal-laws-2025-26"]
+  capability: v1
+  select: {}
+  turns:
+    - user: "¿a las cuántas faltas del equipo te hacen tiro libre sin barrera?"
+      expect:
+        behavior: "answer"
+        rule_case: "regla_sexta_falta"
+        source: "rules"
+        tools: {needed: ["search_rules"], allowed: ["search_rules"]}
+        max_llm_calls: 4
+
+- id: s9_regla_roja_mano
+  stratum: S9
+  holdout: false
+  requires: ["kb:fifa-futsal-laws-2025-26"]
+  capability: v1
+  select: {}
+  turns:
+    - user: "¿cuándo te sacan tarjeta roja por una mano?"
+      expect:
+        behavior: "answer"
+        rule_case: "regla_roja_mano"
+        source: "rules"
+        tools: {needed: ["search_rules"], allowed: ["search_rules"]}
+        max_llm_calls: 4
+
+- id: s9_regla_sin_evidencia_salario
+  stratum: S9
+  holdout: false
+  requires: ["kb:fifa-futsal-laws-2025-26"]
+  capability: v1
+  select: {}
+  turns:
+    - user: "¿Cuánto cobra un árbitro de futsal por partido?"
+      expect:
+        behavior: "abstain"
+        rule_case: "regla_sin_evidencia_salario"
+        source: "rules"
+        tools: {needed: ["search_rules"], allowed: ["search_rules"]}
+        max_llm_calls: 4
+
+- id: s9_circular27_modificaciones
+  stratum: S9
+  holdout: false
+  requires: ["kb:rfef-circular-27-2025-26"]
+  capability: v1
+  select: {}
+  turns:
+    - user: "¿Qué modificaciones se han aprobado en las Reglas de Juego del Futsal 2025/2026?"
+      expect:
+        behavior: "answer"
+        rule_case: "circular27_modificaciones"
+        source: "rules"
+        tools: {needed: ["search_rules"], allowed: ["search_rules"]}
+        max_llm_calls: 4
+
+- id: s9_circular27_cesped
+  stratum: S9
+  holdout: false
+  requires: ["kb:rfef-circular-27-2025-26"]
+  capability: v1
+  select: {}
+  turns:
+    - user: "Según el resumen de modificaciones, ¿cuándo se permiten las superficies de césped artificial?"
+      expect:
+        behavior: "answer"
+        rule_case: "circular27_cesped"
+        source: "rules"
+        tools: {needed: ["search_rules"], allowed: ["search_rules"]}
+        max_llm_calls: 4
+
+- id: s9_circular27_fechas_rfef_fifa
+  stratum: S9
+  holdout: false
+  requires: ["kb:rfef-circular-27-2025-26"]
+  capability: v1
+  select: {}
+  turns:
+    - user: "¿En qué fecha comunicó la RFEF la circular y en qué fecha la emitió la FIFA?"
+      expect:
+        behavior: "answer"
+        rule_case: "circular27_fechas_rfef_fifa"
+        source: "rules"
+        tools: {needed: ["search_rules"], allowed: ["search_rules"]}
+        max_llm_calls: 4
+
+- id: s9_circular10_anula
+  stratum: S9
+  holdout: false
+  requires: ["kb:rfef-circular-10-rectificativa-2026-27"]
+  capability: v1
+  select: {}
+  turns:
+    - user: "¿Qué circular anula y sustituye la Circular 10 rectificativa de la RFEF para 2026/2027?"
+      expect:
+        behavior: "answer"
+        rule_case: "circular10_anula"
+        source: "rules"
+        tools: {needed: ["search_rules"], allowed: ["search_rules"]}
+        max_llm_calls: 4
+
+- id: s9_circular10_saque_meta_coloquial
+  stratum: S9
+  holdout: false
+  requires: ["kb:rfef-circular-10-rectificativa-2026-27"]
+  capability: v1
+  select: {}
+  turns:
+    - user: "¿Puede el portero tirar el balón de un lado al otro del campo desde el saque de meta?"
+      expect:
+        behavior: "answer"
+        rule_case: "circular10_saque_meta_coloquial"
+        source: "rules"
+        tools: {needed: ["search_rules"], allowed: ["search_rules"]}
+        max_llm_calls: 4
+
+- id: s9_circular10_protestas_banquillo
+  stratum: S9
+  holdout: false
+  requires: ["kb:rfef-circular-10-rectificativa-2026-27"]
+  capability: v1
+  select: {}
+  turns:
+    - user: "¿Las tarjetas por protestas a los miembros del banquillo cuentan como faltas acumulables?"
+      expect:
+        behavior: "answer"
+        rule_case: "circular10_protestas_banquillo"
+        source: "rules"
+        tools: {needed: ["search_rules"], allowed: ["search_rules"]}
+        max_llm_calls: 4
+
+- id: s9_circular10_sin_evidencia_sancion_rffm
+  stratum: S9
+  holdout: false
+  requires: ["kb:rfef-circular-10-rectificativa-2026-27"]
+  capability: v1
+  select: {}
+  turns:
+    - user: "¿Qué sanción económica impone la RFFM por protestar al árbitro?"
+      expect:
+        behavior: "abstain"
+        rule_case: "circular10_sin_evidencia_sancion_rffm"
+        source: "rules"
+        tools: {needed: ["search_rules"], allowed: ["search_rules"]}
+        max_llm_calls: 4
+
+- id: s9_arbitros_partido
+  stratum: S9
+  holdout: false
+  requires: ["kb:fifa-futsal-laws-2025-26"]
+  capability: v1
+  select: {}
+  turns:
+    - user: "¿Qué árbitros y oficiales de partido contemplan las reglas de juego del futsal además del primer árbitro?"
+      expect:
+        behavior: "answer"
+        facts: [{kind: "text_any", any: ["segundo árbitro", "tercer árbitro", "cronometrador"], label: "oficiales"}]
+        tools: {needed: ["search_rules"], allowed: ["find_teams", "get_data_freshness", "list_competitions", "list_groups", "list_rounds", "list_teams", "search_rules"]}
+        source: "rules"
+        max_llm_calls: 4
+
+- id: s9_reglamento_rffm_aplazamientos
+  stratum: S9
+  holdout: false
+  requires: ["kb"]
+  capability: v1
+  select: {}
+  turns:
+    - user: "¿Qué dice el Reglamento General de la RFFM sobre el aplazamiento de partidos?"
+      expect:
+        behavior: "abstain"
+        tools: {needed: ["search_rules"], allowed: ["find_teams", "get_data_freshness", "list_competitions", "list_groups", "list_rounds", "list_teams", "search_rules"]}
+        source: "rules"
+        max_llm_calls: 4
+
+- id: s9_reglamento_rffm_extranjeros
+  stratum: S9
+  holdout: false
+  requires: ["kb"]
+  capability: v1
+  select: {}
+  turns:
+    - user: "¿Cuántos jugadores extranjeros puede alinear un equipo según el reglamento de competiciones de la RFFM?"
+      expect:
+        behavior: "abstain"
+        tools: {needed: ["search_rules"], allowed: ["find_teams", "get_data_freshness", "list_competitions", "list_groups", "list_rounds", "list_teams", "search_rules"]}
+        source: "rules"
+        max_llm_calls: 4

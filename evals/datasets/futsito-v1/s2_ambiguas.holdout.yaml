@@ -1,0 +1,93 @@
+# Futsito-Eval v1 · S2 · holdout. Formato: docs/v2/evaluation.md §3. SELLADO: no se mira para ajustar el agente.
+
+- id: s2_homonimo_posicion
+  stratum: S2
+  holdout: true
+  requires: ["homonyms", "standings"]
+  capability: v1
+  select:
+    team: {kind: "team", with: ["standings"], homonym_groups: ">=2", same_category: true, same_competition: true}
+  turns:
+    - user: "¿En qué posición está {team.name}?"
+      expect:
+        behavior: "clarify"
+        tools: {needed: [], allowed: ["find_teams", "get_data_freshness", "get_standings", "list_competitions", "list_groups", "list_matches", "list_rounds", "list_teams"]}
+        candidate_facts: [{kind: "position", value: "{team.position}", team: "{team.name}", of: "team"}]
+        clarify_mentions: ["{team.group}", "{team.homonyms[*].group}"]
+        max_llm_calls: 3
+
+- id: s2_ambito_temporada
+  stratum: S2
+  holdout: true
+  requires: ["multi_season", "standings"]
+  capability: v1
+  select:
+    team: {kind: "team", with: ["standings"], diff_season: true}
+  turns:
+    - user: "¿Cuántos puntos tiene {team.name} en la temporada {team.season}?"
+      expect:
+        behavior: "answer"
+        facts: [{kind: "number", value: "{team.points}", label: "puntos"}]
+        tools: {needed: ["get_standings"], allowed: ["find_teams", "get_data_freshness", "get_standings", "list_competitions", "list_groups", "list_rounds", "list_teams"]}
+        source: "official_table"
+
+- id: s2_ambito_grupo
+  stratum: S2
+  holdout: true
+  requires: ["homonyms", "standings"]
+  capability: v1
+  select:
+    team: {kind: "team", with: ["standings"], homonym_groups: ">=2", same_category: true, same_competition: true}
+  turns:
+    - user: "¿Cuántos puntos tiene {team.name} en {team.competition} {team.group}?"
+      expect:
+        behavior: "answer"
+        facts: [{kind: "number", value: "{team.points}", label: "puntos"}]
+        tools: {needed: ["get_standings"], allowed: ["find_teams", "get_data_freshness", "get_standings", "list_competitions", "list_groups", "list_rounds", "list_teams"]}
+        source: "official_table"
+
+- id: s2_club_ab_ultimo
+  stratum: S2
+  holdout: true
+  requires: ["results"]
+  capability: v1
+  select:
+    club: {kind: "club", with: ["finished"]}
+  turns:
+    - user: "¿Qué tal le fue al {club.base_name} en su último partido?"
+      expect:
+        behavior: "clarify"
+        tools: {needed: [], allowed: ["find_teams", "get_data_freshness", "get_standings", "list_competitions", "list_groups", "list_matches", "list_rounds", "list_teams"]}
+        candidate_facts: [{kind: "score", value: "{club.last_match.score}", of: "club"}]
+        clarify_mentions: ["{club.team_names}"]
+        max_llm_calls: 3
+
+- id: s2_categoria_dos_grupos
+  stratum: S2
+  holdout: true
+  requires: ["multi_group", "standings"]
+  capability: v1
+  select:
+    group: {kind: "group", with: ["standings"], category: "juvenil", category_groups: ">=2"}
+  turns:
+    - user: "¿Quién va primero en juvenil?"
+      expect:
+        behavior: "clarify"
+        tools: {needed: [], allowed: ["find_teams", "get_data_freshness", "get_standings", "list_competitions", "list_groups", "list_matches", "list_rounds", "list_teams"]}
+        candidate_facts: [{kind: "name", value: "{group.leader.name}", of: "group"}]
+        clarify_mentions: ["{group.name}", "{group.competition}"]
+        max_llm_calls: 3
+
+- id: s2_sin_puntuacion
+  stratum: S2
+  holdout: true
+  requires: ["results", "standings"]
+  capability: v1
+  select:
+    team: {kind: "team", unique_in_snapshot: true, with: ["standings", "finished"]}
+  turns:
+    - user: "resultado del ultimo partido de {team.name|nopunct|lower}"
+      expect:
+        behavior: "answer"
+        facts: [{kind: "score", value: "{team.last_match.score}"}]
+        tools: {needed: ["list_matches"], allowed: ["find_teams", "get_data_freshness", "list_competitions", "list_groups", "list_matches", "list_rounds", "list_teams"]}

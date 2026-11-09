@@ -1,0 +1,299 @@
+# Futsito-Eval v1 · S3 · dev. Formato: docs/v2/evaluation.md §3.
+
+- id: s3_equipo_goleador_resultado
+  stratum: S3
+  holdout: false
+  requires: ["results", "scorers", "standings"]
+  capability: v1
+  select:
+    team: {kind: "team", unique_in_snapshot: true, with: ["standings", "finished", "scorers"]}
+  turns:
+    - user: "¿Cómo va {team.name}?"
+      expect:
+        behavior: "answer"
+        facts: [{kind: "position", value: "{team.position}", team: "{team.name}", label: "posición"}, {kind: "number", value: "{team.points}", label: "puntos"}]
+        tools: {needed: ["get_standings"], allowed: ["find_teams", "get_data_freshness", "get_standings", "list_competitions", "list_groups", "list_rounds", "list_teams"]}
+        source: "official_table"
+    - user: "¿y su máximo goleador?"
+      expect:
+        behavior: "answer"
+        facts: [{kind: "name", value: "{team.top_scorer.name}"}]
+        tools: {needed: ["get_scorer_table"], allowed: ["find_teams", "get_data_freshness", "get_scorer_table", "list_competitions", "list_groups", "list_rounds", "list_teams"]}
+        source: "official_table"
+    - user: "¿y cuál fue su último resultado?"
+      expect:
+        behavior: "answer"
+        facts: [{kind: "score", value: "{team.last_match.score}"}]
+        tools: {needed: ["list_matches"], allowed: ["find_teams", "get_data_freshness", "list_competitions", "list_groups", "list_matches", "list_rounds", "list_teams"]}
+
+- id: s3_equipo_proximo_campo
+  stratum: S3
+  holdout: false
+  requires: ["calendar", "standings"]
+  capability: v1
+  select:
+    team: {kind: "team", unique_in_snapshot: true, with: ["standings", "pending"]}
+  turns:
+    - user: "¿Cuántos puntos tiene {team.name}?"
+      expect:
+        behavior: "answer"
+        facts: [{kind: "number", value: "{team.points}", label: "puntos"}]
+        tools: {needed: ["get_standings"], allowed: ["find_teams", "get_data_freshness", "get_standings", "list_competitions", "list_groups", "list_rounds", "list_teams"]}
+        source: "official_table"
+    - user: "¿y quién es su próximo rival?"
+      expect:
+        behavior: "answer"
+        facts: [{kind: "name", value: "{team.next_match.rival}"}]
+        tools: {needed: ["list_matches"], allowed: ["find_teams", "get_data_freshness", "list_competitions", "list_groups", "list_matches", "list_rounds", "list_teams"]}
+    - user: "¿en qué campo juegan?"
+      expect:
+        behavior: "answer"
+        facts: [{kind: "name", value: "{team.next_match.venue}"}]
+        tools: {needed: ["list_matches"], allowed: ["find_teams", "get_data_freshness", "list_competitions", "list_groups", "list_matches", "list_rounds", "list_teams"]}
+
+- id: s3_equipo_posicion_victorias
+  stratum: S3
+  holdout: false
+  requires: ["standings"]
+  capability: v1
+  select:
+    team: {kind: "team", unique_in_snapshot: true, with: ["standings"]}
+  turns:
+    - user: "¿En qué puesto está {team.name}?"
+      expect:
+        behavior: "answer"
+        facts: [{kind: "position", value: "{team.position}", team: "{team.name}", label: "posición"}]
+        tools: {needed: ["get_standings"], allowed: ["find_teams", "get_data_freshness", "get_standings", "list_competitions", "list_groups", "list_rounds", "list_teams"]}
+        source: "official_table"
+    - user: "¿cuántos partidos ha ganado?"
+      expect:
+        behavior: "answer"
+        facts: [{kind: "number", value: "{team.won}", label: "partidos ganados"}]
+        tools: {needed: ["get_standings"], allowed: ["find_teams", "get_data_freshness", "get_standings", "list_competitions", "list_groups", "list_rounds", "list_teams"]}
+        source: "official_table"
+    - user: "¿y cuántos ha perdido?"
+      expect:
+        behavior: "answer"
+        facts: [{kind: "number", value: "{team.lost}", label: "partidos perdidos"}]
+        tools: {needed: ["get_standings"], allowed: ["find_teams", "get_data_freshness", "get_standings", "list_competitions", "list_groups", "list_rounds", "list_teams"]}
+        source: "official_table"
+
+- id: s3_grupo_lider_puntos_colista
+  stratum: S3
+  holdout: false
+  requires: ["standings"]
+  capability: v1
+  select:
+    group: {kind: "group", with: ["standings"]}
+  turns:
+    - user: "¿Quién lidera {group.competition} {group.name}?"
+      expect:
+        behavior: "answer"
+        facts: [{kind: "name", value: "{group.leader.name}"}]
+        tools: {needed: ["get_standings"], allowed: ["find_teams", "get_data_freshness", "get_standings", "list_competitions", "list_groups", "list_rounds", "list_teams"]}
+        source: "official_table"
+    - user: "¿cuántos puntos tiene?"
+      expect:
+        behavior: "answer"
+        facts: [{kind: "number", value: "{group.leader.points}", label: "puntos"}]
+        tools: {needed: ["get_standings"], allowed: ["find_teams", "get_data_freshness", "get_standings", "list_competitions", "list_groups", "list_rounds", "list_teams"]}
+        source: "official_table"
+    - user: "¿y el último clasificado?"
+      expect:
+        behavior: "answer"
+        facts: [{kind: "name", value: "{group.last_place.name}"}]
+        tools: {needed: ["get_standings"], allowed: ["find_teams", "get_data_freshness", "get_standings", "list_competitions", "list_groups", "list_rounds", "list_teams"]}
+        source: "official_table"
+
+- id: s3_grupo_lider_segundo
+  stratum: S3
+  holdout: false
+  requires: ["standings"]
+  capability: v1
+  select:
+    group: {kind: "group", with: ["standings"]}
+  turns:
+    - user: "¿Quién va primero en {group.competition} {group.name}?"
+      expect:
+        behavior: "answer"
+        facts: [{kind: "name", value: "{group.leader.name}"}]
+        tools: {needed: ["get_standings"], allowed: ["find_teams", "get_data_freshness", "get_standings", "list_competitions", "list_groups", "list_rounds", "list_teams"]}
+        source: "official_table"
+    - user: "¿y el segundo?"
+      expect:
+        behavior: "answer"
+        facts: [{kind: "name", value: "{group.second.name}"}]
+        tools: {needed: ["get_standings"], allowed: ["find_teams", "get_data_freshness", "get_standings", "list_competitions", "list_groups", "list_rounds", "list_teams"]}
+        source: "official_table"
+    - user: "¿cuántos puntos tiene?"
+      expect:
+        behavior: "answer"
+        facts: [{kind: "number", value: "{group.second.points}", label: "puntos"}]
+        tools: {needed: ["get_standings"], allowed: ["find_teams", "get_data_freshness", "get_standings", "list_competitions", "list_groups", "list_rounds", "list_teams"]}
+        source: "official_table"
+
+- id: s3_aclaracion_categoria_posicion
+  stratum: S3
+  holdout: false
+  requires: ["multi_category", "standings"]
+  capability: v1
+  select:
+    team: {kind: "team", with: ["standings"], diff_category: true}
+  turns:
+    - user: "¿En qué posición está {team.name}?"
+      expect:
+        behavior: "clarify"
+        tools: {needed: [], allowed: ["find_teams", "get_data_freshness", "get_standings", "list_competitions", "list_groups", "list_matches", "list_rounds", "list_teams"]}
+        candidate_facts: [{kind: "position", value: "{team.position}", team: "{team.name}", of: "team"}]
+        clarify_mentions: ["{team.category}", "{team.homonyms[*].category}"]
+        max_llm_calls: 3
+    - user: "El {team.category}"
+      expect:
+        behavior: "answer"
+        facts: [{kind: "position", value: "{team.position}", team: "{team.name}", label: "posición"}]
+        tools: {needed: ["get_standings"], allowed: ["find_teams", "get_data_freshness", "get_standings", "list_competitions", "list_groups", "list_rounds", "list_teams"]}
+        source: "official_table"
+    - user: "¿cuántos puntos tiene?"
+      expect:
+        behavior: "answer"
+        facts: [{kind: "number", value: "{team.points}", label: "puntos"}]
+        tools: {needed: ["get_standings"], allowed: ["find_teams", "get_data_freshness", "get_standings", "list_competitions", "list_groups", "list_rounds", "list_teams"]}
+        source: "official_table"
+
+- id: s3_aclaracion_club
+  stratum: S3
+  holdout: false
+  requires: ["standings"]
+  capability: v1
+  select:
+    club: {kind: "club", with: ["standings"]}
+  turns:
+    - user: "¿Cuántos puntos tiene el {club.base_name}?"
+      expect:
+        behavior: "clarify"
+        tools: {needed: [], allowed: ["find_teams", "get_data_freshness", "get_standings", "list_competitions", "list_groups", "list_matches", "list_rounds", "list_teams"]}
+        candidate_facts: [{kind: "number", value: "{club.points}", label: "puntos", of: "club"}]
+        clarify_mentions: ["{club.team_names}"]
+        max_llm_calls: 3
+    - user: "El {club.teams[1].name}"
+      expect:
+        behavior: "answer"
+        facts: [{kind: "number", value: "{club.teams[1].points}", label: "puntos"}]
+        tools: {needed: ["get_standings"], allowed: ["find_teams", "get_data_freshness", "get_standings", "list_competitions", "list_groups", "list_rounds", "list_teams"]}
+        source: "official_table"
+    - user: "¿y el otro equipo?"
+      expect:
+        behavior: "answer"
+        facts: [{kind: "number", value: "{club.teams[0].points}", label: "puntos"}]
+        tools: {needed: ["get_standings"], allowed: ["find_teams", "get_data_freshness", "get_standings", "list_competitions", "list_groups", "list_rounds", "list_teams"]}
+        source: "official_table"
+
+- id: s3_cambio_categoria
+  stratum: S3
+  holdout: false
+  requires: ["standings"]
+  capability: v1
+  select:
+    g1: {kind: "group", with: ["standings"], category: "senior"}
+    g2: {kind: "group", with: ["standings"], category: "juvenil", other_competition_than: "g1"}
+  turns:
+    - user: "¿Quién va primero en {g1.competition} {g1.name}?"
+      expect:
+        behavior: "answer"
+        facts: [{kind: "name", value: "{g1.leader.name}"}]
+        tools: {needed: ["get_standings"], allowed: ["find_teams", "get_data_freshness", "get_standings", "list_competitions", "list_groups", "list_rounds", "list_teams"]}
+        source: "official_table"
+    - user: "¿y el juvenil?"
+      expect:
+        behavior: "answer"
+        facts: [{kind: "name", value: "{g2.leader.name}"}]
+        tools: {needed: ["get_standings"], allowed: ["find_teams", "get_data_freshness", "get_standings", "list_competitions", "list_groups", "list_rounds", "list_teams"]}
+        source: "official_table"
+        forbid_facts: [{kind: "name", value: "{g1.leader.name}"}]
+        ignore_decoys: true
+    - user: "¿cuántos puntos tiene?"
+      expect:
+        behavior: "answer"
+        facts: [{kind: "number", value: "{g2.leader.points}", label: "puntos"}]
+        tools: {needed: ["get_standings"], allowed: ["find_teams", "get_data_freshness", "get_standings", "list_competitions", "list_groups", "list_rounds", "list_teams"]}
+        source: "official_table"
+        ignore_decoys: true
+
+- id: s3_equipo_resultado_rival_puntos
+  stratum: S3
+  holdout: false
+  requires: ["results", "standings"]
+  capability: v1
+  select:
+    team: {kind: "team", unique_in_snapshot: true, with: ["standings", "finished"]}
+  turns:
+    - user: "¿Contra quién jugó {team.name} su último partido?"
+      expect:
+        behavior: "answer"
+        facts: [{kind: "name", value: "{team.last_match.rival}"}]
+        tools: {needed: ["list_matches"], allowed: ["find_teams", "get_data_freshness", "list_competitions", "list_groups", "list_matches", "list_rounds", "list_teams"]}
+    - user: "¿y cómo acabó?"
+      expect:
+        behavior: "answer"
+        facts: [{kind: "score", value: "{team.last_match.score}"}]
+        tools: {needed: ["list_matches"], allowed: ["find_teams", "get_data_freshness", "list_competitions", "list_groups", "list_matches", "list_rounds", "list_teams"]}
+    - user: "¿cuántos puntos tiene ahora {team.name}?"
+      expect:
+        behavior: "answer"
+        facts: [{kind: "number", value: "{team.points}", label: "puntos"}]
+        tools: {needed: ["get_standings"], allowed: ["find_teams", "get_data_freshness", "get_standings", "list_competitions", "list_groups", "list_rounds", "list_teams"]}
+        source: "official_table"
+
+- id: s3_grupo_goleador_goles
+  stratum: S3
+  holdout: false
+  requires: ["scorers", "standings"]
+  capability: v1
+  select:
+    group: {kind: "group", with: ["standings", "scorers"]}
+  turns:
+    - user: "¿Quién es el máximo goleador de {group.competition} {group.name}?"
+      expect:
+        behavior: "answer"
+        facts: [{kind: "name", value: "{group.top_scorer.name}"}]
+        tools: {needed: ["get_scorer_table"], allowed: ["find_teams", "get_data_freshness", "get_scorer_table", "list_competitions", "list_groups", "list_rounds", "list_teams"]}
+        source: "official_table"
+    - user: "¿cuántos goles lleva?"
+      expect:
+        behavior: "answer"
+        facts: [{kind: "number", value: "{group.top_scorer.goals}", label: "goles"}]
+        tools: {needed: ["get_scorer_table"], allowed: ["find_teams", "get_data_freshness", "get_scorer_table", "list_competitions", "list_groups", "list_rounds", "list_teams"]}
+        source: "official_table"
+    - user: "¿y de qué equipo es?"
+      expect:
+        behavior: "answer"
+        facts: [{kind: "name", value: "{group.top_scorer.team}"}]
+        tools: {needed: ["get_scorer_table"], allowed: ["find_teams", "get_data_freshness", "get_scorer_table", "list_competitions", "list_groups", "list_rounds", "list_teams"]}
+        source: "official_table"
+
+- id: s3_equipo_gf_gc
+  stratum: S3
+  holdout: false
+  requires: ["standings"]
+  capability: v1
+  select:
+    team: {kind: "team", unique_in_snapshot: true, with: ["standings"]}
+  turns:
+    - user: "¿Cuántos goles ha marcado {team.name}?"
+      expect:
+        behavior: "answer"
+        facts: [{kind: "number", value: "{team.gf}", label: "goles a favor"}]
+        tools: {needed: ["get_standings"], allowed: ["find_teams", "get_data_freshness", "get_standings", "list_competitions", "list_groups", "list_rounds", "list_teams"]}
+        source: "official_table"
+    - user: "¿y cuántos ha encajado?"
+      expect:
+        behavior: "answer"
+        facts: [{kind: "number", value: "{team.ga}", label: "goles en contra"}]
+        tools: {needed: ["get_standings"], allowed: ["find_teams", "get_data_freshness", "get_standings", "list_competitions", "list_groups", "list_rounds", "list_teams"]}
+        source: "official_table"
+    - user: "¿cuántos puntos tiene?"
+      expect:
+        behavior: "answer"
+        facts: [{kind: "number", value: "{team.points}", label: "puntos"}]
+        tools: {needed: ["get_standings"], allowed: ["find_teams", "get_data_freshness", "get_standings", "list_competitions", "list_groups", "list_rounds", "list_teams"]}
+        source: "official_table"

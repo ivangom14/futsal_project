@@ -1,0 +1,153 @@
+# Futsito-Eval v1 · S8 · dev. Formato: docs/v2/evaluation.md §3.
+
+- id: s8_fuera_victorias
+  stratum: S8
+  holdout: false
+  requires: ["results"]
+  capability: v1
+  select:
+    team: {kind: "team", unique_in_snapshot: true, with: ["finished", "away_played"], where: {away_wins: ">=1"}}
+  turns:
+    - user: "¿Cuántos partidos ha ganado {team.name} fuera de casa?"
+      expect:
+        behavior: "answer"
+        facts: [{kind: "number", value: "{team.away_wins}", label: "partidos ganados fuera"}]
+        tools: {needed: ["list_matches"], allowed: ["find_teams", "get_data_freshness", "list_competitions", "list_groups", "list_matches", "list_rounds", "list_teams"]}
+        max_llm_calls: 5
+
+- id: s8_casa_victorias
+  stratum: S8
+  holdout: false
+  requires: ["results"]
+  capability: v1
+  select:
+    team: {kind: "team", unique_in_snapshot: true, with: ["finished"], where: {home_wins: ">=1"}}
+  turns:
+    - user: "¿Cuántos partidos ha ganado {team.name} en casa?"
+      expect:
+        behavior: "answer"
+        facts: [{kind: "number", value: "{team.home_wins}", label: "partidos ganados en casa"}]
+        tools: {needed: ["list_matches"], allowed: ["find_teams", "get_data_freshness", "list_competitions", "list_groups", "list_matches", "list_rounds", "list_teams"]}
+        max_llm_calls: 5
+
+- id: s8_casa_victorias_local
+  stratum: S8
+  holdout: false
+  requires: ["results"]
+  capability: v1
+  select:
+    team: {kind: "team", unique_in_snapshot: true, with: ["finished"], where: {home_wins: ">=1"}}
+  turns:
+    - user: "Como local, ¿cuántas victorias suma {team.name}?"
+      expect:
+        behavior: "answer"
+        facts: [{kind: "number", value: "{team.home_wins}", label: "victorias en casa"}]
+        tools: {needed: ["list_matches"], allowed: ["find_teams", "get_data_freshness", "list_competitions", "list_groups", "list_matches", "list_rounds", "list_teams"]}
+        max_llm_calls: 5
+
+- id: s8_diferencia_top3_suma
+  stratum: S8
+  holdout: false
+  requires: ["standings"]
+  capability: v1
+  select:
+    group: {kind: "group", with: ["standings"], teams: ">=4", where: {top3_gd: ">=1"}}
+  turns:
+    - user: "Suma la diferencia de goles de los tres primeros clasificados de {group.competition} {group.name}."
+      expect:
+        behavior: "answer"
+        facts: [{kind: "number", value: "{group.top3_gd}", label: "diferencia de goles"}]
+        tools: {needed: ["get_standings"], allowed: ["find_teams", "get_data_freshness", "get_standings", "list_competitions", "list_groups", "list_rounds", "list_teams"]}
+        source: "official_table"
+        max_llm_calls: 5
+
+- id: s8_goles_jornada
+  stratum: S8
+  holdout: false
+  requires: ["results"]
+  capability: v1
+  select:
+    group: {kind: "group", with: ["finished"], where: {round_goals: ">=1"}}
+  turns:
+    - user: "¿Cuántos goles se marcaron en la última jornada jugada de {group.competition} {group.name}?"
+      expect:
+        behavior: "answer"
+        facts: [{kind: "number", value: "{group.round_goals}", label: "goles"}]
+        tools: {needed: ["list_matches"], allowed: ["find_teams", "get_data_freshness", "list_competitions", "list_groups", "list_matches", "list_rounds", "list_teams"]}
+        max_llm_calls: 5
+
+- id: s8_promedio_goles
+  stratum: S8
+  holdout: false
+  requires: ["results"]
+  capability: v1
+  select:
+    group: {kind: "group", with: ["finished"], where: {goals_total: ">=1"}}
+  turns:
+    - user: "¿Cuál es el promedio de goles por partido en {group.competition} {group.name}?"
+      expect:
+        behavior: "answer"
+        facts: [{kind: "number", value: "{group.avg_goals}", label: "promedio de goles"}]
+        tools: {needed: ["list_matches"], allowed: ["find_teams", "get_data_freshness", "list_competitions", "list_groups", "list_matches", "list_rounds", "list_teams"]}
+        max_llm_calls: 5
+
+- id: s8_promedio_goles_media
+  stratum: S8
+  holdout: false
+  requires: ["results"]
+  capability: v1
+  select:
+    group: {kind: "group", with: ["finished"], where: {goals_total: ">=1"}}
+  turns:
+    - user: "Media de goles por partido jugado en {group.competition} {group.name}."
+      expect:
+        behavior: "answer"
+        facts: [{kind: "number", value: "{group.avg_goals}", label: "media de goles"}]
+        tools: {needed: ["list_matches"], allowed: ["find_teams", "get_data_freshness", "list_competitions", "list_groups", "list_matches", "list_rounds", "list_teams"]}
+        max_llm_calls: 5
+
+- id: s8_goles_encajados_equipo
+  stratum: S8
+  holdout: false
+  requires: ["results"]
+  capability: v1
+  select:
+    team: {kind: "team", unique_in_snapshot: true, with: ["finished"], where: {goals_against: ">=1"}}
+  turns:
+    - user: "¿Cuántos goles ha recibido en total {team.name}?"
+      expect:
+        behavior: "answer"
+        facts: [{kind: "number", value: "{team.goals_against}", label: "goles recibidos"}]
+        tools: {needed: ["list_matches"], allowed: ["find_teams", "get_data_freshness", "list_competitions", "list_groups", "list_matches", "list_rounds", "list_teams"]}
+        max_llm_calls: 5
+
+- id: s8_distancia_lider_colista
+  stratum: S8
+  holdout: false
+  requires: ["standings"]
+  capability: v1
+  select:
+    group: {kind: "group", with: ["standings"], teams: ">=4", where: {gap_first_last: ">=1"}}
+  turns:
+    - user: "¿Cuántos puntos de diferencia hay entre el primero y el último de {group.competition} {group.name}?"
+      expect:
+        behavior: "answer"
+        facts: [{kind: "number", value: "{group.gap_first_last}", label: "puntos de diferencia"}]
+        tools: {needed: ["get_standings"], allowed: ["find_teams", "get_data_freshness", "get_standings", "list_competitions", "list_groups", "list_rounds", "list_teams"]}
+        source: "official_table"
+        max_llm_calls: 5
+
+- id: s8_promedio_equipo
+  stratum: S8
+  holdout: false
+  requires: ["results"]
+  capability: v1
+  select:
+    team: {kind: "team", unique_in_snapshot: true, with: ["finished"], where: {goals_for: ">=1"}}
+  turns:
+    - user: "¿Cuántos goles por partido marca de media {team.name}?"
+      expect:
+        behavior: "answer"
+        facts: [{kind: "number", value: "{team.goals_per_match}", label: "goles por partido"}]
+        tools: {needed: ["list_matches"], allowed: ["find_teams", "get_data_freshness", "list_competitions", "list_groups", "list_matches", "list_rounds", "list_teams"]}
+        max_llm_calls: 5

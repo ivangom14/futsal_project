@@ -1,0 +1,123 @@
+{
+  "verified_at": "2026-11-09",
+  "unit": "USD por 1M de tokens; nivel estándar de pago, prompts cortos, sin descuentos de lote",
+  "models": {
+    "openai:gpt-6-luna": {
+      "input": 0.1,
+      "cached_input": 0.01,
+      "output": 0.5,
+      "source": "https://developers.openai.com/api/docs/pricing"
+    },
+    "openai:gpt-6.1-terra": {
+      "input": 1.0,
+      "cached_input": 0.05,
+      "output": 5.0,
+      "source": "https://developers.openai.com/api/docs/pricing"
+    },
+    "openai:gpt-6.1-sol": {
+      "input": 2.0,
+      "cached_input": 0.1,
+      "output": 10.0,
+      "source": "https://developers.openai.com/api/docs/pricing"
+    },
+    "openai:gpt-6-astra": {
+      "input": 10.0,
+      "cached_input": 1.0,
+      "output": 50.0,
+      "source": "https://developers.openai.com/api/docs/pricing",
+      "verified_at": "2026-11-09"
+    },
+    "gemini:gemini-3.5-flash-lite": {
+      "input": 0.3,
+      "cached_input": 0.03,
+      "output": 2.5,
+      "source": "https://aistudio.google.com/docs/pricing",
+      "verified_at": "2026-11-09"
+    },
+    "gemini:gemini-3.1-flash-lite": {
+      "input": 0.25,
+      "cached_input": 0.025,
+      "output": 1.5,
+      "source": "https://aistudio.google.com/docs/pricing",
+      "verified_at": "2026-11-09"
+    },
+    "gemini:gemini-3.8-flash": {
+      "input": 0.75,
+      "cached_input": 0.075,
+      "output": 3.75,
+      "source": "https://aistudio.google.com/docs/pricing",
+      "note": "sube a 1.50 / 0.15 / 7.50 desde el 2027-01-01",
+      "verified_at": "2026-11-09"
+    },
+    "gemini:gemini-3.6-flash": {
+      "input": 0.75,
+      "cached_input": 0.075,
+      "output": 3.75,
+      "source": "https://aistudio.google.com/docs/pricing",
+      "note": "igual que 3.8 Flash; sube el 2027-01-01",
+      "verified_at": "2026-11-09"
+    },
+    "gemini:gemini-3-flash-preview": {
+      "input": 0.5,
+      "cached_input": 0.05,
+      "output": 3.0,
+      "source": "https://aistudio.google.com/docs/pricing",
+      "verified_at_doc": "2026-11-08",
+      "needs_reverification": true
+    },
+    "gemini:gemini-3.1-pro-preview": {
+      "input": 2.0,
+      "cached_input": 0.2,
+      "output": 12.0,
+      "source": "https://aistudio.google.com/docs/pricing",
+      "verified_at_doc": "2026-11-08",
+      "needs_reverification": true,
+      "note": "prompts hasta 200k"
+    },
+    "gemini:gemini-4-argon": {
+      "input": 2.0,
+      "cached_input": 0.1,
+      "output": 10.0,
+      "source": "https://aistudio.google.com/docs/pricing",
+      "note": "sube a 4 / 0.20 / 20 desde el 2026-12-01",
+      "verified_at": "2026-11-09"
+    },
+    "anthropic:claude-haiku-5-5": {
+      "input": 0.1,
+      "cached_input": 0.01,
+      "output": 0.5,
+      "source": "https://platform.claude.com/docs/en/about-claude/pricing",
+      "note": "prompts hasta 100k",
+      "verified_at": "2026-11-09"
+    },
+    "anthropic:claude-sonnet-5-5": {
+      "input": 2.0,
+      "cached_input": 0.1,
+      "output": 10.0,
+      "source": "https://platform.claude.com/docs/en/about-claude/pricing",
+      "verified_at": "2026-11-09"
+    },
+    "anthropic:claude-opus-5-5": {
+      "input": 4.0,
+      "cached_input": 0.2,
+      "output": 20.0,
+      "source": "https://platform.claude.com/docs/en/about-claude/pricing",
+      "verified_at": "2026-11-09"
+    },
+    "anthropic:claude-fable-5-1": {
+      "input": 10.0,
+      "cached_input": 0.25,
+      "output": 50.0,
+      "source": "https://platform.claude.com/docs/en/about-claude/pricing",
+      "verified_at": "2026-11-09"
+    },
+    "anthropic:claude-haiku-4-5": {
+      "input": 1.0,
+      "cached_input": 0.1,
+      "output": 5.0,
+      "source": "https://platform.claude.com/docs/en/about-claude/pricing",
+      "verified_at": "2026-11-09"
+    }
+  },
+  "_note": "needs_reverification=true: no verificado el 2026-11-09. Anthropic: las escrituras de caché (1,25x a 5 min) no se modelan en estimate_cost."
+}

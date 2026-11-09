@@ -1,0 +1,43 @@
+{
+ "schema": 1,
+ "sealed_at": "2026-11-09T09:10:52+00:00",
+ "note": "holdout sellado al cerrar el dataset v1; no se mira para ajustar el agente",
+ "files": {
+  "s1_sencillas.holdout.yaml": {
+   "sha256": "1d161be962d1d8431f6f4dd52acc28896057aa70a562775ca24b792061119657",
+   "cases": 9
+  },
+  "s2_ambiguas.holdout.yaml": {
+   "sha256": "ce65b3e655038975462c9c8ebf2b79c4f045f8c4a284100d755c49a80a046ba0",
+   "cases": 6
+  },
+  "s3_encadenadas.holdout.yaml": {
+   "sha256": "581f30e6245902e0a1d83784701863fdf5ab66e1812870e89633b6361e8c671d",
+   "cases": 4
+  },
+  "s4_complejas.holdout.yaml": {
+   "sha256": "9df10185939109e2fc8cf556a44e73d3ef7c662880c5534c38c552d715a5142a",
+   "cases": 4
+  },
+  "s5_sin_datos.holdout.yaml": {
+   "sha256": "f6151c081c07bff119b57f52b2e811449f16a8fc7403ef8c6e3d73c1f1bc0516",
+   "cases": 5
+  },
+  "s6_adversariales.holdout.yaml": {
+   "sha256": "abda58c890f6d45ac1f1e6167c652fe870db1774802243bc793536d29795cfa0",
+   "cases": 5
+  },
+  "s7_multicompetencia.holdout.yaml": {
+   "sha256": "aaa561a14631ba646efcf4751b158396482eff75795077d652fa8fb369b56fff",
+   "cases": 4
+  },
+  "s8_estadisticas.holdout.yaml": {
+   "sha256": "d1e550b0f01e417c2e2b4652c550b5216afb695a174f2b24b56d3c20991d9dbc",
+   "cases": 5
+  },
+  "s9_documentales.holdout.yaml": {
+   "sha256": "c81cea1cf0f7314c8d0d4d8c2e17121b63bca983d0984ca5b07e96634bdc065f",
+   "cases": 6
+  }
+ }
+}

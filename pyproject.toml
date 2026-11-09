@@ -5,7 +5,7 @@ description = "Asistente agéntico sobre competiciones deportivas (monolito modu
 requires-python = ">=3.11"
 dependencies = ["httpx>=0.27", "mcp>=1.2,<2", "pydantic>=2.6",
                 "sqlalchemy>=2.0", "alembic>=1.13", "psycopg[binary]>=3.1",
-                "fastapi>=0.110", "uvicorn>=0.29", "pypdf>=4"]
+                "fastapi>=0.110", "uvicorn>=0.29", "pypdf>=4", "pyyaml>=6"]
 
 [project.optional-dependencies]
 dev = ["pytest>=8", "ruff", "mypy"]
@@ -20,6 +20,10 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+"futsal.evals" = ["truth/*.sql"]
+"futsal.config" = ["*.json", "sources/*.json"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

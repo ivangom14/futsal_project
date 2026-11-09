@@ -38,7 +38,7 @@ class Taxonomy(NamedTuple):
 def classify(name: str, cfg: dict[str, Any]) -> Taxonomy:
     folded = fold(name)
     over = {fold(k): v for k, v in cfg.get("overrides", {}).items()}.get(folded)
-    kind, age = cfg.get("default_kind", "league"), cfg.get("default_age", "senior")
+    kind, age = cfg.get("default_kind", "league"), cfg.get("default_age", "unknown")
     for k, words in cfg["kind_from_name"].items():
         if any(_spans(folded, w) for w in words):
             kind = k

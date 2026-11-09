@@ -6,6 +6,7 @@ Si el LLM real SIGUE las instrucciones compactas igual de bien no puede probarse
 
 import asyncio
 import json
+import re
 from pathlib import Path
 from typing import Any
 
@@ -40,6 +41,17 @@ async def _raw(mode: str | None) -> list[dict[str, Any]]:
     return [{"name": t.name, "description": t.description or "", "input_schema": strip_titles(t.inputSchema)} for t in listed]
 
 
+def norm(obj: Any) -> Any:
+    """Python 3.13 quita la sangría común de los docstrings: se compara sin la sangría de las líneas de continuación (los textos legacy no cambian)."""
+    if isinstance(obj, str):
+        return re.sub(r"\n[ \t]+", "\n", obj)
+    if isinstance(obj, list):
+        return [norm(x) for x in obj]
+    if isinstance(obj, dict):
+        return {k: norm(v) for k, v in obj.items()}
+    return obj
+
+
 def raw_tools(mode: str | None) -> list[dict[str, Any]]:
     return asyncio.run(_raw(mode))
 
@@ -59,12 +71,12 @@ def test_legacy_mode_reproduces_the_previous_texts_exactly() -> None:
     assert (p.system, p.history_rule, p.context_header, p.catalog_header) == (
         GOLDEN["system_prompt"], GOLDEN["history_rule"], GOLDEN["context_header"], GOLDEN["catalog_header"])
     assert (SYSTEM_PROMPT, HISTORY_RULE, CONTEXT_HEADER, CATALOG_HEADER) == (p.system, p.history_rule, p.context_header, p.catalog_header)
-    assert raw_tools("legacy") == GOLDEN["tools_raw"] and slim_tools(raw_tools("legacy")) == GOLDEN["tools_slim"]
+    assert norm(raw_tools("legacy")) == norm(GOLDEN["tools_raw"]) and norm(slim_tools(raw_tools("legacy"))) == norm(GOLDEN["tools_slim"])
 
 
 def test_default_mode_is_legacy_and_unknown_values_fall_back_to_legacy(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("AGENT_PROMPT_MODE", raising=False)
-    assert resolve_prompt_mode() == LEGACY and raw_tools(None) == GOLDEN["tools_raw"]
+    assert resolve_prompt_mode() == LEGACY and norm(raw_tools(None)) == norm(GOLDEN["tools_raw"])
     for bad in ("COMPACTO", "", "x"):
         monkeypatch.setenv("AGENT_PROMPT_MODE", bad)
         assert resolve_prompt_mode() == LEGACY
@@ -305,7 +317,7 @@ def test_environment_flag_switches_agent_and_mcp_server_together(monkeypatch: py
     res = asyncio.run(Agent(llm, mcp, 5).run("¿Quién lidera la clasificación?"))
     assert llm.systems[0].startswith(PROMPT_SETS[COMPACT].system) and res.run.prompt_mode == COMPACT
     monkeypatch.setenv("AGENT_PROMPT_MODE", "legacy")
-    assert raw_tools(None) == GOLDEN["tools_raw"]  # desactivada: vuelve exactamente al modo anterior
+    assert norm(raw_tools(None)) == norm(GOLDEN["tools_raw"])  # desactivada: vuelve exactamente al modo anterior
 
 
 def test_old_traces_default_to_legacy_mode(tmp_path: Path) -> None:

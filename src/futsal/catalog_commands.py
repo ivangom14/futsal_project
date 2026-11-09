@@ -16,7 +16,7 @@ from futsal.ingestion.rffm.progress import Progress
 from futsal.ingestion.rffm.update_policy import UpdatePolicy
 
 CATALOG_DIR = Path("data/rffm/catalog")
-COMMANDS = ("discover-catalog", "scrape-catalog", "import-catalog", "verify-catalog")
+COMMANDS = ("discover-catalog", "scrape-catalog", "import-catalog", "verify-catalog", "catalog-backfill")
 
 
 def add_parsers(sub: "argparse._SubParsersAction[argparse.ArgumentParser]") -> None:
@@ -52,6 +52,12 @@ def add_parsers(sub: "argparse._SubParsersAction[argparse.ArgumentParser]") -> N
     common(p, network=False)
     p.add_argument("--dry-run", action="store_true")
     common(sub.add_parser("verify-catalog", help="compara lo descargado con PostgreSQL (solo lectura)"), network=False)
+    p = sub.add_parser("catalog-backfill", help="identidad de equipos y clasificación de competiciones ya importadas (sin red)")
+    p.add_argument("--dry-run", action="store_true", help="calcula y muestra el resumen sin escribir")
+    p.add_argument("--inventory", type=Path, default=None, metavar="PATH",
+                   help="inventory.json (o directorio con inventarios); por defecto, los de data/rffm/catalog si existen")
+    p.add_argument("--reclassify-confirmed", action="store_true",
+                   help="vuelve a clasificar también las competiciones confirmadas (guarda el valor anterior; nunca toca un override)")
 
 
 def _load(path: Path) -> dict[str, Any]:
@@ -70,7 +76,23 @@ def _dump(path: Path, data: Any) -> None:
     path.write_text(json.dumps(data, indent=2, ensure_ascii=False, sort_keys=True) + "\n", encoding="utf-8")
 
 
+def _backfill(args: argparse.Namespace) -> int:
+    from futsal.db.session import make_engine
+    from futsal.importer.catalog_backfill import find_inventories, run_backfill
+
+    paths = find_inventories(args.inventory, CATALOG_DIR)
+    summary = run_backfill(make_engine(), inventories=paths, dry_run=args.dry_run, reclassify_confirmed=args.reclassify_confirmed)
+    print(json.dumps(summary, ensure_ascii=False, sort_keys=True))
+    return 0
+
+
 def run(args: argparse.Namespace) -> int:
+    if args.command == "catalog-backfill":
+        try:
+            return _backfill(args)
+        except Exception as exc:  # noqa: BLE001 - la CLI informa en una línea sin traza
+            print(f"Error: {str(exc).splitlines()[0] if str(exc) else type(exc).__name__}")
+            return 2
     work = _work_dir(args)
     only = set(args.competition) if args.competition else None
     try:

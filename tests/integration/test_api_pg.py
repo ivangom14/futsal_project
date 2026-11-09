@@ -48,6 +48,17 @@ def test_rounds_teams_matches(client: TestClient) -> None:
     assert {"home_team", "away_team", "status", "date"} <= set(matches["items"][0])
 
 
+def test_find_teams_ignores_accents_on_both_sides(client: TestClient, engine: Engine) -> None:
+    with engine.begin() as conn:
+        name = conn.execute(text("SELECT name FROM teams ORDER BY id LIMIT 1")).scalar_one()
+        conn.execute(text("UPDATE teams SET name = 'C.D. MOSTOLES' WHERE name = :n"), {"n": name})
+    assert any(t["name"] == "C.D. MOSTOLES" for t in client.get("/teams", params={"name": "Móstoles"}).json()["items"])
+    with engine.begin() as conn:
+        conn.execute(text("UPDATE teams SET name = 'C.D. MÓSTOLES' WHERE name = 'C.D. MOSTOLES'"))
+    body = client.get("/teams", params={"name": "mostoles"}).json()
+    assert [t["name"] for t in body["items"]] == ["C.D. MÓSTOLES"] and body["count"] == 1
+
+
 def test_match_filters(client: TestClient) -> None:
     gid = _group_id(client)
     allm = client.get(f"/groups/{gid}/matches").json()

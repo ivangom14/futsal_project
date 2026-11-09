@@ -1,7 +1,27 @@
 """Utilidades de prueba compartidas."""
+import logging
+import os
 from collections.abc import Callable
 
 import pytest
+
+_LLM_ENV = ("LLM_PROVIDER", "LLM_MODEL", "GEMINI_MODEL", "GEMINI_API_KEY", "ANTHROPIC_API_KEY", "OPENAI_API_KEY", "OPENAI_MODEL")
+
+
+@pytest.fixture(autouse=True)
+def _isolate_llm_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Las pruebas no dependen del entorno del desarrollador: las que necesitan estas variables las fijan ellas."""
+    for name in [*_LLM_ENV, *(k for k in os.environ if k.startswith("LLM_MODEL_"))]:
+        monkeypatch.delenv(name, raising=False)
+
+
+@pytest.fixture(autouse=True)
+def _enable_futsal_loggers() -> None:
+    """`alembic/env.py` llama a `fileConfig` (deshabilita los loggers ya creados) al migrar en pruebas de integración: sin esto, `caplog` queda vacío en las pruebas posteriores."""
+    for name, lg in logging.root.manager.loggerDict.items():
+        if name.startswith("futsal") and isinstance(lg, logging.Logger):
+            lg.disabled = False
+
 
 PdfMaker = Callable[[list[str]], bytes]
 

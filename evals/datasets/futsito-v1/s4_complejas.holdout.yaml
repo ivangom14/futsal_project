@@ -1,0 +1,64 @@
+# Futsito-Eval v1 · S4 · holdout. Formato: docs/v2/evaluation.md §3. SELLADO: no se mira para ajustar el agente.
+
+- id: s4_ultimos_rivales
+  stratum: S4
+  holdout: true
+  requires: ["results"]
+  capability: v1
+  select:
+    team: {kind: "team", unique_in_snapshot: true, with: ["finished2"]}
+  turns:
+    - user: "¿Contra quiénes ha jugado {team.name} en sus últimos partidos y cómo acabaron?"
+      expect:
+        behavior: "answer"
+        facts: [{kind: "name", value: "{team.recent[*].rival}"}]
+        tools: {needed: ["list_matches"], allowed: ["find_teams", "get_data_freshness", "list_competitions", "list_groups", "list_matches", "list_rounds", "list_teams"]}
+        max_llm_calls: 6
+
+- id: s4_lideres_comparacion
+  stratum: S4
+  holdout: true
+  requires: ["standings"]
+  capability: v1
+  select:
+    group: {kind: "group", with: ["standings"], teams: ">=4"}
+  turns:
+    - user: "En {group.competition} {group.name}, ¿quién es el líder y quién el colista, y cuántos puntos tiene cada uno?"
+      expect:
+        behavior: "answer"
+        facts: [{kind: "name", value: "{group.leader.name}"}, {kind: "name", value: "{group.last_place.name}"}, {kind: "number", value: "{group.leader.points}", label: "puntos líder", lenient: true}, {kind: "number", value: "{group.last_place.points}", label: "puntos colista", lenient: true}]
+        tools: {needed: ["get_standings"], allowed: ["find_teams", "get_data_freshness", "get_standings", "list_competitions", "list_groups", "list_rounds", "list_teams"]}
+        source: "official_table"
+        max_llm_calls: 4
+
+- id: s4_comparar_mismo_grupo
+  stratum: S4
+  holdout: true
+  requires: ["standings"]
+  capability: v1
+  select:
+    a: {kind: "team", unique_in_snapshot: true, with: ["standings"]}
+    b: {kind: "team", unique_in_snapshot: true, with: ["standings"], same_group_as: "a"}
+  turns:
+    - user: "Compara a {a.name} y {b.name}: ¿cuántos puntos tiene cada uno?"
+      expect:
+        behavior: "answer"
+        facts: [{kind: "number", value: "{a.points}", label: "puntos {a.name}", lenient: true}, {kind: "number", value: "{b.points}", label: "puntos {b.name}", lenient: true}]
+        tools: {needed: ["get_standings"], allowed: ["find_teams", "get_data_freshness", "get_standings", "list_competitions", "list_groups", "list_rounds", "list_teams"]}
+        source: "official_table"
+        max_llm_calls: 4
+
+- id: s4_goleadores_acta_resultado
+  stratum: S4
+  holdout: true
+  requires: ["reports"]
+  capability: v1
+  select:
+    team: {kind: "team", unique_in_snapshot: true, with: ["reports"]}
+  turns:
+    - user: "Del último partido con acta de {team.name}: marcador y goleadores."
+      expect:
+        behavior: "answer"
+        facts: [{kind: "score", value: "{team.reported_match.score}"}, {kind: "name", value: "{team.reported_match.goals[*].player}"}]
+        tools: {needed: ["get_match_report|list_match_events"], allowed: ["find_teams", "get_data_freshness", "get_match_report", "get_match_report|list_match_events", "list_competitions", "list_groups", "list_match_events", "list_matches", "list_rounds", "list_teams"]}
+        max_llm_calls: 6

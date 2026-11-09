@@ -1,0 +1,74 @@
+# Futsito-Eval v1 · S5 · holdout. Formato: docs/v2/evaluation.md §3. SELLADO: no se mira para ajustar el agente.
+
+- id: s5_sin_clasificacion_puesto
+  stratum: S5
+  holdout: true
+  requires: ["group_without_standings"]
+  capability: v1
+  select:
+    group: {kind: "group", with: ["no_standings"]}
+  turns:
+    - user: "¿Qué equipos están en los tres primeros puestos de {group.competition} {group.name}?"
+      expect:
+        behavior: "abstain"
+        tools: {needed: [], allowed: ["find_teams", "get_data_freshness", "list_competitions", "list_groups", "list_rounds", "list_teams"]}
+        source: "official_table"
+        forbid_tools: ["list_matches", "get_match", "get_match_report", "list_match_events", "top_scorers"]
+
+- id: s5_sin_acta_arbitro
+  stratum: S5
+  holdout: true
+  requires: ["finished_without_report"]
+  capability: v1
+  select:
+    match: {kind: "match", finished: true, no_report: true}
+  turns:
+    - user: "¿Quién arbitró el {match.home} - {match.away} (jornada {match.round}, {match.competition})?"
+      expect:
+        behavior: "abstain"
+        tools: {needed: [], allowed: ["find_teams", "get_data_freshness", "list_competitions", "list_groups", "list_rounds", "list_teams"]}
+
+- id: s5_temporada_no_ingerida_equipo
+  stratum: S5
+  holdout: true
+  requires: ["standings"]
+  capability: v1
+  select:
+    season: {kind: "season_absent"}
+    team: {kind: "team", unique_in_snapshot: true, with: ["standings"]}
+  turns:
+    - user: "¿Cuántos puntos hizo {team.name} en la temporada {season.name}?"
+      expect:
+        behavior: "abstain"
+        tools: {needed: [], allowed: ["find_teams", "get_data_freshness", "list_competitions", "list_groups", "list_rounds", "list_teams"]}
+        forbid_any_score: true
+        source: "official_table"
+
+- id: s5_sustituciones
+  stratum: S5
+  holdout: true
+  requires: ["reports"]
+  capability: v1
+  select:
+    team: {kind: "team", unique_in_snapshot: true, with: ["reports"]}
+  turns:
+    - user: "¿En qué minuto entró el primer suplente de {team.name} en el último partido con acta?"
+      expect:
+        behavior: "abstain"
+        tools: {needed: [], allowed: ["find_teams", "get_data_freshness", "list_competitions", "list_groups", "list_rounds", "list_teams"]}
+        forbid_phrases: ["en el minuto"]
+
+- id: s5_sin_goleadores_goles
+  stratum: S5
+  holdout: true
+  requires: ["group_without_standings"]
+  capability: v1
+  select:
+    group: {kind: "group", with: ["no_scorers"]}
+  turns:
+    - user: "¿Cuántos goles lleva el pichichi de {group.competition} {group.name}?"
+      expect:
+        behavior: "abstain"
+        tools: {needed: [], allowed: ["find_teams", "get_data_freshness", "list_competitions", "list_groups", "list_rounds", "list_teams"]}
+        source: "official_table"
+        forbid_tools: ["list_matches", "get_match", "get_match_report", "list_match_events", "top_scorers"]

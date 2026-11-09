@@ -1,6 +1,6 @@
 # Futsito v2 — Plan de ejecución
 
-Estado: **diseño, sin implementar**. Base: auditoría del 2026-11-08 (commit `7eda656`) y decisiones del responsable
+Estado: **Oleada 0 ejecutada el 2026-11-09** (registro: [wave0.md](wave0.md)); A3 (baseline) bloqueada por el snapshot de datos. Base: auditoría del 2026-11-08 (commit `7eda656`) y decisiones del responsable
 del proyecto de la misma fecha. Nada de este directorio cambia el comportamiento actual.
 
 | Documento | Contenido |
@@ -11,6 +11,9 @@ del proyecto de la misma fecha. Nada de este directorio cambia el comportamiento
 | [evaluation.md](evaluation.md) | Batería Futsito-Eval v1, snapshot congelado, métricas, protocolo de comparación de modelos y presupuesto |
 | [models.md](models.md) | Modelos verificados en documentación oficial (2026-11-08), precios, preselección y costes estimados |
 | [delegation.md](delegation.md) | Fichas de tarea para Sonnet (contexto, archivos, contratos, aceptación, pruebas, Git) |
+| [probe-a1.md](probe-a1.md) | Sondeo A1 (20 peticiones) y hallazgos |
+| [p0-catalog.md](p0-catalog.md) | P0: catálogo real de la temporada actual y plan de carga recalculado |
+| [wave0.md](wave0.md) | Registro de la Oleada 0: estado inicial, contradicciones, tareas, mediciones y decisión |
 | [future-features.md](future-features.md) | Ideas de producto: seguimiento de mi equipo, entrenadores, árbitros, clubes, alertas |
 
 ## Decisiones ya tomadas (2026-11-08)
@@ -94,7 +97,22 @@ flowchart LR
 Esfuerzo orientativo [E]: oleada 0 ≈ 1 semana; 1 ≈ 2 semanas; 2 ≈ 2–3 semanas; 3 ≈ 1–2 semanas. Depende de los
 resultados del sondeo de la RFFM y de las cuotas del proveedor.
 
-## Decisiones pendientes de aprobación
+
+## Estado de las decisiones (autorizadas por el responsable el 2026-11-09)
+
+| Id | Estado |
+|---|---|
+| A1 | **hecho**: 20/20 peticiones ([probe-a1.md](probe-a1.md)) |
+| A2 | **hecho**: Revisión A2 en data-model.md; migración 0007 y clasificador implementados (T03) |
+| A3 | framework hecho (T02); **baseline bloqueada**: falta snapshot (pg_dump del usuario o ingesta acotada) |
+| A4 | P0 **hecho** (51/51; 50 competiciones, 89 grupos; [p0-catalog.md](p0-catalog.md)); ingesta completa NO iniciada |
+| A5 | pasarela y adaptador OpenAI hechos (T04); precios verificados el 2026-11-09; gasto 0 USD |
+| A6 | diseño (planificador separado del web, cola en PG) en ingestion.md; sin infraestructura contratada |
+| A7 | privado; límites por IP y aislamiento por conversación a diseñar en la oleada 4 |
+| A8 | oleada 3; nota: el PG de este entorno no tiene pgvector instalado |
+| A9 | el responsable pedirá permiso a la federación; hasta entonces no se exponen datos personales de menores |
+
+## Decisiones pendientes de aprobación (propuesta original, 2026-11-08)
 
 | Id | Decisión | Propuesta | Bloquea |
 |---|---|---|---|

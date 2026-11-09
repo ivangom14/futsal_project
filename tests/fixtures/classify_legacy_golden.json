@@ -1,0 +1,58 @@
+{
+ "Tercera División FS": [
+  "league",
+  "senior"
+ ],
+ "Copa Senior I - fase final - FS": [
+  "cup",
+  "senior"
+ ],
+ "Copa Senior I - fase previa - FS": [
+  "cup",
+  "senior"
+ ],
+ "Primera División Autonómica Aficionado FS": [
+  "league",
+  "senior"
+ ],
+ "Preferente Aficionado FS": [
+  "league",
+  "senior"
+ ],
+ "Copa Senior II - fase final - FS": [
+  "cup",
+  "senior"
+ ],
+ "Copa Senior II - fase previa - FS": [
+  "cup",
+  "senior"
+ ],
+ "Primera Aficionado FS": [
+  "league",
+  "senior"
+ ],
+ "Trofeo Comunidad División Honor Juvenil FS": [
+  "tournament",
+  "juvenil"
+ ],
+ "Primera División Autonómica Juvenil FS": [
+  "league",
+  "juvenil"
+ ],
+ "Preferente Juvenil FS": [
+  "league",
+  "juvenil"
+ ],
+ "Copa Juvenil - fase final - FS": [
+  "cup",
+  "juvenil"
+ ],
+ "Copa Juvenil - fase previa - FS": [
+  "cup",
+  "juvenil"
+ ],
+ "Primera Juvenil FS": [
+  "league",
+  "juvenil"
+ ]
+}

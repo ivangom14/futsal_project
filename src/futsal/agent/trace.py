@@ -42,6 +42,7 @@ class LlmCallRecord:
     retry_wait_ms: float = 0.0  # parte de latency_ms que fue espera de reintentos
     token_source: str = "unreported"  # provider | estimated | unreported
     cached_input_tokens: int | None = None  # entrada servida desde la caché del proveedor (si la informa)
+    cost_usd: float | None = None  # coste estimado de la llamada (`llm.estimate_cost`); None = sin tarifa o trazas anteriores
     paced_ms: float = 0.0  # pausa de ritmo (--min-interval) ANTES de la llamada; no forma parte de latency_ms
     # Fase 0: reparto ESTIMADO de la entrada por origen (ver `tokens.input_breakdown`); None en trazas antiguas o sin desglose
     input_breakdown: dict[str, Any] | None = None

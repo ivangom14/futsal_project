@@ -264,8 +264,11 @@ def test_live_ambiguity_cards_and_unsupported_player(engine: Engine, tmp_path: P
     asks = _live_case(engine, "acta_jugador_ambiguo",
                       "Hay dos jugadores: Pablo Gómez Rodríguez y Daniel Gómez Rodríguez. ¿A cuál te refieres?")
     assert asks.status == "pass" and asks.invention_ok
+    # Desde la Fase 25.4 el código 100 = amarilla está respaldado (domain/cards.py, card_kind): afirmarlo es correcto.
     color = _live_case(engine, "acta_tarjetas_codigo", "Hubo 1 tarjeta amarilla.")
-    assert color.status == "fail" and color.invention_ok is False
+    assert color.status == "pass"
+    unbacked = _live_case(engine, "acta_tarjetas_codigo", "Hubo 1 tarjeta roja.")
+    assert unbacked.status == "fail" and unbacked.invention_ok is False
     honest = _live_case(engine, "acta_tarjetas_codigo", "Hubo 1 tarjeta (código 100); no consta de qué color.")
     assert honest.status == "pass"
     invented = _live_case(engine, "acta_sustituciones_minuto",

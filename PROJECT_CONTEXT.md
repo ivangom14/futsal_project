@@ -253,3 +253,16 @@ congelado, 160 casos en 9 estratos, 3 repeticiones, ruido medido); pasarela de m
 por fases (F-A económicos, F-B medios; ≈ 35 USD). Modelos y precios verificados el 2026-11-08 en `docs/v2/models.md`.
 Hallazgos: la RFFM da `NombreCategoria`/`CodigoCategoria`/`Activa` y `nombre_delegacion` (se leen y no se guardan); el predeterminado
 `claude-haiku-4-5` está obsoleto. Siguiente: oleada 0 (T01–T04, delegables en paralelo) y sondeo de la RFFM (A1, requiere autorización).
+
+## Plataforma v2 · Oleada 0 (2026-11-09; sin commit hasta aprobación; registro `docs/v2/wave0.md`)
+A1 hecho (20/20 GET; `docs/v2/probe-a1.md`): catálogo JSON `/api/competitions?temporada&tipojuego`, `CodEquipo` estable entre temporadas,
+club = `codigo_club` de `/fichaequipo` (el número del escudo NO identifica al club), `CodigoCategoria` estable, calendario completo en una página,
+fichas con datos personales (no se ingieren). T01 (herramientas independientes en paralelo, `/teams` sin acentos, 7 fallos previos), T04 (OpenAI
+Responses API, `create_llm(task)`, `LLM_MODEL_<TAREA>`, Haiku 5.5, `config/llm_prices.json` verificado, `cost_usd` en la traza), T03 (migración
+**0007** aditiva: catálogo oficial + clasificación con confianza, `clubs`, `team_entities`, `competition_links`, `catalog_overrides`, vista
+`team_lineage`; `domain/catalog_classify.py`; `catalog-backfill`; nunca senior por defecto) y T02 (`python -m futsal.evals`, 160 casos S1–S9 con
+holdout sellado, `regression`, `smoke40`, snapshot con huella) aceptados. Batería: 1691 pass, 0 fail. Dependencia nueva: `pyyaml`.
+PENDIENTE (decisión del responsable): snapshot para la baseline (A3) y P0 de la ingesta (A4). Gasto LLM: 0 USD.
+P0 hecho (2026-11-09, 51/51 GET, sin limitación; `docs/v2/p0-catalog.md`): T22 = 50 competiciones (34 activas), 89 grupos (71 activos), todo
+delegación central; 48/50 clasificadas `auto`. Carga recalculada: P1 ≈ 765 peticiones. A3: `python -m futsal.evals snapshot import` (BD aislada,
+copia `_head` aparte) y procedimiento de brazos H/C en `docs/v2/baseline-a3.md`; BLOQUEADO hasta recibir el pg_dump del usuario. Batería 1699 pass.

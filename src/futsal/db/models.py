@@ -14,6 +14,7 @@ from sqlalchemy import (
     Index,
     Integer,
     MetaData,
+    Numeric,
     String,
     Text,
     Time,
@@ -59,13 +60,50 @@ class Season(Tracked, Base):
     __tablename__ = "seasons"
     __table_args__ = (UniqueConstraint("source", "external_id"),)
     name: Mapped[str | None] = mapped_column(String(128))
+    label: Mapped[str | None] = mapped_column(Text)
+    start_date: Mapped[date | None] = mapped_column(Date)
+    end_date: Mapped[date | None] = mapped_column(Date)
+    is_current: Mapped[bool] = mapped_column(Boolean, server_default=text("false"), default=False)
+
+
+Index("uq_seasons_source_current", Season.source, unique=True, postgresql_where=text("is_current"))
+
+UNKNOWN = text("'unknown'")
 
 
 class Competition(Tracked, Base):
     __tablename__ = "competitions"
-    __table_args__ = (UniqueConstraint("source", "external_id"),)
+    __table_args__ = (
+        UniqueConstraint("source", "external_id"),
+        CheckConstraint("review_status IN ('auto','needs_review','confirmed')", name="review_status_valid"),
+        Index("ix_competitions_season_id_modality_category_gender", "season_id", "modality", "category", "gender"),
+        Index("ix_competitions_review_status", "review_status"),
+        Index("ix_competitions_source_category_code", "source", "category_code"),
+    )
     season_id: Mapped[int] = mapped_column(ForeignKey("seasons.id"), index=True)
     name: Mapped[str | None] = mapped_column(String(256))
+    # Campos oficiales de la fuente (revisión A2).
+    game_type_code: Mapped[str | None] = mapped_column(Text)
+    category_code: Mapped[str | None] = mapped_column(Text)
+    category_name: Mapped[str | None] = mapped_column(Text)
+    category_group_code: Mapped[str | None] = mapped_column(Text)
+    category_group_name: Mapped[str | None] = mapped_column(Text)
+    format_code: Mapped[str | None] = mapped_column(Text)
+    active: Mapped[bool | None] = mapped_column(Boolean)
+    start_date: Mapped[date | None] = mapped_column(Date)
+    end_date: Mapped[date | None] = mapped_column(Date)
+    source_meta: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
+    # Atributos normalizados.
+    modality: Mapped[str] = mapped_column(Text, server_default=UNKNOWN, default="unknown")
+    scope: Mapped[str] = mapped_column(Text, server_default=UNKNOWN, default="unknown")
+    category: Mapped[str] = mapped_column(Text, server_default=UNKNOWN, default="unknown")
+    gender: Mapped[str] = mapped_column(Text, server_default=UNKNOWN, default="unknown")
+    kind: Mapped[str] = mapped_column(Text, server_default=UNKNOWN, default="unknown")
+    phase: Mapped[str] = mapped_column(Text, server_default=UNKNOWN, default="unknown")
+    division: Mapped[str] = mapped_column(Text, server_default=UNKNOWN, default="unknown")
+    classification: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
+    review_status: Mapped[str] = mapped_column(Text, server_default=text("'needs_review'"), default="needs_review")
+    removed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class CompetitionGroup(Tracked, Base):
@@ -73,6 +111,12 @@ class CompetitionGroup(Tracked, Base):
     __table_args__ = (UniqueConstraint("source", "external_id"),)
     competition_id: Mapped[int] = mapped_column(ForeignKey("competitions.id"), index=True)
     name: Mapped[str | None] = mapped_column(String(256))
+    expected_rounds: Mapped[int | None] = mapped_column(Integer)
+    expected_teams: Mapped[int | None] = mapped_column(Integer)
+    delegation: Mapped[str | None] = mapped_column(Text)
+    has_standings: Mapped[bool | None] = mapped_column(Boolean)
+    has_scorers: Mapped[bool | None] = mapped_column(Boolean)
+    removed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class Round(Tracked, Base):
@@ -95,6 +139,78 @@ class Team(Tracked, Base):
     )
     group_id: Mapped[int] = mapped_column(ForeignKey("competition_groups.id"), index=True)
     name: Mapped[str | None] = mapped_column(String(256))
+    team_entity_id: Mapped[int | None] = mapped_column(ForeignKey("team_entities.id"))
+    squad: Mapped[str | None] = mapped_column(Text)
+    crest_url: Mapped[str | None] = mapped_column(Text)
+
+
+class Club(Base):
+    """Club oficial (`codigo_club` de `fichaequipo`); se rellena con red en la oleada 1."""
+
+    __tablename__ = "clubs"
+    __table_args__ = (UniqueConstraint("source", "external_code"),)
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    source: Mapped[str] = mapped_column(String(32))
+    external_code: Mapped[str] = mapped_column(Text)
+    name: Mapped[str | None] = mapped_column(Text)
+    normalized_name: Mapped[str | None] = mapped_column(Text)
+    crest_url: Mapped[str | None] = mapped_column(Text)
+    first_seen_at: Mapped[datetime] = _ts()
+    last_seen_at: Mapped[datetime] = _ts()
+
+
+class TeamEntity(Base):
+    """Identidad estable de un equipo entre temporadas y grupos: `CodEquipo` oficial."""
+
+    __tablename__ = "team_entities"
+    __table_args__ = (
+        UniqueConstraint("source", "external_code"),
+        CheckConstraint("club_link_status IN ('official','override','unknown')", name="club_link_status_valid"),
+    )
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    source: Mapped[str] = mapped_column(String(32))
+    external_code: Mapped[str] = mapped_column(Text)
+    club_id: Mapped[int | None] = mapped_column(ForeignKey("clubs.id"))
+    club_link_status: Mapped[str] = mapped_column(Text, server_default=UNKNOWN, default="unknown")
+    name: Mapped[str | None] = mapped_column(Text)
+    first_seen_at: Mapped[datetime] = _ts()
+    last_seen_at: Mapped[datetime] = _ts()
+
+
+Index("ix_teams_team_entity_id", Team.team_entity_id)
+
+
+class CompetitionLink(Base):
+    """Relación entre la misma competición de dos temporadas; solo `confirmed` responde «el año pasado»."""
+
+    __tablename__ = "competition_links"
+    __table_args__ = (
+        UniqueConstraint("from_competition_id", "to_competition_id"),
+        CheckConstraint("status IN ('proposed','confirmed','rejected')", name="status_valid"),
+        CheckConstraint("basis IN ('category_code+name','override')", name="basis_valid"),
+    )
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    from_competition_id: Mapped[int] = mapped_column(ForeignKey("competitions.id"))
+    to_competition_id: Mapped[int] = mapped_column(ForeignKey("competitions.id"))
+    basis: Mapped[str] = mapped_column(Text)
+    confidence: Mapped[Any] = mapped_column(Numeric(3, 2))
+    status: Mapped[str] = mapped_column(Text, server_default=text("'proposed'"), default="proposed")
+
+
+class CatalogOverride(Base):
+    """Corrección manual auditable; prevalece sobre campos oficiales y reglas."""
+
+    __tablename__ = "catalog_overrides"
+    __table_args__ = (
+        CheckConstraint("kind IN ('competition','club_link','competition_link')", name="kind_valid"),)
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    source: Mapped[str] = mapped_column(String(32))
+    kind: Mapped[str] = mapped_column(Text)
+    target_external_id: Mapped[str] = mapped_column(Text)
+    fields: Mapped[dict[str, Any]] = mapped_column(JSONB)
+    reason: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = _ts()
+    created_by: Mapped[str | None] = mapped_column(Text)
 
 
 class Match(Tracked, Base):

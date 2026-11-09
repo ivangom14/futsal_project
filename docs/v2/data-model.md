@@ -1,5 +1,66 @@
 # v2 · Modelo de datos
 
+## Revisión A2 (2026-11-09) — prevalece sobre las secciones siguientes donde se contradigan
+
+Base: sondeo A1 ([probe-a1.md](probe-a1.md)) y el esquema real en `alembic head` (0006), comprobado en un PG desechable.
+
+**Esquema real que condiciona la migración [C]**: `teams` es una **participación** (fila por grupo, única por
+`(group_id, external_id)`); `matches` referencia `(home_team_id, group_id)` con FK compuesta. Cambiar esa semántica
+sería destructivo, así que la identidad entre temporadas va en una tabla nueva y `teams` solo gana una FK opcional.
+
+**Cambios frente a la propuesta del 2026-11-08 y evidencia**
+
+| Propuesta anterior | Decisión A2 | Evidencia |
+|---|---|---|
+| Club = número del escudo [H] | **Club = `codigo_club` oficial** de `/fichaequipo/<CodEquipo>`; sin ficha, `club_id` nulo | El número del escudo cambia dentro de la misma temporada (hallazgo 9) |
+| Linaje = `(club, categoría, género, sufijo)` | **Linaje = `CodEquipo`** (`team_entities`), que sobrevive a ascensos y cambios de nombre | Hallazgo 8 |
+| `squad` del sufijo `'A'/'B'` como clave | `squad` solo informativo (nulo si no hay sufijo) | El juvenil del club no lleva sufijo (hallazgo 10) |
+| Misma competición entre temporadas: no previsto | `competition_links` **propuestos** por `CodigoCategoria` + nombre normalizado, con confianza y estado | Códigos de competición cambian; `CodigoCategoria` estable (hallazgo 7) |
+| `kind` desde el nombre | `format_code` = `tipo_competicion` oficial (1 eliminatoria, 2 liga) **y** `kind` (liga/copa/trofeo) del nombre | Hallazgo 4 |
+| Categorías senior…veteranos | se añaden `universitario` y el ámbito `scope` (`federated`, `school`, `other`) desde `nombre_grupo_categoria` | Hallazgo 4–5 |
+| `ingest_jobs`, `raw_fetches` en 0007 | **pasan a 0008** con la cola (T06): 0007 solo catálogo e identidad | Un dueño por migración y fase |
+
+**Migración 0007 (aditiva; nada se borra ni se renombra)**
+
+- `seasons` + `label`, `start_date`, `end_date`, `is_current` (índice único parcial `(source) WHERE is_current`).
+- `competitions` + oficiales: `game_type_code`, `category_code`, `category_name`, `category_group_code`,
+  `category_group_name`, `format_code`, `active` (bool nulo), `start_date`, `end_date`, `source_meta` jsonb (puntos,
+  minutos, partes, flags de goleadores/clasificación); normalizados: `modality`, `scope`, `category`, `gender`, `kind`,
+  `phase`, `division` (todos `text NOT NULL DEFAULT 'unknown'`), `classification` jsonb, `review_status`
+  (`auto|needs_review|confirmed`, def. `needs_review`), `removed_at`. Índices `(season_id, modality, category, gender)`,
+  `(review_status)`, `(source, category_code)`.
+- `competition_groups` + `expected_rounds`, `expected_teams`, `delegation`, `has_standings`, `has_scorers` (bool nulo),
+  `removed_at`.
+- `clubs` (nueva): `id`, `source`, `external_code` (único con `source`), `name`, `normalized_name`, `crest_url`,
+  `first_seen_at`, `last_seen_at`.
+- `team_entities` (nueva): `id`, `source`, `external_code` (= `CodEquipo`, único con `source`), `club_id` FK nula,
+  `club_link_status` (`official|override|unknown`, def. `unknown`), `name` (último visto), `first_seen_at`, `last_seen_at`.
+- `teams` + `team_entity_id` FK nula, `squad` text nulo, `crest_url` text nulo. Índices `(team_entity_id)`.
+- `competition_links` (nueva): `id`, `from_competition_id`, `to_competition_id` (FK, `from` temporada anterior),
+  `basis` (`category_code+name|override`), `confidence` numeric(3,2), `status` (`proposed|confirmed|rejected`); único
+  `(from, to)`. Solo `confirmed` se usa para responder «la misma competición el año pasado».
+- `catalog_overrides` (nueva): como en la propuesta, con `kind` ∈ `competition|club_link|competition_link`.
+- Vista `team_lineage`: una fila por participación (`teams`) con `team_entity_id`, `club_id`, temporada, competición,
+  categoría, género y grupo.
+
+**Política de metadatos corregidos a mano**: la precedencia es `override > campo oficial > regla > unknown`. Ninguna
+ejecución automática (importación, backfill, descubrimiento) modifica un atributo cuyo `classification.<attr>.source`
+sea `override`, ni una competición con `review_status='confirmed'` salvo con `--reclassify-confirmed` explícito, que
+registra el valor anterior en `classification.<attr>.previous`.
+
+**Backfill idempotente** (`catalog-backfill`, sin red): (1) `team_entities` desde `DISTINCT (teams.source,
+teams.external_id)` y enlace `teams.team_entity_id` (el `CodEquipo` oficial es estable [C]); (2) metadatos y
+clasificación de competiciones desde el inventario de catálogo en disco si existe y, si no, solo por nombre (con
+confianza menor y `needs_review` donde corresponda); (3) `seasons.label/fechas` si el inventario las trae. Dos
+ejecuciones seguidas: la segunda informa 0 cambios. Los clubes (`fichaequipo`) se rellenan en la oleada 1 con red.
+
+**Rollback**: `downgrade` de 0007 elimina solo lo añadido (vista, tablas nuevas, columnas, índices); las tablas y datos
+previos quedan intactos (prueba: recuentos y sumas de verificación por tabla antes/después de upgrade→downgrade→upgrade).
+
+**Privacidad (A9, pendiente del permiso de la federación)**: el catálogo y los resultados de todas las categorías sí;
+datos personales de jugadores de categorías menores **no se exponen** mientras Futsito sea privado y no haya permiso;
+nunca se ingieren datos de contacto de fichas de club/equipo (hallazgo 14).
+
 ## Hallazgos que condicionan el diseño (comprobados en el código y en las fixtures)
 
 - La RFFM ya entrega campos estructurados que hoy se leen pero **no se guardan**: por competición `codigo_tipo_juego`,

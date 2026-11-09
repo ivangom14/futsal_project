@@ -1,0 +1,90 @@
+# Futsito-Eval v1 · S9 · holdout. Formato: docs/v2/evaluation.md §3. SELLADO: no se mira para ajustar el agente.
+
+- id: s9_regla_tiempo_muerto
+  stratum: S9
+  holdout: true
+  requires: ["kb:fifa-futsal-laws-2025-26"]
+  capability: v1
+  select: {}
+  turns:
+    - user: "¿Cuánto dura el tiempo muerto?"
+      expect:
+        behavior: "answer"
+        rule_case: "regla_tiempo_muerto"
+        source: "rules"
+        tools: {needed: ["search_rules"], allowed: ["search_rules"]}
+        max_llm_calls: 4
+
+- id: s9_circular27_comunica
+  stratum: S9
+  holdout: true
+  requires: ["kb:rfef-circular-27-2025-26"]
+  capability: v1
+  select: {}
+  turns:
+    - user: "¿Qué comunica la Circular 27 de la RFEF y a qué temporada corresponde?"
+      expect:
+        behavior: "answer"
+        rule_case: "circular27_comunica"
+        source: "rules"
+        tools: {needed: ["search_rules"], allowed: ["search_rules"]}
+        max_llm_calls: 4
+
+- id: s9_circular27_sin_evidencia_rffm
+  stratum: S9
+  holdout: true
+  requires: ["kb:rfef-circular-27-2025-26"]
+  capability: v1
+  select: {}
+  turns:
+    - user: "¿Qué sanción impone la RFFM a un club que alinee a un jugador sin licencia en Tercera División Futsal?"
+      expect:
+        behavior: "abstain"
+        rule_case: "circular27_sin_evidencia_rffm"
+        source: "rules"
+        tools: {needed: ["search_rules"], allowed: ["search_rules"]}
+        max_llm_calls: 4
+
+- id: s9_circular10_penal_no_acumulable
+  stratum: S9
+  holdout: true
+  requires: ["kb:rfef-circular-10-rectificativa-2026-27"]
+  capability: v1
+  select: {}
+  turns:
+    - user: "¿Una falta que se castiga con penalti cuenta como falta acumulada?"
+      expect:
+        behavior: "answer"
+        rule_case: "circular10_penal_no_acumulable"
+        source: "rules"
+        tools: {needed: ["search_rules"], allowed: ["search_rules"]}
+        max_llm_calls: 4
+
+- id: s9_faltas_acumuladas_doble_penalti
+  stratum: S9
+  holdout: true
+  requires: ["kb:fifa-futsal-laws-2025-26"]
+  capability: v1
+  select: {}
+  turns:
+    - user: "¿Desde cuántas faltas acumuladas de un equipo se lanza el tiro libre directo sin barrera (doble penalti)?"
+      expect:
+        behavior: "answer"
+        facts: [{kind: "text_any", any: ["sexta", "6.ª", "6ª", "seis"], label: "sexta falta acumulada"}]
+        tools: {needed: ["search_rules"], allowed: ["find_teams", "get_data_freshness", "list_competitions", "list_groups", "list_rounds", "list_teams", "search_rules"]}
+        source: "rules"
+        max_llm_calls: 4
+
+- id: s9_reglamento_rffm_incomparecencia
+  stratum: S9
+  holdout: true
+  requires: ["kb"]
+  capability: v1
+  select: {}
+  turns:
+    - user: "¿Qué sanción económica prevé la RFFM por una incomparecencia?"
+      expect:
+        behavior: "abstain"
+        tools: {needed: ["search_rules"], allowed: ["find_teams", "get_data_freshness", "list_competitions", "list_groups", "list_rounds", "list_teams", "search_rules"]}
+        source: "rules"
+        max_llm_calls: 4

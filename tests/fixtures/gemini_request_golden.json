@@ -1,0 +1,4 @@
+[
+ "{\"systemInstruction\":{\"parts\":[{\"text\":\"sys\"}]},\"contents\":[{\"role\":\"user\",\"parts\":[{\"text\":\"hola\"}]},{\"role\":\"model\",\"parts\":[{\"functionCall\":{\"name\":\"get_team\",\"args\":{\"id\":3}},\"thoughtSignature\":\"sig\"}]},{\"role\":\"user\",\"parts\":[{\"functionResponse\":{\"name\":\"get_team\",\"response\":{\"result\":\"{\\\"a\\\":1}\"}}}]},{\"role\":\"user\",\"parts\":[{\"text\":\"y?\"}]}],\"generationConfig\":{\"maxOutputTokens\":1024},\"tools\":[{\"functionDeclarations\":[{\"name\":\"get_team\",\"description\":\"d\",\"parameters\":{\"type\":\"object\",\"properties\":{\"id\":{\"type\":\"integer\"}}}}]}]}",
+ "{\"systemInstruction\":{\"parts\":[{\"text\":\"sys\"}]},\"contents\":[{\"role\":\"user\",\"parts\":[{\"text\":\"q\"}]}],\"generationConfig\":{\"maxOutputTokens\":1024}}"
+]

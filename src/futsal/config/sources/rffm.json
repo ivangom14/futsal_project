@@ -1,0 +1,52 @@
+{
+  "_doc": "Correspondencias y reglas de clasificación de competiciones de la RFFM (domain/catalog_classify.py). Las frases se comparan sin acentos ni mayúsculas, al inicio de palabra (prefijo): 'femenin' cubre femenino/femenina. El orden de las reglas importa: lo ya reconocido se consume (prebenjamin antes que benjamin; segunda division b antes que segunda).",
+  "source": "rffm",
+  "game_type_code": {"1": "football11", "2": "football7", "3": "futsal", "4": "football5", "5": "beach"},
+  "category_group_name": {
+    "FUTBOL SALA": "federated",
+    "DEPORTE ESCOLAR FÚTBOL SALA": "school",
+    "OTRAS CATEGORÍAS COMPETICIONALES": "other"
+  },
+  "format_code": {"1": "knockout", "2": "league"},
+  "modality_name_tokens": ["fs"],
+  "modality_name_phrases": ["futbol sala", "futsal", "f s"],
+  "category_rules": [
+    {"id": "prebenjamin", "value": "prebenjamin", "phrases": ["prebenjamin", "pre benjamin"]},
+    {"id": "benjamin", "value": "benjamin", "phrases": ["benjamin"]},
+    {"id": "alevin", "value": "alevin", "phrases": ["alevin"]},
+    {"id": "infantil", "value": "infantil", "phrases": ["infantil"]},
+    {"id": "cadete", "value": "cadete", "phrases": ["cadete"]},
+    {"id": "juvenil", "value": "juvenil", "phrases": ["juvenil"]},
+    {"id": "veteranos", "value": "veteranos", "phrases": ["veteran"]},
+    {"id": "universitario", "value": "universitario", "phrases": ["universitari"]},
+    {"id": "senior", "value": "senior",
+     "phrases": ["aficionado", "senior", "tercera division", "segunda division b", "segunda division de futbol femenino"]}
+  ],
+  "female_phrases": ["femenin"],
+  "male_phrases": ["masculin"],
+  "kind_rules": [
+    {"id": "cup", "value": "cup", "phrases": ["copa"]},
+    {"id": "playoff", "value": "playoff", "phrases": ["playoff", "play off"]},
+    {"id": "tournament", "value": "tournament", "phrases": ["trofeo", "torneo", "campeonato"]}
+  ],
+  "league_format_code": "2",
+  "phase_rules": [
+    {"id": "preliminary", "value": "preliminary", "phrases": ["fase previa"]},
+    {"id": "final", "value": "final", "phrases": ["fase final", "final campeones"]},
+    {"id": "group_stage", "value": "group_stage", "phrases": ["fase de grupos"]},
+    {"id": "first", "value": "first", "phrases": ["1a fase", "primera fase"]},
+    {"id": "second", "value": "second", "phrases": ["2a fase", "segunda fase"]}
+  ],
+  "division_rules": [
+    {"id": "tercera", "value": "tercera", "phrases": ["tercera division"]},
+    {"id": "segunda_b", "value": "segunda_b", "phrases": ["segunda division b"]},
+    {"id": "division_honor", "value": "division_honor", "phrases": ["division de honor", "division honor"]},
+    {"id": "superliga", "value": "superliga", "phrases": ["superliga"]},
+    {"id": "primera_autonomica", "value": "primera_autonomica", "phrases": ["primera division autonomica", "primera autonomica"]},
+    {"id": "preferente", "value": "preferente", "phrases": ["preferente"]},
+    {"id": "primera", "value": "primera", "phrases": ["primera"]},
+    {"id": "segunda", "value": "segunda", "phrases": ["segunda"]}
+  ],
+  "confidence": {"source_map": 1.0, "category_name": 0.95, "name_rule": 0.8, "implicit_male": 0.8,
+                 "default_regular": 0.7, "format_league": 0.9, "modality_name": 0.6, "override": 1.0}
+}

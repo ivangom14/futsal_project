@@ -1,0 +1,77 @@
+# Futsito-Eval v1 · S8 · holdout. Formato: docs/v2/evaluation.md §3. SELLADO: no se mira para ajustar el agente.
+
+- id: s8_fuera_victorias_visitante
+  stratum: S8
+  holdout: true
+  requires: ["results"]
+  capability: v1
+  select:
+    team: {kind: "team", unique_in_snapshot: true, with: ["finished", "away_played"], where: {away_wins: ">=1"}}
+  turns:
+    - user: "De los partidos de {team.name} como visitante, ¿cuántos ha ganado?"
+      expect:
+        behavior: "answer"
+        facts: [{kind: "number", value: "{team.away_wins}", label: "partidos ganados fuera"}]
+        tools: {needed: ["list_matches"], allowed: ["find_teams", "get_data_freshness", "list_competitions", "list_groups", "list_matches", "list_rounds", "list_teams"]}
+        max_llm_calls: 5
+
+- id: s8_diferencia_top3
+  stratum: S8
+  holdout: true
+  requires: ["standings"]
+  capability: v1
+  select:
+    group: {kind: "group", with: ["standings"], teams: ">=4", where: {top3_gd: ">=1"}}
+  turns:
+    - user: "¿Cuál es la diferencia de goles conjunta de los 3 primeros de {group.competition} {group.name}?"
+      expect:
+        behavior: "answer"
+        facts: [{kind: "number", value: "{group.top3_gd}", label: "diferencia de goles"}]
+        tools: {needed: ["get_standings"], allowed: ["find_teams", "get_data_freshness", "get_standings", "list_competitions", "list_groups", "list_rounds", "list_teams"]}
+        source: "official_table"
+        max_llm_calls: 5
+
+- id: s8_goles_jornada_n
+  stratum: S8
+  holdout: true
+  requires: ["results"]
+  capability: v1
+  select:
+    group: {kind: "group", with: ["finished"], where: {round_goals: ">=1"}}
+  turns:
+    - user: "En la jornada {group.last_round} de {group.competition} {group.name}, ¿cuántos goles hubo en total?"
+      expect:
+        behavior: "answer"
+        facts: [{kind: "number", value: "{group.round_goals}", label: "goles"}]
+        tools: {needed: ["list_matches"], allowed: ["find_teams", "get_data_freshness", "list_competitions", "list_groups", "list_matches", "list_rounds", "list_teams"]}
+        max_llm_calls: 5
+
+- id: s8_goles_totales_equipo
+  stratum: S8
+  holdout: true
+  requires: ["results"]
+  capability: v1
+  select:
+    team: {kind: "team", unique_in_snapshot: true, with: ["finished"], where: {goals_for: ">=1"}}
+  turns:
+    - user: "¿Cuántos goles ha marcado en total {team.name} en sus partidos jugados?"
+      expect:
+        behavior: "answer"
+        facts: [{kind: "number", value: "{team.goals_for}", label: "goles marcados"}]
+        tools: {needed: ["list_matches"], allowed: ["find_teams", "get_data_freshness", "list_competitions", "list_groups", "list_matches", "list_rounds", "list_teams"]}
+        max_llm_calls: 5
+
+- id: s8_partidos_totales
+  stratum: S8
+  holdout: true
+  requires: ["results"]
+  capability: v1
+  select:
+    group: {kind: "group", with: ["finished"]}
+  turns:
+    - user: "¿Cuántos partidos se han jugado ya en {group.competition} {group.name}?"
+      expect:
+        behavior: "answer"
+        facts: [{kind: "number", value: "{group.finished}", label: "partidos jugados"}]
+        tools: {needed: ["list_matches"], allowed: ["find_teams", "get_data_freshness", "list_competitions", "list_groups", "list_matches", "list_rounds", "list_teams"]}
+        max_llm_calls: 5
