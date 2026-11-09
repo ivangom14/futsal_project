@@ -1,5 +1,7 @@
 """Criterios anti-invención: deterministas, sin red ni BD."""
 
+import pytest
+
 from futsal.agent.criteria import (
     figures_without_table,
     unsupported_coverage_counts,
@@ -151,3 +153,39 @@ def test_capture_date_in_an_empty_table_answer_is_not_an_invented_figure() -> No
     assert figures_without_table(ok, [payload], "¿Quién es el máximo goleador?") == []
     assert figures_without_table("No consta; capturada el 5 de octubre de 2026.", [payload], "") == ["5"]  # una fecha distinta sí es inventada
     assert figures_without_table("Hay 30 goleadores.", [{"groups": []}], "") == ["30"]  # sin fecha que lo respalde, una cifra sigue siendo inventada
+
+
+DOC_REFS = [
+    "(Circular n.º 27 de la RFEF, páginas 1-2)",
+    "Según la regla, véase págs. 1–2 del documento.",
+    "Lo regulan los artículos 3-4 del reglamento.",
+    "Reglas 12-13 de las Reglas de Juego.",
+    "Consulta el apartado 2-3 y el anexo 1-2.",
+    "Ver p. 5-6 y pp. 10-12 del acta.",
+    "Capítulo 1-2 y sección 3-4 de la Circular 27.",
+]
+REAL_SCORES = [
+    "El Parque Norte ganó 1-2 en su campo.",
+    "El partido quedó 1-2 al final.",
+    "Resultado: Rodillito B - Lope de Vega (1-2).",
+    "Terminó 1 - 2 tras un final loco.",
+    "el partido de la página web acabó 1-2",
+    "Según el artículo 4, ganó 3-1 el local.",
+    "Ver página 2: el partido acabó 5-4.",
+]
+
+
+@pytest.mark.parametrize("text", DOC_REFS)
+def test_document_references_are_not_scores(text: str) -> None:
+    assert not has_any_score(text)
+    assert unsupported_scores(text, []) == []
+
+
+@pytest.mark.parametrize("text", REAL_SCORES)
+def test_real_scores_are_still_detected(text: str) -> None:
+    assert has_any_score(text)
+    assert unsupported_scores(text, [])
+
+
+def test_score_next_to_a_page_reference_keeps_only_the_score() -> None:
+    assert unsupported_scores("Circular n.º 27, páginas 1-2: el equipo ganó 3-1.", []) == ["3-1"]

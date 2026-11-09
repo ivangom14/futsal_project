@@ -1,0 +1,313 @@
+{
+ "alembic_head": "0007",
+ "alembic_revision": "0006",
+ "as_of": "2026-11-09T22:11:27+01:00",
+ "counts": {
+  "competitions": 14,
+  "groups": 25,
+  "matches": 3445,
+  "reports": 571,
+  "seasons": 1,
+  "teams": 435
+ },
+ "dump_file": "data/eval-snapshots/futsal-ref.dump",
+ "dump_sha256": "a8c51500ac8baeac4a354ffe389159b80da24cf3cacb578a7eab54f0f61ebb59",
+ "extensions": {
+  "pg_trgm": true,
+  "unaccent": true,
+  "vector": false
+ },
+ "fingerprint": {
+  "sha256": "999047cd1b9fc83c48aaaa21d8da133ad40a0d22be5ada0820e9d28d0fbffc5f",
+  "tables": {
+   "competition_groups": 25,
+   "competitions": 14,
+   "data_quality_issues": 101,
+   "dataset_refreshes": 50,
+   "ingestion_runs": 666,
+   "kb_chunks": 311,
+   "kb_document_versions": 2,
+   "kb_documents": 2,
+   "kb_ingestion_runs": 2,
+   "match_events": 7191,
+   "match_observations": 3495,
+   "match_officials": 1245,
+   "match_players": 13033,
+   "match_report_observations": 571,
+   "match_reports": 571,
+   "match_staff": 1938,
+   "matches": 3445,
+   "player_team_memberships": 4257,
+   "players": 3571,
+   "rounds": 493,
+   "scorer_rows": 1923,
+   "scorer_snapshots": 25,
+   "seasons": 1,
+   "standings_rows": 250,
+   "standings_snapshots": 18,
+   "table_ingest_attempts": 50,
+   "teams": 435
+  }
+ },
+ "id": "ref20261109",
+ "input_bytes": 985045,
+ "input_format": "custom",
+ "input_sha256": "a8c51500ac8baeac4a354ffe389159b80da24cf3cacb578a7eab54f0f61ebb59",
+ "kb_documents": [
+  "fifa-futsal-laws-2025-26",
+  "rfef-circular-27-2025-26"
+ ],
+ "restored_db": "futsal_eval_ref20261109",
+ "schema": 1,
+ "source": "external_dump",
+ "synthetic": false,
+ "table_digests": {
+  "competition_groups": {
+   "md5": "3b2189eb9c99afeecf72db6764c4fffa",
+   "rows": 25
+  },
+  "competitions": {
+   "md5": "044da270f839dc03e31a0edd97cc7cfa",
+   "rows": 14
+  },
+  "data_quality_issues": {
+   "md5": "8d44c61ff169924d6287e98d47b266c8",
+   "rows": 101
+  },
+  "dataset_refreshes": {
+   "md5": "65713d9bcb6b49547768811bbee037b1",
+   "rows": 50
+  },
+  "ingestion_runs": {
+   "md5": "d5e1186aa62a33aab5538af43c5fe89e",
+   "rows": 666
+  },
+  "kb_chunks": {
+   "md5": "1b1b1fec66aed10688c6f1dc88307b25",
+   "rows": 311
+  },
+  "kb_document_versions": {
+   "md5": "45d8bcc74aeb4d2402b155e0707dfc2e",
+   "rows": 2
+  },
+  "kb_documents": {
+   "md5": "e307ac775b2c9f3701f870e3d45f1fa6",
+   "rows": 2
+  },
+  "kb_ingestion_runs": {
+   "md5": "c866a0cc1fd54569f37ae4c34ec9eb3d",
+   "rows": 2
+  },
+  "match_events": {
+   "md5": "6c340df0ca34b228f3fb094abefcf024",
+   "rows": 7191
+  },
+  "match_observations": {
+   "md5": "f1eb5a309f7087ac606f22f12a30aa9c",
+   "rows": 3495
+  },
+  "match_officials": {
+   "md5": "f43fe137a73933b6a5edc9e618b51474",
+   "rows": 1245
+  },
+  "match_players": {
+   "md5": "3125465aef8cf989e002804b6e6cb996",
+   "rows": 13033
+  },
+  "match_report_observations": {
+   "md5": "763356da0375ba74f7bce213d145bcbd",
+   "rows": 571
+  },
+  "match_reports": {
+   "md5": "1fcb2e280d697bab7de02bf524b628f8",
+   "rows": 571
+  },
+  "match_staff": {
+   "md5": "43d860df058b4551b580323f209dcf99",
+   "rows": 1938
+  },
+  "matches": {
+   "md5": "aee244e18efde55e1d2e5ba54b15451a",
+   "rows": 3445
+  },
+  "player_team_memberships": {
+   "md5": "5806faf8e466d79751900c4354bba9cf",
+   "rows": 4257
+  },
+  "players": {
+   "md5": "79e0231265141a9f17cce8c226f7e844",
+   "rows": 3571
+  },
+  "rounds": {
+   "md5": "9227d9660fb88e6f1ef966ad7633e3d9",
+   "rows": 493
+  },
+  "scorer_rows": {
+   "md5": "cc65677e94f6393f7b2f7e709315df63",
+   "rows": 1923
+  },
+  "scorer_snapshots": {
+   "md5": "baa51403fcc49f2dbbb2cf747e83dcff",
+   "rows": 25
+  },
+  "seasons": {
+   "md5": "763505c80c3d5b4d3d1e98685560ff2a",
+   "rows": 1
+  },
+  "standings_rows": {
+   "md5": "a5f4f27219f39a9f9ef4cdf4d0bce376",
+   "rows": 250
+  },
+  "standings_snapshots": {
+   "md5": "6cd1c28380c0035619e91b262a3df455",
+   "rows": 18
+  },
+  "table_ingest_attempts": {
+   "md5": "744626555397d83c2bcd56c7a61ccd0c",
+   "rows": 50
+  },
+  "teams": {
+   "md5": "45f9a54f68821c25696856fadf6ea0d0",
+   "rows": 435
+  }
+ },
+ "tables_missing": [],
+ "tables_present": [
+  "competition_groups",
+  "competitions",
+  "data_quality_issues",
+  "dataset_refreshes",
+  "ingestion_runs",
+  "kb_chunks",
+  "kb_document_versions",
+  "kb_documents",
+  "kb_ingestion_runs",
+  "match_events",
+  "match_observations",
+  "match_officials",
+  "match_players",
+  "match_report_observations",
+  "match_reports",
+  "match_staff",
+  "matches",
+  "player_team_memberships",
+  "players",
+  "rounds",
+  "scorer_rows",
+  "scorer_snapshots",
+  "seasons",
+  "standings_rows",
+  "standings_snapshots",
+  "table_ingest_attempts",
+  "teams"
+ ],
+ "tables_unexpected": [],
+ "target_group": {
+  "external_id": "26738245",
+  "present": true
+ },
+ "timezone": "Europe/Madrid",
+ "upgrade_copy": {
+  "alembic_revision_after": "0007",
+  "alembic_revision_before": "0006",
+  "fingerprint_after": {
+   "sha256": "17304bed58d7ce44c8165c54040866b1413fed323ae6c86df52f9a8507434d64",
+   "tables": {
+    "catalog_overrides": 0,
+    "clubs": 0,
+    "competition_groups": 25,
+    "competition_links": 0,
+    "competitions": 14,
+    "data_quality_issues": 101,
+    "dataset_refreshes": 50,
+    "ingestion_runs": 666,
+    "kb_chunks": 311,
+    "kb_document_versions": 2,
+    "kb_documents": 2,
+    "kb_ingestion_runs": 2,
+    "match_events": 7191,
+    "match_observations": 3495,
+    "match_officials": 1245,
+    "match_players": 13033,
+    "match_report_observations": 571,
+    "match_reports": 571,
+    "match_staff": 1938,
+    "matches": 3445,
+    "player_team_memberships": 4257,
+    "players": 3571,
+    "rounds": 493,
+    "scorer_rows": 1923,
+    "scorer_snapshots": 25,
+    "seasons": 1,
+    "standings_rows": 250,
+    "standings_snapshots": 18,
+    "table_ingest_attempts": 50,
+    "team_entities": 0,
+    "teams": 435
+   }
+  },
+  "fingerprint_before": {
+   "sha256": "999047cd1b9fc83c48aaaa21d8da133ad40a0d22be5ada0820e9d28d0fbffc5f",
+   "tables": {
+    "competition_groups": 25,
+    "competitions": 14,
+    "data_quality_issues": 101,
+    "dataset_refreshes": 50,
+    "ingestion_runs": 666,
+    "kb_chunks": 311,
+    "kb_document_versions": 2,
+    "kb_documents": 2,
+    "kb_ingestion_runs": 2,
+    "match_events": 7191,
+    "match_observations": 3495,
+    "match_officials": 1245,
+    "match_players": 13033,
+    "match_report_observations": 571,
+    "match_reports": 571,
+    "match_staff": 1938,
+    "matches": 3445,
+    "player_team_memberships": 4257,
+    "players": 3571,
+    "rounds": 493,
+    "scorer_rows": 1923,
+    "scorer_snapshots": 25,
+    "seasons": 1,
+    "standings_rows": 250,
+    "standings_snapshots": 18,
+    "table_ingest_attempts": 50,
+    "teams": 435
+   }
+  },
+  "previous_tables": [
+   "competition_groups",
+   "competitions",
+   "data_quality_issues",
+   "dataset_refreshes",
+   "ingestion_runs",
+   "kb_chunks",
+   "kb_document_versions",
+   "kb_documents",
+   "kb_ingestion_runs",
+   "match_events",
+   "match_observations",
+   "match_officials",
+   "match_players",
+   "match_report_observations",
+   "match_reports",
+   "match_staff",
+   "matches",
+   "player_team_memberships",
+   "players",
+   "rounds",
+   "scorer_rows",
+   "scorer_snapshots",
+   "seasons",
+   "standings_rows",
+   "standings_snapshots",
+   "table_ingest_attempts",
+   "teams"
+  ],
+  "previous_tables_identical": true,
+  "restored_db": "futsal_eval_ref20261109_head"
+ }
+}

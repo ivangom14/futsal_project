@@ -101,9 +101,21 @@ def unsupported_players(text: str, names: list[str], payloads: list[dict[str, An
 SCORE_RE = re.compile(r"(?<![\d/:\-.])\d{1,2}\s*[-–]\s*\d{1,2}(?!\d|[/\-:.]\d)")
 
 
+# Referencia documental («páginas 1-2», «págs. 1–2», «artículos 3-4», «Reglas 12-13», «Circular n.º 27»): su «N-M» es un rango, no un marcador.
+DOC_REF_RANGE_RE = re.compile(
+    r"\b(?:p[áa]ginas?|p[áa]gs?\.?|pp?\.|art[íi]culos?|arts?\.?|reglas?|apartados?|cap[íi]tulos?|secci[óo]n(?:es)?|puntos?|anexos?|circulares?)"
+    r"\s*(?:n\.?\s*[º°o]\.?\s*)?\d{1,3}(?:\s*(?:-|–|,|y|e)\s*\d{1,3})*", re.IGNORECASE)
+
+
+def _score_matches(text: str) -> list[str]:
+    """Textos «N-M» que SÍ son marcador: se descartan los que caen dentro de una referencia documental."""
+    spans = [m.span() for m in DOC_REF_RANGE_RE.finditer(text)]
+    return [m.group(0) for m in SCORE_RE.finditer(text) if not any(a <= m.start() < b for a, b in spans)]
+
+
 def has_any_score(text: str) -> bool:
-    """¿Da algún marcador del tipo 3-1? (las fechas 10-10-2026 y las horas 18:30 no cuentan)."""
-    return SCORE_RE.search(text) is not None
+    """¿Da algún marcador del tipo 3-1? (las fechas 10-10-2026, las horas 18:30 y los rangos «páginas 1-2» no cuentan)."""
+    return bool(_score_matches(text))
 
 
 def _evidence_scores(payloads: list[dict[str, Any]]) -> set[tuple[int, int]]:
@@ -130,8 +142,8 @@ def _evidence_scores(payloads: list[dict[str, Any]]) -> set[tuple[int, int]]:
 
 def _parse_scores(text: str) -> set[tuple[int, int]]:
     pairs: set[tuple[int, int]] = set()
-    for m in SCORE_RE.finditer(text):
-        a, b = re.split(r"\s*[-–]\s*", m.group(0))
+    for raw in _score_matches(text):
+        a, b = re.split(r"\s*[-–]\s*", raw)
         pairs.add((int(a), int(b)))
     return pairs
 

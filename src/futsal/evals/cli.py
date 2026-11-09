@@ -1,4 +1,4 @@
-"""CLI: `python -m futsal.evals {plan,run,report,compare,snapshot}`.
+"""CLI: `python -m futsal.evals {plan,run,report,regrade,compare,snapshot}`.
 
 Códigos de salida: 0 correcto · 1 error de uso o de datos · 2 (`compare`) sin diferencia demostrada · 3 la huella de la BD no coincide con
 el snapshot (no se ejecuta nada) o (`snapshot import`) la BD de destino ya existe · 4 cuota del proveedor agotada o presupuesto de peticiones agotado (hay casos `not_run`; reanudar con
@@ -56,6 +56,13 @@ def build_parser() -> argparse.ArgumentParser:
 
     pr = sub.add_parser("report", help="regenera report.md de un results.json")
     pr.add_argument("output", type=Path, help="directorio con results.json")
+
+    rg = sub.add_parser("regrade", help="recalifica una ejecución de `regression` ya hecha, SIN llamar al LLM (salida en un directorio nuevo)")
+    rg.add_argument("--run", type=Path, required=True, help="directorio con results.json (no se modifica)")
+    rg.add_argument("--snapshot", required=True)
+    rg.add_argument("--db", default=None, help="BD del snapshot: verifica la huella y permite recalcular la invención con la evidencia guardada")
+    rg.add_argument("--output", type=Path, default=None, help="directorio NUEVO (por defecto <run>-regraded)")
+    rg.add_argument("--root", type=Path, default=Path("."))
 
     cp = sub.add_parser("compare", help="compara A (referencia) con B (candidata)")
     cp.add_argument("a", type=Path)
@@ -142,6 +149,49 @@ def cmd_report(a: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_regrade(a: argparse.Namespace) -> int:
+    from futsal.evals import regression
+    from futsal.evals.runner import write_outputs
+    results = _read(a.run)
+    if results["meta"].get("suite") != "regression":
+        print("regrade solo admite ejecuciones de la suite regression", file=sys.stderr)
+        return 1
+    if results["meta"]["snapshot"]["id"] != a.snapshot:
+        print(f"la ejecución es del snapshot «{results['meta']['snapshot']['id']}», no de «{a.snapshot}»", file=sys.stderr)
+        return 1
+    out = a.output or a.run.with_name(a.run.name + "-regraded")
+    if out.exists():
+        print(f"{out} ya existe: regrade nunca sobrescribe", file=sys.stderr)
+        return 1
+    cases: dict[str, Any] = {}
+    truth = None
+    if a.db:
+        from sqlalchemy import create_engine
+
+        from futsal.agent.evaluate import build_cases, load_truth
+        ok, detail = snaps.verify_db(snaps.load_manifest(a.snapshot, a.root), a.db)
+        if not ok:
+            print(f"NO SE RECALIFICA: la BD no es el snapshot «{a.snapshot}»: {detail}", file=sys.stderr)
+            return EXIT_FINGERPRINT
+        if any(r.get("evidence") for r in results["records"]):
+            engine = create_engine(a.db)
+            try:
+                truth = load_truth(engine)
+            finally:
+                engine.dispose()
+            if truth is not None:
+                cases = {c.id: c for c in build_cases(truth)}
+    new, diff = regression.regrade_results(results, cases, truth, str(a.run))
+    write_outputs(out, new)
+    (out / "verdict-diff.json").write_text(json.dumps(diff, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
+    g0, g1 = results["summary"]["global"]["accuracy"], new["summary"]["global"]["accuracy"]
+    print(f"recalificado en {out}: {len(diff)} veredictos cambian · exactitud {g0['k']}/{g0['n']} -> {g1['k']}/{g1['n']} · "
+          f"parciales {new['meta']['regrade']['partial']} · completos {new['meta']['regrade']['full']} · llamadas al LLM 0")
+    for d in diff:
+        print(f"  {d['case']}#{d['rep']}: {d['before']} -> {d['after']} ({d['mode']})")
+    return 0
+
+
 def cmd_compare(a: argparse.Namespace) -> int:
     try:
         result = comparing.compare(_read(a.a), _read(a.b), _read(a.noise) if a.noise else None)
@@ -183,7 +233,7 @@ def cmd_snapshot(a: argparse.Namespace) -> int:
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     try:
-        return {"plan": cmd_plan, "run": cmd_run, "report": cmd_report, "compare": cmd_compare, "snapshot": cmd_snapshot}[args.cmd](args)
+        return {"plan": cmd_plan, "run": cmd_run, "report": cmd_report, "regrade": cmd_regrade, "compare": cmd_compare, "snapshot": cmd_snapshot}[args.cmd](args)
     except (snaps.SnapshotError, FileNotFoundError, ValueError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
