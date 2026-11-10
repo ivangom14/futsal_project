@@ -9,14 +9,22 @@ from typing import Any
 
 from futsal.config.targets import CATALOG_SCOPE, RFFM_TARGET
 from futsal.ingestion.rffm.catalog import discover_catalog
-from futsal.ingestion.rffm.catalog_ingest import REPORT_NAME, estimate_requests, plan_update, scrape_catalog
+from futsal.ingestion.rffm.catalog_ingest import (
+    PENDING,
+    REPORT_NAME,
+    estimate_requests,
+    plan_update,
+    scrape_catalog,
+)
 from futsal.ingestion.rffm.client import PoliteFetcher
 from futsal.ingestion.rffm.league import Target
 from futsal.ingestion.rffm.progress import Progress
 from futsal.ingestion.rffm.update_policy import UpdatePolicy
 
 CATALOG_DIR = Path("data/rffm/catalog")
-COMMANDS = ("discover-catalog", "scrape-catalog", "import-catalog", "verify-catalog", "catalog-backfill")
+NETWORK_ENV = "FUTSAL_RFFM_NETWORK_AUTHORIZED"
+COMMANDS = ("discover-catalog", "scrape-catalog", "import-catalog", "verify-catalog", "catalog-backfill",
+            "discover-catalog-v2")
 
 
 def add_parsers(sub: "argparse._SubParsersAction[argparse.ArgumentParser]") -> None:
@@ -58,6 +66,56 @@ def add_parsers(sub: "argparse._SubParsersAction[argparse.ArgumentParser]") -> N
                    help="inventory.json (o directorio con inventarios); por defecto, los de data/rffm/catalog si existen")
     p.add_argument("--reclassify-confirmed", action="store_true",
                    help="vuelve a clasificar también las competiciones confirmadas (guarda el valor anterior; nunca toca un override)")
+    _discover_v2_parser(sub)
+
+
+def _discover_v2_parser(sub: "argparse._SubParsersAction[argparse.ArgumentParser]") -> None:
+    p = sub.add_parser("discover-catalog-v2", help="catálogo oficial por /api/competitions + /api/groups (offline: --from-dir o --plan)")
+    p.add_argument("--season", required=True)
+    p.add_argument("--game-type", default=RFFM_TARGET["game_type"])
+    p.add_argument("--output", type=Path, default=CATALOG_DIR, help="directorio de trabajo del catálogo")
+    p.add_argument("--from-dir", type=Path, default=None, metavar="DIR",
+                   help="construye el informe con JSON guardados (NN.json + requests.jsonl); sin red")
+    p.add_argument("--plan", action="store_true", help="imprime las URLs que se pedirían (1 + C); sin red")
+    p.add_argument("--n-competitions", type=int, default=50, help="(--plan sin --from-dir) C estimado (P0: 50)")
+
+
+def _discover_v2(args: argparse.Namespace) -> int:
+    import os
+
+    from futsal.ingestion.rffm.discovery_v2 import diff, discover, fetch_from_dir, plan_requests
+
+    if args.plan:
+        ids = None
+        if args.from_dir:
+            report = discover(args.season, args.game_type, fetch_from_dir(args.from_dir))
+            ids = [c["competition_id"] for c in report["competitions"]]
+        for url in plan_requests(args.season, len(ids) if ids is not None else args.n_competitions, ids, args.game_type):
+            print(url)
+        return 0
+    if args.from_dir is None:
+        if os.environ.get(NETWORK_ENV) != "1":
+            print(f"Error: sin --from-dir ni --plan se usaría la red de la RFFM; rechazado (requiere {NETWORK_ENV}=1 y autorización).")
+        else:
+            print("Error: la descarga real de discover-catalog-v2 no está implementada (T05 es solo offline).")
+        return 2
+    work = _work_dir(args)
+    report = discover(args.season, args.game_type, fetch_from_dir(args.from_dir))
+    target = work / REPORT_NAME
+    if target.exists():  # conserva el estado de descarga de los grupos ya conocidos y muestra los cambios
+        previous = _load(target)
+        known = {(g["competition_id"], g["group_id"]): g for g in previous.get("groups", [])}
+        for g in report["groups"]:
+            old = known.get((g["competition_id"], g["group_id"]))
+            if old is not None and old.get("status") != PENDING:
+                g.update({k: v for k, v in old.items() if k not in g or k in ("status", "league_path")})
+        if "competitions" in previous:
+            d = diff(previous, report)
+            print(f"cambios: altas={len(d.competitions_added)} bajas={len(d.competitions_removed)} "
+                  f"grupos+={len(d.groups_added)} grupos-={len(d.groups_removed)} otros={len(d.changes)}")
+    _dump(target, report)
+    print(f"{report['summary']} -> {target}")
+    return 0
 
 
 def _load(path: Path) -> dict[str, Any]:
@@ -87,6 +145,12 @@ def _backfill(args: argparse.Namespace) -> int:
 
 
 def run(args: argparse.Namespace) -> int:
+    if args.command == "discover-catalog-v2":
+        try:
+            return _discover_v2(args)
+        except Exception as exc:  # noqa: BLE001 - la CLI informa en una línea sin traza
+            print(f"Error: {str(exc).splitlines()[0] if str(exc) else type(exc).__name__}")
+            return 2
     if args.command == "catalog-backfill":
         try:
             return _backfill(args)

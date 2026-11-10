@@ -40,7 +40,9 @@ def test_plan_makes_no_external_calls_and_uses_measured_averages(no_network: Non
     assert plan["cost_usd"] is None and "sin tarifa" in plan["cost_note"]  # sin tarifa verificada: null, nunca inventado
     # el plan completo de referencia: 190 turnos × 3 repeticiones = 570 preguntas ≈ 1.500 llamadas (docs/v2/evaluation.md §8)
     full = build_plan("futsito-v1", "all", 3, ROOT, max_requests=150)
-    assert full["turns_per_repetition"] == 190 and full["questions"] == 570 and abs(full["estimated"]["llm_calls"] - 1510) <= 5
+    # 190 turnos de S1-S9 + los del estrato S10 y los casos adicionales (dev + holdout)
+    assert full["turns_per_repetition"] == 190 + 110 and "S10" in full["by_stratum"]
+    assert full["questions"] == full["turns_per_repetition"] * 3 and abs(full["estimated"]["llm_calls"] - round(full["questions"] * 2.65)) <= 5
     assert full["budget_ok"] is False and full["suggested_max_requests"] > full["estimated"]["llm_calls"]
     assert build_plan("regression", "dev", 1, ROOT)["by_stratum"]["A-G"] == {"cases": 72, "turns": 65, "holdout": 0}
     assert cli.main(["plan", "--suite", "smoke40", "--reps", "1", "--root", str(ROOT), "--max-requests", "150"]) == 0

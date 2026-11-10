@@ -1,0 +1,34 @@
+# Futsito-Eval v1 · S8 · casuísticas adicionales (dev). Formato: docs/v2/evaluation.md §3.
+# Erratas, mayúsculas, ruido y emojis, cambio de idioma, preguntas sobre el bot, horarios y zonas horarias, aplazados, suspendidos,
+# jornada en curso, acta sin cerrar y equipo retirado. Los casos que dependen de datos que el snapshot no tiene quedan «no evaluables».
+
+- id: s8_extra_goles_favor_y_contra
+  stratum: S8
+  holdout: false
+  requires: ["standings"]
+  capability: v1
+  select:
+    team: {"kind": "team", "unique_in_snapshot": true, "with": ["standings"]}
+  turns:
+    - user: "¿Cuántos goles ha marcado {team.name} y cuántos ha encajado?"
+      expect:
+        behavior: "answer"
+        facts: [{"kind": "number", "value": "{team.gf}", "label": "goles a favor", "lenient": true}, {"kind": "number", "value": "{team.ga}", "label": "goles en contra", "lenient": true}]
+        tools: {"needed": ["get_standings"], "allowed": ["find_teams", "get_data_freshness", "get_standings", "list_competitions", "list_groups", "list_matches", "list_rounds", "list_teams"]}
+        source: "official_table"
+        max_llm_calls: 5
+
+- id: s8_extra_errata_media
+  stratum: S8
+  holdout: false
+  requires: ["results"]
+  capability: v1
+  select:
+    group: {"kind": "group", "with": ["finished"]}
+  turns:
+    - user: "cual es la meda de goles por partido de {group.competition} {group.name}"
+      expect:
+        behavior: "answer"
+        facts: [{"kind": "number", "value": "{group.avg_goals}", "label": "media de goles"}]
+        tools: {"needed": ["list_matches"], "allowed": ["find_teams", "get_data_freshness", "get_standings", "list_competitions", "list_groups", "list_matches", "list_rounds", "list_teams"]}
+        max_llm_calls: 5

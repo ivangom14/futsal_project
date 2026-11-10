@@ -19,6 +19,7 @@ from futsal.agent.agent import OFF_TOPIC_MESSAGE
 from futsal.agent.criteria import (
     REQUEST_PHRASES,
     _negated,
+    _score_matches,
     clarifies,
     says_not_played,
     sentences,
@@ -201,8 +202,7 @@ def _wrong_values(required: list[dict[str, Any]], text: str) -> list[str]:
             out.append(f"da {', '.join(sorted(said))} como «{f['label']}» pero el dato oficial es {f['value']}")
     scores = [f for f in required if f["kind"] == "score" and not f.get("lenient")]
     if len(scores) == 1 and not _present(scores[0], text):
-        from futsal.agent.criteria import SCORE_RE
-        given = SCORE_RE.findall(text)
+        given = _score_matches(text)  # con la corrección de referencias documentales: «páginas 1-2» no es un marcador
         if given:
             out.append(f"da el marcador {given[0].replace(' ', '')} pero el oficial es {scores[0]['value']}")
     return out

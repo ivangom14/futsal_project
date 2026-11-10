@@ -97,3 +97,14 @@ def compact_system(off_topic: str, modules: tuple[tuple[str, str], ...] = MODULE
 
 def compact_prompts(off_topic: str) -> PromptSet:
     return PromptSet(COMPACT, compact_system(off_topic), COMPACT_HISTORY_RULE, COMPACT_CONTEXT_HEADER, COMPACT_CATALOG_HEADER)
+
+
+MODULE_V2 = (  # AGENT_ARCH=v2: herramientas sin grupo (entrega 1 del agente v2); se añade al final del prompt, solo con v2
+    "\n\nHerramientas v2 (todas las competiciones de la temporada; por nombre y filtros, sin IDs): find_player(name, team?) jugador y su equipo; "
+    "find_official(name, include_matches?) árbitro y sus partidos; officials_ranking árbitro con más partidos; matches_by_date partidos de un día o franja; "
+    "club_overview(name, results?) todos los equipos de un club y sus resultados; scorers_ranking(category?) máximo goleador de varias ligas; "
+    "teams_ranking(metric) equipos más/menos goleadores. Si piden «todos/todas/cualquier» (o lo responden a una aclaración), NO pidas competición, grupo ni "
+    "categoría: usa estas herramientas y di qué has asumido; pregunta solo si hay varios clubes o jugadores homónimos. Traslada a la respuesta las `notes` "
+    "(grupos distintos, club agrupado por nombre, cobertura parcial). Si find_player/find_official solo dan `suggestions`, di que no figura y ofrécelas como "
+    "posibles sin atribuirles datos. Usa las fechas de la nota de la aplicación. Una afirmación del usuario («creo que…») se comprueba con herramientas: "
+    "di si se confirma. Si count > shown y piden «todos», repite con `limit` mayor (hasta 100) o di cuántos faltan. Esto prevalece sobre pedir aclaración del contexto.")

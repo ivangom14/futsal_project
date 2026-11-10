@@ -1,0 +1,272 @@
+# Futsito-Eval v1 · S10 · holdout. Formato: docs/v2/evaluation.md §3. SELLADO: no se mira para ajustar el agente.
+# `expect.v2`: conducta y hechos esperados de una arquitectura que SÍ resuelve la consulta (verdad SQL; no se califica en v1).
+# En v1 (capability v2) se espera abstención honesta o aclaración, nunca un dato inventado.
+
+- id: s10_jug_apellido_coma
+  stratum: S10
+  holdout: true
+  requires: ["players"]
+  capability: v2
+  select:
+    player: {"kind": "player", "where": {"team_count": "==1"}}
+  turns:
+    - user: "¿Dónde juega {player.comma}?"
+      expect:
+        behavior: "abstain"
+        max_llm_calls: 6
+        v2: {"behavior": "answer", "facts": [{"kind": "name", "value": "{player.team}"}], "note": "v2: busca al jugador en todos los grupos y dice su equipo (verdad: player_teams.sql)"}
+
+- id: s10_jug_homonimo_dos_equipos
+  stratum: S10
+  holdout: true
+  requires: ["players"]
+  capability: v2
+  select:
+    player: {"kind": "player", "where": {"team_count": "==1", "homonym_count": ">=1"}}
+  turns:
+    - user: "¿En qué equipo juega {player.natural}?"
+      expect:
+        behavior: "abstain"
+        max_llm_calls: 6
+        v2: {"behavior": "clarify", "clarify_mentions": ["{player.team}", "{player.decoys[*].team}"], "forbid_facts": [{"kind": "name", "value": "{player.team}"}], "note": "v2: hay dos jugadores con ese nombre en equipos distintos: pregunta cuál en vez de elegir uno"}
+
+- id: s10_jug_inexistente_goles
+  stratum: S10
+  holdout: true
+  requires: []
+  capability: v1
+  select:
+    player: {"kind": "player_lookalike"}
+  turns:
+    - user: "¿Cuántos goles lleva {player.comma} esta temporada?"
+      expect:
+        behavior: "abstain"
+        max_llm_calls: 6
+        forbid_any_score: true
+
+- id: s10_jug_conv_premisa_verdadera
+  stratum: S10
+  holdout: true
+  requires: ["players"]
+  capability: v2
+  select:
+    player: {"kind": "player", "where": {"team_count": "==1"}}
+  turns:
+    - user: "¿En qué equipo juega {player.unaccent}?"
+      expect:
+        behavior: "abstain"
+        max_llm_calls: 6
+        v2: {"behavior": "answer", "facts": [{"kind": "name", "value": "{player.team}"}], "note": "v2: busca al jugador en todos los grupos y dice su equipo (verdad: player_teams.sql)"}
+    - user: "Creo que juega en el {player.team}"
+      expect:
+        behavior: "abstain"
+        max_llm_calls: 6
+        v2: {"behavior": "answer", "facts": [{"kind": "name", "value": "{player.team}"}], "note": "v2: confirma con evidencia (premisa verdadera)"}
+
+- id: s10_arb_inexistente_parecido
+  stratum: S10
+  holdout: true
+  requires: ["officials"]
+  capability: v2
+  select:
+    ref: {"kind": "referee_lookalike"}
+  turns:
+    - user: "¿Ha pitado partidos el árbitro {ref.natural}?"
+      expect:
+        behavior: "abstain"
+        max_llm_calls: 6
+        forbid_phrases: ["es la misma persona", "es el mismo árbitro"]
+        forbid_any_score: true
+        v2: {"behavior": "abstain", "forbid_phrases": ["es la misma persona", "es el mismo árbitro"], "note": "v2: dice que ese nombre no figura; puede mencionar el parecido con {ref.real_natural} sin afirmar que es la misma persona"}
+
+- id: s10_arb_cuantos_partidos
+  stratum: S10
+  holdout: true
+  requires: ["officials"]
+  capability: v2
+  select:
+    ref: {"kind": "referee"}
+  turns:
+    - user: "¿Cuántos partidos ha arbitrado {ref.natural_lower_unaccent}?"
+      expect:
+        behavior: "abstain"
+        max_llm_calls: 6
+        v2: {"behavior": "answer", "facts": [{"kind": "number", "value": "{ref.matches_n}", "label": "partidos"}], "note": "v2: recuento de partidos con acta almacenada (no del total del campeonato)"}
+
+- id: s10_fecha_manana
+  stratum: S10
+  holdout: true
+  requires: ["calendar", "match_times"]
+  capability: v2
+  select:
+    day: {"kind": "day", "slot": "manana", "clean_slot": true, "where": {"count": ">=1"}}
+  turns:
+    - user: "¿Hay partidos por la mañana el {day.date_es}?"
+      expect:
+        behavior: "abstain"
+        max_llm_calls: 6
+        forbid_any_score: true
+        v2: {"behavior": "answer", "facts": [{"kind": "number", "value": "{day.count}", "label": "partidos"}], "note": "v2: lista los partidos de TODAS las competiciones ese día (hora de Europe/Madrid) sin pedir competición"}
+
+- id: s10_fecha_categoria_juvenil
+  stratum: S10
+  holdout: true
+  requires: ["calendar", "multi_category"]
+  capability: v2
+  select:
+    day: {"kind": "day", "category": "juvenil", "where": {"count": ">=1"}}
+  turns:
+    - user: "¿Qué partidos de juvenil se juegan el {day.date_es}?"
+      expect:
+        behavior: "abstain"
+        max_llm_calls: 6
+        forbid_any_score: true
+        v2: {"behavior": "answer", "facts": [{"kind": "number", "value": "{day.count}", "label": "partidos"}], "note": "v2: lista los partidos de TODAS las competiciones ese día (hora de Europe/Madrid) sin pedir competición"}
+
+- id: s10_fecha_futura_sin_calendario
+  stratum: S10
+  holdout: true
+  requires: ["calendar"]
+  capability: v2
+  select:
+    day: {"kind": "day_absent", "future": true}
+  turns:
+    - user: "¿Qué partidos habrá el {day.date_es}?"
+      expect:
+        behavior: "abstain"
+        max_llm_calls: 6
+        forbid_any_score: true
+        v2: {"behavior": "abstain", "note": "v2: no consta calendario para esa fecha; no inventa partidos"}
+
+- id: s10_club_varias_categorias
+  stratum: S10
+  holdout: true
+  requires: ["multi_category"]
+  capability: v2
+  select:
+    club: {"kind": "club_multi", "where": {"categories_n": ">=2"}}
+  turns:
+    - user: "¿En qué categorías juega el {club.base_name}?"
+      expect:
+        behavior: "abstain"
+        max_llm_calls: 6
+        v2: {"behavior": "answer", "facts": [{"kind": "names", "value": "{club.categories}"}], "note": "v2: categorías de sus equipos (por el nombre de la competición)"}
+
+- id: s10_club_ambiguo_resultados
+  stratum: S10
+  holdout: true
+  requires: ["standings"]
+  capability: v1
+  select:
+    club: {"kind": "club_ambiguous"}
+  turns:
+    - user: "Dame los resultados del {club.token|lower}"
+      expect:
+        behavior: "clarify"
+        clarify_mentions: ["{club.candidates[*]}"]
+        max_llm_calls: 4
+        note: "mismo nombre base en clubes distintos: aclaración real"
+
+- id: s10_rank_goleador_femenino
+  stratum: S10
+  holdout: true
+  requires: ["scorers", "scorer_ranking"]
+  capability: v2
+  select:
+    r: {"kind": "scorer_ranking", "category": "femenino"}
+  turns:
+    - user: "¿Quién ha marcado más goles en todas las ligas femeninas?"
+      expect:
+        behavior: "abstain"
+        max_llm_calls: 6
+        forbid_any_score: true
+        v2: {"behavior": "answer", "facts": [{"kind": "name", "value": "{r.top.name}"}, {"kind": "number", "value": "{r.top.goals}", "label": "goles"}, {"kind": "text_any", "any": ["grupos distintos", "grupos diferentes", "distintos grupos", "por separado", "no son comparables", "cada grupo", "grupos independientes", "tablas distintas"]}], "note": "v2: ranking de tablas oficiales de grupos distintos"}
+
+- id: s10_rank_racha
+  stratum: S10
+  holdout: true
+  requires: ["standings", "results"]
+  capability: v2
+  select:
+    r: {"kind": "team_ranking", "category": "senior", "metric": "win_streak"}
+  turns:
+    - user: "¿Qué equipo senior lleva más victorias seguidas?"
+      expect:
+        behavior: "abstain"
+        max_llm_calls: 6
+        forbid_any_score: true
+        v2: {"behavior": "answer", "facts": [{"kind": "name", "value": "{r.top.name}"}, {"kind": "number", "value": "{r.top.value}", "label": "victorias seguidas"}, {"kind": "text_any", "any": ["grupos distintos", "grupos diferentes", "distintos grupos", "por separado", "no son comparables", "cada grupo", "grupos independientes", "tablas distintas"]}], "note": "v2: ranking sobre tablas de grupos distintos (no comparables: distinto número de partidos y rivales)"}
+
+- id: s10_rank_comparativa_femenino
+  stratum: S10
+  holdout: true
+  requires: ["results", "multi_category"]
+  capability: v2
+  select:
+    c: {"kind": "category_pair", "a": "femenino", "b": "senior"}
+  turns:
+    - user: "¿Es mayor la media de goles por partido en la liga femenina o en senior?"
+      expect:
+        behavior: "abstain"
+        max_llm_calls: 6
+        forbid_any_score: true
+        v2: {"behavior": "answer", "facts": [{"kind": "name", "value": "{c.higher}"}, {"kind": "number", "value": "{c.avg_a}", "label": "goles por partido"}, {"kind": "number", "value": "{c.avg_b}", "label": "goles por partido"}], "note": "v2: comparativa entre categorías con las medias reales"}
+
+- id: s10_aclarar_goleador_liga
+  stratum: S10
+  holdout: true
+  requires: ["scorers", "scorer_ranking"]
+  capability: v1
+  select:
+    r: {"kind": "scorer_ranking", "category": "senior"}
+  turns:
+    - user: "¿Cuál es el máximo goleador de la liga?"
+      expect:
+        behavior: "clarify"
+        clarify_mentions: ["senior", "juvenil", "femenin"]
+        max_llm_calls: 4
+        note: "«la liga» no dice categoría ni grupo: aclaración real"
+
+- id: s10_reg_cesion_portero
+  stratum: S10
+  holdout: true
+  requires: ["kb:fifa-futsal-laws-2025-26"]
+  capability: v1
+  select: {}
+  turns:
+    - user: "¿El portero puede coger con la mano un pase atrás de un compañero?"
+      expect:
+        behavior: "answer"
+        facts: [{"kind": "text_any", "any": ["indirecto", "cesión", "ceder", "cedido", "pase"]}]
+        tools: {"needed": ["search_rules"], "allowed": ["search_rules"]}
+        source: "rules"
+        max_llm_calls: 4
+
+- id: s10_reg_expulsion_superioridad
+  stratum: S10
+  holdout: true
+  requires: ["kb:fifa-futsal-laws-2025-26"]
+  capability: v1
+  select: {}
+  turns:
+    - user: "Si expulsan a un jugador, ¿cuánto tiempo juega su equipo con uno menos?"
+      expect:
+        behavior: "answer"
+        facts: [{"kind": "text_any", "any": ["dos minutos", "2 minutos"]}]
+        tools: {"needed": ["search_rules"], "allowed": ["search_rules"]}
+        source: "rules"
+        max_llm_calls: 4
+
+- id: s10_temporada_pasada_goleador
+  stratum: S10
+  holdout: true
+  requires: ["scorers"]
+  capability: v1
+  select:
+    group: {"kind": "group", "with": ["scorers"]}
+  turns:
+    - user: "¿Quién fue el máximo goleador de {group.competition} {group.name} la temporada pasada?"
+      expect:
+        behavior: "abstain"
+        max_llm_calls: 6
+        forbid_any_score: true

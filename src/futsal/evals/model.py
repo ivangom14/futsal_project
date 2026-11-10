@@ -5,14 +5,16 @@ from typing import Any
 
 STRATA = {
     "S1": "Sencillas", "S2": "Ambiguas", "S3": "Encadenadas", "S4": "Complejas", "S5": "Sin datos",
-    "S6": "Adversariales", "S7": "Multicompetición", "S8": "Estadísticas", "S9": "Documentales"}
+    "S6": "Adversariales", "S7": "Multicompetición", "S8": "Estadísticas", "S9": "Documentales",
+    "S10": "Multiámbito"}
 BEHAVIORS = ("answer", "clarify", "abstain", "offtopic")
 CAPABILITIES = ("v1", "v2")
 FACT_KINDS = ("number", "score", "name", "names", "date", "text_any", "position")
 EXPECT_KEYS = {"behavior", "facts", "forbid_facts", "candidate_facts", "clarify_mentions", "tools", "max_llm_calls",
-               "forbid_scores", "forbid_any_score", "forbid_phrases", "forbid_tools", "source", "rule_case", "ignore_decoys", "note"}
+               "forbid_scores", "forbid_any_score", "forbid_phrases", "forbid_tools", "source", "rule_case", "ignore_decoys", "note", "v2"}
 SELECT_KINDS = ("team", "group", "competition", "club", "match", "season_absent", "fictional_team", "fictional_competition",
-                "fictional_player", "category_absent")
+                "fictional_player", "category_absent", "player", "player_lookalike", "referee", "referee_lookalike", "day",
+                "day_absent", "club_multi", "club_ambiguous", "scorer_ranking", "team_ranking", "category_pair")
 
 
 class CaseError(ValueError):
@@ -66,7 +68,11 @@ def parse_case(raw: dict[str, Any], source: str = "") -> Case:
         unknown = set(exp) - EXPECT_KEYS
         if unknown:
             raise CaseError(f"{cid}: turno {i + 1}: claves de expect desconocidas {sorted(unknown)}")
-        for f in [*(exp.get("facts") or []), *(exp.get("forbid_facts") or []), *(exp.get("candidate_facts") or [])]:
+        v2 = exp.get("v2")
+        if v2 is not None and (not isinstance(v2, dict) or v2.get("behavior") not in BEHAVIORS):
+            raise CaseError(f"{cid}: turno {i + 1}: v2 necesita un dict con behavior en {BEHAVIORS}")
+        for f in [*(exp.get("facts") or []), *(exp.get("forbid_facts") or []), *(exp.get("candidate_facts") or []),
+                  *((v2 or {}).get("facts") or [])]:
             if f.get("kind") not in FACT_KINDS:
                 raise CaseError(f"{cid}: turno {i + 1}: hecho de tipo {f.get('kind')!r} no válido ({FACT_KINDS})")
         turns.append(TurnSpec(str(t["user"]), exp))

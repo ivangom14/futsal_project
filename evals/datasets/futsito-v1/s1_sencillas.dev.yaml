@@ -149,7 +149,7 @@
   requires: ["calendar"]
   capability: v1
   select:
-    team: {kind: "team", unique_in_snapshot: true, with: ["pending"]}
+    team: {kind: "team", unique_in_snapshot: true, with: ["pending"], where: {next_has_venue: "==1"}}
   turns:
     - user: "¿En qué campo juega {team.name} su próximo partido?"
       expect:
@@ -288,7 +288,7 @@
   requires: ["results"]
   capability: v1
   select:
-    group: {kind: "group", with: ["finished"]}
+    group: {kind: "group", with: ["finished"], where: {last_round: ">=1"}}
   turns:
     - user: "¿Hasta qué jornada se ha jugado en {group.competition} {group.name}?"
       expect:

@@ -57,7 +57,7 @@
   requires: ["standings"]
   capability: v2
   select:
-    club: {kind: "club", with: ["standings"]}
+    club: {kind: "club_multi", where: {teams_n: ">=2"}}
   turns:
     - user: "¿Cómo quedan todos los equipos del club {club.base_name}?"
       expect:
@@ -71,7 +71,7 @@
   requires: ["standings"]
   capability: v2
   select:
-    club: {kind: "club", with: ["standings"]}
+    club: {kind: "club_multi", where: {teams_n: ">=2"}}
   turns:
     - user: "Dame la clasificación de todos los equipos del {club.base_name}."
       expect:
@@ -101,7 +101,7 @@
   requires: ["calendar"]
   capability: v1
   select:
-    group: {kind: "group", with: ["pending"]}
+    group: {kind: "group", with: ["pending"], where: {weekend_n: ">=1"}}
   turns:
     - user: "¿Qué partidos hay este fin de semana en {group.competition} {group.name}?"
       expect:

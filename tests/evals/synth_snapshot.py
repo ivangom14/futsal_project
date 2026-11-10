@@ -4,6 +4,10 @@ Parte de las fixtures del repo (`league_two_rounds.json`, el acta `rffm_match_re
 inserta con SQL/ORM. Resultado: 2 temporadas, 3 competiciones (senior, juvenil, femenina), 4 grupos, homónimos entre grupos
 («C.D. DOSA» en senior, juvenil y femenina de otra temporada; «TORRES» y «CORAZONISTAS 'A'» en dos grupos senior), un club con equipos A y B,
 grupos sin clasificación oficial, partidos terminados sin acta y un acta almacenada.
+
+Ampliación multiámbito (estrato S10): goleadores oficiales también en el juvenil y el femenino (rankings por categoría), actas
+sin eventos de otros grupos con árbitros (uno con partidos en dos competiciones, otro con un solo partido), un jugador de un
+solo equipo («QUINTANAR PEREZ, PABLO») y un homónimo de jugador en dos equipos («GARCIA CASADO, DAVID»).
 """
 
 import copy
@@ -103,20 +107,93 @@ def _as_of() -> Any:
     return parse_as_of(AS_OF)
 
 
-def _scorers(session: Session, group_ext: str) -> None:
+def _scorers(session: Session, group_ext: str, names: tuple[str, ...] = SCORERS, prefix: str = "S", top: int | None = None) -> None:
     gid = session.execute(text("SELECT id FROM competition_groups WHERE external_id = :g"), {"g": group_ext}).scalar_one()
     teams = session.execute(text("SELECT id, external_id, name FROM teams WHERE group_id = :g ORDER BY id"), {"g": gid}).all()
-    snap = ScorerSnapshot(group_id=gid, status="ok", content_hash=f"synthetic-sc-{group_ext}", row_count=len(SCORERS),
-                          goals_total=sum(range(len(SCORERS), 0, -1)) + len(SCORERS), source_url="synthetic://scorers", fetched_at=_as_of())
+    top = len(names) + 1 if top is None else top
+    snap = ScorerSnapshot(group_id=gid, status="ok", content_hash=f"synthetic-sc-{group_ext}", row_count=len(names),
+                          goals_total=sum(top - i for i in range(len(names))), source_url="synthetic://scorers", fetched_at=_as_of())
     session.add(snap)
     session.flush()
-    for i, name in enumerate(SCORERS):
+    for i, name in enumerate(names):
         tid, ext, tname = teams[i % len(teams)]
-        player = Player(source="rffm", external_id=f"S{i}", display_name=name)
+        player = Player(source="rffm", external_id=f"{prefix}{i}", display_name=name)
         session.add(player)
         session.flush()
-        session.add(ScorerRow(snapshot_id=snap.id, row_order=i + 1, player_external_id=f"S{i}", player_id=player.id, player_name=name,
-                              team_external_id=ext, team_id=tid, team_name=tname, matches_played=2, goals=len(SCORERS) - i + 1))
+        session.add(ScorerRow(snapshot_id=snap.id, row_order=i + 1, player_external_id=f"{prefix}{i}", player_id=player.id, player_name=name,
+                              team_external_id=ext, team_id=tid, team_name=tname, matches_played=2, goals=top - i))
+
+
+def _report(session: Session, group_ext: str, nth: int, ext: str, officials: list[tuple[str, str, str]]) -> None:
+    """Acta sin eventos (copia de la observación del acta real) para el `nth` partido terminado del grupo, con sus oficiales."""
+    match_id = session.execute(text(
+        "SELECT m.id FROM matches m JOIN competition_groups g ON g.id = m.group_id WHERE g.external_id = :g AND m.status = 'finished' "
+        "AND NOT EXISTS (SELECT 1 FROM match_reports r WHERE r.match_id = m.id) ORDER BY m.id OFFSET :n LIMIT 1"),
+        {"g": group_ext, "n": nth}).scalar_one()
+    rid = session.execute(text("INSERT INTO match_reports (match_id, source, external_id) VALUES (:m, 'rffm', :e) RETURNING id"),
+                          {"m": match_id, "e": ext}).scalar_one()
+    oid = session.execute(text(
+        "INSERT INTO match_report_observations (report_id, ingestion_run_id, observed_at, content_hash, source_url, closed, status, "
+        "round_external_id) SELECT :r, ingestion_run_id, observed_at, :h, 'synthetic://report', true, 'finished', round_external_id "
+        "FROM match_report_observations WHERE id = 1 RETURNING id"), {"r": rid, "h": f"synthetic-report-{ext}"}).scalar_one()
+    for seq, (name, role, official_id) in enumerate(officials, 1):
+        session.execute(text("INSERT INTO match_officials (observation_id, display_name, role, external_id, sequence) "
+                             "VALUES (:o, :n, :r, :e, :s)"), {"o": oid, "n": name, "r": role, "e": official_id, "s": seq})
+
+
+def _set_score(session: Session, group_ext: str, home: str, away: str, hs: int, aws: int) -> None:
+    session.execute(text(
+        "UPDATE matches SET home_score = :hs, away_score = :a WHERE id = (SELECT m.id FROM matches m "
+        "JOIN teams h ON h.id = m.home_team_id JOIN teams t ON t.id = m.away_team_id JOIN competition_groups g ON g.id = m.group_id "
+        "WHERE g.external_id = :g AND h.name = :h AND t.name = :t)"), {"hs": hs, "a": aws, "g": group_ext, "h": home, "t": away})
+
+
+def _tweak_results(session: Session) -> None:
+    """Rompe los empates entre grupos gemelos (mismas fixtures) para que haya un mejor equipo único por categoría y métrica."""
+    z = "26738246"
+    _set_score(session, z, "C.D.E. ALARO DEPORTIVA A ZONA 3", "ESC. DEP. DE FUTBOL DE TORRES", 13, 2)  # goles a favor únicos
+    _set_score(session, z, "C.D. LOPE DE VEGA B ZONA 3", "AGRUPACION AUTO-ESCUELA SIMANCAS B ZONA 3", 1, 3)  # goles en contra únicos
+    _set_score(session, z, "ESC. DEP. DE FUTBOL DE TORRES", "CLUB CORAZONISTAS 'A'", 7, 4)  # el homónimo de otro grupo tiene otro marcador
+    _set_score(session, z, "A. D. OBISPO PERELLO B ZONA 3", "C.D. DOSA ZONA 3", 3, 3)  # victorias y racha únicas (el DOSA del grupo 2)
+
+
+def _tweak_calendar(session: Session) -> None:
+    """Un club «ALAMO» con equipos A y B y partidos el sábado 7 de noviembre (mañana y tarde) en dos grupos: para las preguntas literales."""
+    for ext, old, new in (("26738245", "TORREJON SALA FIVE PLAY 'B'", "C.D. ALAMO 'A'"), ("26738246", "TORREJON SALA FIVE PLAY B ZONA 3", "C.D. ALAMO 'B'")):
+        session.execute(text("UPDATE teams SET name = :n WHERE name = :o AND group_id = (SELECT id FROM competition_groups WHERE external_id = :g)"),
+                        {"n": new, "o": old, "g": ext})
+    for ext, hour in (("26738245", "18:30"), ("26738301", "11:00")):
+        session.execute(text(
+            "UPDATE matches SET scheduled_date = '2026-11-07', scheduled_time = :h WHERE status = 'scheduled' AND scheduled_date = '2026-12-05' "
+            "AND group_id = (SELECT id FROM competition_groups WHERE external_id = :g)"), {"h": hour, "g": ext})
+
+
+def _tweak_states(session: Session) -> None:
+    """Un partido aplazado, uno suspendido, un acta sin cerrar y un equipo retirado (sin partidos ni clasificación)."""
+    for ext, status in (("26738401", "postponed"), ("26738246", "suspended")):
+        session.execute(text("UPDATE matches SET status = :s WHERE status = 'scheduled' AND scheduled_date = '2026-12-05' "
+                             "AND group_id = (SELECT id FROM competition_groups WHERE external_id = :g)"), {"s": status, "g": ext})
+    session.execute(text("INSERT INTO teams (group_id, source, external_id, name) SELECT id, 'rffm', 'SYN-RETIRADO', 'C.D. SALA RETIRADA' "
+                         "FROM competition_groups WHERE external_id = '26738245'"))
+
+
+def _people(session: Session) -> None:
+    """Árbitros en varios grupos y jugadores con nombre «APELLIDOS, NOMBRE» (uno único y un homónimo en otro equipo)."""
+    _report(session, "26738301", 0, "SYN-R1", [("GARCIA LASA, ALVARO", "ARBITRO", "5167652")])
+    _report(session, "26738246", 0, "SYN-R2", [("GARCIA LASA, ALVARO", "ARBITRO", "5167652")])
+    _report(session, "26738246", 1, "SYN-R3", [("BERMEJO SUAREZ, HUGO", "ARBITRO", "5009911")])
+    _report(session, "26738401", 0, "SYN-R4", [("GARVALENA CRESPO, MARTA", "ARBITRO", "5001595")])
+    session.execute(text("UPDATE match_report_observations SET closed = false WHERE content_hash = 'synthetic-report-SYN-R1'"))
+    season = session.execute(text("SELECT c.season_id FROM competition_groups g JOIN competitions c ON c.id = g.competition_id "
+                                  "WHERE g.external_id = '26738246'")).scalar_one()
+    for ext, name, team in (("P1", "QUINTANAR PEREZ, PABLO", "CLUB CORAZONISTAS 'B'"), ("P2", "GARCIA CASADO, DAVID", "C.D. DOSA ZONA 3")):
+        player = Player(source="rffm", external_id=ext, display_name=name)
+        session.add(player)
+        session.flush()
+        team_id = session.execute(text("SELECT t.id FROM teams t JOIN competition_groups g ON g.id = t.group_id "
+                                       "WHERE g.external_id = '26738246' AND t.name = :n"), {"n": team}).scalar_one()
+        session.execute(text("INSERT INTO player_team_memberships (player_id, team_id, season_id) VALUES (:p, :t, :s)"),
+                        {"p": player.id, "t": team_id, "s": season})
 
 
 def _kb(session: Session) -> None:
@@ -156,9 +233,15 @@ def build_synthetic(engine: Engine, workdir: Path) -> dict[str, Any]:
     report.write_text(parse_match_report(html, REPORT_URL).model_dump_json(), encoding="utf-8")
     assert run_report_import(engine, report).status == "success"
     with Session(engine) as session:
+        _tweak_results(session)
+        _tweak_calendar(session)
+        _tweak_states(session)
         _standings(session, "26738245")
         _standings(session, "26738246")
         _scorers(session, "26738245")
+        _scorers(session, "26738301", ("RUIZ ORTEGA, LUCAS", "NAVARRO DIAZ, MARC", "FUENTES GIL, BRUNO"), "J", top=7)
+        _scorers(session, "26738401", ("MORA PARDO, LAURA", "SANZ LEAL, IRENE", "VEGA PRIETO, NURIA"), "F", top=5)
+        _people(session)
         _kb(session)
         session.commit()
     return {"groups": 4}

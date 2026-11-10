@@ -1,0 +1,51 @@
+# Futsito-Eval v1 · S2 · casuísticas adicionales (dev). Formato: docs/v2/evaluation.md §3.
+# Erratas, mayúsculas, ruido y emojis, cambio de idioma, preguntas sobre el bot, horarios y zonas horarias, aplazados, suspendidos,
+# jornada en curso, acta sin cerrar y equipo retirado. Los casos que dependen de datos que el snapshot no tiene quedan «no evaluables».
+
+- id: s2_extra_homonimo_mayusculas
+  stratum: S2
+  holdout: false
+  requires: ["homonyms", "standings"]
+  capability: v1
+  select:
+    team: {"kind": "team", "with": ["standings"], "homonym_groups": ">=2", "same_category": true}
+  turns:
+    - user: "¿CUÁNTOS PUNTOS TIENE {team.name|upper}?"
+      expect:
+        behavior: "clarify"
+        tools: {"needed": [], "allowed": ["find_teams", "get_data_freshness", "get_standings", "list_competitions", "list_groups", "list_matches", "list_rounds", "list_teams"]}
+        candidate_facts: [{"kind": "number", "value": "{team.points}", "label": "puntos", "of": "team"}]
+        clarify_mentions: ["{team.group}", "{team.homonyms[*].group}"]
+        max_llm_calls: 3
+
+- id: s2_extra_homonimo_ingles
+  stratum: S2
+  holdout: false
+  requires: ["homonyms", "standings"]
+  capability: v1
+  select:
+    team: {"kind": "team", "with": ["standings"], "homonym_groups": ">=2", "same_category": true}
+  turns:
+    - user: "How many points does {team.name} have?"
+      expect:
+        behavior: "clarify"
+        tools: {"needed": [], "allowed": ["find_teams", "get_data_freshness", "get_standings", "list_competitions", "list_groups", "list_matches", "list_rounds", "list_teams"]}
+        candidate_facts: [{"kind": "number", "value": "{team.points}", "label": "puntos", "of": "team"}]
+        clarify_mentions: ["{team.group}", "{team.homonyms[*].group}"]
+        max_llm_calls: 3
+
+- id: s2_extra_errata_equipo
+  stratum: S2
+  holdout: false
+  requires: ["standings"]
+  capability: v1
+  select:
+    team: {"kind": "team", "unique_in_snapshot": true, "with": ["standings"]}
+  turns:
+    - user: "cuantos puntos tiene {team.name|typo}"
+      expect:
+        behavior: "answer"
+        facts: [{"kind": "number", "value": "{team.points}", "label": "puntos"}]
+        tools: {"needed": ["get_standings"], "allowed": ["find_teams", "get_data_freshness", "get_standings", "list_competitions", "list_groups", "list_matches", "list_rounds", "list_teams"]}
+        source: "official_table"
+        max_llm_calls: 5

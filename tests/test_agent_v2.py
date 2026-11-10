@@ -1,0 +1,292 @@
+"""AGENT_ARCH=v2: reglas deterministas, registro en proceso y legacy intacto. LLM guionizado, registro simulado (sin red ni BD)."""
+
+import asyncio
+import json
+import threading
+from contextlib import nullcontext
+from datetime import datetime
+from pathlib import Path
+from typing import Any
+from zoneinfo import ZoneInfo
+
+import pytest
+
+from futsal.agent.agent import OFF_TOPIC_MESSAGE, Agent, resolve_arch
+from futsal.agent.llm import LLMResponse, Message, ToolCall
+from futsal.agent.memory import Turn
+from futsal.agent.prompts import MODULE_V2
+from futsal.agent.tokens import est_tokens
+from futsal.agent.understanding_eval import FakeMcp
+from futsal.agent.v2.registry import V2Registry
+from futsal.agent.v2.rules import BROAD_ACT_MESSAGE, SUGGESTION_NOTE
+from futsal.mcp_server.v2 import create_server
+from futsal.repositories import v2_queries as q
+
+GOLDEN = json.loads((Path(__file__).parent / "fixtures" / "prompt_legacy_golden.json").read_text(encoding="utf-8"))
+NOW = datetime(2026, 11, 9, 10, 0, tzinfo=ZoneInfo("Europe/Madrid"))
+CLARIFY = "¿De qué competición o grupo quieres consultarlo?"
+V2_TOOLS = {"find_player", "find_official", "officials_ranking", "matches_by_date", "club_overview", "scorers_ranking", "teams_ranking"}
+EMPTY = {"items": [], "count": 0, "shown": 0, "notes": [], "freshness": None}
+
+
+class Rec:
+    """LLM guionizado que además registra lo que recibe (system, herramientas y mensajes de cada vuelta)."""
+
+    provider, model = "fake", "fake"
+
+    def __init__(self, steps: list[LLMResponse]) -> None:
+        self.steps, self.systems, self.tools, self.seen = list(steps), [], [], []
+
+    def complete(self, system: str, messages: list[Message], tools: list[dict[str, Any]]) -> LLMResponse:
+        self.systems.append(system)
+        self.tools.append(tools)
+        self.seen.append(list(messages))
+        return self.steps.pop(0)
+
+
+class Stub(V2Registry):
+    """Registro con respuestas guionizadas por herramienta; guarda (nombre, argumentos) de cada llamada."""
+
+    def __init__(self, replies: dict[str, dict[str, Any]] | None = None) -> None:
+        super().__init__(lambda: None)  # type: ignore[arg-type, return-value]
+        self.replies, self.calls = replies or {}, []
+
+    def _run_sync(self, name: str, args: dict[str, Any]) -> str:
+        self.calls.append((name, dict(args)))
+        return json.dumps(self.replies.get(name, EMPTY), ensure_ascii=False)
+
+
+def call(tool: str, **args: Any) -> LLMResponse:
+    return LLMResponse("", [ToolCall("c", tool, args)])
+
+
+def ask(llm: Rec, question: str, history: list[Turn] | None = None, reg: V2Registry | None = None, arch: str | None = "v2", **kw: Any) -> Any:
+    agent = Agent(llm, FakeMcp(), 8, router_shadow=False, arch=arch, v2_registry=reg or Stub(), **kw)
+    agent._clock = lambda: NOW
+    return asyncio.run(agent.run(question, history or []))
+
+
+def last_user(llm: Rec, turn: int = 0) -> str:
+    return next(m.text for m in reversed(llm.seen[turn]) if m.role == "user")
+
+
+# --- 1. AGENT_ARCH y legacy idéntico ----------------------------------------------------------------------------------------------
+def test_arch_values(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("AGENT_ARCH", raising=False)
+    assert resolve_arch() == "legacy" and resolve_arch("V2") == "v2" and resolve_arch("v3") == "legacy" and resolve_arch("") == "legacy"
+    monkeypatch.setenv("AGENT_ARCH", "v2")
+    assert resolve_arch() == "v2"
+    monkeypatch.setenv("AGENT_ARCH", "otra")
+    assert resolve_arch() == "legacy"
+
+
+def test_legacy_is_byte_identical_default_explicit_and_unknown(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("AGENT_ARCH", raising=False)
+    runs = []
+    for arch in (None, "legacy", "bogus"):
+        llm = Rec([call("get_standings", group_id=1101), LLMResponse("Líder X.", [])])
+        agent = Agent(llm, FakeMcp(), 8, router_shadow=False, arch=arch)
+        res = asyncio.run(agent.run("Clasificación de la preferente juvenil todos los equipos creo que sí"))
+        runs.append((llm.systems, llm.tools, [[(m.role, m.text) for m in ms] for ms in llm.seen], res.answer, res.run.arch if res.run else None,
+                     res.run.context if res.run else None))
+        assert not {t["name"] for t in llm.tools[0]} & V2_TOOLS and "Herramientas v2" not in llm.systems[0]
+        assert llm.systems[0].startswith(GOLDEN["system_prompt"]) and "[Nota de la aplicación" in last_user(llm) and "Alcance amplio" not in last_user(llm)
+        assert [t["name"] for t in llm.tools[0]] == ["list_competitions", "find_teams", "list_teams", "list_rounds", "list_matches", "get_standings",
+                                                      "get_scorer_table", "search_rules"]
+    assert runs[0] == runs[1] == runs[2] and runs[0][4] == "legacy" and runs[0][5] is None
+
+
+def test_v2_exposes_v1_plus_seven_tools_a_short_prompt_and_traces_arch() -> None:
+    llm = Rec([LLMResponse(OFF_TOPIC_MESSAGE, [])])
+    res = ask(llm, "Cuéntame un chiste")
+    names = [t["name"] for t in llm.tools[0]]
+    assert names[:8] == ["list_competitions", "find_teams", "list_teams", "list_rounds", "list_matches", "get_standings", "get_scorer_table", "search_rules"]
+    assert set(names[8:]) == V2_TOOLS and llm.systems[0].startswith(GOLDEN["system_prompt"] + MODULE_V2)
+    assert est_tokens(len(MODULE_V2)) <= 400
+    for t in llm.tools[0][8:]:
+        assert "title" not in json.dumps(t) and "\n" not in t["description"] and "null" not in json.dumps(t["input_schema"])
+    assert res.run is not None and res.run.arch == "v2" and res.run.to_dict()["arch"] == "v2"
+
+
+# --- 2. ejecución en proceso -------------------------------------------------------------------------------------------------------
+def test_v2_tools_run_in_process_and_results_are_compacted() -> None:
+    rows = [{"ref": f"match:{i}", "date": "2026-11-07", "time": "16:00", "home": f"L{i}", "away": f"V{i}", "score": None} for i in range(60)]
+    reg = Stub({"matches_by_date": {"items": rows, "count": 60, "shown": 60, "notes": ["n"], "freshness": None}})
+    llm = Rec([call("matches_by_date", date_from="2026-11-07"), LLMResponse("ok", [])])
+    res = ask(llm, "Partidos del 7/11", reg=reg, max_rows=40)
+    sent = json.loads(next(m for m in llm.seen[1] if m.role == "tool").tool_results[0].content)
+    assert reg.calls and reg.calls[0][0] == "matches_by_date" and len(sent["items"]) == 40 and sent["truncated"]["total"] == 60 and sent["count"] == 60
+    assert res.tool_calls == 1 and res.answer == "ok"
+
+
+def test_v1_id_validation_is_kept_for_v1_tools() -> None:
+    llm = Rec([call("list_matches", group_id=1101, team_id=999999), LLMResponse("ok", [])])
+    ask(llm, "Último partido del Dosa")
+    assert "no procede de ninguna herramienta" in next(m for m in llm.seen[1] if m.role == "tool").tool_results[0].content
+
+
+def test_two_v2_tools_in_one_answer_run_in_parallel() -> None:
+    barrier = threading.Barrier(2, timeout=3)
+
+    class Parallel(Stub):
+        def _run_sync(self, name: str, args: dict[str, Any]) -> str:
+            barrier.wait()  # solo pasa si las dos herramientas están en curso a la vez
+            return super()._run_sync(name, args)
+
+    reg = Parallel()
+    llm = Rec([LLMResponse("", [ToolCall("a", "find_player", {"name": "Pablo Quintanar"}), ToolCall("b", "find_official", {"name": "Ramos"})]),
+               LLMResponse("ok", [])])
+    res = ask(llm, "¿Dónde juega Pablo Quintanar y quién es el árbitro Ramos?", reg=reg)
+    results = next(m for m in llm.seen[1] if m.role == "tool").tool_results
+    assert [r.is_error for r in results] == [False, False] and {c[0] for c in reg.calls} == {"find_player", "find_official"} and res.tool_calls == 2
+
+
+def test_invalid_v2_arguments_return_a_validation_error_without_crashing() -> None:
+    llm = Rec([call("teams_ranking", metric="nada"), call("matches_by_date", date_from="mañana"), LLMResponse("ok", [])])
+
+    class Real(V2Registry):
+        pass
+
+    reg = Real(lambda: None)  # type: ignore[arg-type, return-value]
+    res = ask(llm, "Ranking de equipos", reg=reg)
+    errors = [r.content for m in llm.seen[2] if m.role == "tool" for r in m.tool_results]
+    assert len(errors) == 2 and all(e.startswith("error_validacion") for e in errors) and res.answer == "ok"
+
+
+# --- 3. fechas ---------------------------------------------------------------------------------------------------------------------
+def test_date_note_and_deterministic_repair_of_matches_by_date() -> None:
+    reg = Stub()
+    llm = Rec([call("matches_by_date", date_from="2026-11-14", date_to="2026-11-14", time_from="00:00"), LLMResponse("ok", [])])
+    res = ask(llm, "Dime los partidos del sábado 7 de noviembre por la tarde", reg=reg)
+    note = last_user(llm)
+    assert "2026-11-07" in note and "15:00" in note and "23:59" in note and "Nota de la aplicación" in note
+    assert reg.calls == [("matches_by_date", {"date_from": "2026-11-07", "date_to": "2026-11-07", "time_from": "15:00", "time_to": "23:59"})]
+    rec = res.run.tool_calls[0] if res.run else None
+    assert rec is not None and rec.repaired is not None and rec.repaired["source"] == "dates"
+    assert rec.original_arguments == {"date_from": "2026-11-14", "date_to": "2026-11-14", "time_from": "00:00"}
+
+
+def test_matching_arguments_are_not_repaired() -> None:
+    reg = Stub()
+    llm = Rec([call("matches_by_date", date_from="2026-11-07", time_from="15:00", time_to="23:59"), LLMResponse("ok", [])])
+    res = ask(llm, "Dime los partidos del sábado 7 de noviembre por la tarde", reg=reg)
+    assert res.run is not None and res.run.tool_calls[0].repaired is None and reg.calls[0][1]["date_from"] == "2026-11-07"
+
+
+def test_no_date_hint_leaves_arguments_alone() -> None:
+    reg = Stub()
+    llm = Rec([call("matches_by_date", date_from="2026-12-01"), LLMResponse("ok", [])])
+    ask(llm, "Partidos del primero de diciembre", reg=reg)
+    assert reg.calls == [("matches_by_date", {"date_from": "2026-12-01"})]
+
+
+# --- 4. alcance amplio y aclaración repetida --------------------------------------------------------------------------------------
+def test_broad_scope_forbids_the_scope_clarification() -> None:
+    llm = Rec([LLMResponse(CLARIFY, []), call("matches_by_date", date_from="2026-11-14"), LLMResponse("Hay 3 partidos.", [])])
+    res = ask(llm, "Dime todos los partidos del sábado 14 de noviembre")
+    assert "Alcance amplio" in last_user(llm) and last_user(llm, 1) == BROAD_ACT_MESSAGE
+    assert res.answer == "Hay 3 partidos." and res.guardrail is None and res.tool_calls == 1
+    assert res.run is not None and res.run.context["v2"]["clarification_blocked"] == 1
+
+
+def test_without_broad_scope_the_first_clarification_is_still_allowed() -> None:
+    llm = Rec([LLMResponse(CLARIFY, [])])
+    res = ask(llm, "¿Quién es el máximo goleador del grupo?")
+    assert res.answer == CLARIFY and res.guardrail == "aclaracion_ambito" and res.tool_calls == 0
+
+
+def test_second_clarification_in_a_row_is_never_asked_again() -> None:
+    history = [Turn("¿Quién es el máximo goleador del grupo?", CLARIFY)]
+    llm = Rec([LLMResponse(CLARIFY, []), call("scorers_ranking", category="senior"), LLMResponse("Asumo todas las ligas: X.", [])])
+    res = ask(llm, "pues no sé", history)
+    assert last_user(llm, 1) == BROAD_ACT_MESSAGE and res.tool_calls == 1 and res.answer == "Asumo todas las ligas: X."
+    legacy = Rec([LLMResponse(CLARIFY, [])])
+    kept = ask(legacy, "pues no sé", history, arch="legacy")
+    assert kept.answer == CLARIFY and kept.guardrail == "aclaracion_ambito"  # legacy: sigue como siempre
+
+
+def test_real_entity_ambiguity_is_still_asked_even_with_broad_scope() -> None:
+    cands = {"items": [{"base_name": "pinto", "ambiguous": True, "teams": []}, {"base_name": "atletico pinto", "ambiguous": True, "teams": []}],
+             "count": 2, "shown": 2, "notes": ["varios clubes con nombre distinto"], "freshness": None}
+    question = "¿A qué club te refieres: «Pinto» o «Atlético Pinto»?"
+    llm = Rec([call("club_overview", name="pinto", results=True), LLMResponse(question, [])])
+    res = ask(llm, "Resultados de todos los equipos del Pinto", reg=Stub({"club_overview": cands}))
+    assert res.answer == question and res.tool_calls == 1 and res.guardrail is None
+
+
+def test_deterministic_context_turns_ask_into_act_only_with_v2_and_broad_scope() -> None:
+    q = "¿Cómo va el DOSA en todas las competiciones?"
+    base = Rec([LLMResponse(OFF_TOPIC_MESSAGE, [])])
+    legacy = ask(base, q, [Turn("¿Cómo va la tercera división?", "…")], arch="legacy", context_mode="deterministic")
+    assert legacy.run is not None and legacy.run.context["status"] == "ask"
+    llm = Rec([call("club_overview", name="DOSA", results=True), LLMResponse("ok", [])])
+    res = ask(llm, q, [Turn("¿Cómo va la tercera división?", "…")], context_mode="deterministic")
+    assert res.run is not None and res.run.context["status"] == "act" and res.run.context["reason"] == "alcance amplio explícito"
+    assert "Alcance amplio" in last_user(llm) and res.tool_calls == 1 and res.answer == "ok"
+
+
+def test_deterministic_context_second_scope_question_assumes_and_declares() -> None:
+    q = "¿Cómo va el DOSA?"
+    first = ask(Rec([LLMResponse(OFF_TOPIC_MESSAGE, [])]), q, [Turn("¿Cómo va la tercera división?", "…")], context_mode="deterministic")
+    assert first.run is not None and first.run.context["status"] == "ask" and first.state is not None
+    llm = Rec([call("club_overview", name="DOSA", results=True), LLMResponse("Va bien.", [])])
+    agent = Agent(llm, FakeMcp(), 8, router_shadow=False, arch="v2", v2_registry=Stub(), context_mode="deterministic")
+    hist = [Turn("¿Cómo va la tercera división?", "…"), Turn(q, first.answer or "¿A cuál de estas competiciones te refieres?")]
+    res = asyncio.run(agent.run("el dosa, no sé", hist, state=first.state))
+    assert res.run is not None and res.run.context["status"] in ("assume", "act")
+
+
+# --- 5. premisas y sugerencias -----------------------------------------------------------------------------------------------------
+def test_premise_note_forces_verification() -> None:
+    llm = Rec([call("find_player", name="Pablo Quintanar"), LLMResponse("No consta.", [])])
+    ask(llm, "Creo que juega en el san Felipe Neri", [Turn("¿En qué equipo juega Pablo Quintanar?", "En Móstoles FS.")])
+    note = last_user(llm)
+    assert "Creo que juega en el san Felipe Neri" in note and "compruébalo con las herramientas" in note and "no lo confirma" in note
+    plain = Rec([LLMResponse(OFF_TOPIC_MESSAGE, [])] * 3)
+    ask(plain, "¿En qué equipo juega Pablo Quintanar?")
+    assert "El usuario afirma" not in last_user(plain)
+
+
+@pytest.mark.parametrize("text", ["Me han dicho que el Parla ganó", "¿No es verdad que el Parla ganó?", "Tengo entendido que Ramos pita en juvenil"])
+def test_premise_patterns(text: str) -> None:
+    llm = Rec([LLMResponse(OFF_TOPIC_MESSAGE, [])] * 3)
+    ask(llm, text)
+    assert "El usuario afirma" in last_user(llm)
+
+
+def test_suggestions_without_items_get_the_mandatory_note() -> None:
+    body = {"items": [], "count": 0, "shown": 0, "notes": ["no figura; nombres parecidos: X"], "freshness": None,
+            "suggestions": [{"ref": "player:1", "name": "X", "similarity": 0.5}]}
+    llm = Rec([call("find_official", name="Álvaro Bermejo Suárez"), LLMResponse("No figura.", [])])
+    ask(llm, "¿Qué partidos ha pitado el árbitro Álvaro Bermejo Suárez?", reg=Stub({"find_official": body}))
+    sent = json.loads(next(m for m in llm.seen[1] if m.role == "tool").tool_results[0].content)
+    assert SUGGESTION_NOTE in sent["notes"] and sent["suggestions"][0]["name"] == "X"
+    with_items = {**body, "items": [{"name": "Y"}], "count": 1, "shown": 1}
+    llm2 = Rec([call("find_official", name="Y"), LLMResponse("ok", [])])
+    ask(llm2, "¿Qué partidos ha pitado el árbitro Y?", reg=Stub({"find_official": with_items}))
+    assert SUGGESTION_NOTE not in next(m for m in llm2.seen[1] if m.role == "tool").tool_results[0].content
+
+
+# --- 6. servidor MCP v2 ------------------------------------------------------------------------------------------------------------
+def test_mcp_v2_server_lists_the_registry_and_runs_a_call(monkeypatch: pytest.MonkeyPatch) -> None:
+    canned = {"items": [{"rank": 1, "team": "X"}], "count": 1, "shown": 1, "notes": [], "freshness": None}
+    monkeypatch.setattr(q, "build_scope", lambda *a, **k: None)
+    monkeypatch.setattr(q, "teams_ranking", lambda db, scope, metric, order, min_played, limit: {**canned, "metric": metric})
+    server = create_server(V2Registry(lambda: nullcontext()))  # type: ignore[arg-type, return-value]
+    tools = asyncio.run(server.list_tools())
+    assert {t.name for t in tools} == V2_TOOLS
+    assert all(t.description and t.inputSchema.get("properties") is not None for t in tools)
+    out = asyncio.run(server.call_tool("teams_ranking", {"metric": "goals_for"}))
+    payload = out[1] if isinstance(out, tuple) else out
+    assert isinstance(payload, dict) and payload["items"][0]["rank"] == 1 and payload["metric"] == "goals_for"
+
+
+def test_insistent_clarification_is_counted_in_the_trace() -> None:
+    llm = Rec([LLMResponse(CLARIFY, [])] * 6)
+    res = ask(llm, "Dime todos los partidos del sábado 14 de noviembre")
+    assert res.run is not None and res.run.context["v2"]["clarification_blocked"] == 2 and res.run.context["v2"]["clarify_insisted"] >= 1
+
+
+def test_every_list_tool_accepts_limit() -> None:
+    for t in Stub().tool_defs():
+        assert t["input_schema"]["properties"]["limit"]["maximum"] == 100, t["name"]

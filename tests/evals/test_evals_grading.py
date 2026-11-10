@@ -253,3 +253,18 @@ def test_labelled_set_covers_every_verdict_and_class(world: World) -> None:
     assert {i.klass for i in items} == {None, "presentation", "interpretation", "critical"}
     notes = " ".join(i.note for i in items)
     assert "homónimo" in notes and "otra categoría" in notes  # contaminación entre homónimos y entre categorías/temporadas
+
+
+def test_score_range_in_a_document_reference_is_not_a_score() -> None:
+    """«páginas 1-2» o «Reglas 12-13» no son un marcador (corrección de `criteria._score_matches`): no hay «incompatible con la fuente oficial»."""
+    from futsal.evals.selector import ResolvedTurn
+
+    turn = ResolvedTurn(user="¿Cómo quedó el partido?", behavior="answer", facts=[{"kind": "score", "value": "3-1"}])
+    payloads = [match_payload("A", "B", 3, 1)]
+    for text in ("Según las páginas 1-2 del acta, acabó 3-1.", "Consulta las Reglas 12-13: el resultado fue 3-1."):
+        g = grade_turn(turn, text, LM, payloads, 2, [])
+        assert not [r for r in g.reasons if "incompatible" in r], g.reasons
+    only_reference = grade_turn(turn, "Consulta las páginas 1-2 del acta.", LM, payloads, 2, [])
+    assert not [r for r in only_reference.reasons if "incompatible" in r] and only_reference.verdict != "correct"
+    wrong = grade_turn(turn, "Acabó 2-0 (páginas 1-2).", LM, payloads, 2, [])
+    assert wrong.verdict == "critical" and any("incompatible" in r for r in wrong.reasons)

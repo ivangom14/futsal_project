@@ -6,7 +6,7 @@ import logging
 import re
 import time
 from collections.abc import Callable, Sequence
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass, field, replace
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -53,7 +53,10 @@ from futsal.domain.competitions import (
     scope_note,
     scope_resolved,
 )
-from futsal.agent.prompts import COMPACT, LEGACY, MODES, PromptSet, compact_prompts
+from futsal.agent.prompts import COMPACT, LEGACY, MODES, MODULE_V2, PromptSet, compact_prompts
+from futsal.agent.v2 import rules as v2rules
+from futsal.agent.v2.registry import V2Registry, default_registry
+from futsal.domain.dates import parse_date_hint
 from futsal.agent import telemetry
 from futsal.agent.entities import TeamCatalog, decide, normalize, standings_only
 from futsal.agent.reconcile import to_madrid_iso
@@ -188,6 +191,15 @@ def resolve_prompt_mode(explicit: str | None = None) -> str:
     """`AGENT_PROMPT_MODE` (`legacy` por defecto). Un valor desconocido se trata como `legacy`: nunca rompe el arranque."""
     mode = (explicit or env_value("AGENT_PROMPT_MODE", LEGACY)).strip().lower()
     return mode if mode in MODES else LEGACY
+
+
+ARCHS = ("legacy", "v2")
+
+
+def resolve_arch(explicit: str | None = None) -> str:
+    """`AGENT_ARCH=legacy|v2` (`legacy` por defecto). Un valor desconocido cuenta como `legacy`: nunca activa v2 por error."""
+    value = (explicit or env_value("AGENT_ARCH", "legacy")).strip().lower()
+    return value if value in ARCHS else "legacy"
 
 
 UNKNOWN_ID_MESSAGE = (
@@ -438,8 +450,14 @@ class Agent:
                  history_turns: int = DEFAULT_MAX_TURNS, history_chars: int = DEFAULT_MAX_CHARS,
                  aliases: dict[str, Any] | None = None, router_shadow: bool | None = None,
                  prompt_mode: str | None = None, prefetch: str | None = None, tools_mode: str | None = None,
-                 tier0: str | None = None, group_repair: str | None = None, context_mode: str | None = None) -> None:
+                 tier0: str | None = None, group_repair: str | None = None, context_mode: str | None = None,
+                 arch: str | None = None, v2_registry: V2Registry | None = None) -> None:
         self._llm = llm
+        self._arch = resolve_arch(arch)  # legacy | v2 (ver `agent/v2`): con legacy no cambia nada
+        self._v2 = self._arch == "v2"
+        self._v2_registry: V2Registry | None = (v2_registry or default_registry()) if self._v2 else None
+        self._broad = False  # v2: la pregunta pide alcance amplio
+        self._date_hint: Any = None  # v2: interpretación de fechas de ESTA pregunta
         self._ctx_mode = resolve_context_mode(context_mode)  # legacy | deterministic | llm (ver `context.py`)
         self._ctx_on = self._ctx_mode != "legacy"
         self._ctx_engine: ContextEngine | None = None
@@ -457,6 +475,8 @@ class Agent:
         self._aliases = aliases if aliases is not None else load_aliases()
         self._prompt_mode = resolve_prompt_mode(prompt_mode)  # Fase 1: textos que se envían al LLM (legacy = comportamiento anterior)
         self._prompts = PROMPT_SETS[self._prompt_mode]
+        if self._v2:
+            self._prompts = replace(self._prompts, system=self._prompts.system + MODULE_V2)
         self._tools_mode = resolve_tools_mode(tools_mode)  # Fase E: subconjunto de herramientas por pregunta (full por defecto)
         self._active_tools: list[dict[str, Any]] | None = None
         self._clock: Callable[[], datetime] = lambda: datetime.now(UTC)  # reloj de la frescura del Tier 0 (los tests lo sustituyen)
@@ -610,12 +630,12 @@ class Agent:
             stored = ConversationState.from_dict(self._state_in)
             state = stored if stored is not None and is_current(stored, turns) else engine.rebuild(turns, focus)
             info["state"] = "stored" if state is stored else "rebuilt"
-            und = engine.understand(effective, question, state, has_history=bool(turns))
+            und = engine.understand(effective, question, state, has_history=bool(turns), **self._v2_ctx(effective))
             info["deterministic"] = und.to_dict()
             if self._ctx_mode == "llm" and und.trigger:
                 interp = await self._interpret(engine, effective, turns, state, und, rec, info, log)
                 if interp is not None:
-                    und = engine.understand(effective, question, state, has_history=bool(turns), interp=interp)
+                    und = engine.understand(effective, question, state, has_history=bool(turns), interp=interp, **self._v2_ctx(effective))
                     und.interpreter = interp.to_dict()
                     if not interp.on_topic and und.status == "none":
                         und.offtopic_confirmed = True
@@ -810,7 +830,7 @@ class Agent:
         result = AgentResult("", 0)
         rec = RunRecord(question=question, provider=getattr(self._llm, "provider", None),
                         model=getattr(self._llm, "model", None), max_tool_calls=self._max, conversation_id=conversation_id,
-                        prompt_mode=self._prompt_mode)
+                        prompt_mode=self._prompt_mode, arch=self._arch)
         result.run = rec
         started = time.perf_counter()
 
@@ -837,6 +857,8 @@ class Agent:
                     log: Callable[[str], None]) -> None:
         if self._tools is None:
             self._tools = slim_tools(await self._mcp.list_tools())
+            if self._v2_registry is not None:
+                self._tools = [*self._tools, *slim_tools(self._v2_registry.tool_defs())]
         system = await self._system_prompt(rec)
         rec.prefix_chars = {"system_prompt": len(self._prompts.system), "context": len(system) - len(self._prompts.system),
                             "tools": len(json.dumps(self._tools, ensure_ascii=False, separators=(",", ":")))}
@@ -844,7 +866,7 @@ class Agent:
         all_turns = list(turns)  # el estado conversacional se deriva del historial COMPLETO (resolve_pending retira del historial la pregunta que una aclaración responde)
         turns, effective, merged = resolve_pending(turns, question)
         self._active_tools = self._tools
-        if self._tools_mode == "dynamic":
+        if self._tools_mode == "dynamic" and not self._v2:  # con v2 las herramientas nuevas se ofrecen siempre
             try:
                 sel = select_tools(effective, has_context=bool(turns) or bool(focus))
                 self._active_tools = filter_tools(self._tools, sel)
@@ -865,6 +887,8 @@ class Agent:
             note = await self._understand(all_turns, effective, question, focus, result, rec, log)
         else:
             note = self._resolve_scope(turns, effective, result) + focus_note(focus, self._other_groups(focus))
+        if self._v2:
+            note += self._v2_notes(effective, result, rec, log)
         messages = [*history_messages(turns), Message("user", effective + note)]
         n_hist = len(messages) - 1
         self._shadow_route(rec, effective, turns, focus)
@@ -873,6 +897,7 @@ class Agent:
         self._teams, self._rounds = set(self._ctx_teams), set(self._ctx_rounds)
         self._ambiguous, self._seen, self._team_groups = set(), {}, {}
         nudged = False
+        v2_nudges = 0
         recovery = 0
         log(f"USER\n{question}" + (f"\n→ interpretada como: {effective}" if merged else ""))
         if await self._tier0(effective, turns, focus, result, rec, log):
@@ -920,6 +945,19 @@ class Agent:
                 if verdict in ("revise", "plan"):
                     recovery = 1 if verdict == "revise" else 2
                     continue
+            if (self._v2 and not resp.tool_calls and result.tool_calls == 0 and v2_nudges >= 2
+                    and (self._broad or self._repeated_clarification(all_turns)) and asks_scope_clarification(resp.text, self._catalog, ctx)):
+                info = self._v2_trace(rec)  # el LLM insiste tras los empujones: se conserva su texto y se anota para la evaluación
+                info["clarify_insisted"] = info.get("clarify_insisted", 0) + 1
+            if (self._v2 and not resp.tool_calls and result.tool_calls == 0 and v2_nudges < 2
+                    and (self._broad or self._repeated_clarification(all_turns)) and asks_scope_clarification(resp.text, self._catalog, ctx)):
+                # v2: con alcance amplio, o con una aclaración de ámbito ya hecha en el turno anterior, no se vuelve a preguntar: se actúa con las herramientas v2.
+                v2_nudges += 1
+                rec.raw_answer = redact(resp.text.strip()[:300])
+                messages += [Message("assistant", resp.text), Message("user", v2rules.BROAD_ACT_MESSAGE)]
+                self._v2_trace(rec)["clarification_blocked"] = v2_nudges
+                log("GUARDRAIL\n→ v2: aclaración de ámbito prohibida (alcance amplio o aclaración repetida): se pide actuar con las herramientas v2")
+                continue
             if (not resp.tool_calls and result.tool_calls == 0 and self._ambiguous_scope(ctx)
                     and asks_scope_clarification(resp.text, self._catalog, ctx)):
                 if turns and not nudged and user_gave_scope(turns):
@@ -986,6 +1024,51 @@ class Agent:
             results = await self._execute_batch(resp.tool_calls, result, rec, call_no, log)
             messages.append(Message("tool", tool_results=results))
 
+    async def _call(self, name: str, args: dict[str, Any]) -> tuple[bool, str]:
+        """Herramienta v2 en proceso (con v2) o MCP, como siempre."""
+        if self._v2_registry is not None and self._v2_registry.handles(name):
+            return await self._v2_registry.call(name, args)
+        return await self._mcp.call_tool(name, args)
+
+    def _v2_trace(self, rec: RunRecord) -> dict[str, Any]:
+        if rec.context is None:
+            rec.context = {}
+        out: dict[str, Any] = rec.context.setdefault("v2", {})
+        return out
+
+    def _v2_ctx(self, effective: str) -> dict[str, Any]:
+        return {"v2": True, "broad_scope": v2rules.wants_broad_scope(effective)} if self._v2 else {}
+
+    def _repeated_clarification(self, turns: Sequence[Turn]) -> bool:
+        """v2: el turno anterior del asistente ya fue una aclaración de ámbito (nunca dos seguidas sobre lo mismo)."""
+        return bool(turns) and asks_scope_clarification(turns[-1].answer, self._catalog, self._question)
+
+    def _v2_notes(self, effective: str, result: AgentResult, rec: RunRecord, log: Callable[[str], None]) -> str:
+        """Notas de la aplicación v2: alcance amplio, fechas y premisas del usuario."""
+        info = self._v2_trace(rec)
+        out = ""
+        self._broad = v2rules.wants_broad_scope(effective)
+        self._date_hint = parse_date_hint(effective, self._clock)
+        if self._broad:
+            info["broad_scope"] = True
+            out += v2rules.BROAD_NOTE
+        if self._date_hint is not None:
+            info["date_hint"] = {"phrase": self._date_hint.phrase, "from": str(self._date_hint.date_from), "to": str(self._date_hint.date_to)}
+            out += v2rules.date_note(self._date_hint)
+        claim = v2rules.premise_of(effective)
+        if claim:
+            info["premise"] = claim
+            out += v2rules.premise_note(claim)
+        if out:
+            log(f"V2\n→ notas: {', '.join(k for k in ('broad_scope', 'date_hint', 'premise') if k in info)}")
+        return out
+
+    def _v2_repair(self, call: ToolCall) -> tuple[ToolCall, dict[str, Any] | None]:
+        if call.name != "matches_by_date" or self._date_hint is None:
+            return call, None
+        args, why = v2rules.repair_matches_args(call.arguments, self._date_hint)
+        return (ToolCall(call.id, call.name, args, call.signature), why) if why else (call, None)
+
     def _batch_independent(self, calls: Sequence[ToolCall]) -> bool:
         """Regla de paralelismo. Hoy, en secuencial, una llamada puede depender de sus hermanas de la misma respuesta (un `team_id`/`round_id` que mostró la
         anterior, la reparación de `group_id`, la reutilización de una llamada idéntica). Solo se ejecutan en paralelo las llamadas del MCP cuando NINGUNA
@@ -1008,7 +1091,7 @@ class Agent:
         async def fetch(c: ToolCall) -> tuple[bool, str, float]:
             t0 = time.perf_counter()
             try:
-                is_error, text = await self._mcp.call_tool(c.name, c.arguments)
+                is_error, text = await self._call(c.name, c.arguments)
             except Exception as exc:  # igual que en _execute
                 is_error, text = True, f"error_dependencia: {type(exc).__name__}"
             return is_error, text, _ms(t0)
@@ -1260,7 +1343,11 @@ class Agent:
         t0 = time.perf_counter()
         original_args = dict(call.arguments)  # lo que envió el modelo: se conserva siempre, aparte de lo que se ejecuta
         call, repaired = self._repair_group(call)
-        if repaired:
+        if self._v2 and repaired is None:
+            call, repaired = self._v2_repair(call)
+        if repaired and repaired.get("source") == "dates":
+            log(f"→ fechas de matches_by_date corregidas con la interpretación de «{repaired['phrase']}»: {repaired['value']}")
+        elif repaired:
             log(f"→ group_id omitido por el modelo: completado con {repaired['value']} (equipo {repaired['team_id']} en un único grupo según {repaired['source']})")
         key = f"{call.name}:{json.dumps(call.arguments, sort_keys=True)}"
         refusal = self._refusal(call)
@@ -1281,7 +1368,7 @@ class Agent:
             is_error, text, duration = fetched
         else:
             try:
-                is_error, text = await self._mcp.call_tool(call.name, call.arguments)
+                is_error, text = await self._call(call.name, call.arguments)
             except Exception as exc:  # el error vuelve al LLM, no rompe el ciclo
                 is_error, text = True, f"error_dependencia: {type(exc).__name__}"
             duration = _ms(t0)
@@ -1289,6 +1376,8 @@ class Agent:
             self._record_evidence(call, text, result)
         if not is_error and call.name == "find_teams":
             text = self._scope_filter(text)
+        if not is_error and self._v2 and call.name in v2rules.SUGGESTION_TOOLS:
+            text = v2rules.add_suggestion_note(text)
         if not is_error and call.name in VISUAL_TOOLS:
             text = self._visual_note(call, text)
         if not is_error and call.name in ("get_scorer_table", "get_standings"):

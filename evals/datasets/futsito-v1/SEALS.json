@@ -38,6 +38,12 @@
   "s9_documentales.holdout.yaml": {
    "sha256": "c81cea1cf0f7314c8d0d4d8c2e17121b63bca983d0984ca5b07e96634bdc065f",
    "cases": 6
+  },
+  "s10_multiambito.holdout.yaml": {
+   "sha256": "1be35a1d8f3745e34392e554e9a65ec126664941cce02017e402de7a8549a67d",
+   "cases": 18,
+   "sealed_at": "2026-11-09T22:42:15+00:00",
+   "note": "estrato S10 añadido tras el cierre de v1; los sellos de S1-S9 no se han tocado"
   }
  }
 }

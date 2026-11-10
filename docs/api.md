@@ -84,3 +84,29 @@ ni importan (eso sigue en la CLI). Siempre se usa la **última observación** de
 - Árbitros: `officials` con nombre y rol tal cual figuran en el acta (la exclusión de la Fase 1 afectaba solo al listado de
   jornadas, que no los trae; el acta sí los trae y ya estaban almacenados en `match_officials`).
 - Errores: 404 grupo/equipo/jornada/partido/jugador inexistente; 400 parámetros inválidos (`limit`, `event_type`, `sections`, `name`).
+
+
+## API v2 — consultas sin grupo (T09, primera entrega) — prefijo `/v2`
+Código: `src/futsal/api/v2/` (`routes.py`, `names.py`) y `src/futsal/repositories/v2_queries.py`. Solo lectura; la v1 no cambia.
+Contrato común de **todas** las respuestas: `items`, `count` (total de coincidencias), `shown` (filas devueltas), `notes` (avisos: lista de
+textos) y `freshness` (máxima fecha de captura válida implicada, ISO UTC; `null` si no consta), más `season` (`ref` y `label`).
+Referencias opacas con IDs internos, nunca de la RFFM: `team:`, `group:`, `comp:`, `match:`, `player:`, `club:` (solo con código oficial), `season:`.
+Filtros comunes (opcionales): `season` (`season:<id>`, `<id>` o etiqueta; por defecto la marcada `is_current` o, si no hay, la que tiene más
+partidos recientes, y se dice en `notes`), `category`, `gender` (`male|female|mixed`, también `masculino|femenino|mixto`), `competition`
+(`comp:<id>` o palabras del nombre), `limit` (1-100, def. 20). Categoría y género salen de la clasificación del catálogo (0007) cuando la
+competición está `auto|confirmed`; si no, se deducen del nombre y `notes` lo avisa. Errores: **422** (también tipo/rango) y nunca 500 por un
+nombre raro: los nombres se reducen a palabras `[a-z0-9]` sin acentos; sin ninguna, 422.
+
+| Ruta | Notas |
+|---|---|
+| `GET /v2/players?name=` | todos los grupos; palabras completas en cualquier orden y sin acentos («Pablo silvosa» = «SILVOSA PEREZ, PABLO»). Un item por jugador y equipo: `matches_in_reports`, `goals_in_reports` y `official` (`listed` con goles/partidos de la última tabla oficial `ok`, `not_listed` o `no_table`). Sin coincidencia exacta: `items: []`, `suggestions` (≤ 5, `similarity` de pg_trgm ≥ 0,3) y nota «no figura; nombres parecidos: …»; una sugerencia nunca se presenta como el jugador pedido |
+| `GET /v2/officials?name=` | árbitros por `match_officials.display_name`: `roles` (conteo por rol), `matches`, `competitions`, `groups`; `include=matches` añade `matches_list` (fecha y hora de Europe/Madrid, local, visitante, resultado, competición, grupo; máx. 100). Mismas sugerencias que jugadores |
+| `GET /v2/officials/ranking?role=ARBITRO` | árbitros con más partidos con ese rol en actas almacenadas (nota de cobertura de actas) |
+| `GET /v2/matches` | `date_from`, `date_to` (AAAA-MM-DD), `time_from`, `time_to` (HH:MM), todo en Europe/Madrid (BD en UTC; respeta el cambio de hora), `venue`, `status`, `order=asc|desc`. Cada item: `date`, `time`, `local_datetime` (con desfase), competición, grupo, local, visitante, `score`, `status`, `has_report`. «Tarde»/«mañana» los interpreta el agente, no esta API |
+| `GET /v2/clubs/search?name=` | equipos agrupados por nombre base normalizado (sin A/B/C, «club», «C.F.S.», «F.S.», puntuación) en todas las competiciones, con competición, grupo, categoría, género y `standing` oficial si lo hay. `club_link: "name_match"` + nota «agrupado por nombre; pendiente de confirmar con el código oficial de club»; `"official"` + `club_ref` solo si `team_entities.club_id` existe. Varios nombres base distintos → `ambiguous: true` en cada candidato |
+| `GET /v2/clubs/results?name=` | partidos finalizados de todos los equipos de la búsqueda, por equipo (y su competición), con `summary` (played, won, drawn, lost, goals_for, goals_against); `results` máx. 50 por equipo, más recientes primero |
+| `GET /v2/rankings/scorers?competition_kind=league` | agrega las últimas tablas oficiales `ok` de todos los grupos del filtro (`competition_kind=all` quita el tipo); orden por goles y, a igualdad, nombre. Excluye competiciones con categoría `unknown` y lo dice en `notes` junto con «compara grupos distintos con diferente número de jornadas jugadas» |
+| `GET /v2/rankings/teams?metric=` | `goals_for`, `goals_against` (menos primero por defecto), `wins`, `points_per_game` (3-1-0) desde partidos finalizados; `order=asc|desc` y `min_played` opcionales; misma nota y exclusión |
+
+Pruebas: `tests/test_api_v2_unit.py` (normalización, nombre base de club, validación) y `tests/integration/test_api_v2_pg.py` (PG desechable).
+Sin migraciones ni índices nuevos: con 3.640 partidos, 2.400 actas y 58.000 participaciones sintéticas cada ruta respondió en < 110 ms (mediana).

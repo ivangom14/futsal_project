@@ -1,0 +1,78 @@
+# Futsito-Eval v1 · S9 · casuísticas adicionales (dev). Formato: docs/v2/evaluation.md §3.
+# Erratas, mayúsculas, ruido y emojis, cambio de idioma, preguntas sobre el bot, horarios y zonas horarias, aplazados, suspendidos,
+# jornada en curso, acta sin cerrar y equipo retirado. Los casos que dependen de datos que el snapshot no tiene quedan «no evaluables».
+
+- id: s9_extra_ingles_mitad
+  stratum: S9
+  holdout: false
+  requires: ["kb:fifa-futsal-laws-2025-26"]
+  capability: v1
+  select: {}
+  turns:
+    - user: "How long is each half in a futsal match?"
+      expect:
+        behavior: "answer"
+        facts: [{"kind": "text_any", "any": ["20 minutos", "20 minutes", "veinte"]}]
+        tools: {"needed": ["search_rules"], "allowed": ["search_rules"]}
+        source: "rules"
+        max_llm_calls: 4
+
+- id: s9_extra_catalan_mitad
+  stratum: S9
+  holdout: false
+  requires: ["kb:fifa-futsal-laws-2025-26"]
+  capability: v1
+  select: {}
+  turns:
+    - user: "Quant dura cada part d'un partit de futbol sala?"
+      expect:
+        behavior: "answer"
+        facts: [{"kind": "text_any", "any": ["20 minuts", "20 minutos", "veinte"]}]
+        tools: {"needed": ["search_rules"], "allowed": ["search_rules"]}
+        source: "rules"
+        max_llm_calls: 4
+
+- id: s9_extra_mayusculas_faltas
+  stratum: S9
+  holdout: false
+  requires: ["kb:fifa-futsal-laws-2025-26"]
+  capability: v1
+  select: {}
+  turns:
+    - user: "¿CUÁNTAS FALTAS ACUMULADAS HAY ANTES DEL TIRO LIBRE SIN BARRERA?"
+      expect:
+        behavior: "answer"
+        facts: [{"kind": "text_any", "any": ["sexta", "seis", "6"]}]
+        tools: {"needed": ["search_rules"], "allowed": ["search_rules"]}
+        source: "rules"
+        max_llm_calls: 4
+
+- id: s9_extra_ruido_tiempo_muerto
+  stratum: S9
+  holdout: false
+  requires: ["kb:fifa-futsal-laws-2025-26"]
+  capability: v1
+  select: {}
+  turns:
+    - user: "⚽🙏 ¿¿cuanto dura el tiempo muerto?? plis"
+      expect:
+        behavior: "answer"
+        facts: [{"kind": "text_any", "any": ["un minuto", "1 minuto", "60 segundos"]}]
+        tools: {"needed": ["search_rules"], "allowed": ["search_rules"]}
+        source: "rules"
+        max_llm_calls: 4
+
+- id: s9_extra_dos_intenciones
+  stratum: S9
+  holdout: false
+  requires: ["kb:fifa-futsal-laws-2025-26"]
+  capability: v1
+  select: {}
+  turns:
+    - user: "¿Cuánto dura cada mitad y cuánto dura el tiempo muerto?"
+      expect:
+        behavior: "answer"
+        facts: [{"kind": "text_any", "any": ["20 minutos", "veinte"]}, {"kind": "text_any", "any": ["un minuto", "1 minuto", "60 segundos"]}]
+        tools: {"needed": ["search_rules"], "allowed": ["search_rules"]}
+        source: "rules"
+        max_llm_calls: 4

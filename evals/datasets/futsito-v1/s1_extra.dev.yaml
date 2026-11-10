@@ -1,0 +1,192 @@
+# Futsito-Eval v1 · S1 · casuísticas adicionales (dev). Formato: docs/v2/evaluation.md §3.
+# Erratas, mayúsculas, ruido y emojis, cambio de idioma, preguntas sobre el bot, horarios y zonas horarias, aplazados, suspendidos,
+# jornada en curso, acta sin cerrar y equipo retirado. Los casos que dependen de datos que el snapshot no tiene quedan «no evaluables».
+
+- id: s1_extra_errata_puntos
+  stratum: S1
+  holdout: false
+  requires: ["standings"]
+  capability: v1
+  select:
+    team: {"kind": "team", "unique_in_snapshot": true, "with": ["standings"]}
+  turns:
+    - user: "cuantos putnos tiene {team.name}"
+      expect:
+        behavior: "answer"
+        facts: [{"kind": "number", "value": "{team.points}", "label": "puntos"}]
+        tools: {"needed": ["get_standings"], "allowed": ["find_teams", "get_data_freshness", "get_standings", "list_competitions", "list_groups", "list_matches", "list_rounds", "list_teams"]}
+        source: "official_table"
+        max_llm_calls: 5
+
+- id: s1_extra_mayusculas
+  stratum: S1
+  holdout: false
+  requires: ["standings"]
+  capability: v1
+  select:
+    team: {"kind": "team", "unique_in_snapshot": true, "with": ["standings"]}
+  turns:
+    - user: "CUÁNTOS PUNTOS TIENE {team.name|upper}?"
+      expect:
+        behavior: "answer"
+        facts: [{"kind": "number", "value": "{team.points}", "label": "puntos"}]
+        tools: {"needed": ["get_standings"], "allowed": ["find_teams", "get_data_freshness", "get_standings", "list_competitions", "list_groups", "list_matches", "list_rounds", "list_teams"]}
+        source: "official_table"
+        max_llm_calls: 5
+
+- id: s1_extra_minusculas_sin_signos
+  stratum: S1
+  holdout: false
+  requires: ["standings"]
+  capability: v1
+  select:
+    team: {"kind": "team", "unique_in_snapshot": true, "with": ["standings"]}
+  turns:
+    - user: "como va {team.name|lower|unaccent|nopunct} en la clasificacion"
+      expect:
+        behavior: "answer"
+        facts: [{"kind": "position", "value": "{team.position}", "team": "{team.name}", "label": "posición"}]
+        tools: {"needed": ["get_standings"], "allowed": ["find_teams", "get_data_freshness", "get_standings", "list_competitions", "list_groups", "list_matches", "list_rounds", "list_teams"]}
+        source: "official_table"
+        max_llm_calls: 5
+
+- id: s1_extra_emoji_ruido
+  stratum: S1
+  holdout: false
+  requires: ["standings"]
+  capability: v1
+  select:
+    team: {"kind": "team", "unique_in_snapshot": true, "with": ["standings"]}
+  turns:
+    - user: "👋👋 holaaa!! ¿cuántos puntos tiene {team.name}? 🙏🙏🙏 gracias!!! ⚽"
+      expect:
+        behavior: "answer"
+        facts: [{"kind": "number", "value": "{team.points}", "label": "puntos"}]
+        tools: {"needed": ["get_standings"], "allowed": ["find_teams", "get_data_freshness", "get_standings", "list_competitions", "list_groups", "list_matches", "list_rounds", "list_teams"]}
+        source: "official_table"
+        max_llm_calls: 5
+
+- id: s1_extra_telegrafico
+  stratum: S1
+  holdout: false
+  requires: ["standings"]
+  capability: v1
+  select:
+    team: {"kind": "team", "unique_in_snapshot": true, "with": ["standings"]}
+  turns:
+    - user: "posición {team.name}"
+      expect:
+        behavior: "answer"
+        facts: [{"kind": "position", "value": "{team.position}", "team": "{team.name}", "label": "posición"}]
+        tools: {"needed": ["get_standings"], "allowed": ["find_teams", "get_data_freshness", "get_standings", "list_competitions", "list_groups", "list_matches", "list_rounds", "list_teams"]}
+        source: "official_table"
+        max_llm_calls: 5
+
+- id: s1_extra_ingles_puntos
+  stratum: S1
+  holdout: false
+  requires: ["standings"]
+  capability: v1
+  select:
+    team: {"kind": "team", "unique_in_snapshot": true, "with": ["standings"]}
+  turns:
+    - user: "How many points does {team.name} have?"
+      expect:
+        behavior: "answer"
+        facts: [{"kind": "number", "value": "{team.points}", "label": "puntos"}]
+        tools: {"needed": ["get_standings"], "allowed": ["find_teams", "get_data_freshness", "get_standings", "list_competitions", "list_groups", "list_matches", "list_rounds", "list_teams"]}
+        source: "official_table"
+        max_llm_calls: 5
+
+- id: s1_extra_catalan_puntos
+  stratum: S1
+  holdout: false
+  requires: ["standings"]
+  capability: v1
+  select:
+    team: {"kind": "team", "unique_in_snapshot": true, "with": ["standings"]}
+  turns:
+    - user: "Quants punts té {team.name}?"
+      expect:
+        behavior: "answer"
+        facts: [{"kind": "number", "value": "{team.points}", "label": "puntos"}]
+        tools: {"needed": ["get_standings"], "allowed": ["find_teams", "get_data_freshness", "get_standings", "list_competitions", "list_groups", "list_matches", "list_rounds", "list_teams"]}
+        source: "official_table"
+        max_llm_calls: 5
+
+- id: s1_extra_catalan_ultimo
+  stratum: S1
+  holdout: false
+  requires: ["results"]
+  capability: v1
+  select:
+    team: {"kind": "team", "unique_in_snapshot": true, "with": ["standings", "finished"]}
+  turns:
+    - user: "Quin va ser l'últim resultat de {team.name}?"
+      expect:
+        behavior: "answer"
+        facts: [{"kind": "score", "value": "{team.last_match.score}"}]
+        tools: {"needed": ["list_matches"], "allowed": ["find_teams", "get_data_freshness", "get_standings", "list_competitions", "list_groups", "list_matches", "list_rounds", "list_teams"]}
+        max_llm_calls: 5
+
+- id: s1_extra_ingles_rival
+  stratum: S1
+  holdout: false
+  requires: ["calendar", "standings"]
+  capability: v1
+  select:
+    team: {"kind": "team", "unique_in_snapshot": true, "with": ["standings", "pending"]}
+  turns:
+    - user: "Who does {team.name} play next?"
+      expect:
+        behavior: "answer"
+        facts: [{"kind": "name", "value": "{team.next_match.rival}"}]
+        tools: {"needed": ["list_matches"], "allowed": ["find_teams", "get_data_freshness", "get_standings", "list_competitions", "list_groups", "list_matches", "list_rounds", "list_teams"]}
+        max_llm_calls: 5
+
+- id: s1_extra_horario_proximo
+  stratum: S1
+  holdout: false
+  requires: ["calendar", "match_times"]
+  capability: v1
+  select:
+    team: {"kind": "team", "unique_in_snapshot": true, "with": ["pending"], "where": {"next_has_time": "==1"}}
+  turns:
+    - user: "¿A qué hora juega {team.name} su próximo partido?"
+      expect:
+        behavior: "answer"
+        facts: [{"kind": "text_any", "any": ["{team.next_match.time}"]}]
+        tools: {"needed": ["list_matches"], "allowed": ["find_teams", "get_data_freshness", "get_standings", "list_competitions", "list_groups", "list_matches", "list_rounds", "list_teams"]}
+        max_llm_calls: 5
+
+- id: s1_extra_hora_canarias
+  stratum: S1
+  holdout: false
+  requires: ["calendar", "match_times"]
+  capability: v1
+  select:
+    team: {"kind": "team", "unique_in_snapshot": true, "with": ["pending"], "where": {"next_has_time": "==1"}}
+  turns:
+    - user: "Estoy en Canarias: ¿a qué hora empieza el próximo partido de {team.name}?"
+      expect:
+        behavior: "answer"
+        facts: [{"kind": "text_any", "any": ["{team.next_match.time_canarias}", "{team.next_match.time}"]}]
+        tools: {"needed": ["list_matches"], "allowed": ["find_teams", "get_data_freshness", "get_standings", "list_competitions", "list_groups", "list_matches", "list_rounds", "list_teams"]}
+        note: "la federación publica la hora de Madrid; en Canarias es una hora menos: vale dar la hora de Madrid o la de Canarias si lo explica"
+        max_llm_calls: 5
+
+- id: s1_extra_dos_intenciones
+  stratum: S1
+  holdout: false
+  requires: ["standings", "calendar"]
+  capability: v1
+  select:
+    team: {"kind": "team", "unique_in_snapshot": true, "with": ["standings", "pending"]}
+  turns:
+    - user: "¿Cuántos puntos tiene {team.name} y contra quién juega el próximo partido?"
+      expect:
+        behavior: "answer"
+        facts: [{"kind": "number", "value": "{team.points}", "label": "puntos"}, {"kind": "name", "value": "{team.next_match.rival}"}]
+        tools: {"needed": ["get_standings", "list_matches"], "allowed": ["find_teams", "get_data_freshness", "get_standings", "list_competitions", "list_groups", "list_matches", "list_rounds", "list_teams"]}
+        source: "official_table"
+        max_llm_calls: 5

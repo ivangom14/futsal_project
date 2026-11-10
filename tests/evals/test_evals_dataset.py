@@ -23,8 +23,13 @@ ROOT = Path(__file__).parents[2]
 CASES_PER_STRATUM = {"S1": 30, "S2": 20, "S3": 15, "S4": 15, "S5": 15, "S6": 15, "S7": 15, "S8": 15, "S9": 20}
 
 
+def original(cases: list[Case]) -> list[Case]:
+    """Los 160 casos de S1-S9 de la batería cerrada (sin el estrato S10 ni los ficheros `*_extra`)."""
+    return [c for c in cases if c.stratum != "S10" and "_extra" not in c.source_file]
+
+
 def test_dataset_has_the_designed_size_and_split() -> None:
-    allc = load_cases(ROOT, "all")
+    allc = original(load_cases(ROOT, "all"))
     assert len(allc) == 160 and {s: v["cases"] for s, v in counts(allc).items()} == CASES_PER_STRATUM
     assert sum(len(c.turns) for c in allc) == 190  # ≈ 190 turnos
     convs = [c for c in allc if c.stratum == "S3"]
@@ -32,7 +37,7 @@ def test_dataset_has_the_designed_size_and_split() -> None:
     hold = [c for c in allc if c.holdout]
     assert len(hold) == 48 and len(hold) / len(allc) == 0.3  # 30 % holdout
     assert {s: v["holdout"] for s, v in counts(allc).items()} == {"S1": 9, "S2": 6, "S3": 4, "S4": 4, "S5": 5, "S6": 5, "S7": 4, "S8": 5, "S9": 6}
-    assert len(load_cases(ROOT, "dev")) == 112 and len(load_cases(ROOT, "holdout")) == 48
+    assert len(original(load_cases(ROOT, "dev"))) == 112 and len(original(load_cases(ROOT, "holdout"))) == 48
     assert len({c.id for c in allc}) == 160
     assert not [c.id for c in allc if c.capability == "v2" and c.stratum != "S7"]
 
@@ -43,10 +48,10 @@ def test_dataset_covers_confusions_missing_data_and_adversarial_cases() -> None:
     def uses(key: str, stratum: str | None = None) -> int:
         return sum(any(key in spec for spec in c.select.values()) for c in allc if stratum in (None, c.stratum))
 
-    assert uses("homonym_groups") >= 6 and uses("same_competition") >= 4  # equipos homónimos (grupos / competiciones)
+    assert uses("homonym_groups") >= 6 and uses("same_competition") >= 3  # (el snapshot real no tiene homónimos dentro de una competición: los dev ya no lo exigen) equipos homónimos (grupos / competiciones)
     assert uses("diff_category") >= 6  # categorías (senior / juvenil / cadete / femenino)
     assert uses("diff_season") >= 3  # temporadas
-    assert sum(spec.get("kind") == "club" for c in allc for spec in c.select.values()) >= 5  # clubes con equipos A y B
+    assert sum(spec.get("kind") in ("club", "club_multi") for c in allc for spec in c.select.values()) >= 5  # clubes con equipos A y B
     assert uses("category") >= 3 and uses("competition_groups") >= 2  # competición/categoría con varios grupos
     assert sum(any(spec.get("kind") in ("season_absent", "fictional_player") for spec in c.select.values()) for c in allc) >= 4
     assert sum(any(spec.get("kind") in ("fictional_team", "fictional_competition") for spec in c.select.values()) for c in allc) >= 4
@@ -58,15 +63,15 @@ def test_dataset_covers_confusions_missing_data_and_adversarial_cases() -> None:
 def test_holdout_is_sealed_and_default_split_never_reads_it() -> None:
     assert verify_seals(ROOT) == []
     seals = json.loads((dataset_dir(ROOT) / "SEALS.json").read_text(encoding="utf-8"))
-    assert sum(f["cases"] for f in seals["files"].values()) == 48 and all(len(f["sha256"]) == 64 for f in seals["files"].values())
+    assert sum(f["cases"] for f in seals["files"].values()) == 48 + 18 and all(len(f["sha256"]) == 64 for f in seals["files"].values())
     assert all(c.holdout for c in load_cases(ROOT, "holdout")) and not any(c.holdout for c in load_cases(ROOT, "dev"))
 
 
 def test_smoke40_is_a_fixed_dev_subset_covering_every_stratum() -> None:
     ids = smoke_ids(ROOT)
     cases = suite_cases("smoke40", "dev", ROOT)
-    assert len(ids) == len(set(ids)) == 40 and [c.id for c in cases] == ids and not any(c.holdout for c in cases)
-    assert {c.stratum for c in cases} == set(CASES_PER_STRATUM)
+    assert len(ids) == len(set(ids)) == 40 and [c.id for c in cases] == ids and not any(c.holdout for c in cases)  # fijo en 40 casos de S1-S9: es la referencia de coste de A5; S10 se evalúa con su propio estrato
+    assert {c.stratum for c in cases} == set(CASES_PER_STRATUM) - {"S10"}
     assert any(len(c.turns) > 1 for c in cases if c.stratum == "S3")
 
 

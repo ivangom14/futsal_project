@@ -168,3 +168,29 @@ falso positivo). Antes de fijarlo como referencia v2 hay que: (1) corregir el fa
 3. **C2**: se detuvo limpiamente tras 8 casos por **cuota diaria gratuita agotada** (Gemini pide ~10 h): 6 correctos y 1 fallo
    (`proximo_campo`, que pasó en C1: ruido). Se reanuda con `--fill-missing` el 2026-11-10 a las 09:15 (Madrid). La cuota
    gratuita confirma **coste 0 USD**.
+
+### Resultado final de la baseline `ref20261109` (2026-11-10)
+
+C2 completado con `--fill-missing` (118 llamadas, sin cuota agotada). Incidente previo corregido: la copia `_head` se había
+modificado al probar la API v2 (`catalog-backfill`) y el runner se negó a ejecutar por huella distinta; se restauraron ambas
+BD desde el mismo dump con huellas idénticas a las del manifiesto (sin cambios en Git) y las pruebas exploratorias usan ahora
+la copia aparte `futsal_play_ref20261109`. C1 se ejecutó antes de la modificación.
+
+| Pasada | Código | Aprobados / evaluables | Críticos reales |
+|---|---|---|---|
+| H1 | `ac48edc` | 43/54 = 79,6 % | 0 |
+| H2 | `ac48edc` | 44/54 = 81,5 % | 0 |
+| C1 (recalificado) | `2c7c7b2` | 48/53 = 90,6 % | 0 |
+| C2 | `e75e783`+ (agente legacy idéntico) | 46/55 = 83,6 % | 0 (1 marcado: falso positivo, ver abajo) |
+
+- **Ruido** (51 casos evaluables en las 4 pasadas): 5 cambios entre H1 y H2 y 5 entre C1 y C2 (≈ 10 %).
+- **Mejoras estables** (fallan en H1 y H2, pasan en C1 y C2): `equipo_proximo_partido`, `equipo_recuento`,
+  `partido_mas_goles`, `regla_sin_evidencia_salario` y `tabla_goleadores_vacia`.
+- **Empeoramientos estables**: `recuento_global` (falso negativo del calificador: respuesta correcta por total − jugados) y
+  `acta_sustituciones_minuto` (fórmula genérica de limitación en lugar de «no consta en el acta»; menor, sin invención).
+- **Crítico marcado en C2** `circular27_sin_evidencia_rffm`: el agente pidió aclarar «Grupo 3 o Grupo 4» en lugar de decir
+  que la sanción no consta en los documentos (fallo de interpretación real); el detector `unsupported_digits` tomó el «3» del
+  nombre del grupo como cifra inventada. Pendiente: no contar cifras que forman parte de nombres del catálogo.
+- **Decisión**: la referencia v1 sobre `ref20261109` queda fijada en **H ≈ 80–81 %** (código antiguo) y **C ≈ 84–91 %**
+  (código actual, media ≈ 87 %), 0 críticos reales. Toda comparación futura del agente v2 se hace contra C1/C2 en este snapshot,
+  con 2 pasadas y el ruido medido (±5 casos de 51).

@@ -6,7 +6,7 @@
   requires: ["homonyms", "standings"]
   capability: v1
   select:
-    team: {kind: "team", with: ["standings"], homonym_groups: ">=2", same_category: true, same_competition: true}
+    team: {kind: "team", with: ["standings"], homonym_groups: ">=2", same_category: true}
   turns:
     - user: "¿Cuántos puntos lleva {team.name}?"
       expect:
@@ -22,7 +22,7 @@
   requires: ["homonyms", "results", "standings"]
   capability: v1
   select:
-    team: {kind: "team", with: ["standings", "finished"], homonym_groups: ">=2", same_category: true, same_competition: true}
+    team: {kind: "team", with: ["standings", "finished"], homonym_groups: ">=2", same_category: true}
   turns:
     - user: "¿Cuál fue el último resultado de {team.name}?"
       expect:
@@ -38,7 +38,7 @@
   requires: ["homonyms", "standings"]
   capability: v1
   select:
-    team: {kind: "team", with: ["standings"], homonym_groups: ">=2", same_category: true, same_competition: true}
+    team: {kind: "team", with: ["standings"], homonym_groups: ">=2", same_category: true}
   turns:
     - user: "¿Cómo va {team.name}?"
       expect:
@@ -116,7 +116,7 @@
   requires: ["homonyms", "results", "standings"]
   capability: v1
   select:
-    team: {kind: "team", with: ["standings", "finished"], homonym_groups: ">=2", same_category: true, same_competition: true}
+    team: {kind: "team", with: ["standings", "finished"], homonym_groups: ">=2", same_category: true}
   turns:
     - user: "¿Cómo quedó el último partido de {team.name} en {team.competition} {team.group}?"
       expect:

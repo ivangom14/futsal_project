@@ -1,0 +1,47 @@
+# Futsito-Eval v1 · S3 · casuísticas adicionales (dev). Formato: docs/v2/evaluation.md §3.
+# Erratas, mayúsculas, ruido y emojis, cambio de idioma, preguntas sobre el bot, horarios y zonas horarias, aplazados, suspendidos,
+# jornada en curso, acta sin cerrar y equipo retirado. Los casos que dependen de datos que el snapshot no tiene quedan «no evaluables».
+
+- id: s3_extra_cambio_idioma
+  stratum: S3
+  holdout: false
+  requires: ["standings", "calendar"]
+  capability: v1
+  select:
+    team: {"kind": "team", "unique_in_snapshot": true, "with": ["standings", "pending"]}
+  turns:
+    - user: "¿Cuántos puntos tiene {team.name}?"
+      expect:
+        behavior: "answer"
+        facts: [{"kind": "number", "value": "{team.points}", "label": "puntos"}]
+        tools: {"needed": ["get_standings"], "allowed": ["find_teams", "get_data_freshness", "get_standings", "list_competitions", "list_groups", "list_matches", "list_rounds", "list_teams"]}
+        source: "official_table"
+        max_llm_calls: 5
+    - user: "And who is their next opponent?"
+      expect:
+        behavior: "answer"
+        facts: [{"kind": "name", "value": "{team.next_match.rival}"}]
+        tools: {"needed": ["list_matches"], "allowed": ["find_teams", "get_data_freshness", "get_standings", "list_competitions", "list_groups", "list_matches", "list_rounds", "list_teams"]}
+        max_llm_calls: 5
+
+- id: s3_extra_emoji_seguimiento
+  stratum: S3
+  holdout: false
+  requires: ["standings", "results"]
+  capability: v1
+  select:
+    team: {"kind": "team", "unique_in_snapshot": true, "with": ["standings", "finished"]}
+  turns:
+    - user: "¿Cómo va {team.name}? 🤔"
+      expect:
+        behavior: "answer"
+        facts: [{"kind": "position", "value": "{team.position}", "team": "{team.name}", "label": "posición"}]
+        tools: {"needed": ["get_standings"], "allowed": ["find_teams", "get_data_freshness", "get_standings", "list_competitions", "list_groups", "list_matches", "list_rounds", "list_teams"]}
+        source: "official_table"
+        max_llm_calls: 5
+    - user: "jajaja vale, ¿y el último resultado? ⚽⚽"
+      expect:
+        behavior: "answer"
+        facts: [{"kind": "score", "value": "{team.last_match.score}"}]
+        tools: {"needed": ["list_matches"], "allowed": ["find_teams", "get_data_freshness", "get_standings", "list_competitions", "list_groups", "list_matches", "list_rounds", "list_teams"]}
+        max_llm_calls: 5

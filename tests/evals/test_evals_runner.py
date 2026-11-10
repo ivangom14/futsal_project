@@ -38,7 +38,7 @@ def test_end_to_end_produces_complete_report(synthetic: Any, dev_world: World, t
     summary = results["summary"]
     g = summary["global"]
     assert g["evaluable"] > 60 and g["verdicts"]["not_evaluable"] > 0  # el sintético no cubre todas las capacidades: no evaluable aparte
-    assert {"S1", "S2", "S3", "S4", "S5", "S6", "S7", "S8", "S9"} <= set(summary["strata"])
+    assert {"S1", "S2", "S3", "S4", "S5", "S6", "S7", "S8", "S9", "S10"} <= set(summary["strata"])
     for s in summary["strata"].values():  # métricas por estrato
         assert {"accuracy", "critical", "tokens_by_source", "latency", "cost", "per_question", "abstention_correct"} <= set(s)
     assert g["accuracy"]["wilson95"][0] < g["accuracy"]["rate"] < g["accuracy"]["wilson95"][1] or g["accuracy"]["rate"] == 1.0
@@ -149,7 +149,7 @@ def test_snapshot_manifest_and_restore(synthetic: Any) -> None:
     m = synthetic.manifest
     assert m["id"] == SNAP and m["synthetic"] is True and m["as_of"].startswith("2026-10-20T12:00:00+02:00")  # Europe/Madrid (CEST)
     assert len(m["dump_sha256"]) == 64 and m["alembic_revision"] == _alembic_head() and m["kb_documents"] == ["fifa-futsal-laws-2025-26"]
-    assert m["counts"] == {"seasons": 2, "competitions": 3, "groups": 4, "teams": 56, "matches": 63, "reports": 1}
+    assert m["counts"] == {"seasons": 2, "competitions": 3, "groups": 4, "teams": 57, "matches": 63, "reports": 5}
     assert len(m["fingerprint"]["sha256"]) == 64
     ok, detail = snaps.verify_db(m, synthetic.url)
     assert ok, detail

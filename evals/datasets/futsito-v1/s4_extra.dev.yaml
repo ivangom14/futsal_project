@@ -1,0 +1,19 @@
+# Futsito-Eval v1 · S4 · casuísticas adicionales (dev). Formato: docs/v2/evaluation.md §3.
+# Erratas, mayúsculas, ruido y emojis, cambio de idioma, preguntas sobre el bot, horarios y zonas horarias, aplazados, suspendidos,
+# jornada en curso, acta sin cerrar y equipo retirado. Los casos que dependen de datos que el snapshot no tiene quedan «no evaluables».
+
+- id: s4_extra_goleador_y_ultimo
+  stratum: S4
+  holdout: false
+  requires: ["scorers", "results", "standings"]
+  capability: v1
+  select:
+    team: {"kind": "team", "unique_in_snapshot": true, "with": ["standings", "finished", "scorers"]}
+  turns:
+    - user: "¿Quién es el máximo goleador de {team.name} y cuál fue su último resultado?"
+      expect:
+        behavior: "answer"
+        facts: [{"kind": "name", "value": "{team.top_scorer.name}"}, {"kind": "score", "value": "{team.last_match.score}"}]
+        tools: {"needed": ["get_scorer_table", "list_matches"], "allowed": ["find_teams", "get_data_freshness", "get_standings", "list_competitions", "list_groups", "list_matches", "list_rounds", "list_teams", "get_scorer_table"]}
+        source: "official_table"
+        max_llm_calls: 5

@@ -24,6 +24,7 @@ from futsal.api.freshness import freshness_router
 from futsal.api.knowledge import knowledge_router
 from futsal.api.reports import reports_router
 from futsal.api.tables import tables_router
+from futsal.api.v2.routes import v2_router
 from futsal.db.session import make_engine
 
 STATUSES = ("scheduled", "finished", "postponed", "suspended", "cancelled", "unknown")
@@ -226,6 +227,7 @@ def create_app(engine: Engine | None = None, today: Callable[[], date] = date.to
     app.include_router(tables_router(get_session))
     app.include_router(freshness_router(get_session))
     app.include_router(knowledge_router(get_engine))
+    app.include_router(v2_router(get_session, today), prefix="/v2")
     return app
 
 

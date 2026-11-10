@@ -10,6 +10,9 @@ import httpx
 ALLOWED_HOSTS = {"www.rffm.es", "rffm.es"}
 BASE_URL = "https://www.rffm.es/competicion/resultados-y-jornadas"
 API_GROUPS_URL = "https://www.rffm.es/api/groups"
+API_COMPETITIONS_URL = "https://www.rffm.es/api/competitions"
+API_RESULTS_URL = "https://www.rffm.es/api/results"
+CALENDAR_URL = "https://www.rffm.es/competicion/calendario"
 USER_AGENT = "futsal-project/0.0.1 (personal research; low volume)"
 
 
@@ -48,6 +51,22 @@ def scorers_url(season: str, competition: str, group: str, game_type: str) -> st
 def groups_url(competition: str) -> str:
     """Endpoint JSON que usa la propia web para listar los grupos de una competición."""
     return f"{API_GROUPS_URL}?{urlencode({'competicion': competition})}"
+
+
+def competitions_api_url(season: str, game_type: str) -> str:
+    """Catálogo completo de competiciones de una temporada y tipo de juego (JSON, sin semilla; sondeo A1-2)."""
+    return f"{API_COMPETITIONS_URL}?{urlencode({'temporada': season, 'tipojuego': game_type})}"
+
+
+def calendar_url(season: str, competition: str, group: str, game_type: str) -> str:
+    """Calendario completo del grupo (todas las jornadas en una página; sondeo A1-11)."""
+    query = {"temporada": season, "competicion": competition, "grupo": group, "tipojuego": game_type}
+    return f"{CALENDAR_URL}?{urlencode(query)}"
+
+
+def results_api_url(group: str, round_number: int | str) -> str:
+    """Resultados ligeros de una jornada (JSON; con otros parámetros la RFFM responde `null`)."""
+    return f"{API_RESULTS_URL}?{urlencode({'idGroup': group, 'round': round_number})}"
 
 
 def match_report_url(codacta: str, season: str, competition: str, group: str) -> str:

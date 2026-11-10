@@ -81,7 +81,7 @@ def test_import_writes_complete_manifest(synthetic: Any, dumps: Path) -> None:
     assert m["extensions"]["unaccent"] and m["extensions"]["pg_trgm"]
     assert "vector" in m["extensions"] and m["kb_documents"] == ["fifa-futsal-laws-2025-26"]
     assert m["counts"]["seasons"] == 2 and m["counts"]["competitions"] == 3 and m["counts"]["groups"] == 4
-    assert m["counts"]["teams"] > 0 and m["counts"]["matches"] > 0 and m["counts"]["reports"] == 1
+    assert m["counts"]["teams"] > 0 and m["counts"]["matches"] > 0 and m["counts"]["reports"] == 5
     assert m["target_group"] == {"external_id": "26738245", "present": True}
     # misma huella que `create` sobre la misma BD, y `verify` la acepta
     assert m["fingerprint"]["sha256"] == synthetic.manifest["fingerprint"]["sha256"]

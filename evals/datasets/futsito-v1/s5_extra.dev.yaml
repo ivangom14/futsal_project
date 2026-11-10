@@ -1,0 +1,108 @@
+# Futsito-Eval v1 · S5 · casuísticas adicionales (dev). Formato: docs/v2/evaluation.md §3.
+# Erratas, mayúsculas, ruido y emojis, cambio de idioma, preguntas sobre el bot, horarios y zonas horarias, aplazados, suspendidos,
+# jornada en curso, acta sin cerrar y equipo retirado. Los casos que dependen de datos que el snapshot no tiene quedan «no evaluables».
+
+- id: s5_extra_aplazado_resultado
+  stratum: S5
+  holdout: false
+  requires: ["postponed"]
+  capability: v1
+  select:
+    match: {"kind": "match", "status": "postponed"}
+  turns:
+    - user: "¿Cuál fue el resultado del partido aplazado {match.home} - {match.away} de la jornada {match.round}?"
+      expect:
+        behavior: "abstain"
+        tools: {"needed": [], "allowed": ["find_teams", "get_data_freshness", "list_competitions", "list_groups", "list_rounds", "list_teams"]}
+        forbid_any_score: true
+        source: "official_table"
+
+- id: s5_extra_suspendido_ganador
+  stratum: S5
+  holdout: false
+  requires: ["suspended"]
+  capability: v1
+  select:
+    match: {"kind": "match", "status": "suspended"}
+  turns:
+    - user: "¿Quién ganó el partido suspendido {match.home} - {match.away}?"
+      expect:
+        behavior: "abstain"
+        tools: {"needed": [], "allowed": ["find_teams", "get_data_freshness", "list_competitions", "list_groups", "list_rounds", "list_teams"]}
+        forbid_any_score: true
+
+- id: s5_extra_acta_sin_cerrar
+  stratum: S5
+  holdout: false
+  requires: ["open_report", "reports"]
+  capability: v1
+  select:
+    match: {"kind": "match", "open_report": true}
+  turns:
+    - user: "¿Quién marcó en el {match.home} - {match.away} y está cerrada el acta?"
+      expect:
+        behavior: "answer"
+        facts: [{"kind": "text_any", "any": ["sin cerrar", "no está cerrada", "no esta cerrada", "provisional", "no cerrada", "abierta"]}]
+        tools: {"needed": ["list_matches|get_match_report"], "allowed": ["find_teams", "get_data_freshness", "get_standings", "list_competitions", "list_groups", "list_matches", "list_rounds", "list_teams", "get_match", "get_match_report", "list_match_events"]}
+        note: "acta no cerrada: los datos son provisionales y debe decirlo"
+        max_llm_calls: 5
+
+- id: s5_extra_equipo_retirado
+  stratum: S5
+  holdout: false
+  requires: []
+  capability: v1
+  select:
+    team: {"kind": "team", "where": {"finished": "==0", "pending": "==0"}}
+  turns:
+    - user: "¿Cuándo juega {team.name} su próximo partido?"
+      expect:
+        behavior: "abstain"
+        tools: {"needed": [], "allowed": ["find_teams", "get_data_freshness", "list_competitions", "list_groups", "list_rounds", "list_teams"]}
+        forbid_any_score: true
+
+- id: s5_extra_jornada_en_curso
+  stratum: S5
+  holdout: false
+  requires: ["calendar", "results"]
+  capability: v1
+  select:
+    group: {"kind": "group", "with": ["finished", "pending"], "where": {"open_round_pending": ">=1"}}
+  turns:
+    - user: "¿Cuántos partidos quedan por jugar de la jornada {group.open_round} de {group.competition} {group.name}?"
+      expect:
+        behavior: "answer"
+        facts: [{"kind": "number", "value": "{group.open_round_pending}", "label": "partidos"}]
+        tools: {"needed": ["list_matches"], "allowed": ["find_teams", "get_data_freshness", "get_standings", "list_competitions", "list_groups", "list_matches", "list_rounds", "list_teams"]}
+        note: "jornada en curso: parte de los partidos ya jugados y parte pendientes"
+        max_llm_calls: 5
+
+- id: s5_extra_jugador_ingles
+  stratum: S5
+  holdout: false
+  requires: []
+  capability: v1
+  select:
+    player: {"kind": "fictional_player"}
+  turns:
+    - user: "How many goals has {player.name} scored this season?"
+      expect:
+        behavior: "abstain"
+        tools: {"needed": [], "allowed": ["find_teams", "get_data_freshness", "list_competitions", "list_groups", "list_rounds", "list_teams"]}
+        forbid_any_score: true
+        source: "official_table"
+
+- id: s5_extra_jugador_emoji
+  stratum: S5
+  holdout: false
+  requires: []
+  capability: v1
+  select:
+    player: {"kind": "fictional_player"}
+  turns:
+    - user: "🙏 oye, ¿cuántos goles lleva {player.name|lower|unaccent}?? ⚽"
+      expect:
+        behavior: "abstain"
+        tools: {"needed": [], "allowed": ["find_teams", "get_data_freshness", "list_competitions", "list_groups", "list_rounds", "list_teams"]}
+        forbid_any_score: true
+        source: "official_table"

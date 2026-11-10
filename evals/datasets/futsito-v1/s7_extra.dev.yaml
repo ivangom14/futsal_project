@@ -1,0 +1,35 @@
+# Futsito-Eval v1 · S7 · casuísticas adicionales (dev). Formato: docs/v2/evaluation.md §3.
+# Erratas, mayúsculas, ruido y emojis, cambio de idioma, preguntas sobre el bot, horarios y zonas horarias, aplazados, suspendidos,
+# jornada en curso, acta sin cerrar y equipo retirado. Los casos que dependen de datos que el snapshot no tiene quedan «no evaluables».
+
+- id: s7_extra_comparar_mayusculas
+  stratum: S7
+  holdout: false
+  requires: ["multi_group", "standings"]
+  capability: v1
+  select:
+    a: {"kind": "team", "unique_in_snapshot": true, "with": ["standings"]}
+    b: {"kind": "team", "unique_in_snapshot": true, "with": ["standings"], "other_group_than": "a"}
+  turns:
+    - user: "COMPARA {a.name|upper} Y {b.name|upper}: ¿CUÁNTOS PUNTOS TIENE CADA UNO?"
+      expect:
+        behavior: "answer"
+        facts: [{"kind": "number", "value": "{a.points}", "label": "puntos {a.name}", "lenient": true}, {"kind": "number", "value": "{b.points}", "label": "puntos {b.name}", "lenient": true}]
+        tools: {"needed": ["get_standings"], "allowed": ["find_teams", "get_data_freshness", "get_standings", "list_competitions", "list_groups", "list_matches", "list_rounds", "list_teams"]}
+        source: "official_table"
+        max_llm_calls: 5
+
+- id: s7_extra_horario_fin_de_semana
+  stratum: S7
+  holdout: false
+  requires: ["calendar", "match_times"]
+  capability: v1
+  select:
+    group: {"kind": "group", "with": ["pending"], "where": {"weekend_n": ">=1", "weekend_first_timed": "==1"}}
+  turns:
+    - user: "¿A qué hora son los partidos de este fin de semana en {group.competition} {group.name}?"
+      expect:
+        behavior: "answer"
+        facts: [{"kind": "text_any", "any": ["{group.weekend[0].time}"]}]
+        tools: {"needed": ["list_matches"], "allowed": ["find_teams", "get_data_freshness", "get_standings", "list_competitions", "list_groups", "list_matches", "list_rounds", "list_teams"]}
+        max_llm_calls: 5

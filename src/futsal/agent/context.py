@@ -213,7 +213,30 @@ class ContextEngine:
         return [Target(c.name, gid, g) for c, gid, g in pairs], list(dict.fromkeys(wanted)), None
 
     # ---------------------------------------------------------------------------------------------------------- comprensión
-    def understand(self, effective: str, raw: str, state: ConversationState, *, has_history: bool = False, interp: Interpretation | None = None) -> Understanding:
+    def understand(self, effective: str, raw: str, state: ConversationState, *, has_history: bool = False, interp: Interpretation | None = None,
+                   v2: bool = False, broad_scope: bool = False) -> Understanding:
+        u = self._understand(effective, raw, state, has_history=has_history, interp=interp)
+        return self._v2_policy(u, state, broad_scope) if v2 else u
+
+    def _v2_policy(self, u: Understanding, state: ConversationState, broad_scope: bool) -> Understanding:
+        """Solo con AGENT_ARCH=v2. Alcance amplio explícito («todos/todas…») o aclaración de ámbito repetida: `ask` pasa a `act`/`assume` (se consulta con las
+        herramientas v2 sin competición). La ambigüedad de ENTIDAD (varios equipos o clubes con el mismo nombre) se sigue preguntando."""
+        if u.status != "ask" or u.ask_about not in ("scope", "competition", "group"):
+            return u
+        kind = u.option_kind or "scope"
+        repeated = state.pending is not None and state.pending.get("kind") == kind
+        if not (broad_scope or repeated):
+            return u
+        u.options, u.option_kind, u.ask_about, u.competitions, u.targets, u.group_names = [], None, None, [], [], []
+        u.provenance["scope"] = "broad" if broad_scope else "repeat"
+        if broad_scope:
+            u.status, u.reason = "act", "alcance amplio explícito"
+        else:
+            u.status, u.reason = "assume", "aclaración de ámbito repetida"
+            u.assumption = "Entiendo que quieres consultarlo en todas las competiciones de la temporada."
+        return u
+
+    def _understand(self, effective: str, raw: str, state: ConversationState, *, has_history: bool = False, interp: Interpretation | None = None) -> Understanding:
         r = self.resolver
         u = Understanding()
         p = r.parse(effective)
@@ -373,6 +396,9 @@ class ContextEngine:
             what = "las opciones reales" if u.options else "la competición, el grupo o el equipo"
             return (NOTE_HEAD + f" Aclaración necesaria: hay varias interpretaciones razonables; opciones: {'; '.join(f'«{o}»' for o in u.options) or 'ninguna identificada'}. "
                     f"Pregunta al usuario cuál (solo {what}) y no consultes datos hasta que responda.")
+        if u.provenance.get("scope") in ("broad", "repeat"):
+            return (NOTE_HEAD + " Alcance amplio o aclaración ya hecha: no preguntes competición, grupo ni categoría; consulta con las herramientas v2 sin filtro de grupo."
+                    + (f" Empieza tu respuesta con esta frase exacta: «{u.assumption}»" if u.assumption else ""))
         lines = [NOTE_HEAD]
         if u.intent:
             lines.append(f" Intención identificada: {u.intent} ({LABEL.get(u.intent, u.intent)}).")
@@ -392,6 +418,9 @@ class ContextEngine:
 
     def revision(self, u: Understanding) -> str:
         """Mensaje de recuperación (no repite la llamada: entrega la interpretación verificada y el plan)."""
+        if u.provenance.get("scope") in ("broad", "repeat"):
+            return ("Revisión de la aplicación: la pregunta pide un alcance amplio y trata de la competición de fútbol sala de la RFFM: no pidas aclaración ni uses el aviso de "
+                    "alcance. Llama ahora a las herramientas v2 adecuadas (matches_by_date, club_overview, scorers_ranking, teams_ranking, find_player, find_official).")
         plan = "; ".join(f"{n}({', '.join(f'{k}={v}' for k, v in a.items())})" for n, a in self.plan(u)) or "las herramientas adecuadas"
         intent = (f"Intención identificada: {u.intent}" if u.intent else
                   "Intención no determinada (si el usuario pregunta cómo va una competición o un equipo, quiere la clasificación: get_standings)")
@@ -441,6 +470,9 @@ class ContextEngine:
             s.offered, s.offered_kind, s.pending = [], None, None
             if u.assumption:
                 s.declared = list(dict.fromkeys([*s.declared, *u.competitions]))[-12:]
+        elif u.status in ("act", "assume") and u.provenance.get("scope") in ("broad", "repeat"):  # v2: consulta sin competición; la aclaración pendiente queda resuelta
+            s.offered, s.offered_kind, s.pending = [], None, None
+            s.intent = u.intent or s.intent
         elif u.status == "ask":
             s.offered, s.offered_kind = list(u.options), u.option_kind
             s.pending = {"question": question[:200], "kind": u.option_kind or "scope"}
