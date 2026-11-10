@@ -54,5 +54,7 @@ de club por nombre, sugerencias no confirmadas) se deben trasladar a la respuest
 
 ## Pendiente
 
-- Aclaración repetida: si el LLM insiste tras los 2 empujones (`rec.context["v2"]["clarify_insisted"]`), hoy se conserva su texto. Falta un plan determinista de
-  respaldo que consulte con las herramientas v2 y declare la suposición (entrega 2, junto con el resolutor obligatorio).
+- Hecho (tarea 4): respaldo determinista ante aclaración insistente (`agent/v2/fallback.py`; traza `context.v2.fallback` / `fallback_skipped` / `answer_source`)
+  y «no consta en el acta» (`agent/v2/not_in_source.py`, fórmula `NOT_IN_REPORT`). El respaldo solo actúa tras los 2 empujones (que requieren alcance amplio o
+  aclaración previa) y con un plan inequívoco: fechas, máximo goleador + categoría, «todos los equipos del/de <club>» o «qué partidos ha pitado <nombre>».
+- Falta: el resolutor obligatorio y el router T0/T1/T2 (entrega 2); ampliar los empujones a una pista de fechas sin «todos».

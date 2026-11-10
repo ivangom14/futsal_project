@@ -13,7 +13,7 @@ Son heurísticas léxicas deterministas: acotan la invención, no la descartan e
 import json
 import re
 import unicodedata
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
 from typing import Any
 
 NEG_TOKENS = frozenset({"no", "sin", "ni", "tampoco", "nunca", "ningun", "ninguna", "ninguno"})
@@ -155,10 +155,42 @@ def unsupported_scores(text: str, payloads: list[dict[str, Any]], question: str 
     return sorted(f"{a}-{b}" for a, b in _parse_scores(text) if (a, b) not in known)
 
 
+def _fold(text: str) -> str:
+    """Minúsculas sin acentos y con la MISMA longitud que `text` (los índices valen para el original)."""
+    out = []
+    for c in text:
+        base = "".join(x for x in unicodedata.normalize("NFKD", c.lower()) if not unicodedata.combining(x))
+        out.append(base[0] if len(base) == 1 else (c.lower() if len(c.lower()) == 1 else " "))
+    return "".join(out)
+
+
+def strip_names(text: str, names: Iterable[str] | None) -> str:
+    """Retira de `text` los tramos que coinciden con una denominación conocida del catálogo (sin acentos ni mayúsculas, con la
+    denominación COMPLETA): «Grupo 3», «C.D. DOSA ZONA 3». Solo importan las que llevan cifras; el resto no puede aportarlas."""
+    if names is None:
+        return text
+    pats = []
+    for n in names:
+        toks = re.findall(r"[a-z0-9]+", _fold(n))
+        if any(any(ch.isdigit() for ch in t) for t in toks):
+            pats.append(r"(?<![a-z0-9])" + r"[^a-z0-9]+".join(re.escape(t) for t in toks) + r"(?![a-z0-9])")
+    if not pats:
+        return text
+    folded = _fold(text)
+    spans = sorted((m.start(), m.end()) for pat in sorted(set(pats), key=len, reverse=True) for m in re.finditer(pat, folded))
+    out, pos = [], 0
+    for a, b in spans:
+        if a < pos:
+            continue
+        out += [text[pos:a], " "]
+        pos = b
+    return "".join(out) + text[pos:]
+
+
 COVERAGE_COUNT_RE = re.compile(r"\b(\d+)\s+de\s+(?:los\s+|las\s+)?(\d+)\s+(?:partidos|actas)\b", re.I)
 
 
-def unsupported_coverage_counts(text: str, payloads: list[dict[str, Any]]) -> list[str]:
+def unsupported_coverage_counts(text: str, payloads: list[dict[str, Any]], names: Iterable[str] | None = None) -> list[str]:
     """Cifras «X de Y partidos/actas» que no cuadran con `coverage` (con acta de finalizados, o los que faltan)."""
     valid: set[tuple[int, int]] = set()
     for p in payloads:
@@ -168,6 +200,7 @@ def unsupported_coverage_counts(text: str, payloads: list[dict[str, Any]]) -> li
             valid |= {(w, f), (f - w, f), (f, f)}
     if not valid:
         return []
+    text = strip_names(text, names)
     return [m.group(0) for m in COVERAGE_COUNT_RE.finditer(text) if (int(m.group(1)), int(m.group(2))) not in valid]
 
 RULE_REF_RE = re.compile(r"\bregla\s+(\d{1,2})\b", re.I)
@@ -217,7 +250,8 @@ def unsupported_rule_citations(text: str, payloads: list[dict[str, Any]]) -> lis
 HIT_METADATA = ("document", "doc_key", "version", "rule_title", "section", "subsection", "part")
 
 
-def unsupported_digits(text: str, payloads: list[dict[str, Any]], question: str = "", metadata_only: bool = False) -> list[str]:
+def unsupported_digits(text: str, payloads: list[dict[str, Any]], question: str = "", metadata_only: bool = False,
+                       names: Iterable[str] | None = None) -> list[str]:
     """Cifras de la respuesta que no aparecen en los fragmentos recuperados ni en la pregunta (se ignoran regla y página citadas).
 
     Los metadatos del fragmento (título y clave del documento, versión, sección, título de la regla…) respaldan lo que se cita desde
@@ -227,7 +261,7 @@ def unsupported_digits(text: str, payloads: list[dict[str, Any]], question: str 
     support = " ".join((str(h.get("text", "")) if not metadata_only else "") + " " + " ".join(str(h.get(k, "")) for k in HIT_METADATA)
                        for h in _rule_hits(payloads)) + " " + question
     known = set(_NUMBER_RE.findall(support))
-    cleaned = PAGE_LIST_RE.sub(" ", RULE_REF_RE.sub(" ", text))  # las páginas se validan aparte (unsupported_rule_citations)
+    cleaned = PAGE_LIST_RE.sub(" ", RULE_REF_RE.sub(" ", strip_names(text, names)))  # las páginas se validan aparte (unsupported_rule_citations)
     return sorted({n for n in _NUMBER_RE.findall(cleaned) if n not in known})
 
 
@@ -243,7 +277,7 @@ def _known_figures(text: str) -> set[str]:
     return known
 
 
-def figures_without_table(text: str, payloads: list[dict[str, Any]], question: str = "") -> list[str]:
+def figures_without_table(text: str, payloads: list[dict[str, Any]], question: str = "", names: Iterable[str] | None = None) -> list[str]:
     """Cifras que da la respuesta cuando ninguna tool devolvió filas de clasificación o goleadores (error, grupo sin tabla, sin ingerir).
 
     Se ignoran las que figuran en la pregunta o en lo devuelto (p. ej. la jornada que cita el aviso de la tool): lo demás es inventado.
@@ -251,7 +285,7 @@ def figures_without_table(text: str, payloads: list[dict[str, Any]], question: s
     if any(isinstance(p.get(k), list) and p[k] for p in payloads for k in ("standings", "scorers")):
         return []
     known = _known_figures(question + " " + json.dumps(payloads, ensure_ascii=False))
-    return sorted({n for n in _NUMBER_RE.findall(text) if n not in known})
+    return sorted({n for n in _NUMBER_RE.findall(strip_names(text, names)) if n not in known})
 
 
 _NUMBER_WORDS = ("un", "uno", "una", "dos", "tres", "cuatro", "cinco", "seis", "siete", "ocho", "nueve", "diez", "once", "doce",

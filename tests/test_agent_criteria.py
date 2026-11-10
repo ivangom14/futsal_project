@@ -189,3 +189,30 @@ def test_real_scores_are_still_detected(text: str) -> None:
 
 def test_score_next_to_a_page_reference_keeps_only_the_score() -> None:
     assert unsupported_scores("Circular n.º 27, páginas 1-2: el equipo ganó 3-1.", []) == ["3-1"]
+
+
+# --- cifras que forman parte de una denominación del catálogo (T3) ---
+def test_catalog_names_are_not_invented_digits() -> None:
+    from futsal.agent.criteria import unsupported_digits
+
+    names = ["Grupo 3", "Grupo 4", "C.D. DOSA ZONA 3", "Primera División Autonómica Futsal"]
+    ans = "Se juega en Tercera División FS (Grupo 3 o Grupo 4)."
+    assert unsupported_digits(ans, [], "") == ["3", "4"]  # sin names: conducta de siempre
+    assert unsupported_digits(ans, [], "", names=names) == []
+    assert unsupported_digits("Juega el grupo 3.", [], "", names=names) == []  # sin mayúsculas
+    assert unsupported_digits("Ganó el C.D. Dosa Zona 3.", [], "", names=names) == []
+    assert unsupported_digits("Se juega en el Grupo 7.", [], "", names=names) == ["7"]  # denominación inexistente
+    assert unsupported_digits("Se juega en el Grupo 30.", [], "", names=names) == ["30"]  # no basta un prefijo
+    assert unsupported_digits("Quedan 12 partidos.", [], "", names=names) == ["12"]
+    assert unsupported_digits("El Grupo 3 ganó 3-1.", [], "", names=names) == ["1", "3"]  # el marcador sigue ahí
+    assert unsupported_scores("El Grupo 3 ganó 3-1.", []) == ["3-1"]
+    assert unsupported_digits("x", [], "", names=[]) == []
+
+
+def test_catalog_names_apply_to_figures_without_table_and_coverage() -> None:
+    assert figures_without_table("Es del Grupo 3.", [], "") == ["3"]
+    assert figures_without_table("Es del Grupo 3.", [], "", ["Grupo 3"]) == []
+    assert figures_without_table("Es del Grupo 7 con 9 puntos.", [], "", ["Grupo 3"]) == ["7", "9"]
+    cov = [{"coverage": {"finished_matches": 10, "with_report": 8}}]
+    assert unsupported_coverage_counts("8 de 10 partidos", cov, ["Grupo 3"]) == []
+    assert unsupported_coverage_counts("5 de 10 partidos", cov, ["Grupo 3"]) == ["5 de 10 partidos"]

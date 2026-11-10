@@ -16,15 +16,19 @@ from typing import Any
 
 from sqlalchemy import create_engine
 
-from futsal.agent.audit import NO_DATA_KINDS, letter
-from futsal.agent.criteria import _parse_scores
+from futsal.agent.audit import NO_DATA_KINDS, critical_reasons, letter
+from futsal.agent.criteria import _parse_scores, missing_warnings, needs_warning
 from futsal.agent.evaluate import (
     CaseResult,
     EvalCase,
+    answer_ok,
     build_cases,
     evaluate,
+    evidence_ok,
     invention_claims,
     load_truth,
+    rule_answer_issue,
+    tools_verdict,
 )
 from futsal.agent.llm import BudgetedLLM, LLMClient, PacedLLM
 from futsal.agent.trace import read_jsonl
@@ -61,8 +65,9 @@ def behavior_of(case: EvalCase) -> str:
 
 
 def adapt(r: CaseResult, case: EvalCase, rep: int, price: tuple[str | None, str | None],
-          evidence: list[dict[str, Any]] | None = None) -> dict[str, Any]:
-    """Resultado del evaluador antiguo -> registro de Eval v1 (el veredicto conserva el del evaluador)."""
+          evidence: list[dict[str, Any]] | None = None, extra: dict[str, Any] | None = None) -> dict[str, Any]:
+    """Resultado del evaluador antiguo -> registro de Eval v1 (el veredicto conserva el del evaluador).
+    `extra` (`tool_calls`, `guardrail`, `run_error`, de la traza) permite a `regrade` recalcular también el veredicto de herramientas."""
     verdict = STATUS_TO_VERDICT[r.status]
     error_class: str | None = None
     reason = r.detail
@@ -90,16 +95,23 @@ def adapt(r: CaseResult, case: EvalCase, rep: int, price: tuple[str | None, str 
                  "status": r.status, "evidence_ok": r.evidence_ok, "tools_ok": r.tools_ok, "answer_ok": r.answer_ok,
                  "invention_ok": r.invention_ok, "warning_ok": r.warning_ok, "presentation_ok": r.presentation_ok}}
     return _record(r.case_id, letter(r.case_id, r.category), False, rep, 0, r.question, verdict, reason, error_class=error_class,
-                   answer=r.answer, tools_used=r.tools_used, grade=grade, run_id=r.run_id, evidence=evidence or [], **usage)
+                   answer=r.answer, tools_used=r.tools_used, grade=grade, run_id=r.run_id, evidence=evidence or [], **(extra or {}), **usage)
 
 
-def _trace_evidence(trace: Path) -> list[dict[str, Any]]:
-    """Payloads de las tools tal y como los ve el evaluador (resultado enviado al LLM, ya recortado), de la traza de una pregunta."""
+def _trace_info(trace: Path) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    """(payloads, extra) de la traza de una pregunta. Payloads: las tools tal y como las ve el evaluador (resultado enviado al LLM, ya
+    recortado). Extra: las llamadas (nombre, argumentos originales y efectivos, error, refused, reused), el guardarraíl y el error de la
+    ejecución: lo que necesita `regrade` para recalcular el veredicto de herramientas."""
     out: list[dict[str, Any]] = []
+    extra: dict[str, Any] = {"tool_calls": [], "guardrail": None, "run_error": None}
     if not trace.exists():
-        return out
+        return out, extra
     for row in read_jsonl(trace):
+        extra["guardrail"], extra["run_error"] = row.get("guardrail"), row.get("error")
         for tc in row.get("tool_calls", []):
+            extra["tool_calls"].append({"name": tc.get("name"), "original_arguments": tc.get("original_arguments"),
+                                        "arguments": tc.get("arguments") or {}, "is_error": bool(tc.get("is_error")),
+                                        "refused": bool(tc.get("refused")), "reused": bool(tc.get("reused"))})
             if tc.get("is_error") or not tc.get("result"):
                 continue
             try:
@@ -108,7 +120,11 @@ def _trace_evidence(trace: Path) -> list[dict[str, Any]]:
                 continue
             if isinstance(data, dict):
                 out.append(data)
-    return out
+    return out, extra
+
+
+def _trace_evidence(trace: Path) -> list[dict[str, Any]]:
+    return _trace_info(trace)[0]
 
 
 def run_regression(cfg: RunConfig, llm_factory: Any) -> dict[str, Any]:
@@ -143,7 +159,8 @@ def run_regression(cfg: RunConfig, llm_factory: Any) -> dict[str, Any]:
                             continue
                         trace = Path(tmp) / f"{cid}-{rep}.jsonl"
                         res = (await evaluate(truth, mcp, "live", budget, only={cid}, trace_path=trace))[0]
-                        out.append(adapt(res, case, rep, price, _trace_evidence(trace)))
+                        payloads, extra = _trace_info(trace)
+                        out.append(adapt(res, case, rep, price, payloads, extra))
                         stopped = _stop_reason(res.detail) if res.status == "not_run" else None
             return out, stopped
 
@@ -206,6 +223,71 @@ def _rebuild(rec: dict[str, Any], claims: list[str], rest: str, why: str) -> Non
     rec["regrade"] = why
 
 
+def _recompute_layers(out: dict[str, Any], case: EvalCase, truth: Any) -> None:
+    """Recalificación por capas, sin LLM. Recalcula datos, respuesta e invención con el caso y la verdad actuales y la evidencia guardada.
+    Con `tool_calls` guardados (ejecuciones nuevas) recalcula también las herramientas («full»); si no, reutiliza `tools_ok`,
+    `tools_missing` y `tools_unexpected` («layers»). `warning_ok` siempre se reutiliza. Compone el veredicto con la regla de `run_case` y
+    `adapt`."""
+    grade, legacy, facts, answer = out["grade"], out["grade"]["legacy"], case.facts or [], out["answer"]
+    payloads = [p for p in out["evidence"] if isinstance(p, dict)]
+    full = isinstance(out.get("tool_calls"), list)
+    structural = all(f.kind in ("limitation", "refusal", "no_evidence_rules") for f in facts)
+    ev_ok = True if structural else all(evidence_ok(f, payloads) for f in facts)
+    names = list(out.get("tools_used") or [])
+    unexpected = sorted(set(names) - case.allowed_tools)
+    if full:
+        calls = [(c["name"], json.dumps(c["original_arguments"] if c.get("original_arguments") is not None else c["arguments"],
+                                         sort_keys=True), bool(c["is_error"]) and not c["refused"]) for c in out["tool_calls"]]
+        issues = tools_verdict(case, calls, out.get("guardrail"))
+        tools_ok = not issues
+        grade["tools_missing"] = [i for i in issues if i.startswith("falta la herramienta")]
+        grade["tools_unexpected"] = unexpected
+    else:
+        tools_ok = bool(legacy.get("tools_ok"))
+        issues = list(grade.get("tools_missing") or []) + [f"herramienta no esperada {t}" for t in grade.get("tools_unexpected") or []]
+        if not tools_ok and not issues:
+            issues = ["detalle no guardado"]
+    ans_ok = all(answer_ok(f, answer) for f in facts)
+    claims = invention_claims(case, answer, truth, payloads)
+    inv_ok = not claims
+    warn_ok = legacy.get("warning_ok")
+    missing = missing_warnings(answer, needs_warning(payloads))
+    is_rule = any(f.kind in ("rule_cited", "no_evidence_rules") for f in facts)
+    rule_issues = [i for f in facts if f.kind == "rule_cited" for i in [rule_answer_issue(f, answer)] if i]
+    layers = [("recuperación: search_rules no devolvió el fragmento esperado (regla, página y texto)" if is_rule
+               else "datos: evidencia incompleta (¿resultado recortado?)", ev_ok),
+              ("herramientas: " + "; ".join(issues), tools_ok),
+              ("respuesta: " + ("; ".join(rule_issues) or "no recoge que el dato no consta") if is_rule else "respuesta incorrecta", ans_ok),
+              (("citas y cifras: " if is_rule else "invención: ") + "; ".join(claims), inv_ok),
+              ("falta advertir: " + ", ".join(missing), warn_ok)]
+    failed = [msg for msg, ok in layers if ok is False]
+    run_error = out.get("run_error") if full else None
+    if run_error:
+        status, detail = "fail", str(run_error)
+    elif any(f.kind == "rule_cited" for f in facts) and not any(p.get("hits") for p in payloads)             and any(p.get("count") == 0 for p in payloads):
+        status, detail = "not_evaluable", "la base de conocimiento no tiene el reglamento ingerido"
+    else:
+        status, detail = ("fail" if failed else "pass"), " | ".join(failed)
+    critical = critical_reasons(case.category, status, unexpected, claims, inv_ok)
+    before = (out["verdict"], out["error_class"], out["reason"])
+    if status == "fail" and critical:
+        verdict, error_class, reason = "critical", "critical", "; ".join(critical)
+    elif status == "fail":
+        verdict, reason = "fail", detail
+        error_class = "interpretation" if (ans_ok is False or tools_ok is False) else "presentation"
+    else:
+        verdict, error_class, reason = STATUS_TO_VERDICT[status], None, detail if status == "not_evaluable" else ""
+    if verdict == before[0] and verdict != "critical":
+        error_class, reason = before[1], before[2]  # misma conclusión: se conserva el texto original
+    out["verdict"], out["error_class"], out["reason"] = verdict, error_class, reason
+    legacy.update({"status": status, "evidence_ok": ev_ok, "tools_ok": tools_ok, "answer_ok": ans_ok, "invention_ok": inv_ok})
+    grade["facts_present"] = ["answer_ok"] if ans_ok else []
+    out["regrade"] = "completo: capas recalculadas con la evidencia guardada"
+    out["regrade_mode"] = "full" if full else "layers"
+    out["recomputed_layers"] = ["evidence_ok", "answer_ok", "invention_ok"] + (["tools_ok"] if full else [])
+    out["reused_layers"] = ["warning_ok"] + ([] if full else ["tools_ok", "tools_missing", "tools_unexpected"])
+
+
 def regrade_record(rec: dict[str, Any], case: EvalCase | None, truth: Any) -> dict[str, Any]:
     """Recalifica un registro sin LLM. Con evidencia guardada (y la BD del snapshot) rehace la capa de invención completa; sin ella,
     solo descarta los marcadores inventados que el criterio actual ya no detecta en la respuesta (nunca añade afirmaciones)."""
@@ -213,11 +295,12 @@ def regrade_record(rec: dict[str, Any], case: EvalCase | None, truth: Any) -> di
     if not out.get("grade") or "legacy" not in out["grade"] or not out.get("answer") or out["verdict"] not in ("correct", "fail", "critical"):
         return out
     old, rest = _split_reason(out["reason"]) if out["verdict"] == "critical" else ([], "")
-    evidence = out.get("evidence")
-    if evidence and case is not None and truth is not None:
-        new = invention_claims(case, out["answer"], truth, evidence)
-        if new != old:
-            _rebuild(out, new, rest, "completo: invención recalculada con la evidencia guardada")
+    if "evidence" in out and case is not None and truth is not None:  # con la clave, aunque sea [] (sin tools), la evidencia está completa
+        if case.question != out.get("question"):
+            out["regrade_skipped"] = "question_mismatch"  # el caso actual se construyó sobre otros datos: nunca con otra verdad
+            return out
+        if case.facts is not None and out["grade"]["legacy"].get("status") in ("pass", "fail"):
+            _recompute_layers(out, case, truth)
         return out
     still = _parse_scores(out["answer"])
     new = [c for c in old if not (m := _SCORE_CLAIM.search(c)) or (int(m.group(1)), int(m.group(2))) in still]

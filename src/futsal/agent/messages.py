@@ -12,6 +12,7 @@ UNCONFIRMED = "No puedo confirmar esa información con los datos actuales."  # d
 UNSUPPORTED = ("Todavía no puedo consultar ese tipo de información, pero sí puedo ayudarte con resultados, clasificaciones, "
                "goleadores, actas y normativa.")  # herramienta no compatible con la consulta
 NEEDS_DETAIL = "¿Puedes concretarme un poco más qué competición o equipo quieres consultar?"  # consulta ambigua
+NOT_IN_REPORT = "Ese dato no consta en el acta del partido: el acta que publica la RFFM no recoge {qué}."  # dato que el acta no recoge (solo v2)
 LIMITATION_REPLIES = (NO_DATA, NO_INFO, UNCONFIRMED, UNSUPPORTED, NEEDS_DETAIL)
 
 

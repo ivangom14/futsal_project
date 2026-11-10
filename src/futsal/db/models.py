@@ -445,3 +445,72 @@ class MatchEvent(Base):
     minute: Mapped[int | None] = mapped_column(Integer)
     source_code: Mapped[str | None] = mapped_column(String(32))
     source_detail: Mapped[dict[str, str] | None] = mapped_column(JSONB)
+
+
+class IngestJob(Base):
+    """Trabajo de la cola de ingesta (T06a). Único mientras está vivo (`pending`, `running`, `failed`)."""
+
+    __tablename__ = "ingest_jobs"
+    __table_args__ = (
+        CheckConstraint("status IN ('pending','running','done','failed','dead','cancelled')", name="status_valid"),
+        Index("uq_ingest_jobs_live_key", "source", "kind", "target_key", unique=True,
+              postgresql_where=text("status IN ('pending','running','failed')")),
+        Index("ix_ingest_jobs_status_priority_not_before", "status", text("priority DESC"), "not_before"),
+    )
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    source: Mapped[str] = mapped_column(String(32))
+    kind: Mapped[str] = mapped_column(String(32))
+    target: Mapped[dict[str, Any]] = mapped_column(JSONB)
+    target_key: Mapped[str] = mapped_column(Text)
+    priority: Mapped[int] = mapped_column(Integer, default=0, server_default=text("0"))
+    not_before: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    status: Mapped[str] = mapped_column(String(16), default="pending", server_default=text("'pending'"))
+    attempts: Mapped[int] = mapped_column(Integer, default=0, server_default=text("0"))
+    max_attempts: Mapped[int] = mapped_column(Integer, default=4, server_default=text("4"))
+    last_error: Mapped[str | None] = mapped_column(Text)
+    last_http_status: Mapped[int | None] = mapped_column(Integer)
+    lease_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    worker: Mapped[str | None] = mapped_column(Text)
+    checkpoint: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
+    run_id: Mapped[int | None] = mapped_column(ForeignKey("ingestion_runs.id"), index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class RawFetch(Base):
+    """Registro de cada petición HTTP de la cola, con la huella del cuerpo guardado en disco."""
+
+    __tablename__ = "raw_fetches"
+    __table_args__ = (
+        CheckConstraint("parse_status IN ('ok','null_body','scope_mismatch','schema_error','http_error','network_error')",
+                        name="parse_status_valid"),
+        Index("ix_raw_fetches_source_requested_at", "source", "requested_at"),
+    )
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    job_id: Mapped[int | None] = mapped_column(ForeignKey("ingest_jobs.id"), index=True)
+    source: Mapped[str] = mapped_column(String(32))
+    url: Mapped[str] = mapped_column(Text)
+    method: Mapped[str] = mapped_column(String(8), default="GET", server_default=text("'GET'"))
+    requested_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    status_code: Mapped[int | None] = mapped_column(Integer)
+    bytes: Mapped[int | None] = mapped_column(Integer)
+    sha256: Mapped[str | None] = mapped_column(String(64))
+    content_type: Mapped[str | None] = mapped_column(Text)
+    snapshot_path: Mapped[str | None] = mapped_column(Text)
+    elapsed_ms: Mapped[int | None] = mapped_column(Integer)
+    parse_status: Mapped[str] = mapped_column(String(16))
+    error: Mapped[str | None] = mapped_column(Text)
+
+
+class IngestControl(Base):
+    """Interruptor por fuente: `paused` impide que la cola entregue trabajos de ese `source`."""
+
+    __tablename__ = "ingest_controls"
+    __table_args__ = (CheckConstraint("opened_by IS NULL OR opened_by IN ('manual','breaker')", name="opened_by_valid"),)
+    source: Mapped[str] = mapped_column(String(32), primary_key=True)
+    paused: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("false"))
+    reason: Mapped[str | None] = mapped_column(Text)
+    opened_by: Mapped[str | None] = mapped_column(String(16))
+    opened_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

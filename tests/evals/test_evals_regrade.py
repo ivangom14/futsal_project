@@ -120,3 +120,65 @@ def test_regression_saves_evidence_and_regrade_uses_it(synthetic: Any, tmp_path:
     new = json.loads((tmp_path / "reg-regraded" / "results.json").read_text(encoding="utf-8"))
     assert [r["verdict"] for r in new["records"]] == [r["verdict"] for r in results["records"]]  # con la misma evidencia nada cambia
     assert new["meta"]["regrade"]["llm_calls"] == 0
+
+
+def _regrade(results: dict[str, Any], tmp_path: Path, name: str, synthetic: Any) -> list[dict[str, Any]]:
+    run = tmp_path / name
+    write_outputs(run, results)
+    assert cli.main(["regrade", "--run", str(run), "--snapshot", "synthetic-dev", "--db", synthetic.url, "--root", str(synthetic.root)]) == 0
+    return list(json.loads((tmp_path / f"{name}-regraded" / "results.json").read_text(encoding="utf-8"))["records"])
+
+
+def test_regrade_modes_full_layers_partial_and_question_mismatch(synthetic: Any, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    truth = load_truth(synthetic.engine)
+    assert truth is not None
+    cfg = RunConfig(suite="regression", snapshot="synthetic-dev", output=tmp_path / "reg", root=synthetic.root, db_url=synthetic.url,
+                    max_requests=5000, reps=1)
+    results = run_eval(cfg, lambda: LegacyScript(build_cases(truth)))  # la ejecución sí necesita sockets locales
+
+    def boom(*_a: Any, **_k: Any) -> Any:
+        raise AssertionError("regrade no puede llamar al LLM")
+
+    monkeypatch.setattr("futsal.agent.llm.create_llm", boom)  # a partir de aquí, ninguna llamada al LLM
+    live = [r for r in results["records"] if r["tools_used"] and r["answer"] and r["verdict"] in ("correct", "fail", "critical")]
+    assert live and all(isinstance(r["tool_calls"], list) and len(r["tool_calls"]) == len(r["tools_used"]) for r in live)
+    assert {"name", "original_arguments", "arguments", "is_error", "refused", "reused"} <= set(live[0]["tool_calls"][0])
+    assert "guardrail" in live[0] and "run_error" in live[0]
+    base = {r["case_id"]: r["verdict"] for r in results["records"]}
+
+    # 1) con tool_calls guardados: recalificación completa; con la misma evidencia nada cambia
+    full = {r["case_id"]: r for r in _regrade(results, tmp_path, "full", synthetic)}
+    assert {cid: r["verdict"] for cid, r in full.items()} == base
+    one = full[live[0]["case_id"]]
+    assert one["regrade_mode"] == "full" and "tools_ok" in one["recomputed_layers"] and one["reused_layers"] == ["warning_ok"]
+
+    # 2) una llamada repetida guardada se detecta al recalcular las herramientas (solo en modo full)
+    dup = json.loads(json.dumps(results))
+    target = next(r for r in dup["records"] if r["case_id"] == live[0]["case_id"])
+    target["tool_calls"].append(dict(target["tool_calls"][0]))
+    target["tools_used"].append(target["tools_used"][0])
+    out = {r["case_id"]: r for r in _regrade(dup, tmp_path, "dup", synthetic)}[target["case_id"]]
+    assert out["regrade_mode"] == "full" and out["grade"]["legacy"]["tools_ok"] is False and out["verdict"] != "correct"
+
+    # 3) sin tool_calls (ejecuciones anteriores): por capas, reutilizando las de herramientas
+    old = json.loads(json.dumps(results))
+    for r in old["records"]:
+        for k in ("tool_calls", "guardrail", "run_error"):
+            r.pop(k, None)
+    layered = {r["case_id"]: r for r in _regrade(old, tmp_path, "layers", synthetic)}
+    assert {cid: r["verdict"] for cid, r in layered.items()} == base
+    lr = layered[live[0]["case_id"]]
+    assert lr["regrade_mode"] == "layers" and lr["reused_layers"] == ["warning_ok", "tools_ok", "tools_missing", "tools_unexpected"]
+    assert lr["recomputed_layers"] == ["evidence_ok", "answer_ok", "invention_ok"]
+
+    # 4) pregunta distinta a la del caso reconstruido: no se recalifica con otra verdad
+    mism = json.loads(json.dumps(results))
+    next(r for r in mism["records"] if r["case_id"] == live[0]["case_id"])["question"] = "otra pregunta"
+    m = {r["case_id"]: r for r in _regrade(mism, tmp_path, "mism", synthetic)}[live[0]["case_id"]]
+    assert m["regrade_skipped"] == "question_mismatch" and "regrade_mode" not in m and m["verdict"] == base[live[0]["case_id"]]
+
+    # 5) sin la clave `evidence` (ejecuciones antiguas): no se recalifica por capas
+    noev = json.loads(json.dumps(results))
+    for r in noev["records"]:
+        r.pop("evidence", None)
+    assert all("regrade_mode" not in r for r in _regrade(noev, tmp_path, "noev", synthetic))

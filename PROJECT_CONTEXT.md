@@ -266,3 +266,7 @@ PENDIENTE (decisión del responsable): snapshot para la baseline (A3) y P0 de la
 P0 hecho (2026-11-09, 51/51 GET, sin limitación; `docs/v2/p0-catalog.md`): T22 = 50 competiciones (34 activas), 89 grupos (71 activos), todo
 delegación central; 48/50 clasificadas `auto`. Carga recalculada: P1 ≈ 765 peticiones. A3: `python -m futsal.evals snapshot import` (BD aislada,
 copia `_head` aparte) y procedimiento de brazos H/C en `docs/v2/baseline-a3.md`; BLOQUEADO hasta recibir el pg_dump del usuario. Batería 1699 pass.
+Cierre 2026-11-10 (sin commit hasta autorización; detalle en `docs/v2/handoff.md` §9): calificador (denominaciones del catálogo y
+recuento total − jugados; `regrade` por capas), agente v2 (respaldo determinista y «no consta en el acta»), T06 (migración 0008,
+cola, ritmo, interruptor, planificador, trabajador; red con dos llaves). Batería 2069 pass. 0 peticiones RFFM y 0 llamadas LLM en esta fase.
+Documento de arranque para la siguiente conversación: `docs/v2/handoff.md`.

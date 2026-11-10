@@ -380,3 +380,33 @@ def test_invention_does_not_flag_the_instructed_limitation_reply() -> None:
 
     case = _case(Fact("limitation", "x"))
     assert invention_claims(case, LIMITATION_REPLY, _truth(), []) == []
+
+
+def test_recuento_global_pending_is_derived_from_two_counts() -> None:
+    jug = Fact("count", "jugados", number=39)
+    pend = Fact("count", "pendientes", number=143, status="pending")
+    both = [{"matches": [], "count": 182}, {"matches": [], "count": 39}]
+    assert evidence_ok(jug, both) and evidence_ok(pend, both)
+    assert not evidence_ok(pend, [{"matches": [], "count": 39}])  # solo el count de jugados: evidencia incompleta
+    assert not evidence_ok(pend, [{"matches": [], "count": 182}, {"matches": [], "count": 40}])  # la diferencia no es 143
+    assert answer_ok(pend, "39 jugados, 143 pendientes, 182 en total.")
+    assert not answer_ok(pend, "39 jugados, 140 pendientes.")  # evidencia completa, número equivocado
+
+
+def test_catalog_names_invention_claims_scope_groups_by_mentioned_competition() -> None:
+    from futsal.agent.evaluate import TableGroup
+
+    t = Truth(1, {}, {}, [], player_names=PLAYERS, competition="Tercera División FS", group_name="Grupo 3")
+    t.table_groups = [TableGroup(1, "Tercera División FS", "Grupo 3", "ok"), TableGroup(2, "Tercera División FS", "Grupo 4", "ok"),
+                      TableGroup(3, "Otra Liga", "Grupo 7", "ok")]
+    case = EvalCase("c", "x", "¿pregunta?", [Fact("rule_cited", "r")])
+    ok = invention_claims(case, "En Tercera División FS: Grupo 3 o Grupo 4.", t, _rule_payload())
+    assert not [c for c in ok if "cifra" in c]
+    bad = invention_claims(case, "En Tercera División FS: Grupo 7.", t, _rule_payload())  # el Grupo 7 es de otra competición
+    assert any("cifra 7" in c for c in bad)
+    assert not [c for c in invention_claims(case, "En Otra Liga: Grupo 7.", t, _rule_payload()) if "cifra" in c]
+    assert any("cifra 12" in c for c in invention_claims(case, "Grupo 3: quedan 12 partidos.", t, _rule_payload()))
+
+
+def _rule_payload() -> list[dict[str, object]]:
+    return [{"hits": [{"text": "texto", "document": "Circular", "rule": 1, "pages": "1"}]}]

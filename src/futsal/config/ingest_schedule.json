@@ -1,0 +1,34 @@
+{
+  "min_interval_s": 3,
+  "max_backoff_s": 60,
+  "max_attempts": 4,
+  "lease_s": 300,
+  "max_requests_per_run": 500,
+  "retry": {"base_s": 10, "factor": 3, "cap_s": 900},
+  "breaker": {
+    "open_on_status": [403, 429],
+    "consecutive_server_errors": 3,
+    "consecutive_null_bodies": 2,
+    "bad_shape_ratio": 0.2,
+    "min_window": 5,
+    "window": 20
+  },
+  "planner": {
+    "timezone": "Europe/Madrid",
+    "horizon_hours": 24,
+    "in_play": {"offsets_min": [75, 110, 180], "window_min": 180},
+    "weekend": {"start_weekday": 4, "start_time": "16:00", "end_weekday": 0, "end_time": "12:00",
+                "sweep_every_hours": 2, "sweep_from": "09:00", "sweep_until": "23:30"},
+    "settling": {"hours": 72, "every_hours": 6},
+    "next_round": {"within_days": 14, "every_hours": 24},
+    "past_due": {"first_days": 7, "every_hours": 12, "then_every_hours": 24},
+    "closed": {"first_days": 30, "every_days": 7, "then_every_days": 30},
+    "far": {"every_days": 7},
+    "calendar": {"every_hours": 24},
+    "catalog": {"every_days": 7, "daily_months": [6, 7, 8, 9]},
+    "tables": {"every_hours": 24, "activity_days": 3, "group_minutes": 30},
+    "initial": {"recent_days": 7},
+    "inactive": {"every_days": 30},
+    "priorities": {"in_play": 100, "next_round": 80, "tables": 60, "rest": 40, "inactive": 10}
+  }
+}

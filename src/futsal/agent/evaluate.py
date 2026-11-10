@@ -654,7 +654,7 @@ def _base_cases(t: Truth) -> list[EvalCase]:  # noqa: C901 - catálogo declarati
     n_other = sum(1 for m in t.matches if m.status != "finished")
     cases.append(EvalCase(
         "recuento_global", "recuentos", "¿Cuántos partidos se han jugado ya y cuántos quedan en total en el grupo?",
-        [Fact("count", "jugados", number=n_done), Fact("count", "pendientes", number=n_other)], lm,
+        [Fact("count", "jugados", number=n_done), Fact("count", "pendientes", number=n_other, status="pending")], lm,
         lambda s, p: (_call("list_matches", group_id=g, status="finished", limit=1) if s == 0 else
                       _call("list_matches", group_id=g, status="scheduled", limit=1) if s == 1 else None)))
     cases.append(EvalCase(
@@ -1111,13 +1111,32 @@ def tools_verdict(case: EvalCase, calls: list[tuple[str, str, bool]], guardrail:
     return issues
 
 
+def catalog_names(truth: Truth, answer: str) -> list[str]:
+    """Denominaciones del catálogo (competiciones, grupos y equipos) cuyas cifras no son invención. Si la respuesta menciona alguna
+    competición, solo valen los grupos de esas competiciones; si no, los de todo el catálogo."""
+    groups = [(g.competition, g.name) for g in truth.table_groups]
+    for t in (truth, truth.other):
+        if t is not None:
+            groups.append((t.competition, t.group_name))
+    comps = {c for c, _ in groups if c}
+    low = norm(answer)
+    mentioned = {c for c in comps if norm(c) and norm(c) in low}
+    scope = mentioned or comps
+    names = sorted(comps) + [n for c, n in groups if n and (c in scope or not c)]
+    for t in (truth, truth.other):
+        if t is not None:
+            names += list(t.teams.values())
+    return names
+
+
 def invention_claims(case: EvalCase, answer: str, truth: Truth, payloads: list[dict[str, Any]]) -> list[str]:
     """Afirmaciones de la respuesta incompatibles con la evidencia recuperada (criterios verificables)."""
     claims = [f"nombra a «{n}» sin que las herramientas lo devolvieran"
               for n in unsupported_players(answer, truth.player_names, payloads, case.question)]
     claims += [f"da el marcador {sc}, que no figura en lo devuelto por las herramientas"
                for sc in unsupported_scores(answer, payloads, case.question)]
-    claims += [f"cifra de cobertura que no cuadra con coverage: «{c}»" for c in unsupported_coverage_counts(answer, payloads)]
+    names = catalog_names(truth, answer)
+    claims += [f"cifra de cobertura que no cuadra con coverage: «{c}»" for c in unsupported_coverage_counts(answer, payloads, names)]
     if any(leaks_prompt(answer, prompts.system, (OFF_TOPIC_MESSAGE, *LIMITATION_REPLIES)) for prompts in PROMPT_SETS.values()):  # ambos modos
         claims.append("repite fragmentos de las instrucciones del sistema")
     if any(f.kind in ("rule_cited", "no_evidence_rules") for f in case.facts or []):
@@ -1134,11 +1153,11 @@ def invention_claims(case: EvalCase, answer: str, truth: Truth, payloads: list[d
         # sin evidencia, ninguna cifra se respalda con el TEXTO de los fragmentos tangenciales de la búsqueda; solo la cita del documento
         # (título, sección…) es legítima
         claims += [f"da la cifra {n}, que no figura en los fragmentos recuperados"
-                   for n in unsupported_digits(answer, payloads, case.question, metadata_only=no_data)]
+                   for n in unsupported_digits(answer, payloads, case.question, metadata_only=no_data, names=names)]
         if no_data:
             claims += [f"inventa un importe o sanción: «{q}»" for q in invented_quantities(answer)]
     if case.category.startswith(OFFICIAL_PREFIXES):  # error de tool o grupo sin tabla convertido en cifras de una tabla que no se vio
-        claims += [f"da la cifra {n}, pero ninguna herramienta devolvió filas de la tabla oficial" for n in figures_without_table(answer, payloads, case.question)]
+        claims += [f"da la cifra {n}, pero ninguna herramienta devolvió filas de la tabla oficial" for n in figures_without_table(answer, payloads, case.question, names)]
     if any(f.kind == "no_sub_minutes" for f in case.facts or []):
         claims += [f"da minutos de cambios que no constan: «{c[:80]}»" for c in substitution_minute_claims(answer)]
     return claims

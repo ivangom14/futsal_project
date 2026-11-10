@@ -139,3 +139,23 @@ def test_all_matches_of_a_saturday_with_48_games_uses_a_bigger_limit(seeded: dic
                        ("teams_ranking", {"metric": "goals_for", "limit": 1}), ("find_player", {"name": "juan garcia lopez", "limit": 1})):
         out = json.loads(asyncio.run(reg.call(tool, args))[1])
         assert out["shown"] <= args["limit"] and len(out["items"]) <= args["limit"], tool
+
+
+# --- respaldo determinista: el LLM simulado SIEMPRE pide aclaración ----------------------------------------------------------------------
+def _always_clarifies() -> Rec:
+    return Rec([LLMResponse("¿De qué competición o grupo quieres consultarlo?", [])] * 6)
+
+
+def test_fallback_saturday_afternoon_total_with_seeded_data(seeded: dict[str, Any]) -> None:
+    q = "Dime todos los partidos que se juegan el sábado 7 de noviembre por la tarde"
+    llm = _always_clarifies()
+    res = converse(seeded, llm, q)
+    assert res.answer.splitlines()[0] == "2 partidos el sábado 7 de noviembre de 2026 entre las 15:00 y las 23:59:"
+    assert "16:00" in res.answer and "19:30" in res.answer and "11:00" not in res.answer and res.tool_calls == 1
+    assert res.run is not None and res.run.context["v2"]["answer_source"] == "deterministic_fallback"
+
+
+def test_fallback_top_scorer_senior_with_seeded_data(seeded: dict[str, Any]) -> None:
+    res = converse(seeded, _always_clarifies(), "Cuál es el máximo goleador de todas las ligas senior?")
+    assert "PRIMERO, GOLEADOR" in res.answer and "9 goles" in res.answer and "compara grupos distintos" in res.answer
+    assert res.run is not None and res.run.context["v2"]["fallback"]["tool"] == "scorers_ranking"

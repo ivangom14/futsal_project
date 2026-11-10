@@ -6,6 +6,7 @@ from pathlib import Path
 
 from futsal import (
     catalog_commands,
+    ingest_commands,
     knowledge_commands,
     refresh_commands,
     report_commands,
@@ -137,6 +138,7 @@ def main(argv: list[str] | None = None) -> int:
     knowledge_commands.add_parsers(sub)
     table_commands.add_parsers(sub)
     refresh_commands.add_parsers(sub)
+    ingest_commands.add_parsers(sub)
     args = parser.parse_args(argv)
     if args.command in catalog_commands.COMMANDS:
         return catalog_commands.run(args)
@@ -144,6 +146,8 @@ def main(argv: list[str] | None = None) -> int:
         return knowledge_commands.run(args)
     if args.command in table_commands.COMMANDS:
         return table_commands.run(args)
+    if args.command in ingest_commands.COMMANDS:
+        return ingest_commands.run(args)
     if args.command in refresh_commands.COMMANDS:
         return refresh_commands.run(args)
     if args.command in report_commands.COMMANDS:

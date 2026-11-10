@@ -12,8 +12,10 @@ from zoneinfo import ZoneInfo
 import pytest
 
 from futsal.agent.agent import OFF_TOPIC_MESSAGE, Agent, resolve_arch
+from futsal.agent.criteria import figures_without_table
 from futsal.agent.llm import LLMResponse, Message, ToolCall
 from futsal.agent.memory import Turn
+from futsal.agent.messages import NOT_IN_REPORT
 from futsal.agent.prompts import MODULE_V2
 from futsal.agent.tokens import est_tokens
 from futsal.agent.understanding_eval import FakeMcp
@@ -290,3 +292,122 @@ def test_insistent_clarification_is_counted_in_the_trace() -> None:
 def test_every_list_tool_accepts_limit() -> None:
     for t in Stub().tool_defs():
         assert t["input_schema"]["properties"]["limit"]["maximum"] == 100, t["name"]
+
+
+# --- 7. respaldo determinista ante una aclaración insistente -----------------------------------------------------------------------
+REPEATED = [Turn("¿Quién es el máximo goleador del grupo?", CLARIFY)]  # aclaración ya hecha: se activan los empujones sin «todos»
+DAY_Q = "Dime todos los partidos que se juegan el sábado 7 de noviembre por la tarde"
+
+
+def _match(i: int) -> dict[str, Any]:
+    return {"ref": f"match:{i}", "date": "2026-11-07", "time": f"{15 + i % 8:02d}:00", "home": {"ref": f"team:{i}", "name": f"LOCAL {i}"},
+            "away": {"ref": f"team:{i + 100}", "name": f"VISITANTE {i}"}, "score": None, "competition": {"ref": "comp:1", "name": "TERCERA"},
+            "group": {"ref": "group:1", "name": "Grupo 1"}}
+
+
+def _fallback_run(question: str, replies: dict[str, dict[str, Any]], history: list[Turn] | None = None, arch: str | None = "v2") -> tuple[Any, Stub, Rec]:
+    reg, llm = Stub(replies), Rec([LLMResponse(CLARIFY, [])] * 6)
+    return ask(llm, question, history, reg=reg, arch=arch), reg, llm
+
+
+def test_fallback_matches_by_date_composes_total_list_and_all_notes() -> None:
+    body = {"items": [_match(i) for i in range(30)], "count": 48, "shown": 30, "notes": ["filtro horario: solo partidos con hora conocida", "otra nota"], "freshness": None}
+    res, reg, llm = _fallback_run(DAY_Q, {"matches_by_date": body})
+    assert len(llm.seen) == 3 and res.tool_calls == 1  # 2 empujones y la tercera vuelta insistente; sin más llamadas al LLM
+    assert reg.calls == [("matches_by_date", {"date_from": "2026-11-07", "date_to": "2026-11-07", "time_from": "15:00", "time_to": "23:59", "limit": 100})]
+    lines = res.answer.splitlines()
+    assert lines[0] == "48 partidos el sábado 7 de noviembre de 2026 entre las 15:00 y las 23:59:"
+    assert sum(x.startswith("- 2026-") for x in lines) == 20 and "- y 28 más" in lines
+    assert all(n in res.answer for n in body["notes"]) and "LOCAL 0 - VISITANTE 0" in res.answer and CLARIFY not in res.answer
+    v2 = res.run.context["v2"] if res.run else {}
+    assert v2["fallback"] == {"plan": "matches_by_date", "tool": "matches_by_date", "args": reg.calls[0][1]} and v2["answer_source"] == "deterministic_fallback"
+    assert figures_without_table(res.answer, [body], DAY_Q + " (franja interpretada 15:00-23:59)") == []  # ninguna cifra ajena a la herramienta, la pregunta y la franja interpretada
+
+
+def test_fallback_top_scorer_of_all_senior_leagues() -> None:
+    q = "Cuál es el máximo goleador de todas las ligas senior?"
+    body = {"items": [{"rank": 1, "player": {"name": "GOLEADOR, A"}, "team": {"name": "EQ"}, "competition": {"name": "TERCERA"}, "group": {"name": "G1"}, "goals": 9, "matches": 7}],
+            "count": 1, "shown": 1, "notes": ["compara grupos distintos"], "freshness": None}
+    res, reg, _ = _fallback_run(q, {"scorers_ranking": body})
+    assert reg.calls == [("scorers_ranking", {"category": "senior"})]
+    assert "GOLEADOR, A" in res.answer and "9 goles" in res.answer and "compara grupos distintos" in res.answer
+    assert res.run is not None and res.run.context["v2"]["fallback"]["plan"] == "scorers_ranking"
+    assert figures_without_table(res.answer, [body], q) == []
+
+
+def _club(name: str, ambiguous: bool) -> dict[str, Any]:
+    return {"club": {"name": name, "ambiguous": ambiguous}, "team": {"name": f"{name} A"}, "competition": {"name": "C"}, "group": {"name": "G"},
+            "summary": {"played": 3, "won": 2, "drawn": 1, "lost": 0, "goals_for": 9, "goals_against": 4}}
+
+
+def test_fallback_club_unique_and_ambiguous() -> None:
+    ok = {"items": [_club("C.D. ALAMO", False)], "count": 1, "shown": 1, "notes": ["agrupado por nombre"], "freshness": None}
+    res, reg, _ = _fallback_run("Resultados de todos los equipos del álamo?", {"club_overview": ok})
+    assert reg.calls == [("club_overview", {"name": "álamo", "results": True})]
+    assert res.answer.startswith("1 equipo de C.D. ALAMO:") and "3 jugados, 2 ganados" in res.answer and "agrupado por nombre" in res.answer
+    amb = {"items": [_club("PINTO", True), _club("ATLETICO PINTO", True)], "count": 2, "shown": 2, "notes": ["varios clubes"], "freshness": None}
+    res2, _, _ = _fallback_run("Resultados de todos los equipos del pinto", {"club_overview": amb})
+    assert res2.answer.startswith(CLARIFY) and "PINTO; ATLETICO PINTO" in res2.answer
+    assert res2.run is not None and res2.run.context["v2"]["fallback_skipped"] == "ambiguous" and "fallback" not in res2.run.context["v2"]
+
+
+def test_fallback_official_matches_and_not_found_with_suggestions() -> None:
+    q = "Qué partidos ha pitado el árbitro Álvaro Bermejo?"
+    listed = {"date": "2026-11-07", "time": "16:00", "home": "A", "away": "B", "score": {"home": 2, "away": 1}, "competition": {"name": "TERCERA"}}
+    body = {"items": [{"name": "BERMEJO, ALVARO", "matches": 1, "matches_list": [listed]}], "count": 1, "shown": 1, "notes": ["cobertura"], "freshness": None}
+    res, reg, _ = _fallback_run(q, {"find_official": body}, REPEATED)
+    assert reg.calls == [("find_official", {"name": "Álvaro Bermejo", "include_matches": True})]
+    assert "BERMEJO, ALVARO figura en 1 partido:" in res.answer and "A - B (2-1)" in res.answer and "cobertura" in res.answer
+    none = {"items": [], "count": 0, "shown": 0, "notes": ["no figura; nombres parecidos: X"], "suggestions": [{"name": "BERMEJO, ALBERTO"}], "freshness": None}
+    res2, _, _ = _fallback_run(q, {"find_official": none}, REPEATED)
+    assert "no figura como árbitro" in res2.answer and "posibles" in res2.answer and "BERMEJO, ALBERTO" in res2.answer and "nombres parecidos: X" in res2.answer
+
+
+def test_fallback_is_skipped_without_plan_or_with_empty_result_and_keeps_the_clarification() -> None:
+    history = [Turn("¿Quién es el máximo goleador del grupo?", CLARIFY)]
+    res, reg, _ = _fallback_run("¿y eso qué tal?", {}, history)
+    assert res.answer == CLARIFY and reg.calls == [] and res.run is not None and res.run.context["v2"]["fallback_skipped"] == "sin_plan"
+    res2, reg2, _ = _fallback_run(DAY_Q, {"matches_by_date": EMPTY})  # count=0
+    assert res2.answer == CLARIFY and len(reg2.calls) == 1 and res2.run is not None
+    assert res2.run.context["v2"]["fallback_skipped"] == "count_0" and "fallback" not in res2.run.context["v2"]
+    res3, _, _ = _fallback_run("Dime todos los partidos del sábado 7 de noviembre y los máximos goleadores senior", {"matches_by_date": EMPTY})
+    assert res3.answer == CLARIFY  # sin plan inequívoco: pista de fechas y otra pregunta a la vez no se resuelve
+
+
+def test_fallback_legacy_is_unchanged() -> None:
+    res, reg, _ = _fallback_run(DAY_Q, {"matches_by_date": {"items": [_match(1)], "count": 1, "shown": 1, "notes": [], "freshness": None}}, arch="legacy")
+    assert reg.calls == [] and res.tool_calls == 0 and res.run is not None and res.run.context is None and res.answer != ""
+
+
+# --- 8. «no consta en el acta» -------------------------------------------------------------------------------------------------------
+@pytest.mark.parametrize("q, what", [("¿En qué minuto entraron los suplentes del partido X - Y?", "las sustituciones"),
+                                     ("¿cuál fue el resultado al descanso?", "el resultado por periodos"),
+                                     ("¿Qué minuto añadido hubo en el partido del sábado?", "el minuto o tiempo añadido"),
+                                     ("¿Cuál era el marcador tras cada gol del partido X - Y?", "el marcador tras cada gol")])
+def test_not_in_report_answers_without_tools_or_llm(q: str, what: str) -> None:
+    llm = Rec([])
+    res = ask(llm, q)
+    assert res.answer.startswith("Ese dato no consta en el acta del partido: el acta que publica la RFFM no recoge ") and what in res.answer
+    assert res.answer == NOT_IN_REPORT.format(qué=res.answer.split("recoge ")[1][:-1])
+    assert res.tool_calls == 0 and llm.seen == [] and res.run is not None and "not_in_report" in res.run.context["v2"]
+
+
+@pytest.mark.parametrize("q", ["¿quién marcó en el partido X - Y?", "¿cuántos cambios se pueden hacer en futsal?", "¿Cuántas sustituciones permite el reglamento?",
+                               "¿Cómo quedó el partido X - Y?"])
+def test_not_in_report_leaves_other_questions_to_the_normal_flow(q: str) -> None:
+    llm = Rec([LLMResponse(OFF_TOPIC_MESSAGE, [])] * 3)
+    ask(llm, q)
+    assert llm.seen and "no recoge" not in last_user(llm)
+
+
+def test_not_in_report_mixed_question_adds_a_note_and_goes_to_the_llm() -> None:
+    llm = Rec([LLMResponse("ok", [])] * 3)
+    res = ask(llm, "¿Quién marcó en el partido X - Y y en qué minuto hubo cambios?")
+    assert llm.seen and "no recoge" in last_user(llm) and "Nota de la aplicación" in last_user(llm) and res.run is not None
+    assert res.run.context["v2"]["not_in_report"] == "substitutions"
+
+
+def test_not_in_report_legacy_is_unchanged() -> None:
+    llm = Rec([LLMResponse(OFF_TOPIC_MESSAGE, [])] * 3)
+    res = ask(llm, "¿En qué minuto entraron los suplentes del partido X - Y?", arch="legacy")
+    assert llm.seen and "no recoge" not in last_user(llm) and "no recoge" not in res.answer

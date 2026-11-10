@@ -20,7 +20,7 @@ from futsal.agent.criteria import (
     user_gave_scope,
     states_tool_limit,
 )
-from futsal.agent.llm import LLMClient, LLMError, Message, ToolCall, ToolResult, Usage, estimate_cost
+from futsal.agent.llm import LLMClient, LLMError, LLMResponse, Message, ToolCall, ToolResult, Usage, estimate_cost
 from futsal.agent.mcp_client import McpClient
 from futsal.agent.messages import (
     NEEDS_DETAIL,
@@ -54,6 +54,8 @@ from futsal.domain.competitions import (
     scope_resolved,
 )
 from futsal.agent.prompts import COMPACT, LEGACY, MODES, MODULE_V2, PromptSet, compact_prompts
+from futsal.agent.v2 import fallback as v2fallback
+from futsal.agent.v2 import not_in_source as v2nir
 from futsal.agent.v2 import rules as v2rules
 from futsal.agent.v2.registry import V2Registry, default_registry
 from futsal.domain.dates import parse_date_hint
@@ -458,6 +460,7 @@ class Agent:
         self._v2_registry: V2Registry | None = (v2_registry or default_registry()) if self._v2 else None
         self._broad = False  # v2: la pregunta pide alcance amplio
         self._date_hint: Any = None  # v2: interpretación de fechas de ESTA pregunta
+        self._nir: v2nir.NotInReport | None = None  # v2: dato que el acta de la RFFM no recoge, detectado en ESTA pregunta
         self._ctx_mode = resolve_context_mode(context_mode)  # legacy | deterministic | llm (ver `context.py`)
         self._ctx_on = self._ctx_mode != "legacy"
         self._ctx_engine: ContextEngine | None = None
@@ -900,6 +903,11 @@ class Agent:
         v2_nudges = 0
         recovery = 0
         log(f"USER\n{question}" + (f"\n→ interpretada como: {effective}" if merged else ""))
+        if self._v2 and self._nir is not None and self._nir.alone:  # v2: dato que el acta de la RFFM no recoge → fórmula fija, sin herramientas ni LLM
+            result.answer = v2nir.answer(self._nir)
+            self._v2_trace(rec)["not_in_report"] = self._nir.kind
+            log(f"V2\n→ {self._nir.kind}: no consta en el acta, respuesta determinista")
+            return
         if await self._tier0(effective, turns, focus, result, rec, log):
             return
         prefetch_note = await self._prefetch(effective, turns, focus, result, rec, log)
@@ -949,6 +957,9 @@ class Agent:
                     and (self._broad or self._repeated_clarification(all_turns)) and asks_scope_clarification(resp.text, self._catalog, ctx)):
                 info = self._v2_trace(rec)  # el LLM insiste tras los empujones: se conserva su texto y se anota para la evaluación
                 info["clarify_insisted"] = info.get("clarify_insisted", 0) + 1
+                done, resp = await self._v2_fallback(effective, resp, result, rec, call_no, log)
+                if done:
+                    return
             if (self._v2 and not resp.tool_calls and result.tool_calls == 0 and v2_nudges < 2
                     and (self._broad or self._repeated_clarification(all_turns)) and asks_scope_clarification(resp.text, self._catalog, ctx)):
                 # v2: con alcance amplio, o con una aclaración de ámbito ya hecha en el turno anterior, no se vuelve a preguntar: se actúa con las herramientas v2.
@@ -1059,9 +1070,41 @@ class Agent:
         if claim:
             info["premise"] = claim
             out += v2rules.premise_note(claim)
+        self._nir = v2nir.detect(effective)
+        if self._nir is not None and not self._nir.alone:
+            info["not_in_report"] = self._nir.kind
+            out += v2nir.note(self._nir)
         if out:
             log(f"V2\n→ notas: {', '.join(k for k in ('broad_scope', 'date_hint', 'premise') if k in info)}")
         return out
+
+    async def _v2_fallback(self, effective: str, resp: LLMResponse, result: AgentResult, rec: RunRecord, call_no: int,
+                           log: Callable[[str], None]) -> tuple[bool, LLMResponse]:
+        """Respaldo determinista ante una aclaración insistente: UN plan de herramientas v2 y respuesta compuesta solo con sus datos. Devuelve (terminado, respuesta
+        del LLM a seguir tratando: con club ambiguo se le añaden las opciones; si el respaldo no aplica queda como estaba)."""
+        info = self._v2_trace(rec)
+
+        def skip(reason: str, out: LLMResponse = resp) -> tuple[bool, LLMResponse]:
+            info["fallback_skipped"] = reason
+            log(f"V2\n→ respaldo determinista no aplicado: {reason}")
+            return False, out
+
+        plan = v2fallback.choose_plan(effective, self._date_hint)
+        if plan is None:
+            return skip("sin_plan")
+        tr = await self._execute(ToolCall(f"fallback-{call_no}", plan.tool, dict(plan.args)), result, rec, call_no, log)
+        data = None if tr.is_error else v2fallback.parse(tr.content)
+        if data is None:
+            return skip("error_herramienta")
+        answer, reason = v2fallback.compose(plan, data, self._date_hint)
+        if answer is None:
+            options = v2fallback.club_options(data) if reason == "ambiguous" else None
+            return skip(reason, replace(resp, text=f"{resp.text.rstrip()}\nClubes que coinciden: {'; '.join(options)}.") if options else resp)
+        info["fallback"] = {"plan": plan.plan, "tool": plan.tool, "args": dict(plan.args)}
+        info["answer_source"] = "deterministic_fallback"
+        result.answer = answer
+        log(f"V2\n→ respaldo determinista: {plan.plan}")
+        return True, resp
 
     def _v2_repair(self, call: ToolCall) -> tuple[ToolCall, dict[str, Any] | None]:
         if call.name != "matches_by_date" or self._date_hint is None:

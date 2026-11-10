@@ -173,7 +173,7 @@ def cmd_regrade(a: argparse.Namespace) -> int:
         if not ok:
             print(f"NO SE RECALIFICA: la BD no es el snapshot «{a.snapshot}»: {detail}", file=sys.stderr)
             return EXIT_FINGERPRINT
-        if any(r.get("evidence") for r in results["records"]):
+        if any("evidence" in r for r in results["records"]):
             engine = create_engine(a.db)
             try:
                 truth = load_truth(engine)
