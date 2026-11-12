@@ -67,3 +67,23 @@ html, body { overflow-x: hidden; max-width: 100%; -webkit-text-size-adjust: 100%
     .match-mid { min-width: 3.5rem; font-size: 0.875rem; }
   }
 }
+
+/* Loader de Futsito (docs/design-system/05-loader-futsito.md): ciclo de 900 ms; aparece con 300 ms de retraso para no parpadear en respuestas rápidas. */
+@layer components {
+  .futsito-loader { animation: fl-in 120ms ease-out 300ms both; }
+  .futsito-loader .fl-ball { animation: fl-bounce 0.9s infinite; transform-box: fill-box; transform-origin: center; }
+  .futsito-loader .fl-leg { animation: fl-kick 0.9s infinite; transform-box: fill-box; transform-origin: 50% 0; }
+  .futsito-loader .fl-shadow { animation: fl-shadow 0.9s infinite; transform-box: fill-box; transform-origin: center; }
+  @media (prefers-reduced-motion: reduce) {
+    .futsito-loader, .futsito-loader .fl-ball, .futsito-loader .fl-leg, .futsito-loader .fl-shadow { animation: none !important; }
+    .futsito-loader .fl-ball { transform: translateY(-20px); } /* pose fija: balón en el aire */
+  }
+}
+@keyframes fl-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes fl-bounce {
+  0% { transform: translateY(0) scale(1.08, 0.92); animation-timing-function: cubic-bezier(0.2, 0.7, 0.3, 1); }
+  50% { transform: translateY(-38px) rotate(180deg); animation-timing-function: cubic-bezier(0.6, 0, 0.8, 0.3); }
+  100% { transform: translateY(0) rotate(360deg) scale(1.08, 0.92); }
+}
+@keyframes fl-kick { 0%, 100% { transform: rotate(-22deg); } 20%, 80% { transform: rotate(0); } }
+@keyframes fl-shadow { 0%, 100% { transform: scale(1); opacity: 0.9; } 50% { transform: scale(0.55); opacity: 0.4; } }

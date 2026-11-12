@@ -5,6 +5,7 @@ import {
   appendMessage, deleteConversation, focusFor, historyFor, loadState, removeMessage, saveState, selectConversation, setFeedback, startConversation, uid,
   type State,
 } from "./conversations";
+import AgentStatus from "./components/AgentStatus";
 import Composer from "./components/Composer";
 import ConnectionBadge from "./components/ConnectionBadge";
 import MessageBubble from "./components/MessageBubble";
@@ -75,7 +76,8 @@ export default function App() {
       } catch (e) {
         const failure = e instanceof ApiError ? e.message : "Ha ocurrido un problema al procesar tu consulta.";
         const failureTechnical = e instanceof ApiError ? (e.technical ?? undefined) : e instanceof Error ? e.message : undefined;
-        setState((s) => appendMessage(s, convId, { id: uid(), role: "assistant", content: "", createdAt: Date.now(), failure, failureTechnical }));
+        const failureCode = e instanceof ApiError ? (e.code ?? undefined) : undefined;
+        setState((s) => appendMessage(s, convId, { id: uid(), role: "assistant", content: "", createdAt: Date.now(), failure, failureTechnical, failureCode }));
         void refreshHealth();
       } finally {
         clearTimeout(timer);
@@ -108,6 +110,8 @@ export default function App() {
     void ask(active.id, question, historyFor(before), focusFor(before));
   };
 
+  const cancel = () => abortRef.current?.abort();
+
   const submitFeedback = async (messageId: string, runId: string | null, fb: Feedback) => {
     if (!active) return;
     await sendFeedback(active.id, messageId, runId, fb); // si falla, la valoración no se marca como enviada
@@ -138,27 +142,17 @@ export default function App() {
           <ConnectionBadge connection={connection} onRefresh={() => void refreshHealth()} />
         </header>
         <div className="flex-1 overflow-y-auto overflow-x-hidden px-4 py-4" data-testid="messages">
-          <div className="mx-auto max-w-3xl space-y-4">
+          <div className="mx-auto max-w-3xl space-y-6">
             {active && active.messages.length === 0 && <Welcome onPick={send} disabled={loading} />}
             {active?.messages.map((m, i) => (
               <MessageBubble key={m.id} message={m} onRetry={m.failure && i === active.messages.length - 1 ? () => retry(m) : undefined}
                 onSuggest={m.id === lastAgentId ? send : undefined} suggestDisabled={loading} onFeedback={submitFeedback} />
             ))}
-            {loadingId !== null && loadingId === active?.id && (
-              <div role="status" className="text-sm text-ink-2">
-                <p className="motion-safe:animate-pulse">Futsito está consultando los datos…</p>
-                {slow && (
-                  <p className="mt-1 text-xs text-warning" data-testid="slow-hint">
-                    Esto está tardando más de lo normal. Puede que el servicio de IA esté limitando las peticiones; puedes esperar o cancelar.
-                  </p>
-                )}
-                <button onClick={() => abortRef.current?.abort()} className="mt-1 inline-flex min-h-6 items-center rounded text-sm underline">Cancelar</button>
-              </div>
-            )}
+            {loadingId !== null && loadingId === active?.id && <AgentStatus slow={slow} onCancel={cancel} />}
             <div ref={endRef} />
           </div>
         </div>
-        <Composer onSend={send} loading={loading} usesContext={historyFor(active?.messages ?? []).length > 0} />
+        <Composer onSend={send} onStop={loadingId !== null && loadingId === active?.id ? cancel : undefined} loading={loading} usesContext={historyFor(active?.messages ?? []).length > 0} />
       </main>
     </div>
   );

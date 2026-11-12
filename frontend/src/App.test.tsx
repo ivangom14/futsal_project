@@ -65,7 +65,9 @@ describe("App", () => {
     render(<App />);
     await userEvent.type(screen.getByLabelText("Pregunta"), "¿Cuánto dura cada mitad?{Enter}");
     expect(await screen.findByRole("status")).toHaveTextContent(/Futsito está consultando/i);
-    expect(screen.getByRole("button", { name: "Enviar" })).toBeDisabled();
+    // P1: durante la consulta el botón de enviar pasa a «Detener» (no se puede enviar otra pregunta)
+    expect(screen.getByRole("button", { name: "Detener" })).toBeEnabled();
+    expect(screen.queryByRole("button", { name: "Enviar" })).not.toBeInTheDocument();
     release();
     const agent = await screen.findByTestId("msg-agent");
     expect(within(agent).getByText("20 minutos").tagName).toBe("STRONG");
@@ -75,14 +77,17 @@ describe("App", () => {
     expect(screen.queryByTestId("welcome")).not.toBeInTheDocument();
   });
 
-  it("no muestra ninguna sección de fuentes, ni con fuentes en la respuesta ni sin ellas", async () => {
-    backend(() => reply(contract));  // el contrato real trae 2 fuentes documentales
+  it("muestra las fuentes en un pie discreto y plegado, sin la antigua sección «Fuentes»", async () => {
+    backend(() => reply(contract)); // el contrato real trae 2 fragmentos citados del mismo documento (p. 31 y 32)
     render(<App />);
     await userEvent.type(screen.getByLabelText("Pregunta"), "¿Cuánto dura cada mitad?{Enter}");
     const agent = await screen.findByTestId("msg-agent");
-    expect(contract.sources.length).toBeGreaterThan(0);
     expect(screen.queryByRole("region", { name: "Fuentes" })).not.toBeInTheDocument();
-    expect(within(agent).queryByText(/Normativa citada|Otros fragmentos consultados|Datos actualizados el/)).not.toBeInTheDocument();
+    expect(within(agent).queryByText(/Normativa citada|Otros fragmentos consultados/)).not.toBeInTheDocument();
+    const footer = within(agent).getByTestId("sources");
+    expect(footer).not.toHaveAttribute("open"); // plegado por defecto
+    expect(within(footer).getByText(/Fuente: Reglas de Juego de Fútbol Sala FIFA/)).toBeInTheDocument();
+    expect(within(footer).getByText(/p\. 31, 32/)).toBeInTheDocument(); // agrupadas en una sola entrada
   });
 
   it("distingue un error del backend de una respuesta y permite reintentar", async () => {

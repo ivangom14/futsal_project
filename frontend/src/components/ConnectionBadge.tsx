@@ -1,3 +1,4 @@
+import { showDiagnostics } from "../diagnostics";
 import type { Connection } from "../types";
 
 export function describe(c: Connection): { label: string; tone: string; title: string } {
@@ -26,7 +27,7 @@ export default function ConnectionBadge({ connection, onRefresh }: { connection:
     <button onClick={onRefresh} title={d.title} aria-label={`Estado: ${d.label}. ${d.title}`} className="flex min-h-10 items-center gap-1.5 rounded-full px-2 py-1 text-xs text-ink-2 hover:bg-surface-2">
       <span className={`h-2 w-2 rounded-full ${d.tone}`} />
       {d.label}
-      {(connection.state === "ok" || connection.state === "degraded") && connection.health.context_mode && (
+      {showDiagnostics() && (connection.state === "ok" || connection.state === "degraded") && connection.health.context_mode && (
         <span data-testid="context-mode" className="text-xs text-ink-2">· {connection.health.context_mode}</span>
       )}
     </button>

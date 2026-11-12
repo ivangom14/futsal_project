@@ -159,6 +159,8 @@ export interface Message {
   /** Mensaje de error del backend: no es una respuesta del agente. */
   feedback?: Feedback;
   failure?: string;
+  /** Código del fallo (`cancelled`, `timeout`, `connection`, `rate_limit`…): solo cambia el tono visual. */
+  failureCode?: string;
   /** Detalle técnico del fallo (solo para el panel de diagnóstico). */
   failureTechnical?: string;
 }

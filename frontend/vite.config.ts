@@ -10,5 +10,7 @@ export default defineConfig({
     globals: true,
     setupFiles: ["./src/test/setup.ts"],
     css: false,
+    // Las pruebas ven los detalles técnicos (en la app están ocultos salvo VITE_SHOW_DIAGNOSTICS=1 o ?debug).
+    env: { VITE_SHOW_DIAGNOSTICS: "1" },
   },
 });

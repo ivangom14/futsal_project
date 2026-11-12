@@ -42,7 +42,7 @@ try {
     await page.route("**/chat/health", (r) => r.fulfill({ json: { status: "ok", agent: { ready: true, error: null }, llm: { provider: "fake", key_configured: true }, data_api: { reachable: true, detail: null } } }));
     await page.route("**/chat", (r) => r.request().method() === "POST" ? r.fulfill({ json: response }) : r.continue());
     await page.goto(`http://127.0.0.1:${PORT}/`);
-    await page.getByPlaceholder(/Escribe tu pregunta/).fill("¿Cuáles son los próximos partidos?");
+    await page.getByLabel("Pregunta").fill("¿Cuáles son los próximos partidos?");
     await page.getByRole("button", { name: "Enviar" }).click();
     await page.getByTestId("visual").first().waitFor();
     const m = await page.evaluate(() => {
