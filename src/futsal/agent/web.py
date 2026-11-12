@@ -8,6 +8,7 @@ import asyncio
 import logging
 import threading
 import time
+from datetime import UTC, datetime
 from pathlib import Path as FilePath
 from collections.abc import AsyncIterator, Callable, Sequence
 from contextlib import AbstractAsyncContextManager, asynccontextmanager
@@ -41,6 +42,7 @@ from futsal.agent.memory import (
 )
 from futsal.agent.mcp_client import SessionMcpClient, stdio_params
 from futsal.agent.presentation import compute_focus, merge_focus, sanitize_focus
+from futsal.agent.question_log import QuestionLog
 from futsal.agent.trace import RunRecord, redact
 from futsal.config.settings import env_value
 
@@ -341,10 +343,12 @@ def create_chat_app(runner: AgentRunner | None = None,
                     memory: ConversationMemory | None = None,
                     freshness: Callable[[list[int]], dict[int, dict[str, Any]]] = api_freshness,
                     feedback_path: FilePath | None = None,
-                    question_timeout: float | None = None) -> FastAPI:
+                    question_timeout: float | None = None,
+                    question_log: QuestionLog | None = None) -> FastAPI:
     agent_runner = runner or AgentRunner()
     conversations = memory if memory is not None else ConversationMemory()
     summaries = RunSummaries()
+    questions = question_log or QuestionLog.from_env()  # QUESTION_LOG=on: un JSONL diario, escritura en segundo plano
     max_seconds = question_timeout if question_timeout is not None else max(5.0, float(env_value("CHAT_TIMEOUT_SECONDS", "90")))
     feedback_file = feedback_path or FilePath(env_value("FEEDBACK_FILE", "data/feedback/feedback.jsonl"))
     max_turns = int(env_value("HISTORY_MAX_TURNS", str(DEFAULT_MAX_TURNS)))
@@ -355,6 +359,7 @@ def create_chat_app(runner: AgentRunner | None = None,
         agent_runner.start()
         yield
         agent_runner.stop()
+        questions.close()
 
     app = FastAPI(title="Futsal Chat API", version="0.1.0", lifespan=lifespan)
     origins = [o.strip() for o in env_value("CHAT_CORS_ORIGINS", DEFAULT_CORS_ORIGINS).split(",") if o.strip()]
@@ -380,6 +385,15 @@ def create_chat_app(runner: AgentRunner | None = None,
 
     @app.post("/chat", response_model=ChatResponse)
     async def chat(body: ChatRequest) -> ChatResponse | JSONResponse:
+        received, response = datetime.now(UTC), None
+        try:
+            response = await _chat(body)
+            return response
+        finally:  # una vez por petición; solo encola (no espera al disco ni puede fallar); vacía → 400 y no se registra
+            if question := body.question.strip():
+                questions.submit(question, response.answer if isinstance(response, ChatResponse) else None, received)
+
+    async def _chat(body: ChatRequest) -> ChatResponse | JSONResponse:
         question = body.question.strip()
         if not question:
             raise HTTPException(400, "la pregunta está vacía")

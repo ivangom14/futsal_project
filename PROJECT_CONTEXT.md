@@ -270,3 +270,8 @@ Cierre 2026-11-10 (sin commit hasta autorización; detalle en `docs/v2/handoff.m
 recuento total − jugados; `regrade` por capas), agente v2 (respaldo determinista y «no consta en el acta»), T06 (migración 0008,
 cola, ritmo, interruptor, planificador, trabajador; red con dos llaves). Batería 2069 pass. 0 peticiones RFFM y 0 llamadas LLM en esta fase.
 Documento de arranque para la siguiente conversación: `docs/v2/handoff.md`.
+Registro de preguntas (2026-11-12, sin commit): `agent/question_log.py` — `POST /chat` encola la pregunta (cola acotada 1000, `put_nowait`; llena → se descarta);
+un único hilo escritor sanea (patrones de `trace`/`telemetry`), escribe `{"ts","question"}` en `logs/questions/AAAA-MM-DD.jsonl` (UTC, ignorado por Git) y borra
+ficheros fuera de retención una vez al día. `QUESTION_LOG=on|off` (off def.), `QUESTION_LOG_DIR`, `QUESTION_LOG_RETENTION_DAYS` (30), `QUESTION_LOG_MAX_CHARS` (500). Opcional `QUESTION_LOG_ANSWERS=on` (off def.) añade `answer` (texto mostrado, saneado, `QUESTION_LOG_ANSWER_MAX_CHARS` 2000; `null` si falla);
+se encola al terminar la petición (`try/finally` en `POST /chat`) con `ts` de llegada.
+El chat corre fuera de Docker (Compose solo tiene `db`): los ficheros quedan en disco local. Tests `tests/test_question_log.py` (11). Independiente de `telemetry` (AGENT_TELEMETRY).
