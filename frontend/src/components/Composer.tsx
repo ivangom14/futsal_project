@@ -17,9 +17,9 @@ export default function Composer({ onSend, loading, usesContext = false }: { onS
     }
   };
   return (
-    <div className="border-t border-bear-100 bg-white p-3">
+    <div className="border-t border-line bg-surface p-3">
       {usesContext && (
-        <p className="mx-auto mb-1 max-w-3xl text-xs text-slate-400" data-testid="context-hint">
+        <p className="mx-auto mb-1 max-w-3xl text-xs text-ink-2" data-testid="context-hint">
           Futsito tiene en cuenta los mensajes anteriores de esta conversación.
         </p>
       )}
@@ -32,9 +32,9 @@ export default function Composer({ onSend, loading, usesContext = false }: { onS
           rows={2}
           placeholder="Escribe tu pregunta… (Enter envía, Shift+Enter nueva línea)"
           aria-label="Pregunta"
-          className="min-w-0 flex-1 resize-none rounded-lg border border-slate-300 px-3 py-2 text-base sm:text-sm focus:border-brand-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-200"
+          className="min-w-0 flex-1 resize-none rounded-lg border border-line-strong bg-surface px-3 text-ink py-2 text-base sm:text-sm focus:border-focus focus:outline-none focus-visible:ring-2 focus-visible:ring-focus"
         />
-        <button onClick={submit} disabled={loading || !text.trim()} className="shrink-0 rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-50">
+        <button onClick={submit} disabled={loading || !text.trim()} className="min-h-10 shrink-0 rounded-lg bg-brand px-4 py-2 text-sm font-medium text-brand-on hover:bg-brand-hover disabled:opacity-50">
           Enviar
         </button>
       </div>

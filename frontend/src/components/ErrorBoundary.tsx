@@ -20,10 +20,10 @@ export default class ErrorBoundary extends Component<{ children: ReactNode }, { 
   render() {
     if (!this.state.error) return this.props.children;
     return (
-      <div role="alert" className="mx-auto mt-16 max-w-md rounded border border-red-300 bg-red-50 p-4 text-sm text-red-800">
+      <div role="alert" className="mx-auto mt-16 max-w-md rounded border border-danger bg-danger-soft p-4 text-sm text-danger">
         <p className="font-semibold">La aplicación ha fallado al mostrarse</p>
         <p className="mt-1 break-words">{this.state.error.message}</p>
-        <button onClick={this.reset} className="mt-3 rounded bg-red-600 px-3 py-1 text-white">Borrar historial local y recargar</button>
+        <button onClick={this.reset} className="mt-3 min-h-10 rounded-lg border border-line-strong bg-surface px-3 py-1.5 font-medium text-ink hover:bg-surface-2">Borrar historial local y recargar</button>
       </div>
     );
   }

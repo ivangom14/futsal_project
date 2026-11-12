@@ -5,9 +5,9 @@ const sec = (ms: number) => `${(ms / 1000).toFixed(1)} s`;
 export default function TechnicalDetails({ response }: { response: ChatResponse }) {
   const d = response.diagnostics;
   return (
-    <details className="mt-2 text-xs text-slate-500">
+    <details className="mt-2 text-xs text-ink-2">
       <summary className="cursor-pointer select-none">Detalles técnicos</summary>
-      <div className="mt-1 space-y-1 rounded border border-slate-200 bg-white p-2">
+      <div className="mt-1 space-y-1 rounded border border-line bg-surface p-2">
         {d.llm_ms !== undefined && (
           <p data-testid="time-breakdown">
             Tiempo: modelo {sec(d.llm_ms)}{(d.llm_retries ?? 0) > 0 && <> (de ellos {sec(d.retry_wait_ms ?? 0)} esperando {d.llm_retries} reintento(s) por límite del servicio)</>}
@@ -44,7 +44,7 @@ export default function TechnicalDetails({ response }: { response: ChatResponse 
             {d.context.assumption && <p>Suposición declarada: {d.context.assumption}</p>}
             {d.context.interpreter_trigger && <p>Intérprete LLM consultado ({d.context.interpreter_trigger}){d.context.interpreter?.competitions?.length ? <> → {d.context.interpreter.competitions.join("; ")}</> : null}{d.context.interpreter_error && <> · falló: {d.context.interpreter_error}</>}</p>}
             {d.context.recovery !== undefined && <p>Recuperación: <code>{String(d.context.recovery)}</code></p>}
-            {d.context.error && <p className="text-amber-700">La comprensión de contexto falló ({d.context.error}): se usó el flujo legacy.</p>}
+            {d.context.error && <p className="text-warning">La comprensión de contexto falló ({d.context.error}): se usó el flujo legacy.</p>}
           </div>
         )}
         {d.resolved_question && <p>Interpretada como: <em>{d.resolved_question}</em></p>}
@@ -55,7 +55,7 @@ export default function TechnicalDetails({ response }: { response: ChatResponse 
               {d.reconciliation.kept > 0 && <>; {d.reconciliation.kept} se conservaron</>}
               {d.reconciliation.pointer_added && " (se añadió una frase que remite al gráfico)"}.
             </p>
-            {d.reconciliation.error && <p className="text-amber-700">La conciliación falló ({d.reconciliation.error}): se muestra el texto original del agente.</p>}
+            {d.reconciliation.error && <p className="text-warning">La conciliación falló ({d.reconciliation.error}): se muestra el texto original del agente.</p>}
             {d.reconciliation.removed_items.length > 0 && (
               <ul className="list-disc pl-4">
                 {d.reconciliation.removed_items.map((r, i) => <li key={`r${i}`}>Omitido: «{r.snippet}» · {r.reason}</li>)}
@@ -71,16 +71,16 @@ export default function TechnicalDetails({ response }: { response: ChatResponse 
         {d.tools.length > 0 && (
           <ul className="space-y-0.5">
             {d.tools.map((t, i) => (
-              <li key={i} className={t.is_error ? "text-red-600" : ""}>
+              <li key={i} className={t.is_error ? "text-danger" : ""}>
                 <code>{t.name}</code>({JSON.stringify(t.arguments)}) · {Math.round(t.duration_ms)} ms · {t.summary}
                 {t.refused && " · rechazada por el guardarraíl"}
               </li>
             ))}
           </ul>
         )}
-        {response.error && <p className="text-red-600">Ejecución incompleta: {response.error}</p>}
+        {response.error && <p className="text-danger">Ejecución incompleta: {response.error}</p>}
         {d.errors.length > 0 && (
-          <ul className="text-red-600">
+          <ul className="text-danger">
             {d.errors.map((e, i) => (
               <li key={i}>{e}</li>
             ))}

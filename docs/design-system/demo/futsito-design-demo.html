@@ -1,0 +1,403 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Futsito · Sistema Pista</title>
+<!-- Demo aislada: Archivo se carga de Google Fonts SOLO aquí; en producción se autoaloja (doc 3 §C.1). -->
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&display=swap" rel="stylesheet" />
+<style>
+:root {
+  --fs-bg:#F8F4EE; --fs-surface:#FFFFFF; --fs-surface-2:#F1EAE0; --fs-border:#E2D6C6; --fs-border-strong:#8C7A68;
+  --fs-text:#221812; --fs-text-2:#6A5646; --fs-inverse:#2A1E16; --fs-on-inverse:#FFFFFF;
+  --fs-brand:#C0281E; --fs-brand-hover:#A21F17; --fs-brand-text:#A21F17; --fs-brand-soft:#FCEDEA; --fs-on-brand:#FFFFFF;
+  --fs-accent:#1B5FA6; --fs-accent-soft:#E8F0FA; --fs-gold:#F2B21B; --fs-gold-text:#5A3E00;
+  --fs-success:#1C7444; --fs-success-soft:#E5F4EA; --fs-warning:#94560A; --fs-warning-soft:#FBF0DD;
+  --fs-danger:#B3261E; --fs-danger-soft:#FBE9E7; --fs-focus:#1B5FA6;
+  --fs-chart-1:var(--fs-brand); --fs-chart-2:var(--fs-accent); --fs-chart-track:var(--fs-surface-2); --fs-crest-tile:#FFFFFF;
+  --fur:#A8764F; --fur-dark:#8B5A36; --fur-light:#D9A77C; --muzzle:#E8C8A4; --ink-ill:#2B1A10;
+  --r-sm:6px; --r-md:10px; --r-lg:16px;
+  --dur-1:120ms; --dur-2:200ms; --ease-out:cubic-bezier(.2,.7,.3,1); --ease-in:cubic-bezier(.6,0,.8,.3);
+  --font-display:"Archivo",system-ui,sans-serif;
+  --font-text:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --fs-bg:#14100D; --fs-surface:#1E1813; --fs-surface-2:#29211A; --fs-border:#3B3027; --fs-border-strong:#9C8A78;
+    --fs-text:#F4ECE3; --fs-text-2:#BCAA98; --fs-inverse:#F4ECE3; --fs-on-inverse:#1E1813;
+    --fs-brand-hover:#D63A2F; --fs-brand-text:#FF8A7E; --fs-brand-soft:#3A1A15;
+    --fs-accent:#7DB3F0; --fs-accent-soft:#16263A; --fs-gold-text:#F7CF6A;
+    --fs-success:#5CC98A; --fs-success-soft:#14301F; --fs-warning:#F0B45A; --fs-warning-soft:#33240E;
+    --fs-danger:#FF8A80; --fs-danger-soft:#3A1714; --fs-focus:#7DB3F0; --fs-chart-1:#FF8A7E; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --fs-bg:#14100D; --fs-surface:#1E1813; --fs-surface-2:#29211A; --fs-border:#3B3027; --fs-border-strong:#9C8A78;
+  --fs-text:#F4ECE3; --fs-text-2:#BCAA98; --fs-inverse:#F4ECE3; --fs-on-inverse:#1E1813;
+  --fs-brand-hover:#D63A2F; --fs-brand-text:#FF8A7E; --fs-brand-soft:#3A1A15;
+  --fs-accent:#7DB3F0; --fs-accent-soft:#16263A; --fs-gold-text:#F7CF6A;
+  --fs-success:#5CC98A; --fs-success-soft:#14301F; --fs-warning:#F0B45A; --fs-warning-soft:#33240E;
+  --fs-danger:#FF8A80; --fs-danger-soft:#3A1714; --fs-focus:#7DB3F0; --fs-chart-1:#FF8A7E; color-scheme: dark;
+}
+*{box-sizing:border-box}
+html,body{margin:0;max-width:100%;overflow-x:hidden}
+body{background:var(--fs-bg);color:var(--fs-text);font:16px/24px var(--font-text)}
+:focus-visible{outline:2px solid var(--fs-focus);outline-offset:2px;border-radius:4px}
+.wrap{max-width:760px;margin:0 auto;padding:16px}
+header.top{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;padding:12px 16px;background:var(--fs-surface);border-bottom:1px solid var(--fs-border);position:sticky;top:0;z-index:2}
+.brand{font:850 24px/28px var(--font-display);font-stretch:112%;color:var(--fs-brand-text);letter-spacing:-.01em}
+.spacer{flex:1}
+h2.sec{font:750 22px/28px var(--font-display);margin:40px 0 4px}
+p.lead{margin:0 0 16px;color:var(--fs-text-2)}
+.overline{font:650 12px/16px var(--font-display);letter-spacing:.06em;text-transform:uppercase;color:var(--fs-text-2)}
+.seg{display:inline-flex;border:1px solid var(--fs-border-strong);border-radius:999px;overflow:hidden}
+.seg button{border:0;background:transparent;color:var(--fs-text);font:500 14px/20px var(--font-text);padding:8px 12px;min-height:40px;cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--fs-inverse);color:var(--fs-on-inverse)}
+/* direcciones */
+.dirs{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(220px,1fr))}
+.dir{border-radius:var(--r-lg);padding:14px;border:1px solid var(--fs-border)}
+.dir h3{margin:0 0 8px;font:700 15px/20px var(--font-display)}
+.dir .mini{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:14px}
+.d1{background:#0E1A2B;color:#E8EEF7;border-color:#0E1A2B}.d1 .sc{font:800 22px var(--font-display);font-stretch:62%;background:#E8EEF7;color:#0E1A2B;padding:0 8px;border-radius:4px}
+.d2{background:#FFFFFF;color:#1F2328}.d2 .sc{font:600 18px var(--font-text);color:#1F2328}
+.d3{background:var(--fs-surface)}.d3 .sc{font:800 22px var(--font-display);font-stretch:75%;background:var(--fs-inverse);color:var(--fs-on-inverse);padding:0 8px;border-radius:var(--r-md)}
+.tag{display:inline-block;font:600 12px/16px var(--font-text);padding:2px 8px;border-radius:999px;background:var(--fs-success-soft);color:var(--fs-success);margin-top:8px}
+/* tokens */
+.sw{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:8px}
+.sw div{border:1px solid var(--fs-border);border-radius:var(--r-md);overflow:hidden;background:var(--fs-surface);font-size:12px;line-height:16px}
+.sw i{display:block;height:44px}
+.sw span{display:block;padding:6px 8px}
+/* tipografía */
+.type > *{margin:0 0 10px}
+.t-score{font:800 28px/28px var(--font-display);font-stretch:75%;font-variant-numeric:tabular-nums}
+.t-table{font:500 14px/20px var(--font-display);font-stretch:87.5%;font-variant-numeric:tabular-nums}
+/* chat */
+.chat{background:var(--fs-bg);border:1px solid var(--fs-border);border-radius:var(--r-lg);padding:16px 12px;display:flex;flex-direction:column;gap:20px}
+.u{align-self:flex-end;max-width:85%;background:var(--fs-inverse);color:var(--fs-on-inverse);padding:8px 14px;border-radius:16px 16px 4px 16px}
+.agent-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px}
+.agent-head b{font:700 14px/20px var(--font-display)}
+.badge{display:inline-flex;align-items:center;gap:4px;font:500 12px/16px var(--font-text);padding:2px 8px;border-radius:999px;background:var(--fs-surface-2);color:var(--fs-text-2)}
+.badge.gold{background:var(--fs-gold);color:var(--fs-gold-text)}
+.ic{width:16px;height:16px;flex:none}
+.frame{margin-top:12px;background:var(--fs-surface);border:1px solid var(--fs-border);border-radius:var(--r-lg);overflow:hidden}
+.frame > header{padding:10px 12px;background:var(--fs-surface-2);border-bottom:1px solid var(--fs-border)}
+.frame > header h4{margin:0;font:700 15px/20px var(--font-display)}
+.frame > header p{margin:0;font-size:13px;line-height:18px;color:var(--fs-text-2)}
+.frame > footer{padding:8px 12px;border-top:1px solid var(--fs-border);font-size:13px;line-height:18px;color:var(--fs-text-2);display:flex;gap:6px;align-items:center}
+/* partidos (consulta de contenedor como en el frontend actual) */
+.ml{list-style:none;margin:0;padding:0;container-type:inline-size}
+.ml li{padding:10px 12px;border-top:1px solid var(--fs-border)}.ml li:first-child{border-top:0}
+.ml .meta{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.row{display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"h m" "a m";column-gap:10px;row-gap:4px;align-items:center;margin-top:6px}
+.team{display:flex;align-items:center;gap:8px;min-width:0;font-size:14px;line-height:18px;overflow-wrap:anywhere}
+.team.win{font-weight:650}.h{grid-area:h}.a{grid-area:a}
+.mid{grid-area:m;font:800 18px/20px var(--font-display);font-stretch:75%;font-variant-numeric:tabular-nums;background:var(--fs-inverse);color:var(--fs-on-inverse);border-radius:var(--r-md);padding:6px 10px;min-width:56px;text-align:center}
+.mid.vs{background:var(--fs-surface-2);color:var(--fs-text-2);font:600 13px/18px var(--font-text)}
+@container (min-width:30rem){
+  .row{grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);grid-template-areas:"h m a"}
+  .h{justify-content:flex-end;text-align:right;flex-direction:row-reverse}
+}
+.chip{font:600 12px/16px var(--font-text);padding:2px 8px;border-radius:999px}
+.st-finished{background:var(--fs-surface-2);color:var(--fs-text-2)}
+.st-scheduled{background:var(--fs-accent-soft);color:var(--fs-accent)}
+.st-postponed{background:var(--fs-warning-soft);color:var(--fs-warning)}
+.st-suspended{background:var(--fs-danger-soft);color:var(--fs-danger)}
+/* escudo */
+.crest{flex:none;display:inline-grid;place-items:center;background:var(--fs-crest-tile);border:1px solid var(--fs-border);border-radius:6px;padding:2px}
+.crest svg{display:block;width:100%;height:100%}
+/* clasificación */
+.tw{overflow-x:auto}
+table{border-collapse:collapse;width:100%}
+th,td{padding:6px 8px;text-align:right;white-space:nowrap}
+th{font:600 12px/16px var(--font-text);color:var(--fs-text-2)}
+td{border-top:1px solid var(--fs-border)}
+td.n,th.n{font:500 14px/20px var(--font-display);font-stretch:87.5%;font-variant-numeric:tabular-nums}
+td.pts{font-weight:750}
+.tc{text-align:left;position:sticky;left:0;background:var(--fs-surface)}
+tr.hl td{background:var(--fs-brand-soft)} tr.hl td:first-child{box-shadow:inset 3px 0 var(--fs-brand)}
+.tm{display:flex;align-items:center;gap:8px;white-space:normal;min-width:96px;font-size:14px;line-height:18px}
+.opt{display:none}
+.tw{container-type:inline-size}
+@container (min-width:22rem){.opt.o1{display:table-cell}}
+@container (min-width:34rem){.opt.o2{display:table-cell}}
+/* goleadores */
+.sc-list{list-style:none;margin:0;padding:8px 12px;display:grid;gap:10px}
+.sc-row{display:grid;grid-template-columns:28px minmax(0,1fr) auto;gap:4px 10px;align-items:center}
+.rank{font:800 15px/16px var(--font-display);font-stretch:75%;text-align:center;border-radius:4px;padding:3px 0;background:var(--fs-surface-2)}
+.rank.first{background:var(--fs-gold);color:var(--fs-gold-text)}
+.who{min-width:0;font-size:14px;line-height:18px}.who small{display:flex;align-items:center;gap:6px;color:var(--fs-text-2);font-size:13px}
+.goals{font:800 18px/20px var(--font-display);font-stretch:75%;font-variant-numeric:tabular-nums}
+.bar{grid-column:2/4;height:6px;border-radius:3px;background:var(--fs-chart-track)}.bar i{display:block;height:6px;border-radius:3px;background:var(--fs-chart-1)}
+/* chips y composer */
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.pchip{font:400 14px/20px var(--font-text);color:var(--fs-text);background:var(--fs-surface);border:1px solid var(--fs-border-strong);border-radius:999px;padding:9px 14px;min-height:40px;cursor:pointer;text-align:left}
+.pchip:hover{background:var(--fs-surface-2)}
+.cchip{display:inline-flex;align-items:center;gap:6px;background:var(--fs-accent-soft);color:var(--fs-accent);font:500 13px/18px var(--font-text);padding:4px 4px 4px 10px;border-radius:999px}
+.cchip button{border:0;background:transparent;color:inherit;width:28px;height:28px;border-radius:999px;cursor:pointer;display:grid;place-items:center}
+.composer{margin-top:8px;display:flex;gap:8px;align-items:flex-end;background:var(--fs-surface);border:1px solid var(--fs-border-strong);border-radius:var(--r-lg);padding:6px 6px 6px 14px}
+.composer textarea{flex:1;min-width:0;border:0;background:transparent;color:var(--fs-text);font:16px/24px var(--font-text);resize:none;padding:6px 0;outline:none}
+.composer:focus-within{box-shadow:0 0 0 2px var(--fs-focus)}
+.send{width:40px;height:40px;border-radius:999px;border:0;background:var(--fs-brand);color:var(--fs-on-brand);display:grid;place-items:center;cursor:pointer}
+.send:hover{background:var(--fs-brand-hover)}
+.btn2{font:500 14px/20px var(--font-text);min-height:40px;padding:8px 14px;border-radius:var(--r-md);border:1px solid var(--fs-border-strong);background:var(--fs-surface);color:var(--fs-text);cursor:pointer}
+/* avisos */
+.notice{display:flex;gap:8px;align-items:flex-start;padding:10px 12px;border-radius:var(--r-md);font-size:14px;line-height:20px}
+.notice.warn{background:var(--fs-warning-soft);color:var(--fs-warning)}
+.notice.info{background:var(--fs-accent-soft);color:var(--fs-accent)}
+.err{background:var(--fs-danger-soft);border:1px solid color-mix(in srgb,var(--fs-danger) 40%,transparent);border-radius:var(--r-lg);padding:12px 14px}
+.err b{display:flex;gap:8px;align-items:center;color:var(--fs-danger);font:700 15px/20px var(--font-display)}
+.err p{margin:4px 0 10px;font-size:14px;line-height:20px}
+.clar{border-left:3px solid var(--fs-accent);padding-left:12px}
+.empty{text-align:center;padding:20px 12px;color:var(--fs-text-2)}
+.empty b{display:block;color:var(--fs-text);font:700 15px/20px var(--font-display);margin-top:6px}
+.src summary{cursor:pointer;list-style:none;display:flex;gap:6px;align-items:center;font-size:13px;line-height:18px;color:var(--fs-text-2);min-height:32px}
+.src ul{margin:4px 0 0;padding-left:22px;font-size:13px;line-height:18px;color:var(--fs-text-2)}
+/* loader */
+.status{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.status p{margin:0;font-size:14px;line-height:20px;color:var(--fs-text-2)}
+.status .t{font-variant-numeric:tabular-nums}
+.fl{width:64px;height:64px;flex:none}
+.fl-ball{animation:fl-bounce .9s infinite;transform-box:fill-box;transform-origin:center}
+.fl-leg{animation:fl-kick .9s infinite;transform-box:fill-box;transform-origin:50% 0}
+.fl-shadow{animation:fl-shadow .9s infinite;transform-box:fill-box;transform-origin:center}
+@keyframes fl-bounce{0%{transform:translateY(0) scale(1.08,.92);animation-timing-function:var(--ease-out)}50%{transform:translateY(-38px) rotate(180deg);animation-timing-function:var(--ease-in)}100%{transform:translateY(0) rotate(360deg) scale(1.08,.92)}}
+@keyframes fl-kick{0%,100%{transform:rotate(-22deg)}20%,80%{transform:rotate(0)}}
+@keyframes fl-shadow{0%,100%{transform:scale(1);opacity:.9}50%{transform:scale(.55);opacity:.4}}
+.dots{display:inline-flex;gap:5px}.dots i{width:6px;height:6px;border-radius:50%;background:var(--fs-brand);opacity:.25;animation:dot 1s infinite}
+.dots i:nth-child(2){animation-delay:.1s}.dots i:nth-child(3){animation-delay:.2s}.dots i:nth-child(4){animation-delay:.3s}.dots i:nth-child(5){animation-delay:.4s}
+@keyframes dot{0%,60%,100%{opacity:.25}30%{opacity:1}}
+.rm .fl-ball,.rm .fl-leg,.rm .fl-shadow,.rm .dots i{animation:none}.rm .fl-ball{transform:translateY(-20px)}.rm .dots i{opacity:.6}
+@media (prefers-reduced-motion:reduce){.fl-ball,.fl-leg,.fl-shadow,.dots i{animation:none}.fl-ball{transform:translateY(-20px)}.dots i{opacity:.6}}
+.iconrow{display:flex;gap:16px;flex-wrap:wrap;align-items:center}
+.iconrow figure{margin:0;text-align:center;font-size:12px;color:var(--fs-text-2)}
+.iconrow svg{width:24px;height:24px;display:block;margin:0 auto 4px;color:var(--fs-text)}
+@media (max-width:359px){.wrap{padding:12px}.chat{padding:12px 8px}}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <!-- Iconos propios en la rejilla de Lucide (24, trazo 2, extremos redondeados) -->
+  <symbol id="i-ball" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7.5l3.8 2.8-1.5 4.4H9.7l-1.5-4.4z"/><path d="M12 3v4.5M20.6 9.4l-4.8.9M17.3 19.3l-3-4.6M6.7 19.3l3-4.6M3.4 9.4l4.8.9"/></symbol>
+  <symbol id="i-court" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M12 5v14"/><circle cx="12" cy="12" r="2.5"/><path d="M2 9.5a3 3 0 0 1 0 5M22 9.5a3 3 0 0 0 0 5"/></symbol>
+  <symbol id="i-card" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="3" width="10" height="16" rx="2" transform="rotate(8 12 11)"/></symbol>
+  <symbol id="i-crest" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.5l7.5 3V11c0 5-3.3 8.9-7.5 10.5C7.8 19.9 4.5 16 4.5 11V5.5z"/></symbol>
+  <!-- Lucide (ISC): database, triangle-alert, sparkles, x, send-horizontal, clock, refresh-cw -->
+  <symbol id="l-db" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14a9 3 0 0 0 18 0V5"/><path d="M3 12a9 3 0 0 0 18 0"/></symbol>
+  <symbol id="l-alert" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4M12 17h.01"/></symbol>
+  <symbol id="l-spark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.94 15.5A2 2 0 0 0 8.5 14.06l-6.13-1.58a.5.5 0 0 1 0-.96L8.5 9.94A2 2 0 0 0 9.94 8.5l1.58-6.13a.5.5 0 0 1 .96 0L14.06 8.5a2 2 0 0 0 1.44 1.44l6.13 1.58a.5.5 0 0 1 0 .96L15.5 14.06a2 2 0 0 0-1.44 1.44l-1.58 6.13a.5.5 0 0 1-.96 0z"/></symbol>
+  <symbol id="l-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></symbol>
+  <symbol id="l-send" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3.71 3.3a.5.5 0 0 0-.68.62L6 12l-2.97 8.08a.5.5 0 0 0 .68.62L21 12z"/><path d="M6 12h15"/></symbol>
+  <symbol id="l-clock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></symbol>
+</svg>
+
+<header class="top">
+  <img src="../../../frontend/public/futsito-mark.svg" alt="" width="32" height="32" />
+  <span class="brand">Futsito</span>
+  <span class="spacer"></span>
+  <div class="seg" role="group" aria-label="Tema">
+    <button type="button" data-theme-set="system" aria-pressed="true">Sistema</button>
+    <button type="button" data-theme-set="light" aria-pressed="false">Claro</button>
+    <button type="button" data-theme-set="dark" aria-pressed="false">Oscuro</button>
+  </div>
+</header>
+
+<main class="wrap">
+  <p class="overline">Propuesta · no productiva</p>
+  <h1 style="font:750 28px/34px var(--font-display);margin:4px 0 8px">Sistema de diseño «Pista»</h1>
+  <p class="lead">Demo estática de tokens, componentes y estados. Datos de ejemplo; escudos con el fallback de monograma (sin imágenes de la RFFM).</p>
+
+  <h2 class="sec">Tres direcciones</h2>
+  <p class="lead">El mismo resultado en cada estilo. Recomendada: Pista.</p>
+  <div class="dirs">
+    <div class="dir d1"><h3>1 · Marcador</h3><div class="mini"><span>Lope de Vega</span><span class="sc">4–2</span><span>Cardenal</span></div></div>
+    <div class="dir d2"><h3>2 · Conversa</h3><div class="mini"><span>Lope de Vega</span><span class="sc">4 – 2</span><span>Cardenal</span></div></div>
+    <div class="dir d3"><h3>3 · Pista</h3><div class="mini"><span>Lope de Vega</span><span class="sc">4–2</span><span>Cardenal</span></div><span class="tag">Recomendada</span></div>
+  </div>
+
+  <h2 class="sec">Color</h2>
+  <p class="lead">Tokens semánticos; cambia el tema arriba para ver el modo oscuro.</p>
+  <div class="sw" id="swatches"></div>
+
+  <h2 class="sec">Tipografía</h2>
+  <div class="type">
+    <p class="brand" style="font-size:32px;line-height:36px">Futsito</p>
+    <p style="font:750 22px/28px var(--font-display)">Clasificación · Primera Autonómica</p>
+    <p class="overline">Jornada 12 · sáb 07/11 · 11:00</p>
+    <p>El texto de la conversación usa la fuente del sistema a 16 px: legible y sin descargas.</p>
+    <p class="t-score">4–2 &nbsp; 10–9 &nbsp; 0–0</p>
+    <p class="t-table">Pos 1 · PJ 12 · G 9 · E 2 · P 1 · GF 58 · GC 31 · DG +27 · Pts 29</p>
+  </div>
+
+  <h2 class="sec">Iconos propios</h2>
+  <div class="iconrow">
+    <figure><svg><use href="#i-ball"/></svg>balón</figure>
+    <figure><svg><use href="#i-court"/></svg>pista</figure>
+    <figure><svg><use href="#i-card"/></svg>tarjeta</figure>
+    <figure><svg><use href="#i-crest"/></svg>escudo</figure>
+  </div>
+
+  <h2 class="sec">Conversación</h2>
+  <div class="chat" aria-label="Ejemplo de conversación">
+    <p class="u">¿Qué resultados hubo en la última jornada?</p>
+
+    <article aria-label="Respuesta de Futsito">
+      <div class="agent-head">
+        <img src="../../../frontend/public/futsito-mark.svg" alt="" width="24" height="24" />
+        <b>Futsito</b>
+        <span class="badge"><svg class="ic"><use href="#l-db"/></svg>Datos oficiales RFFM</span>
+      </div>
+      <p style="margin:0">En la jornada 12 hubo 7 partidos. El Lope de Vega ganó 4–2 y sigue líder.</p>
+      <figure class="frame" style="margin-inline:0">
+        <header><h4>Resultados · Jornada 12</h4><p>Primera Autonómica · Grupo 2</p></header>
+        <ul class="ml" id="matches"></ul>
+        <footer><svg class="ic"><use href="#l-clock"/></svg>Se muestran 4 de 7 partidos.</footer>
+      </figure>
+      <details class="src" style="margin-top:8px">
+        <summary><svg class="ic"><use href="#l-db"/></svg>Datos oficiales RFFM · actualizado 09/11/2026</summary>
+        <ul><li>RFFM · resultados y jornadas (consultado 12/11/2026 22:40)</li><li>RFFM · clasificaciones, jornada 12</li></ul>
+      </details>
+    </article>
+
+    <p class="u">¿Y la clasificación y los goleadores?</p>
+    <article aria-label="Respuesta de Futsito">
+      <div class="agent-head">
+        <img src="../../../frontend/public/futsito-mark.svg" alt="" width="24" height="24" />
+        <b>Futsito</b>
+        <span class="badge"><svg class="ic"><use href="#l-db"/></svg>Datos oficiales RFFM</span>
+      </div>
+      <figure class="frame" style="margin-inline:0">
+        <header><h4>Clasificación · Primera Autonómica · Grupo 2</h4><p>Jornada 12</p></header>
+        <div class="tw"><table id="standings"></table></div>
+      </figure>
+      <figure class="frame" style="margin-inline:0">
+        <header><h4>Goleadores · Grupo 2</h4><p>Tabla actual · captura 09/11/2026</p></header>
+        <ol class="sc-list" id="scorers"></ol>
+      </figure>
+    </article>
+
+    <article class="clar" aria-label="Aclaración de Futsito">
+      <div class="agent-head">
+        <img src="../../../frontend/public/futsito-mark.svg" alt="" width="24" height="24" />
+        <b>Futsito</b><span class="badge">Necesito un detalle</span>
+      </div>
+      <p style="margin:0">Hay dos equipos que coinciden con «Parque Norte». ¿Cuál quieres?</p>
+      <div class="chips" role="group" aria-label="Opciones">
+        <button class="pchip" type="button">PARQUE NORTE F.S. 'A'</button>
+        <button class="pchip" type="button">PARQUE NORTE F.S. - RODILLITO 'B'</button>
+      </div>
+    </article>
+
+    <article aria-label="Análisis de Futsito">
+      <div class="agent-head">
+        <img src="../../../frontend/public/futsito-mark.svg" alt="" width="24" height="24" />
+        <b>Futsito</b><span class="badge gold" title="Interpretación del asistente a partir de los datos; no es información oficial"><svg class="ic"><use href="#l-spark"/></svg>Análisis</span>
+      </div>
+      <p class="notice info" style="display:block;margin:0">Entiendo que hablas de <b>Primera Autonómica · Grupo 2</b>.</p>
+      <p style="margin:8px 0 0">Con 9 victorias en 12 partidos, el Lope de Vega tiene el mejor ataque del grupo.</p>
+    </article>
+
+    <div class="err" role="alert">
+      <b><svg class="ic"><use href="#l-alert"/></svg>No he podido responder ahora mismo</b>
+      <p>No he podido conectar con el servicio. Inténtalo de nuevo dentro de unos instantes.</p>
+      <button class="btn2" type="button">Reintentar</button>
+    </div>
+
+    <figure class="frame" style="margin:0">
+      <div class="empty">
+        <svg viewBox="0 0 120 64" width="120" height="64" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <path d="M4 60h112"/><path d="M30 60a30 30 0 0 1 60 0"/><circle cx="60" cy="44" r="1.5" fill="currentColor"/>
+          <g transform="translate(60 22)" color="var(--fs-text)"><circle r="8" fill="var(--fs-surface)"/><path d="M0-4l3.8 2.8-1.5 4.4h-4.6l-1.5-4.4z" fill="currentColor" stroke="none"/></g>
+        </svg>
+        <b>No hay partidos con acta en esta jornada</b>
+        Prueba con la jornada anterior o pregunta por el calendario.
+      </div>
+    </figure>
+
+    <div class="status" role="status" aria-live="polite" id="status">
+      <svg class="fl" viewBox="0 0 120 120" aria-hidden="true">
+        <ellipse class="fl-shadow" cx="82" cy="114" rx="10" ry="2.5" fill="var(--fs-text)" opacity=".15"/>
+        <circle cx="44" cy="24" r="9" fill="var(--fur-dark)"/><circle cx="84" cy="24" r="9" fill="var(--fur-dark)"/>
+        <circle cx="44" cy="24" r="4" fill="var(--fur-light)"/><circle cx="84" cy="24" r="4" fill="var(--fur-light)"/>
+        <rect x="52" y="88" width="10" height="20" rx="5" fill="var(--fur-dark)"/>
+        <g class="fl-leg"><rect x="66" y="88" width="10" height="20" rx="5" fill="var(--fur-dark)"/><ellipse cx="73" cy="107" rx="7" ry="4" fill="var(--ink-ill)"/></g>
+        <path d="M42 64q22-8 44 0l4 26q-26 6-52 0z" fill="var(--fs-brand)"/>
+        <circle cx="40" cy="74" r="6" fill="var(--fur)"/><circle cx="88" cy="74" r="6" fill="var(--fur)"/>
+        <circle cx="64" cy="42" r="22" fill="var(--fur)"/>
+        <ellipse cx="66" cy="50" rx="11" ry="8" fill="var(--muzzle)"/><ellipse cx="66" cy="46" rx="4" ry="3" fill="var(--ink-ill)"/>
+        <circle cx="58" cy="40" r="2.8" fill="var(--ink-ill)"/><circle cx="76" cy="40" r="2.8" fill="var(--ink-ill)"/>
+        <g class="fl-ball"><circle cx="82" cy="99" r="8" fill="#fff" stroke="var(--ink-ill)" stroke-width="2"/><path d="M82 95l3.8 2.8-1.5 4.4h-4.6l-1.5-4.4z" fill="var(--ink-ill)"/></g>
+      </svg>
+      <p>Futsito está consultando los datos oficiales… <span class="t" id="elapsed"></span></p>
+      <button class="btn2" type="button">Cancelar</button>
+      <span class="dots" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span>
+    </div>
+    <label style="font-size:13px;color:var(--fs-text-2);display:flex;gap:8px;align-items:center"><input type="checkbox" id="rm" /> Simular movimiento reducido</label>
+    <div class="notice warn"><svg class="ic" style="margin-top:2px"><use href="#l-alert"/></svg>Esto está tardando más de lo normal. Puede que el servicio de IA esté limitando las peticiones; puedes esperar o cancelar.</div>
+
+    <div>
+      <p class="overline" style="margin:0 0 4px">Podrías preguntar</p>
+      <div class="chips" style="margin-top:0">
+        <button class="pchip" type="button">¿Cuándo juega el Lope de Vega?</button>
+        <button class="pchip" type="button">¿Quién arbitró el último partido?</button>
+      </div>
+      <div style="margin-top:12px"><span class="cchip">Hablando de <b>Lope de Vega FS</b><button type="button" aria-label="Quitar contexto"><svg class="ic"><use href="#l-x"/></svg></button></span></div>
+      <div class="composer">
+        <textarea rows="1" aria-label="Pregunta" placeholder="Pregunta a Futsito…"></textarea>
+        <button class="send" type="button" aria-label="Enviar"><svg class="ic" style="width:20px;height:20px"><use href="#l-send"/></svg></button>
+      </div>
+    </div>
+  </div>
+</main>
+
+<script>
+(() => {
+  const root = document.documentElement;
+  const btns = document.querySelectorAll("[data-theme-set]");
+  const apply = (t) => {
+    if (t === "system") root.removeAttribute("data-theme"); else root.setAttribute("data-theme", t);
+    btns.forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.themeSet === t)));
+  };
+  let saved = "system";
+  try { saved = localStorage.getItem("fs-demo-theme") || "system"; } catch {}
+  apply(saved);
+  btns.forEach((b) => b.addEventListener("click", () => { apply(b.dataset.themeSet); try { localStorage.setItem("fs-demo-theme", b.dataset.themeSet); } catch {} }));
+
+  const sw = ["bg","surface","surface-2","border","text","text-2","inverse","brand","brand-text","accent","gold","success","warning","danger"];
+  document.getElementById("swatches").innerHTML = sw.map((k) => `<div><i style="background:var(--fs-${k})"></i><span>--fs-${k}</span></div>`).join("");
+
+  // Fallback de escudo: monograma determinista (doc 4 §4.5)
+  const TONES = ["#A12A20","#1B5FA6","#1C7444","#6B3FA0","#8A5A12","#0F6E73","#4A5563","#9B2C68"];
+  const STOP = new Set(["FS","F.S.","CD","CF","AD","CDE","CDF","CLUB","DE","DEL","LA","EL","LOS","LAS","Y","A","B","C","'A'","'B'","'C'","-"]);
+  const initials = (name) => {
+    const w = name.toUpperCase().split(/\s+/).filter((x) => x && !STOP.has(x));
+    return ((w[0] || "?")[0] + (w[1] ? w[1][0] : "")).normalize("NFD").replace(/[̀-ͯ]/g, "");
+  };
+  const tone = (name) => { let h = 0; for (const c of name) h = (h * 31 + c.charCodeAt(0)) >>> 0; return TONES[h % TONES.length]; };
+  const crest = (name, size = 24) => `<span class="crest" style="width:${size}px;height:${size}px" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 1.5l8.5 3.2V11c0 5.4-3.6 9.6-8.5 11.5C7.1 20.6 3.5 16.4 3.5 11V4.7z" fill="${tone(name)}"/><text x="12" y="14.6" text-anchor="middle" font-family="Archivo,system-ui,sans-serif" font-weight="750" font-stretch="87.5%" font-size="${initials(name).length > 1 ? 8 : 10}" fill="#fff">${initials(name)}</text></svg></span>`;
+
+  const M = [
+    { when: "J12 · sáb 07/11 · 11:00", st: ["finished","Finalizado"], h: "LOPE DE VEGA FS", a: "CARDENAL SPÍNOLA CHAMARTÍN", s: "4–2", w: "h" },
+    { when: "J12 · sáb 07/11 · 17:30", st: ["finished","Finalizado"], h: "ADC FILIPENSES", a: "PARQUE NORTE F.S. - RODILLITO 'B'", s: "3–3" },
+    { when: "J12 · dom 08/11 · 12:00", st: ["postponed","Aplazado"], h: "TORREJÓN FIVE PLAY SALA", a: "CORAS FS", s: null },
+    { when: "J13 · sáb 14/11 · 10:00", st: ["scheduled","Programado"], h: "ESFERA FS", a: "COLMENAR FS", s: null },
+  ];
+  document.getElementById("matches").innerHTML = M.map((m) => `<li><div class="meta"><span class="overline">${m.when}</span><span class="chip st-${m.st[0]}">${m.st[1]}</span></div>
+    <div class="row"><span class="team h ${m.w === "h" ? "win" : ""}">${crest(m.h)}<span>${m.h}</span></span><span class="mid ${m.s ? "" : "vs"}">${m.s || "vs"}</span><span class="team a">${crest(m.a)}<span>${m.a}</span></span></div></li>`).join("");
+
+  const S = [[1,"LOPE DE VEGA FS",12,9,2,1,58,31,29,true],[2,"ADC FILIPENSES",12,8,2,2,49,30,26],[3,"CARDENAL SPÍNOLA CHAMARTÍN",12,7,3,2,44,33,24],[4,"ESFERA FS",12,6,2,4,40,38,20],[5,"CORAS FS",12,5,1,6,35,41,16]];
+  document.getElementById("standings").innerHTML = `<thead><tr><th class="n tc" scope="col"><abbr title="Posición">Pos</abbr></th><th class="tc" scope="col" style="left:44px;text-align:left">Equipo</th><th class="n" scope="col"><abbr title="Partidos jugados">PJ</abbr></th><th class="n opt o1" scope="col"><abbr title="Ganados">G</abbr></th><th class="n opt o1" scope="col"><abbr title="Empatados">E</abbr></th><th class="n opt o1" scope="col"><abbr title="Perdidos">P</abbr></th><th class="n opt o2" scope="col"><abbr title="Goles a favor">GF</abbr></th><th class="n opt o2" scope="col"><abbr title="Goles en contra">GC</abbr></th><th class="n" scope="col"><abbr title="Diferencia de goles">DG</abbr></th><th class="n" scope="col"><abbr title="Puntos">Pts</abbr></th></tr></thead><tbody>` +
+    S.map((r) => `<tr class="${r[9] ? "hl" : ""}"><td class="n tc" style="width:44px">${r[0]}</td><td class="tc" style="left:44px"><span class="tm">${crest(r[1], 20)}${r[1]}</span></td><td class="n">${r[2]}</td><td class="n opt o1">${r[3]}</td><td class="n opt o1">${r[4]}</td><td class="n opt o1">${r[5]}</td><td class="n opt o2">${r[6]}</td><td class="n opt o2">${r[7]}</td><td class="n">${r[6]-r[7] > 0 ? "+" : ""}${r[6]-r[7]}</td><td class="n pts">${r[8]}</td></tr>`).join("") + "</tbody>";
+
+  const G = [[1,"A. Martín","LOPE DE VEGA FS",17],[2,"D. Ruiz","ADC FILIPENSES",14],[3,"J. Sanz","CARDENAL SPÍNOLA CHAMARTÍN",11]];
+  document.getElementById("scorers").innerHTML = G.map((g) => `<li class="sc-row"><span class="rank ${g[0] === 1 ? "first" : ""}">${g[0]}</span><span class="who">${g[1]}<small>${crest(g[2], 16)}${g[2]}</small></span><span class="goals">${g[3]}</span><span class="bar" role="img" aria-label="${g[1]}: ${g[3]} goles"><i style="width:${(g[3] / 17) * 100}%"></i></span></li>`).join("");
+
+  const t0 = Date.now(); const el = document.getElementById("elapsed");
+  setInterval(() => { const s = Math.floor((Date.now() - t0) / 1000) % 30; el.textContent = s >= 5 ? `${s} s` : ""; }, 1000);
+  document.getElementById("rm").addEventListener("change", (e) => document.getElementById("status").classList.toggle("rm", e.target.checked));
+})();
+</script>
+</body>
+</html>

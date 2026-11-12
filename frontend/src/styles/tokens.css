@@ -1,0 +1,110 @@
+/*
+ * Design tokens «Pista» (docs/design-system/03-guia-estilos.md §B.3).
+ * Los componentes usan SOLO los colores semánticos de tailwind.config.js, que apuntan a estas variables:
+ * el modo oscuro cambia los valores aquí y ningún componente necesita variantes `dark:`.
+ * Tema: sistema por defecto (prefers-color-scheme); `data-theme="light|dark"` en <html> lo fuerza (src/theme.ts).
+ */
+
+@font-face {
+  font-family: "Archivo Variable";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  font-stretch: 62% 125%;
+  src: url("/fonts/archivo-latin-wdth.woff2") format("woff2-variations"), url("/fonts/archivo-latin-wdth.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+:root {
+  color-scheme: light;
+  --fs-canvas: #f8f4ee;
+  --fs-surface: #ffffff;
+  --fs-surface-2: #f1eae0;
+  --fs-line: #e2d6c6;
+  --fs-line-strong: #8c7a68;
+  --fs-ink: #221812;
+  --fs-ink-2: #6a5646;
+  --fs-inverse: #2a1e16;
+  --fs-on-inverse: #ffffff;
+  --fs-brand: #c0281e;
+  --fs-brand-hover: #a21f17;
+  --fs-brand-text: #a21f17;
+  --fs-brand-soft: #fcedea;
+  --fs-on-brand: #ffffff;
+  --fs-accent: #1b5fa6;
+  --fs-accent-soft: #e8f0fa;
+  --fs-gold: #f2b21b;
+  --fs-gold-text: #5a3e00;
+  --fs-success: #1c7444;
+  --fs-success-soft: #e5f4ea;
+  --fs-warning: #94560a;
+  --fs-warning-soft: #fbf0dd;
+  --fs-danger: #b3261e;
+  --fs-danger-soft: #fbe9e7;
+  --fs-focus: #1b5fa6;
+  --fs-chart-1: #c0281e;
+  --fs-chart-2: #1b5fa6;
+  /* Fondo fijo (blanco también en oscuro) para ilustraciones con colores propios y, en el futuro, escudos. */
+  --fs-tile: #ffffff;
+  --fs-scrim: rgb(20 16 13 / 0.5);
+}
+
+/* Oscuro: por preferencia del sistema salvo que el usuario haya elegido «claro», o forzado con data-theme="dark". */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --fs-canvas: #14100d;
+    --fs-surface: #1e1813;
+    --fs-surface-2: #29211a;
+    --fs-line: #3b3027;
+    --fs-line-strong: #9c8a78;
+    --fs-ink: #f4ece3;
+    --fs-ink-2: #bcaa98;
+    --fs-inverse: #f4ece3;
+    --fs-on-inverse: #1e1813;
+    --fs-brand-hover: #d63a2f;
+    --fs-brand-text: #ff8a7e;
+    --fs-brand-soft: #3a1a15;
+    --fs-accent: #7db3f0;
+    --fs-accent-soft: #16263a;
+    --fs-gold-text: #f7cf6a;
+    --fs-success: #5cc98a;
+    --fs-success-soft: #14301f;
+    --fs-warning: #f0b45a;
+    --fs-warning-soft: #33240e;
+    --fs-danger: #ff8a80;
+    --fs-danger-soft: #3a1714;
+    --fs-focus: #7db3f0;
+    --fs-chart-1: #ff8a7e;
+    --fs-chart-2: #7db3f0;
+    --fs-scrim: rgb(0 0 0 / 0.6);
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --fs-canvas: #14100d;
+  --fs-surface: #1e1813;
+  --fs-surface-2: #29211a;
+  --fs-line: #3b3027;
+  --fs-line-strong: #9c8a78;
+  --fs-ink: #f4ece3;
+  --fs-ink-2: #bcaa98;
+  --fs-inverse: #f4ece3;
+  --fs-on-inverse: #1e1813;
+  --fs-brand-hover: #d63a2f;
+  --fs-brand-text: #ff8a7e;
+  --fs-brand-soft: #3a1a15;
+  --fs-accent: #7db3f0;
+  --fs-accent-soft: #16263a;
+  --fs-gold-text: #f7cf6a;
+  --fs-success: #5cc98a;
+  --fs-success-soft: #14301f;
+  --fs-warning: #f0b45a;
+  --fs-warning-soft: #33240e;
+  --fs-danger: #ff8a80;
+  --fs-danger-soft: #3a1714;
+  --fs-focus: #7db3f0;
+  --fs-chart-1: #ff8a7e;
+  --fs-chart-2: #7db3f0;
+  --fs-scrim: rgb(0 0 0 / 0.6);
+}

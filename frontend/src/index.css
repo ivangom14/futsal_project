@@ -1,8 +1,29 @@
+@import "./styles/tokens.css";
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 html, body, #root { height: 100%; }
+
+@layer base {
+  body { background-color: var(--fs-canvas); color: var(--fs-ink); }
+  /* Foco visible y homogéneo en todo control (WCAG 2.4.7); el ratón no lo muestra (:focus-visible). */
+  :focus-visible { outline: 2px solid var(--fs-focus); outline-offset: 2px; }
+  input[type="radio"], input[type="checkbox"] { accent-color: var(--fs-brand); }
+  ::placeholder { color: var(--fs-ink-2); opacity: 1; }
+  /* Movimiento reducido: sin animaciones ni transiciones (el scroll suave se desactiva en App.tsx). */
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; scroll-behavior: auto !important; }
+  }
+}
+
+/* Anchura del eje `wdth` de Archivo (guía §C.2): marcadores condensados, tablas semicondensadas, marca expandida. */
+@layer utilities {
+  .stretch-score { font-stretch: 75%; }
+  .stretch-table { font-stretch: 87.5%; }
+  .stretch-brand { font-stretch: 112%; }
+}
 /* Nunca más ancho que la pantalla (un texto largo o el zoom de iOS al enfocar un campo no deben descuadrar la página); el zoom manual del usuario sigue permitido. */
 html, body { overflow-x: hidden; max-width: 100%; -webkit-text-size-adjust: 100%; }
 
@@ -30,7 +51,7 @@ html, body { overflow-x: hidden; max-width: 100%; -webkit-text-size-adjust: 100%
   }
   .match-team { @apply team-name font-medium; font-size: 0.84375rem; }
   .match-home { grid-area: home; }
-  .match-away { grid-area: away; margin-top: 0.125rem; padding-top: 0.25rem; border-top: 1px solid theme(colors.bear.100); }
+  .match-away { grid-area: away; margin-top: 0.125rem; padding-top: 0.25rem; border-top: 1px solid var(--fs-line); }
   .match-mid { grid-area: mid; align-self: center; min-width: 2.5rem; padding: 0.125rem 0.5rem; font-size: 0.75rem; }
   /* Tarjeta muy estrecha (≈320 px de pantalla): menos relleno lateral y un VS más compacto para que quepan nombres de hasta 60 caracteres sin recortar. */
   @container (max-width: 15rem) {

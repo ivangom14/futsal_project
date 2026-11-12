@@ -3,10 +3,16 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="light dark" />
     <link rel="icon" type="image/svg+xml" href="/futsito-mark.svg" />
+    <link rel="preload" href="/fonts/archivo-latin-wdth.woff2" as="font" type="font/woff2" crossorigin />
+    <script>
+      /* Tema elegido antes del primer pintado (sin destello). Mismo almacenamiento que src/theme.ts. */
+      try { var t = localStorage.getItem("futsito.theme"); if (t === "light" || t === "dark") document.documentElement.dataset.theme = t; } catch (e) {}
+    </script>
     <title>Futsito · Asistente de fútbol sala RFFM</title>
   </head>
-  <body class="bg-bear-50 text-slate-900">
+  <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

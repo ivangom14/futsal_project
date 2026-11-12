@@ -11,7 +11,7 @@ const SKIN = "#f1c9a5";
 function Figure({ kind, label }: { kind: keyof typeof KIT; label: string }) {
   const k = KIT[kind];
   return (
-    <svg viewBox="0 0 48 78" width="52" height="84" role="img" aria-label={label} className="shrink-0">
+    <svg viewBox="0 0 48 78" width="52" height="84" role="img" aria-label={label} className="shrink-0 rounded-md bg-tile">
       <ellipse cx="24" cy="75" rx="13" ry="2.5" fill="#000" opacity=".12" />
       <g stroke={SKIN} strokeWidth="5" strokeLinecap="round"><line x1="19" y1="59" x2="19" y2="70" /><line x1="29" y1="59" x2="29" y2="70" /></g>
       <g fill="#1f1f1f"><rect x="16.5" y="64" width="5" height="7" rx="1.5" /><rect x="26.5" y="64" width="5" height="7" rx="1.5" />
@@ -38,17 +38,17 @@ function Figure({ kind, label }: { kind: keyof typeof KIT; label: string }) {
 /** Árbitros del acta con su cargo tal cual figura, cada uno con su monigote. */
 export default function Officials({ v }: { v: OfficialsVisual }) {
   return (
-    <figure className="mt-3 overflow-hidden rounded-xl border border-bear-100 bg-white" data-testid="visual">
-      <figcaption className="border-b border-bear-100 bg-bear-50 px-3 py-2">
-        <p className="text-sm font-semibold text-bear-900">{v.title}</p>
-        {v.subtitle && <p className="text-xs text-slate-500">{v.subtitle}</p>}
+    <figure className="mt-3 overflow-hidden rounded-xl border border-line bg-surface" data-testid="visual">
+      <figcaption className="border-b border-line bg-surface-2 px-3 py-2">
+        <p className="font-display text-sm font-bold text-ink">{v.title}</p>
+        {v.subtitle && <p className="text-xs text-ink-2">{v.subtitle}</p>}
       </figcaption>
       <ul className="grid gap-2 p-3 sm:grid-cols-2 md:grid-cols-3">
         {v.people.map((p, i) => (
-          <li key={i} className="flex items-center gap-2 rounded-lg bg-bear-50 px-2 py-1">
+          <li key={i} className="flex items-center gap-2 rounded-lg bg-surface-2 px-2 py-1">
             <Figure kind={p.kind} label={`${p.role}: ${p.name}`} />
             <span className="min-w-0">
-              <span className="block text-xs font-semibold uppercase tracking-wide text-slate-500">{p.role}</span>
+              <span className="block text-xs font-semibold uppercase tracking-wide text-ink-2">{p.role}</span>
               <span className="block text-sm font-medium">{p.name}</span>
             </span>
           </li>

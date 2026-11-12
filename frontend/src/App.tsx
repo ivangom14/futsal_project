@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { Menu } from "lucide-react";
 import { ApiError, askAgent, forgetConversation, getHealth, sendFeedback } from "./api";
 import {
   appendMessage, deleteConversation, focusFor, historyFor, loadState, removeMessage, saveState, selectConversation, setFeedback, startConversation, uid,
@@ -13,6 +14,7 @@ import { LogoMark } from "./components/Logo";
 import type { Connection, Feedback, Focus, HistoryItem, Message } from "./types";
 
 const HEALTH_POLL_MS = 15_000;
+const prefersReducedMotion = () => typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 export const SLOW_MS = 20_000;
 
 export default function App() {
@@ -26,6 +28,9 @@ export default function App() {
   const [slow, setSlow] = useState(false); // la consulta lleva más de SLOW_MS
   const abortRef = useRef<AbortController | null>(null);
   const endRef = useRef<HTMLDivElement>(null);
+  const menuButtonRef = useRef<HTMLButtonElement>(null);
+  const mainRef = useRef<HTMLElement>(null);
+  const menuWasOpen = useRef(false);
 
   const active = state.conversations.find((c) => c.id === state.activeId) ?? null;
 
@@ -33,8 +38,14 @@ export default function App() {
     saveState(state);
   }, [state]);
   useEffect(() => {
-    endRef.current?.scrollIntoView({ behavior: "smooth" });
+    endRef.current?.scrollIntoView({ behavior: prefersReducedMotion() ? "auto" : "smooth" });
   }, [active?.messages.length, loadingId]);
+  useEffect(() => {
+    // Cajón móvil abierto: el chat queda inerte (ni foco ni lector de pantalla); al cerrarlo, el foco vuelve al botón del menú.
+    mainRef.current?.toggleAttribute("inert", menu);
+    if (menuWasOpen.current && !menu) menuButtonRef.current?.focus();
+    menuWasOpen.current = menu;
+  }, [menu]);
 
   const refreshHealth = useCallback(async () => {
     try {
@@ -106,7 +117,7 @@ export default function App() {
   const loading = loadingId !== null;
   const lastAgentId = [...(active?.messages ?? [])].reverse().find((m) => m.role === "assistant" && m.response)?.id;
   return (
-    <div className="relative flex h-full bg-bear-50">
+    <div className="relative flex h-full bg-canvas">
       <Sidebar
         conversations={state.conversations}
         activeId={state.activeId}
@@ -116,11 +127,14 @@ export default function App() {
         onDelete={(id) => { void forgetConversation(id).catch(() => undefined); setState((s) => { const n = deleteConversation(s, id); return n.conversations.length ? n : startConversation(n); }); }}
         onClose={() => setMenu(false)}
       />
-      <main className="flex min-w-0 flex-1 flex-col">
-        <header className="flex items-center gap-3 border-b border-bear-100 bg-white px-4 py-2">
-          <button onClick={() => setMenu(true)} aria-label="Abrir conversaciones" className="rounded p-1 text-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand-500 md:hidden">☰</button>
+      <main ref={mainRef} className="flex min-w-0 flex-1 flex-col">
+        <header className="flex items-center gap-3 border-b border-line bg-surface px-4 py-2">
+          <button ref={menuButtonRef} onClick={() => setMenu(true)} aria-label="Abrir conversaciones" aria-haspopup="dialog" aria-expanded={menu}
+            className="-ml-2 grid h-10 w-10 place-items-center rounded-lg text-ink hover:bg-surface-2 md:hidden">
+            <Menu size={22} aria-hidden="true" />
+          </button>
           <LogoMark className="h-7 w-7 md:hidden" />
-          <h1 className="flex-1 truncate text-base font-extrabold tracking-tight text-brand-700">Futsito <span className="hidden font-normal text-slate-500 sm:inline">· Asistente de fútbol sala RFFM</span></h1>
+          <h1 className="flex-1 truncate font-display text-lg font-extrabold tracking-tight text-brand-text stretch-brand">Futsito <span className="hidden font-sans text-base font-normal tracking-normal text-ink-2 sm:inline" style={{ fontStretch: "100%" }}>· Asistente de fútbol sala RFFM</span></h1>
           <ConnectionBadge connection={connection} onRefresh={() => void refreshHealth()} />
         </header>
         <div className="flex-1 overflow-y-auto overflow-x-hidden px-4 py-4" data-testid="messages">
@@ -131,14 +145,14 @@ export default function App() {
                 onSuggest={m.id === lastAgentId ? send : undefined} suggestDisabled={loading} onFeedback={submitFeedback} />
             ))}
             {loadingId !== null && loadingId === active?.id && (
-              <div role="status" className="text-sm text-slate-500">
-                <p className="animate-pulse">Futsito está consultando los datos…</p>
+              <div role="status" className="text-sm text-ink-2">
+                <p className="motion-safe:animate-pulse">Futsito está consultando los datos…</p>
                 {slow && (
-                  <p className="mt-1 text-xs text-amber-700" data-testid="slow-hint">
+                  <p className="mt-1 text-xs text-warning" data-testid="slow-hint">
                     Esto está tardando más de lo normal. Puede que el servicio de IA esté limitando las peticiones; puedes esperar o cancelar.
                   </p>
                 )}
-                <button onClick={() => abortRef.current?.abort()} className="mt-1 text-xs underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand-500">Cancelar</button>
+                <button onClick={() => abortRef.current?.abort()} className="mt-1 inline-flex min-h-6 items-center rounded text-sm underline">Cancelar</button>
               </div>
             )}
             <div ref={endRef} />

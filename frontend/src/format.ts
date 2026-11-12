@@ -50,3 +50,19 @@ export function kickoffLabel(iso: string | null | undefined): string {
   if (!k) return iso ? iso : "Sin fecha";
   return k.time ? `${k.date} · ${k.time}` : k.date;
 }
+
+export type MatchTone = "neutral" | "info" | "warning" | "danger";
+
+/** Estados de partido de la API (`finished|scheduled|postponed|suspended|cancelled|unknown`) en español; nunca se muestra el valor crudo. */
+const MATCH_STATUS: Record<string, { label: string; tone: MatchTone }> = {
+  finished: { label: "Finalizado", tone: "neutral" },
+  scheduled: { label: "Programado", tone: "info" },
+  postponed: { label: "Aplazado", tone: "warning" },
+  suspended: { label: "Suspendido", tone: "danger" },
+  cancelled: { label: "Cancelado", tone: "danger" },
+};
+
+/** Etiqueta y tono de un estado; uno desconocido o vacío es «Sin confirmar» (el valor original queda para el `title`). */
+export function matchStatus(status: string | null | undefined): { label: string; tone: MatchTone } {
+  return MATCH_STATUS[(status ?? "").trim().toLowerCase()] ?? { label: "Sin confirmar", tone: "neutral" };
+}
