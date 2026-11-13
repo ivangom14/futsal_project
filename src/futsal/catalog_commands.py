@@ -24,7 +24,7 @@ from futsal.ingestion.rffm.update_policy import UpdatePolicy
 CATALOG_DIR = Path("data/rffm/catalog")
 NETWORK_ENV = "FUTSAL_RFFM_NETWORK_AUTHORIZED"
 COMMANDS = ("discover-catalog", "scrape-catalog", "import-catalog", "verify-catalog", "catalog-backfill",
-            "discover-catalog-v2", "crest-backfill")
+            "discover-catalog-v2", "crest-backfill", "crest-download")
 
 
 def add_parsers(sub: "argparse._SubParsersAction[argparse.ArgumentParser]") -> None:
@@ -63,6 +63,11 @@ def add_parsers(sub: "argparse._SubParsersAction[argparse.ArgumentParser]") -> N
     p = sub.add_parser("crest-backfill", help="rutas de escudos en teams.crest_url desde las instantáneas ya descargadas (sin red)")
     p.add_argument("--dir", default="data", help="carpeta con instantáneas .html/.json de la RFFM (se recorre entera)")
     p.add_argument("--dry-run", action="store_true", help="calcula los cambios sin guardarlos")
+    p = sub.add_parser("crest-download", help="descarga y normaliza (WebP 96 px) los escudos de teams.crest_url a una carpeta local")
+    p.add_argument("--dir", default=None, help="carpeta de las copias (por defecto CRESTS_DIR o data/crests)")
+    p.add_argument("--delay", type=float, default=1.0, help="segundos entre peticiones a la RFFM")
+    p.add_argument("--refresh", action="store_true", help="vuelve a descargar también los que ya están")
+    p.add_argument("--limit", type=int, default=None, help="como mucho N escudos (pruebas)")
     p = sub.add_parser("catalog-backfill", help="identidad de equipos y clasificación de competiciones ya importadas (sin red)")
     p.add_argument("--dry-run", action="store_true", help="calcula y muestra el resumen sin escribir")
     p.add_argument("--inventory", type=Path, default=None, metavar="PATH",
@@ -161,6 +166,19 @@ def run(args: argparse.Namespace) -> int:
 
             print(json.dumps(run_crest_backfill(make_engine(), Path(args.dir), dry_run=args.dry_run), sort_keys=True))
             return 0
+        except Exception as exc:  # noqa: BLE001 - la CLI informa en una línea sin traza
+            print(f"Error: {str(exc).splitlines()[0] if str(exc) else type(exc).__name__}")
+            return 2
+    if args.command == "crest-download":
+        try:
+            from futsal.db.session import make_engine
+            from futsal.importer.crest_index import crests_dir
+            from futsal.importer.crest_store import run_crest_download
+
+            folder = Path(args.dir) if args.dir else crests_dir()
+            stats = run_crest_download(make_engine(), folder, delay=args.delay, refresh=args.refresh, limit=args.limit)
+            print(json.dumps({**stats, "dir": str(folder)}, ensure_ascii=False, sort_keys=True))
+            return 0 if not stats["failed"] else 1
         except Exception as exc:  # noqa: BLE001 - la CLI informa en una línea sin traza
             print(f"Error: {str(exc).splitlines()[0] if str(exc) else type(exc).__name__}")
             return 2

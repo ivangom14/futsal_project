@@ -149,3 +149,36 @@ desde `appweb.rffm.es` sin cabecera *referer* y sin desbordes. En una segunda pa
 **Sigue pendiente para uso público:** autorización de la RFFM (§4.3), aviso de privacidad (la RFFM recibe la IP del
 visitante) y, con autorización, el paso 4 (copias normalizadas: 611 KB → 48,5 KB medidos).
 
+## 4.9 Implementado: copias locales (paso 4) — modo recomendado para pruebas privadas (2026-11-13)
+
+A petición del propietario del proyecto (uso privado de pruebas; sigue pendiente la autorización de la RFFM para uso
+público, §4.3). Ventajas frente a `link`: los visitantes no hacen peticiones a la RFFM (privacidad) y cada escudo pesa
+2–5 KB en lugar de hasta 464 KB.
+
+| Pieza | Qué hace |
+|---|---|
+| `python -m futsal.cli crest-download [--dir] [--delay 1.0] [--refresh] [--limit N]` | Rutas distintas de `teams.crest_url` → descarga **solo las que faltan** de `appweb.rffm.es` (único host permitido, secuencial, pausa entre peticiones, máx. 2 MB, sin redirecciones), valida el contenido con Pillow (JPEG/PNG/GIF/WebP, ≤ 25 Mpx; el `Content-Type` de la RFFM no es fiable), normaliza a WebP 96×96 transparente (`contain`) y guarda `<sha256[:20]>.webp` + `index.json` (ruta RFFM → archivo, tamaños, fecha). El índice se guarda tras cada imagen. Código de salida 1 si alguna falla. `src/futsal/importer/crest_store.py` |
+| Índice ligero | `crest_index.py` (sin Pillow ni BD): carpeta (`CRESTS_DIR`, por defecto `data/crests`, ignorada por git), nombre válido y lectura del índice |
+| API `GET /crests` | Añade `file` (copia local) a cada equipo |
+| Chat `CRESTS_MODE=local` | `/chat/crests` → `{nombre: /chat/crests/img/<archivo>}` solo para equipos con copia (el resto, monograma). `GET /chat/crests/img/{archivo}` sirve el WebP con `Cache-Control: public, max-age=31536000, immutable` (el nombre es un hash del contenido); 404 si el modo no es `local` o el nombre no es válido (sin rutas arbitrarias) |
+| Interfaz | Acepta `https://` (modo `link`) o `/chat/crests/img/<hash>.webp` (modo `local`), que resuelve contra el servicio de chat |
+
+**Activarlo en local:**
+
+```bash
+python -m futsal.cli crest-backfill --dir data
+```
+
+```bash
+python -m futsal.cli crest-download
+```
+
+Después, `CRESTS_MODE=local` en `.env` y reiniciar la API y el servicio de chat. La lista se cachea 10 min en el chat: tras
+una nueva descarga, reiniciarlo (o esperar) para que aparezcan los nuevos.
+
+**Verificación (2026-11-13).** Descarga real de los 14 escudos de la jornada del fixture: 611.738 → 48.578 bytes (−92 %),
+24 s con 1 s de pausa; 2.ª pasada 0 descargas. De punta a punta con PostgreSQL temporal: `crest-download` sobre la BD bajó
+los 6 que faltaban (14/14 con `file`); en Chromium (360/1280 px, claro y oscuro) cargaron las 16 imágenes visibles desde
+`/chat/crests/img/`, **0 peticiones a la RFFM**, sin desbordes. Pruebas: `tests/test_crests.py` (11),
+`tests/integration/test_crests_pg.py`, `frontend/src/crests.test.tsx` (6). Dependencia nueva: `pillow` (solo la usa `crest-download`).
+

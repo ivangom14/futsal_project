@@ -18,7 +18,7 @@ import httpx
 from fastapi import FastAPI, HTTPException, Path, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
 from mcp import ClientSession
 from mcp.client.stdio import stdio_client
 from pydantic import BaseModel, Field, StringConstraints
@@ -45,6 +45,7 @@ from futsal.agent.presentation import compute_focus, merge_focus, sanitize_focus
 from futsal.agent.question_log import QuestionLog
 from futsal.agent.trace import RunRecord, redact
 from futsal.config.settings import env_value
+from futsal.importer.crest_index import FILE_RE, crests_dir
 
 log = logging.getLogger("futsal.chat")
 DEFAULT_CORS_ORIGINS = "http://localhost:5173,http://127.0.0.1:5173"
@@ -338,16 +339,30 @@ def api_freshness(group_ids: list[int]) -> dict[int, dict[str, Any]]:
     return out
 
 
-def _api_crests() -> dict[str, str]:
-    """{nombre de equipo: URL del escudo} desde la API de datos (`GET /crests`). Sin escudos o con error: {} (la UI usa el monograma)."""
+def _api_crests() -> list[dict[str, Any]]:
+    """Filas de `GET /crests` de la API de datos (nombre, URL oficial y, si hay copia local, `file`)."""
     base = env_value("API_BASE_URL", "http://127.0.0.1:8000")
     res = httpx.get(f"{base}/crests", timeout=5.0)
     res.raise_for_status()
+    items = res.json().get("items", [])
+    return [r for r in items if isinstance(r, dict)] if isinstance(items, list) else []
+
+
+def _crest_map(items: list[dict[str, Any]], mode: str) -> dict[str, str]:
+    """{nombre: URL} según el modo: `link` → imagen de la RFFM; `local` → copia propia servida en /chat/crests/img/."""
     out: dict[str, str] = {}
-    for row in res.json().get("items", []):
-        name, url = row.get("name"), row.get("crest_url")
-        if isinstance(name, str) and isinstance(url, str) and url.startswith("https://"):
-            out.setdefault(name, url)
+    for row in items:
+        name = row.get("name")
+        if not isinstance(name, str):
+            continue
+        if mode == "local":
+            file = row.get("file")
+            if isinstance(file, str) and FILE_RE.match(file):
+                out.setdefault(name, f"/chat/crests/img/{file}")
+        else:
+            url = row.get("crest_url")
+            if isinstance(url, str) and url.startswith("https://"):
+                out.setdefault(name, url)
     return out
 
 
@@ -361,7 +376,8 @@ def create_chat_app(runner: AgentRunner | None = None,
                     feedback_path: FilePath | None = None,
                     question_timeout: float | None = None,
                     question_log: QuestionLog | None = None,
-                    crests_source: Callable[[], dict[str, str]] = _api_crests) -> FastAPI:
+                    crests_source: Callable[[], list[dict[str, Any]]] = _api_crests,
+                    crests_folder: FilePath | None = None) -> FastAPI:
     agent_runner = runner or AgentRunner()
     conversations = memory if memory is not None else ConversationMemory()
     summaries = RunSummaries()
@@ -387,25 +403,40 @@ def create_chat_app(runner: AgentRunner | None = None,
         detail = "; ".join(f"{'.'.join(str(p) for p in e['loc'])}: {e['msg']}" for e in exc.errors())
         return JSONResponse({"detail": f"parámetros inválidos: {detail}"}, status_code=400)
 
-    crest_cache: dict[str, Any] = {"at": 0.0, "data": {}}
+    crest_cache: dict[str, Any] = {"at": 0.0, "items": []}
+
+    def crest_mode() -> str:
+        mode = env_value("CRESTS_MODE", "off").strip().lower()
+        return mode if mode in ("link", "local") else "off"
 
     @app.get("/chat/crests")
     def crests() -> dict[str, Any]:
-        """Escudos oficiales para la interfaz. CRESTS_MODE=off (por defecto): ninguno, la UI usa monogramas.
-        CRESTS_MODE=link: URLs de la RFFM que el NAVEGADOR carga directamente (no se copian ni transforman; la RFFM ve la IP
-        del visitante). Uso previsto: pruebas privadas hasta contar con autorización (docs/design-system/04-escudos-equipos.md)."""
-        mode = env_value("CRESTS_MODE", "off").strip().lower()
-        if mode != "link":
+        """Escudos para la interfaz (docs/design-system/04-escudos-equipos.md). CRESTS_MODE=off (por defecto): ninguno,
+        la UI usa monogramas. `local`: copias propias normalizadas (`crest-download`), servidas por este servicio.
+        `link`: URLs de la RFFM que carga el navegador (la RFFM ve la IP del visitante). Uso previsto: pruebas privadas."""
+        mode = crest_mode()
+        if mode == "off":
             return {"mode": "off", "crests": {}}
         now = time.monotonic()
-        if crest_cache["data"] and now - crest_cache["at"] < CRESTS_TTL_S:
-            return {"mode": "link", "crests": crest_cache["data"]}
-        try:
-            data = crests_source()
-        except (httpx.HTTPError, ValueError) as exc:
-            return {"mode": "link", "crests": crest_cache["data"], "error": type(exc).__name__}
-        crest_cache.update(at=now, data=data)
-        return {"mode": "link", "crests": data}
+        error = None
+        if not crest_cache["items"] or now - crest_cache["at"] >= CRESTS_TTL_S:
+            try:
+                crest_cache.update(at=now, items=crests_source())
+            except (httpx.HTTPError, ValueError) as exc:
+                error = type(exc).__name__
+        body: dict[str, Any] = {"mode": mode, "crests": _crest_map(crest_cache["items"], mode)}
+        if error:
+            body["error"] = error
+        return body
+
+    @app.get("/chat/crests/img/{file}")
+    def crest_image(file: str) -> FileResponse:
+        """Copia local de un escudo (WebP). El nombre es un hash del contenido: se puede cachear para siempre."""
+        folder = crests_folder or crests_dir()
+        path = folder / file
+        if crest_mode() != "local" or not FILE_RE.match(file) or not path.is_file():
+            raise HTTPException(status_code=404, detail="escudo no disponible")
+        return FileResponse(path, media_type="image/webp", headers={"Cache-Control": "public, max-age=31536000, immutable"})
 
     @app.get("/chat/health")
     def health() -> dict[str, Any]:

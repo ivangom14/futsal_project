@@ -25,7 +25,7 @@ Backend, MCP y agente no se han modificado.
 - **Tipografía**: **Archivo Variable** (OFL, ejes `wght` 100–900 y `wdth` 62–125, 90 KB woff2 latín) para marca, títulos, marcadores y tablas; **pila del sistema** para la conversación (0 KB).
 - **Iconos**: **Lucide** (ISC; 20 iconos = 3,9 KB gz medidos) + 4 iconos propios en la misma rejilla (balón de fútbol sala, pista, tarjeta, escudo genérico).
 - **Loader**: SVG en línea + CSS (`transform`), Futsito dando toques; 2,2 KB medidos (0,8 KB gzip), sin dependencias, estático con `prefers-reduced-motion`.
-- **Escudos**: `crest-backfill` rellena `teams.crest_url` desde las instantáneas ya descargadas; con `CRESTS_MODE=link` la interfaz enlaza las imágenes oficiales (solo pruebas privadas; doc 4 §4.8). Con autorización, copias normalizadas (611 KB → 48,5 KB medidos).
+- **Escudos**: `crest-backfill` rellena `teams.crest_url` desde las instantáneas ya descargadas; `crest-download` guarda copias WebP 96 px (611 KB → 48,6 KB medidos) y `CRESTS_MODE=local` las sirve desde el chat; `link` enlaza las de la RFFM. Solo pruebas privadas (doc 4 §4.8–4.9).
 
 ## Medidas de referencia (2026-11-12)
 

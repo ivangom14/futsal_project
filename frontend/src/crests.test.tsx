@@ -1,7 +1,8 @@
 /** Escudos oficiales en la UI: se piden una vez a /chat/crests; con imagen, <img> enlazada; sin ella o si falla, monograma. */
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { CrestProvider, crestKey } from "./crests";
+import { API_URL } from "./api";
+import { CrestProvider, crestKey, resolveCrestUrl } from "./crests";
 import TeamCrest from "./ui/TeamCrest";
 
 const URL_DOSA = "https://appweb.rffm.es/pnfg/pimg/Clubes/dosa.png";
@@ -47,6 +48,20 @@ describe("escudos oficiales", () => {
     render(<CrestProvider><TeamCrest name="X" /></CrestProvider>);
     await new Promise((r) => setTimeout(r, 0));
     expect(document.querySelector("img")).toBeNull();
+  });
+
+  it("con CRESTS_MODE=local usa la copia propia servida por el servicio de chat", async () => {
+    serve({ mode: "local", crests: { "C.D. DOSA": "/chat/crests/img/0123456789abcdef0123.webp" } });
+    render(<CrestProvider><TeamCrest name="C.D. DOSA" /></CrestProvider>);
+    await waitFor(() => expect(document.querySelector("img.team-crest")).toHaveAttribute("src", `${API_URL}/chat/crests/img/0123456789abcdef0123.webp`));
+  });
+
+  it("resolveCrestUrl solo admite https o las copias propias con nombre válido", () => {
+    expect(resolveCrestUrl("/chat/crests/img/../../etc.webp")).toBeNull();
+    expect(resolveCrestUrl("/otra/ruta.webp")).toBeNull();
+    expect(resolveCrestUrl("http://appweb.rffm.es/x.png")).toBeNull();
+    expect(resolveCrestUrl(42)).toBeNull();
+    expect(resolveCrestUrl(URL_DOSA)).toBe(URL_DOSA);
   });
 
   it("crestKey normaliza mayúsculas, tildes y espacios", () => {

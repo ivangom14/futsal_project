@@ -27,6 +27,7 @@ from futsal.api.reports import reports_router
 from futsal.api.tables import tables_router
 from futsal.api.v2.routes import v2_router
 from futsal.db.session import make_engine
+from futsal.importer.crest_index import crests_dir, load_index
 
 STATUSES = ("scheduled", "finished", "postponed", "suspended", "cancelled", "unknown")
 
@@ -124,7 +125,9 @@ def create_app(engine: Engine | None = None, today: Callable[[], date] = date.to
         """Escudos conocidos (ruta en `teams.crest_url`, rellenada por `crest-backfill`) con URL absoluta de la RFFM.
         No descarga ni sirve imágenes: quien las muestre decide si enlazarlas (ver CRESTS_MODE en el servicio de chat)."""
         rows = db.execute(select(Team.id, Team.name, Team.crest_url).where(Team.crest_url.is_not(None)).order_by(Team.id))
-        return _items([{"team_id": i, "name": n, "crest_url": f"{RFFM_ASSET_HOST}{u}" if u and u.startswith("/") else u} for i, n, u in rows])
+        local = load_index(crests_dir())  # copias descargadas con `crest-download` (file = nombre en la carpeta)
+        return _items([{"team_id": i, "name": n, "crest_url": f"{RFFM_ASSET_HOST}{u}" if u and u.startswith("/") else u,
+                        "file": local.get(u or "", {}).get("file")} for i, n, u in rows])
 
     @app.get("/teams")
     def find_teams(db: Db, name: Annotated[str, Query(min_length=2, max_length=80)],
