@@ -1,0 +1,13 @@
+# Lunes a viernes a las 03:00 de Madrid (el horario de verano lo aplica systemd con la zona indicada).
+[Unit]
+Description=Futsito: actualización diaria entre semana (L-V 03:00 Europe/Madrid)
+
+[Timer]
+OnCalendar=Mon..Fri *-*-* 03:00:00 Europe/Madrid
+# Si el servidor estaba apagado a esa hora, se ejecuta una vez al arrancar.
+Persistent=true
+AccuracySec=1min
+Unit=futsito-update.service
+
+[Install]
+WantedBy=timers.target

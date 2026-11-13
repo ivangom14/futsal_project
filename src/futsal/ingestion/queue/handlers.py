@@ -9,6 +9,7 @@ Cada manejador recibe un `Context` y devuelve el checkpoint del trabajo; lanza `
   y siembra de `round_results` con el planificador.
 - `round_results`: /api/results -> LeagueFile de UNA jornada -> `run_import` con la `RegressionPolicy` por defecto (puertas de la Fase 21).
 - `standings` / `scorers`: `table_ingest` con la descarga inyectada a través del `Fetcher`.
+- `match_report`: acta de un partido finalizado (`report_batch`) con la barrera de actas de la Fase 21.
 """
 
 import json
@@ -20,9 +21,19 @@ from pathlib import Path
 from typing import Any
 
 from sqlalchemy import Engine, select
+from sqlalchemy.dialects.postgresql import distinct_on
 from sqlalchemy.orm import Session
 
-from futsal.db.models import Competition, CompetitionGroup, DataQualityIssue, Match, Season
+from futsal.db.models import (
+    Competition,
+    CompetitionGroup,
+    DataQualityIssue,
+    IngestJob,
+    Match,
+    MatchReport,
+    MatchReportObservation,
+    Season,
+)
 from futsal.importer.catalog_service import import_catalog
 from futsal.importer.schema import LeagueFile, MatchIn, NamedExt, RoundIn
 from futsal.importer.service import run_import
@@ -32,6 +43,7 @@ from futsal.ingestion.queue.controls import QueueConfig
 from futsal.ingestion.queue.fetch import Fetcher, FetchResult
 from futsal.ingestion.queue.planner import (
     CALENDAR,
+    MATCH_REPORT,
     ROUND_RESULTS,
     SCORERS,
     STANDINGS,
@@ -95,6 +107,7 @@ class Context:
     work_dir: Path
     job: JobView
     source: str = "rffm"
+    reports_dir: Path | None = None  # caché de actas (`raw.html`/`normalized.json`); None = `<work_dir>/../match-reports`
 
     # ------------------------------------------------------------------ red
     def fetch(self, url: str) -> FetchResult:
@@ -388,6 +401,8 @@ def round_results(ctx: Context) -> dict[str, Any]:
     with ctx.session_factory() as s:
         after = _statuses(s, codactas)
     new_finished = sorted(c for c, st in after.items() if st == "finished" and before.get(c) != "finished")
+    hints = {m.match.external_match_id: [m.has_report, m.report_closed] for m in parsed.matches if m.match.external_match_id}
+    reports_enqueued = _enqueue_reports(ctx, t, hints)
     queued: list[str] = []
     if new_finished:
         when = ctx.now() + timedelta(minutes=ctx.schedule.tables_group_minutes)
@@ -399,7 +414,118 @@ def round_results(ctx: Context) -> dict[str, Any]:
     return {"fetched_at": _iso(ctx.now()), "round": rnd, "matches": len(parsed.matches), "import_status": report.status,
             "issue_codes": dict(report.issue_codes), "new_finished": new_finished, "tables_enqueued": queued,
             "times_known": sum(m.scheduled_time is not None for m in league.matches), "run_id": report.run_id,
-            "results_issues": parsed.issues}
+            "results_issues": parsed.issues, "reports": hints, "reports_enqueued": reports_enqueued}
+
+
+def _enqueue_reports(ctx: Context, t: dict[str, Any], hints: dict[str, list[bool]]) -> int:
+    """Actas que /api/results da por publicadas (o ya cerradas) y que aquí faltan (o siguen abiertas): se piden en esta misma
+    pasada. Lo demás lo decide el planificador con su cadencia (`_report_specs`)."""
+    from futsal.ingestion.queue.planner import REPORT_CLOSED, REPORT_NONE, report_target
+
+    wanted = [c for c, (has, _closed) in hints.items() if has]
+    if not wanted:
+        return 0
+    targets = {c: report_target(t, c) for c in wanted}
+    recent = ctx.now() - timedelta(hours=ctx.schedule.reports.available_every_hours)
+    with ctx.session_factory() as s:
+        state = _report_states(s, wanted)
+        tried = set(s.scalars(select(IngestJob.target_key).where(  # ya intentadas hace poco (p. ej. 404): manda la cadencia
+            IngestJob.source == ctx.source, IngestJob.kind == MATCH_REPORT, IngestJob.status == "done",
+            IngestJob.finished_at > recent, IngestJob.target_key.in_([jobs.canonical_key(x) for x in targets.values()]))))
+    queued = 0
+    for codacta in wanted:
+        current = state.get(codacta)
+        if current is None or jobs.canonical_key(targets[codacta]) in tried:  # sin partido guardado (puerta) o intento reciente
+            continue
+        status, report = current
+        if status != "finished" or report == REPORT_CLOSED or (report != REPORT_NONE and not hints[codacta][1]):
+            continue
+        ctx.enqueue(MATCH_REPORT, targets[codacta], priority=ctx.schedule.priorities.reports)
+        queued += 1
+    return queued
+
+
+def _report_states(s: Session, codactas: list[str]) -> dict[str, tuple[str, str]]:
+    """codacta -> (estado del partido, estado del acta almacenada: none|open|closed según su última observación)."""
+    from futsal.ingestion.queue.planner import REPORT_CLOSED, REPORT_NONE, REPORT_OPEN
+
+    rows = s.execute(select(Match.external_id, Match.status, MatchReport.id, MatchReportObservation.closed)
+                     .outerjoin(MatchReport, MatchReport.match_id == Match.id)
+                     .outerjoin(MatchReportObservation, MatchReportObservation.report_id == MatchReport.id)
+                     .where(Match.source == "rffm", Match.external_id.in_(codactas))
+                     .ext(distinct_on(Match.external_id))
+                     .order_by(Match.external_id, MatchReportObservation.observed_at.desc().nulls_last(),
+                               MatchReportObservation.id.desc().nulls_last())).all()
+    return {codacta: (status, REPORT_NONE if report_id is None else REPORT_CLOSED if closed else REPORT_OPEN)
+            for codacta, status, report_id, closed in rows}
+
+
+# ---------------------------------------------------------------------------------------------------------------- actas
+
+
+UNPUBLISHED_STATUS = (404, 410)  # acta aún no publicada: ausencia temporal, no fallo (Fase 21)
+
+
+def match_report(ctx: Context) -> dict[str, Any]:
+    """Un acta: reutiliza `report_batch._process_one` (caché `raw.html`, identidad, normalización e importación idempotente por
+    hash) con la barrera de la Fase 21 (`assess_report`: nunca sustituye un acta por otra sin jugadores o cerrada -> abierta).
+
+    Resultado en el checkpoint (`outcome`): `imported` | `unchanged` | `unpublished` (404/410) | `rejected` (barrera) |
+    `unreadable` (página sin datos) | `skipped` (el partido ya no está finalizado o el acta ya estaba cerrada). Todos terminan
+    el trabajo: el planificador decide cuándo volver a intentarlo. Red, 5xx o 429 son transitorios (cola e interruptor)."""
+    from futsal.refresh.gates import assess_report
+    from futsal.refresh.service import stored_report_shape
+    from futsal.report_batch import process_one
+    from futsal.repositories.match_reports import select_candidates
+
+    t = ctx.job.target
+    codacta, group = str(t["match"]), str(t["group"])
+    with ctx.session_factory() as s:
+        cands = [c for flag in (False, True) for c in select_candidates(s, group, with_report=flag) if c.external_id == codacta]
+    base = {"match": codacta, "fetched_at": _iso(ctx.now())}
+    if not cands:
+        return {**base, "outcome": "skipped", "detail": "el partido no está finalizado con marcador en la BD"}
+    cand = cands[0]
+    stored = stored_report_shape(ctx.engine, codacta)
+    if stored is not None and stored[1]:
+        return {**base, "outcome": "skipped", "detail": "acta ya cerrada"}
+    seen: list[FetchResult] = []
+
+    def fetch(url: str) -> str:
+        try:
+            seen.append(ctx.fetch(url))
+        except JobError as exc:
+            if exc.http_status in UNPUBLISHED_STATUS:
+                raise FetchError(f"HTTP {exc.http_status}") from exc
+            raise
+        return seen[-1].text
+
+    def gate(report: Any) -> tuple[bool, list[str]]:
+        result = assess_report(new_players=len(report.players), new_closed=bool(report.report.closed),
+                               stored_players=None if stored is None else stored[0],
+                               stored_closed=None if stored is None else stored[1])
+        return result.decision == "apply", result.reasons
+
+    try:
+        entry = process_one(ctx.engine, cand, ctx.work_dir.parent / "match-reports" if ctx.reports_dir is None else ctx.reports_dir,
+                            fetch, True, force=stored is not None, gate=gate)
+    except FetchError as exc:
+        return {**base, "outcome": "unpublished", "detail": str(exc)}
+    except RffmParseError as exc:
+        if seen and "identidad distinta" in str(exc):
+            ctx.parsed(seen[-1], "scope_mismatch", str(exc))  # abre el interruptor: la web devolvió otra página
+        return {**base, "outcome": "unreadable", "detail": str(exc)[:300]}
+    if seen:
+        ctx.parsed(seen[-1], "ok")
+    if entry["status"] == "rejected":
+        return {**base, "outcome": "rejected", "detail": entry.get("error"), "requests": len(seen)}
+    if entry["status"] == "failed":
+        raise JobError(f"importación del acta {codacta} fallida: {entry.get('error')}", transient=True)
+    inserted = int(entry.get("records_inserted") or 0)
+    outcome = "imported" if inserted else "unchanged"
+    return {**base, "outcome": outcome, "new": stored is None and bool(inserted), "records_inserted": inserted,
+            "players": entry.get("players"), "events": entry.get("events"), "source": entry.get("source"),
+            "discrepancies": entry.get("discrepancies"), "requests": len(seen)}
 
 
 # ---------------------------------------------------------------------------------------------------------------- tablas
@@ -446,5 +572,5 @@ def _tables(kind: str) -> Handler:
 
 HANDLERS: dict[str, Handler] = {
     DISCOVER_CATALOG: discover_catalog, DISCOVER_GROUPS: discover_groups, CALENDAR: calendar,
-    ROUND_RESULTS: round_results, STANDINGS: _tables("standings"), SCORERS: _tables("scorers"),
+    ROUND_RESULTS: round_results, STANDINGS: _tables("standings"), SCORERS: _tables("scorers"), MATCH_REPORT: match_report,
 }

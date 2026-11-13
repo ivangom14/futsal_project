@@ -21,6 +21,21 @@ class Priorities:
     tables: int = 60
     rest: int = 40
     inactive: int = 10
+    reports: int = 70
+
+
+@dataclass(frozen=True)
+class ReportPolicy:
+    """Cadencia de las actas (`planner.reports`): horas entre intentos según la antigüedad del partido."""
+    available_every_hours: float = 6.0  # /api/results dice que hay acta (o que ya está cerrada) y aquí falta
+    first_days: float = 3.0
+    first_every_hours: float = 12.0
+    mid_days: float = 14.0
+    mid_every_hours: float = 48.0
+    max_days: float = 60.0
+    late_every_hours: float = 168.0
+    open_days: float = 14.0  # un acta abierta se revisa mientras el partido tenga menos de esto
+    open_every_hours: float = 24.0
 
 
 @dataclass(frozen=True)
@@ -56,6 +71,7 @@ class ScheduleConfig:
     initial_recent_days: float = 7.0
     inactive_every_days: float = 30.0
     priorities: Priorities = field(default_factory=Priorities)
+    reports: ReportPolicy = field(default_factory=ReportPolicy)
 
 
 def load_schedule(path: Path | None = None) -> ScheduleConfig:
@@ -67,7 +83,8 @@ def load_schedule(path: Path | None = None) -> ScheduleConfig:
         return value if isinstance(value, dict) else {}
 
     ip, wk, st, nr, pd, cl = sec("in_play"), sec("weekend"), sec("settling"), sec("next_round"), sec("past_due"), sec("closed")
-    cat, tb, pr = sec("catalog"), sec("tables"), sec("priorities")
+    cat, tb, pr, rp = sec("catalog"), sec("tables"), sec("priorities"), sec("reports")
+    dr = ReportPolicy()
     return ScheduleConfig(
         timezone=str(raw.get("timezone", d.timezone)),
         horizon_hours=float(raw.get("horizon_hours", d.horizon_hours)),
@@ -101,4 +118,5 @@ def load_schedule(path: Path | None = None) -> ScheduleConfig:
         inactive_every_days=float(sec("inactive").get("every_days", d.inactive_every_days)),
         priorities=Priorities(in_play=int(pr.get("in_play", dp.in_play)), next_round=int(pr.get("next_round", dp.next_round)),
                               tables=int(pr.get("tables", dp.tables)), rest=int(pr.get("rest", dp.rest)),
-                              inactive=int(pr.get("inactive", dp.inactive))))
+                              inactive=int(pr.get("inactive", dp.inactive)), reports=int(pr.get("reports", dp.reports))),
+        reports=ReportPolicy(**{k: float(rp.get(k, getattr(dr, k))) for k in ReportPolicy.__dataclass_fields__}))

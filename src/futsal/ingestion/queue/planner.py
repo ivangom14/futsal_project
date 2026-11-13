@@ -16,12 +16,23 @@ from sqlalchemy import func, select
 from sqlalchemy.dialects.postgresql import distinct_on
 from sqlalchemy.orm import Session
 
-from futsal.db.models import Competition, CompetitionGroup, IngestJob, Match, Round, Season
+from futsal.db.models import (
+    Competition,
+    CompetitionGroup,
+    IngestJob,
+    Match,
+    MatchReport,
+    MatchReportObservation,
+    Round,
+    Season,
+)
 from futsal.ingestion.queue import jobs
 from futsal.ingestion.queue.jobs import canonical_key
 from futsal.ingestion.queue.schedule import ScheduleConfig
 
 CALENDAR, ROUND_RESULTS, STANDINGS, SCORERS, DISCOVER_CATALOG = "calendar", "round_results", "standings", "scorers", "discover_catalog"
+MATCH_REPORT = "match_report"
+REPORT_NONE, REPORT_OPEN, REPORT_CLOSED = "none", "open", "closed"  # estado del acta almacenada (None = no se sabe)
 UNRESOLVED = (None, "scheduled", "unknown")  # sin resultado ni explicación
 CLOSED_STATUSES = ("finished", "cancelled")
 
@@ -36,6 +47,10 @@ def group_target(season: str, competition: str, group: str, game_type: str) -> d
 
 def round_target(group: Mapping[str, Any], round_code: str) -> dict[str, Any]:
     return {**{k: group[k] for k in ("season", "competition", "group", "game_type")}, "round": round_code}
+
+
+def report_target(group: Mapping[str, Any], codacta: str) -> dict[str, Any]:
+    return {**{k: group[k] for k in ("season", "competition", "group", "game_type")}, "match": codacta}
 
 
 @dataclass(frozen=True)
@@ -62,6 +77,7 @@ class MatchState:
     status: str | None  # None: solo se conoce por el calendario
     kickoff: datetime | None  # aware; None si la hora no es conocida
     day: date | None
+    report: str | None = None  # acta almacenada: REPORT_NONE | REPORT_OPEN | REPORT_CLOSED; None = no se sabe (calendario)
 
 
 @dataclass(frozen=True)
@@ -83,6 +99,8 @@ class GroupState:
     db_matches: tuple[MatchState, ...] = ()
     calendar: tuple[CalendarRound, ...] = ()  # resumen del último calendario (checkpoint)
     last_known_round: int | None = None  # última jornada con algún partido finalizado
+    # Última lectura de /api/results por partido: codacta -> (hay_actas, acta_cerrada). Sin entrada = no se sabe.
+    report_hints: Mapping[str, tuple[bool, bool]] = field(default_factory=dict)
 
     @property
     def target(self) -> dict[str, Any]:
@@ -115,12 +133,18 @@ def merge_rounds(group: GroupState) -> dict[str, tuple[bool, list[MatchState]]]:
     for rnd in group.calendar:
         by_code.setdefault(rnd.code, {}).update({m.codacta: m for m in rnd.matches})
     stored: set[str] = set()
+    moved: dict[str, list[MatchState]] = {}
     for m in group.db_matches:
         stored.add(m.round_code)
         cal = by_code.get(m.round_code, {}).get(m.codacta)
         by_code.setdefault(m.round_code, {})[m.codacta] = MatchState(
-            m.codacta, m.round_code, m.status, m.kickoff or (cal.kickoff if cal else None), m.day or (cal.day if cal else None))
-    return {code: (code in stored, sorted(by_code[code].values(), key=lambda x: x.codacta))
+            m.codacta, m.round_code, m.status, m.kickoff or (cal.kickoff if cal else None), m.day or (cal.day if cal else None),
+            m.report)
+        # Reprogramado: el calendario (diario) trae otra fecha que la BD para un partido sin resultado. No se sabe cuál es la
+        # más reciente, así que se planifica con las DOS (coste: alguna consulta de más; nunca se pierde el partido).
+        if cal is not None and m.status in UNRESOLVED and cal.day is not None and m.day is not None and cal.day != m.day:
+            moved.setdefault(m.round_code, []).append(MatchState(m.codacta, m.round_code, m.status, cal.kickoff, cal.day, m.report))
+    return {code: (code in stored, sorted(by_code[code].values(), key=lambda x: x.codacta) + moved.get(code, []))
             for code in sorted(by_code, key=_sort_code)}
 
 
@@ -228,6 +252,51 @@ def _round_specs(g: GroupState, code: str, stored: bool, matches: Sequence[Match
     return out
 
 
+def _report_specs(g: GroupState, last_done: Mapping[tuple[str, str], datetime], cfg: ScheduleConfig, now: datetime,
+                  tz: ZoneInfo) -> list[JobSpec]:
+    """Actas de partidos finalizados: las que faltan y las abiertas recientes. Sin descargar el histórico en cada pasada.
+
+    - `/api/results` (pista de `round_results`) dice si hay acta y si está cerrada: «no hay» -> no se pide (la jornada se vuelve a
+      mirar con su propia cadencia); «hay» y no la tenemos, o «cerrada» y la nuestra está abierta -> se pide en cuanto toca.
+    - Sin pista (datos anteriores a la cola): espera creciente según la antigüedad del partido y abandono tras `reports.max_days`.
+    - Un acta almacenada y cerrada no se vuelve a pedir nunca desde aquí (la revisión completa es `refresh --mode full`).
+    """
+    rc, pri = cfg.reports, cfg.priorities
+    out: list[JobSpec] = []
+    for m in g.db_matches:
+        if m.status != "finished" or m.report not in (REPORT_NONE, REPORT_OPEN):
+            continue
+        ref = m.kickoff or (datetime.combine(m.day, time(12, 0), tzinfo=tz) if m.day else None)
+        age = now - ref if ref is not None else _days(rc.max_days + 1)
+        hint = g.report_hints.get(m.codacta)
+        target = report_target(g.target, m.codacta)
+        last = last_done.get((MATCH_REPORT, canonical_key(target)))
+        if m.report == REPORT_NONE:
+            if hint is not None and not hint[0]:
+                continue  # la RFFM aún no tiene acta: no se gasta una petición
+            if hint is not None:  # publicada según /api/results: sin abandono por antigüedad, pero la espera crece (404 repetidos)
+                every = _hours(rc.available_every_hours if age <= _days(rc.first_days) else
+                               rc.mid_every_hours if age <= _days(rc.mid_days) else rc.late_every_hours)
+                reason = "acta publicada y pendiente"
+            elif age > _days(rc.max_days):
+                continue  # demasiado antigua y sin pista: solo la recupera una revisión manual
+            elif age <= _days(rc.first_days):
+                every, reason = _hours(rc.first_every_hours), "acta pendiente (reciente)"
+            elif age <= _days(rc.mid_days):
+                every, reason = _hours(rc.mid_every_hours), "acta pendiente"
+            else:
+                every, reason = _hours(rc.late_every_hours), "acta pendiente (atrasada)"
+        else:
+            if age > _days(rc.open_days):
+                continue
+            closed_now = hint is not None and hint[1]
+            every = _hours(rc.available_every_hours if closed_now else rc.open_every_hours)
+            reason = "acta cerrada en la fuente; la almacenada está abierta" if closed_now else "acta abierta: revisión"
+        priority = pri.reports if age <= _days(rc.first_days) else pri.rest
+        out.append(JobSpec(MATCH_REPORT, target, priority, _utc(_due(last, every, now)), reason))
+    return out
+
+
 def calendar_covered_rounds(state: PlannerState, cfg: ScheduleConfig, now: datetime) -> int:
     """Jornadas de grupos activos que no generan `round_results` porque las cubre el calendario diario (lejanas o sin fecha)."""
     tz, now = ZoneInfo(cfg.timezone), _utc(now)
@@ -281,6 +350,7 @@ def plan_group(g: GroupState, last_done: Mapping[tuple[str, str], datetime], cfg
     if g.active:
         for code, (stored, matches) in merge_rounds(g).items():
             specs += _round_specs(g, code, stored, matches, last_done, cfg, now, tz)
+        specs += _report_specs(g, last_done, cfg, now, tz)
     limit = now + _hours(cfg.horizon_hours)  # lo que vence más allá del horizonte lo emitirá un `tick` posterior
     return [s for s in specs if (only_kinds is None or s.kind in only_kinds) and s.not_before < limit]
 
@@ -350,10 +420,17 @@ def gather_state(session: Session, source: str, season: str, game_type: str, cfg
     by_group: dict[int, list[MatchState]] = {}
     last_round: dict[int, int] = {}
     ids = [grp.id for grp, _ in rows]
-    for gid, codacta, rcode, status, at, day, number in session.execute(
-            select(Match.group_id, Match.external_id, Round.external_id, Match.status, Match.scheduled_at, Match.scheduled_date,
-                   Round.visible_number).join(Round, Round.id == Match.round_id).where(Match.group_id.in_(ids))):
-        by_group.setdefault(gid, []).append(MatchState(codacta, rcode, status, at, day))
+    reports: dict[int, str] = {
+        mid: REPORT_CLOSED if closed else REPORT_OPEN for mid, closed in session.execute(
+            select(MatchReport.match_id, MatchReportObservation.closed)
+            .join(MatchReportObservation, MatchReportObservation.report_id == MatchReport.id)
+            .join(Match, Match.id == MatchReport.match_id).where(Match.group_id.in_(ids))
+            .ext(distinct_on(MatchReport.match_id))
+            .order_by(MatchReport.match_id, MatchReportObservation.observed_at.desc(), MatchReportObservation.id.desc()))}
+    for gid, mid, codacta, rcode, status, at, day, number in session.execute(
+            select(Match.group_id, Match.id, Match.external_id, Round.external_id, Match.status, Match.scheduled_at,
+                   Match.scheduled_date, Round.visible_number).join(Round, Round.id == Match.round_id).where(Match.group_id.in_(ids))):
+        by_group.setdefault(gid, []).append(MatchState(codacta, rcode, status, at, day, reports.get(mid, REPORT_NONE)))
         if status == "finished" and number is not None:
             last_round[gid] = max(last_round.get(gid, 0), number)
     cal_jobs = session.execute(
@@ -361,6 +438,13 @@ def gather_state(session: Session, source: str, season: str, game_type: str, cfg
                                                                  IngestJob.status == "done", IngestJob.checkpoint.is_not(None))
         .ext(distinct_on(IngestJob.target_key)).order_by(IngestJob.target_key, IngestJob.id.desc())).all()
     calendars = {key: cp for key, cp in cal_jobs}
+    hints: dict[str, dict[str, tuple[bool, bool]]] = {}
+    for target, cp in session.execute(
+            select(IngestJob.target, IngestJob.checkpoint).where(IngestJob.source == source, IngestJob.kind == ROUND_RESULTS,
+                                                                 IngestJob.status == "done", IngestJob.checkpoint.is_not(None))
+            .ext(distinct_on(IngestJob.target_key)).order_by(IngestJob.target_key, IngestJob.id.desc())):
+        for codacta, flags in ((cp or {}).get("reports") or {}).items():
+            hints.setdefault(str(target.get("group")), {})[str(codacta)] = (bool(flags[0]), bool(flags[1]))
     done = {(kind, key): at for kind, key, at in session.execute(
         select(IngestJob.kind, IngestJob.target_key, func.max(IngestJob.finished_at))
         .where(IngestJob.source == source, IngestJob.status == "done").group_by(IngestJob.kind, IngestJob.target_key))
@@ -373,7 +457,7 @@ def gather_state(session: Session, source: str, season: str, game_type: str, cfg
             season=season, competition=comp.external_id, group=grp.external_id, game_type=base["game_type"],
             active=comp.active is not False, has_standings=grp.has_standings, has_scorers=grp.has_scorers,
             db_matches=tuple(by_group.get(grp.id, ())), calendar=calendar_summary_rounds(cp, tz) if cp else (),
-            last_known_round=last_round.get(grp.id)))
+            last_known_round=last_round.get(grp.id), report_hints=hints.get(grp.external_id, {})))
     return PlannerState(season, game_type, tuple(groups), done)
 
 
@@ -385,9 +469,13 @@ class TickResult:
 
 
 def tick(session: Session, source: str, season: str, game_type: str, cfg: ScheduleConfig, now: datetime,
-         *, max_attempts: int = 4) -> TickResult:
-    """Encola de forma idempotente lo que `plan` considera pendiente. Solo hace `flush`: confirma quien llama."""
-    specs = collapse(plan(gather_state(session, source, season, game_type, cfg), cfg, now))
+         *, max_attempts: int = 4, group_ids: Sequence[str] | None = None,
+         exclude_kinds: Sequence[str] = ()) -> TickResult:
+    """Encola de forma idempotente lo que `plan` considera pendiente. Solo hace `flush`: confirma quien llama.
+
+    `group_ids` limita los grupos (None = todos los de la temporada); `exclude_kinds` descarta tipos (p. ej. el catálogo)."""
+    specs = [s for s in collapse(plan(gather_state(session, source, season, game_type, cfg, group_ids=group_ids), cfg, now))
+             if s.kind not in exclude_kinds]
     live = set(session.execute(select(IngestJob.kind, IngestJob.target_key)
                                .where(IngestJob.source == source, IngestJob.status.in_(("pending", "running", "failed")))).all())
     created = 0

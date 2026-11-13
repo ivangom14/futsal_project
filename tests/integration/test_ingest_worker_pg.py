@@ -47,7 +47,8 @@ TABLES = ROOT / "tests" / "fixtures" / "rffm_tables"
 SRC = "rffm"
 NOW = datetime(2026, 11, 10, 12, 0, tzinfo=UTC)
 CATALOG_JOB = {"season": "22", "game_type": "3"}
-FULL_RUN_REQUESTS = 12
+REPORTS = 8  # actas que /api/results da por publicadas (hay_actas=1): la web sintética responde 404 (= aún no publicada)
+FULL_RUN_REQUESTS = 12 + REPORTS
 
 
 class Killed(BaseException):
@@ -187,9 +188,10 @@ def full_run(rig: Rig) -> WorkerReport:
 
 def test_full_pipeline_discovery_to_matches_with_hours_from_results(rig: Rig) -> None:
     report = full_run(rig)
-    assert (report.stop_reason, report.requests, report.done, report.dead, report.failed) == ("empty", FULL_RUN_REQUESTS, 12, 0, 0)
-    assert dict(report.by_kind) == {"discover_catalog": 1, "discover_groups": 2, "calendar": 3, "round_results": 6}
-    assert len(rig.site.calls) == FULL_RUN_REQUESTS and rig.count("raw_fetches", "parse_status = 'ok'") == FULL_RUN_REQUESTS
+    assert (report.stop_reason, report.requests, report.done, report.dead, report.failed) == ("empty", FULL_RUN_REQUESTS, FULL_RUN_REQUESTS, 0, 0)
+    assert dict(report.by_kind) == {"discover_catalog": 1, "discover_groups": 2, "calendar": 3, "round_results": 6,
+                                    "match_report": REPORTS}
+    assert len(rig.site.calls) == FULL_RUN_REQUESTS and rig.count("raw_fetches", "parse_status = 'ok'") == FULL_RUN_REQUESTS - REPORTS
     snap = data_snapshot(rig.engine)
     assert len(snap["matches"]) == 12 and len(snap["groups"]) == 3 and len(snap["competitions"]) == 2 and len(snap["rounds"]) == 6
     comps = {c[0]: c for c in snap["competitions"]}
@@ -209,7 +211,7 @@ def test_full_pipeline_queue_state_checkpoints_and_run_record(rig: Rig) -> None:
     full_run(rig)
     by = rig.jobs_by()
     assert by[("discover_catalog", "done")] == 1 and by[("discover_groups", "done")] == 2 and by[("calendar", "done")] == 3
-    assert by[("round_results", "done")] == 6
+    assert by[("round_results", "done")] == 6 and by[("match_report", "done")] == REPORTS
     # los trabajos finalizados encolaron tablas agrupadas 30 min (aún no vencidas con el reloj falso)
     assert by[("standings", "pending")] == 2 and by[("scorers", "pending")] == 2
     with rig.sf() as s:
@@ -496,7 +498,7 @@ def test_two_ticks_do_not_duplicate_jobs_and_plan_does_not_write(rig: Rig) -> No
     with rig.sf() as s, s.begin():
         first = tick(s, SRC, "22", "3", cfg, when)
     total = rig.count("ingest_jobs")
-    assert first.created > 0 and total == 12 + 4 + first.created  # 12 hechos + 4 tablas encoladas + lo que encola el tick
+    assert first.created > 0 and total == FULL_RUN_REQUESTS + 4 + first.created  # hechos + 4 tablas encoladas + lo que encola el tick
     with rig.sf() as s, s.begin():
         second = tick(s, SRC, "22", "3", cfg, when)
     assert second.created == 0 and second.existing == len(second.specs) == len(first.specs) and rig.count("ingest_jobs") == total

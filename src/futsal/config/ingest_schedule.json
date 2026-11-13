@@ -29,6 +29,8 @@
     "tables": {"every_hours": 24, "activity_days": 3, "group_minutes": 30},
     "initial": {"recent_days": 7},
     "inactive": {"every_days": 30},
-    "priorities": {"in_play": 100, "next_round": 80, "tables": 60, "rest": 40, "inactive": 10}
+    "reports": {"available_every_hours": 6, "first_days": 3, "first_every_hours": 12, "mid_days": 14, "mid_every_hours": 48,
+                "max_days": 60, "late_every_hours": 168, "open_days": 14, "open_every_hours": 24},
+    "priorities": {"in_play": 100, "next_round": 80, "reports": 70, "tables": 60, "rest": 40, "inactive": 10}
   }
 }

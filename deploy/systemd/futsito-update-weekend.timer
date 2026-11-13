@@ -1,0 +1,12 @@
+# Sábados y domingos, cada hora en punto (00:00-23:00) de Madrid.
+[Unit]
+Description=Futsito: actualización horaria en fin de semana (S-D cada hora Europe/Madrid)
+
+[Timer]
+OnCalendar=Sat,Sun *-*-* *:00:00 Europe/Madrid
+Persistent=true
+AccuracySec=1min
+Unit=futsito-update.service
+
+[Install]
+WantedBy=timers.target

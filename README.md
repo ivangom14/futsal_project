@@ -62,6 +62,12 @@ Si el acta está cerrada y su marcador difiere del listado, prevalece el acta (e
 Descubrimiento, descarga por grupo, importación y verificación (CMD): `docs/phase14-catalog.md`.
 `python -m futsal.cli discover-catalog` -> `scrape-catalog --plan` -> `scrape-catalog` -> `import-catalog` -> `verify-catalog`.
 
+## Actualización automática
+
+Un solo comando (partidos, resultados, actas, clasificación y goleadores de los grupos ya importados):
+`FUTSAL_RFFM_NETWORK_AUTHORIZED=1 scripts/update_rffm.sh` (tope opcional de peticiones: `scripts/update_rffm.sh 200`).
+Programación en Ubuntu con systemd: `deploy/systemd/` (L-V 03:00 y S-D cada hora, Europe/Madrid).
+
 ## Agente: evaluación y trazas (Fase 8)
 ```
 python -m futsal.agent.evaluate                      # offline: sin LLM, solo lectura, necesita API y PostgreSQL

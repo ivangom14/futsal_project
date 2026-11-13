@@ -69,6 +69,9 @@ def _process_one(engine: Engine, cand: Candidate, report_dir: Path, fetch: Calla
     return entry
 
 
+process_one = _process_one  # API pública para la cola (`match_report`): mismo comportamiento que el lote
+
+
 INITIAL_GROUPS: tuple[str, ...] = (RFFM_TARGET["group"],)
 
 

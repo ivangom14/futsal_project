@@ -54,6 +54,9 @@ def add_parsers(sub: "argparse._SubParsersAction[argparse.ArgumentParser]") -> N
         p.add_argument("--at", default=None, help="instante ISO 8601 (sin zona = Europe/Madrid); por defecto, ahora")
         if name == "plan":
             p.add_argument("--json", action="store_true", help="salida en JSON")
+        else:
+            p.add_argument("--skip-catalog", action="store_true",
+                           help="no descubre competiciones nuevas: solo mantiene los grupos ya importados (evita la carga masiva)")
     work = isub.add_parser("work", help="trabajador de la cola (red real solo con --allow-network Y FUTSAL_RFFM_NETWORK_AUTHORIZED=1)")
     add_work_arguments(work)
 
@@ -83,7 +86,8 @@ def run(args: argparse.Namespace) -> int:
     with Session(engine) as session, session.begin():
         if cmd == "tick":
             result = tick(session, args.source, args.season, args.game_type, load_schedule(), _at(args.at),
-                          max_attempts=load_config().max_attempts)
+                          max_attempts=load_config().max_attempts,
+                          exclude_kinds=("discover_catalog", "discover_groups") if getattr(args, "skip_catalog", False) else ())
             print(f"tick {_at(args.at).isoformat()}: nuevos={result.created} ya_vivos={result.existing}")
         elif cmd == "status":
             control = controls.get_control(session, args.source)

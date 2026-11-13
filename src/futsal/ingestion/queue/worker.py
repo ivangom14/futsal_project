@@ -132,7 +132,8 @@ def run_worker(session_factory: Callable[[], Session], fetcher: Fetcher, *, max_
                until_empty: bool = True, worker_id: str = "worker-1", now: Callable[[], datetime] = lambda: datetime.now(UTC),
                config: QueueConfig | None = None, schedule: ScheduleConfig | None = None, work_dir: Path = DEFAULT_WORK_DIR,
                stop: StopFlag | None = None, handlers: dict[str, Handler] | None = None,
-               sleep: Callable[[float], None] = time.sleep, poll_s: float = 30.0) -> WorkerReport:
+               sleep: Callable[[float], None] = time.sleep, poll_s: float = 30.0, min_priority: int | None = None,
+               run_kind: str = "ingest_worker", reports_dir: Path | None = None) -> WorkerReport:
     cfg, sched, flag, table = config or load_config(), schedule or load_schedule(), stop or StopFlag(), handlers or HANDLERS
     source, engine = fetcher.source, _engine(session_factory)
     if max_requests is not None:
@@ -140,14 +141,14 @@ def run_worker(session_factory: Callable[[], Session], fetcher: Fetcher, *, max_
     report = WorkerReport(worker_id)
     with session_factory() as s, s.begin():
         report.recovered = len(jobs.recover_expired_leases(s, now()))
-        run = IngestionRun(source=source, started_at=now(), status="running", input_path=f"queue:{source}", kind="ingest_worker")
+        run = IngestionRun(source=source, started_at=now(), status="running", input_path=f"queue:{source}", kind=run_kind)
         s.add(run)
         s.flush()
         report.run_id = run.id
     run_id = int(report.run_id or 0)
     try:
         _loop(session_factory, fetcher, engine, report, cfg, sched, flag, table, source, run_id, worker_id, now, work_dir,
-              until_empty, sleep, poll_s)
+              until_empty, sleep, poll_s, min_priority, reports_dir)
     except BaseException:
         report.stop_reason = "aborted"  # muerte abrupta (señal dura, excepción inesperada): la ejecución queda `abandoned`
         with contextlib.suppress(Exception):  # los arrendamientos vencerán solos y otro trabajador recuperará el trabajo
@@ -161,11 +162,12 @@ def run_worker(session_factory: Callable[[], Session], fetcher: Fetcher, *, max_
 
 def _loop(session_factory: Callable[[], Session], fetcher: Fetcher, engine: Engine, report: WorkerReport, cfg: QueueConfig,
           sched: ScheduleConfig, flag: StopFlag, table: dict[str, Handler], source: str, run_id: int, worker_id: str,
-          now: Callable[[], datetime], work_dir: Path, until_empty: bool, sleep: Callable[[float], None], poll_s: float) -> None:
+          now: Callable[[], datetime], work_dir: Path, until_empty: bool, sleep: Callable[[float], None], poll_s: float,
+          min_priority: int | None = None, reports_dir: Path | None = None) -> None:
     while True:
         report.requests = fetcher.requests
         if flag.is_set():
-            report.stop_reason = "signal"
+            report.stop_reason = getattr(flag, "reason", None) or "signal"
             return
         if fetcher.requests >= fetcher.max_requests:
             report.stop_reason = "max_requests"
@@ -176,7 +178,7 @@ def _loop(session_factory: Callable[[], Session], fetcher: Fetcher, engine: Engi
                 control = controls.get_control(s, source)
                 report.stop_reason, report.breaker_reason = "paused", control.reason if control else None
                 return
-            job = jobs.claim(s, worker_id, now(), cfg.lease_s, source=source)
+            job = jobs.claim(s, worker_id, now(), cfg.lease_s, source=source, min_priority=min_priority)
             if job is not None:
                 job.run_id = run_id
                 view = JobView(job.id, job.kind, dict(job.target), job.attempts, run_id)
@@ -187,7 +189,7 @@ def _loop(session_factory: Callable[[], Session], fetcher: Fetcher, engine: Engi
             sleep(poll_s)
             continue
         report.by_kind[view.kind] += 1
-        stop = _run_job(session_factory, fetcher, engine, report, cfg, sched, table, source, view, now, work_dir)
+        stop = _run_job(session_factory, fetcher, engine, report, cfg, sched, table, source, view, now, work_dir, reports_dir)
         if stop:
             return
 
@@ -211,13 +213,13 @@ def _release(session_factory: Callable[[], Session], report: WorkerReport, view:
 
 def _run_job(session_factory: Callable[[], Session], fetcher: Fetcher, engine: Engine, report: WorkerReport, cfg: QueueConfig,
              sched: ScheduleConfig, table: dict[str, Handler], source: str, view: JobView, now: Callable[[], datetime],
-             work_dir: Path) -> bool:
+             work_dir: Path, reports_dir: Path | None = None) -> bool:
     """Ejecuta un trabajo ya reclamado. Devuelve True si el trabajador debe detenerse."""
     handler = table.get(view.kind)
     if handler is None:
         _fail(session_factory, cfg, report, view, f"tipo de trabajo desconocido: {view.kind}", None, False, now())
         return False
-    ctx = Context(session_factory, fetcher, engine, now, cfg, sched, work_dir, view, source)
+    ctx = Context(session_factory, fetcher, engine, now, cfg, sched, work_dir, view, source, reports_dir)
     try:
         checkpoint = handler(ctx)
     except BreakerTripped as exc:

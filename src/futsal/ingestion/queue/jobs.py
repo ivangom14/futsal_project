@@ -59,8 +59,11 @@ def enqueue(session: Session, source: str, kind: str, target: dict[str, Any], *,
     return job
 
 
-def claim(session: Session, worker: str, now: datetime, lease_s: int, *, source: str | None = None) -> IngestJob | None:
-    """Toma el trabajo más prioritario ya vencido (`pending`, o `failed` con la espera cumplida) de un source no pausado."""
+def claim(session: Session, worker: str, now: datetime, lease_s: int, *, source: str | None = None,
+          min_priority: int | None = None) -> IngestJob | None:
+    """Toma el trabajo más prioritario ya vencido (`pending`, o `failed` con la espera cumplida) de un source no pausado.
+
+    `min_priority`: ignora los trabajos de prioridad menor (se quedan pendientes para otra pasada)."""
     paused = exists().where(IngestControl.source == IngestJob.source, IngestControl.paused.is_(True))
     stmt = (select(IngestJob)
             .where(IngestJob.status.in_(("pending", "failed")), IngestJob.not_before <= now, ~paused)
@@ -68,6 +71,8 @@ def claim(session: Session, worker: str, now: datetime, lease_s: int, *, source:
             .limit(1).with_for_update(skip_locked=True, of=IngestJob))
     if source is not None:
         stmt = stmt.where(IngestJob.source == source)
+    if min_priority is not None:
+        stmt = stmt.where(IngestJob.priority >= min_priority)
     job = session.execute(stmt.execution_options(populate_existing=True)).scalar_one_or_none()
     if job is None:
         return None
