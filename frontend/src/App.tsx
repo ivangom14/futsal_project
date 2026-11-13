@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Menu } from "lucide-react";
 import { ApiError, askAgent, forgetConversation, getHealth, sendFeedback } from "./api";
 import {
-  appendMessage, deleteConversation, focusFor, historyFor, loadState, removeMessage, saveState, selectConversation, setFeedback, startConversation, uid,
+  appendMessage, deleteConversation, focusFor, restoreConversation, historyFor, loadState, removeMessage, saveState, selectConversation, setFeedback, startConversation, uid,
   type State,
 } from "./conversations";
 import AgentStatus from "./components/AgentStatus";
@@ -11,8 +11,9 @@ import ConnectionBadge from "./components/ConnectionBadge";
 import MessageBubble from "./components/MessageBubble";
 import Sidebar from "./components/Sidebar";
 import Welcome from "./components/Welcome";
+import UndoToast from "./components/UndoToast";
 import { LogoMark } from "./components/Logo";
-import type { Connection, Feedback, Focus, HistoryItem, Message } from "./types";
+import type { Connection, Conversation, Feedback, Focus, HistoryItem, Message } from "./types";
 
 const HEALTH_POLL_MS = 15_000;
 const prefersReducedMotion = () => typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -27,6 +28,7 @@ export default function App() {
   const [connection, setConnection] = useState<Connection>({ state: "checking" });
   const [menu, setMenu] = useState(false);
   const [slow, setSlow] = useState(false); // la consulta lleva más de SLOW_MS
+  const [deleted, setDeleted] = useState<{ conv: Conversation; index: number } | null>(null); // para «Deshacer»
   const abortRef = useRef<AbortController | null>(null);
   const endRef = useRef<HTMLDivElement>(null);
   const menuButtonRef = useRef<HTMLButtonElement>(null);
@@ -128,7 +130,12 @@ export default function App() {
         open={menu}
         onNew={() => { setState(startConversation); setMenu(false); }}
         onSelect={(id) => { setState((s) => selectConversation(s, id)); setMenu(false); }}
-        onDelete={(id) => { void forgetConversation(id).catch(() => undefined); setState((s) => { const n = deleteConversation(s, id); return n.conversations.length ? n : startConversation(n); }); }}
+        onDelete={(id) => {
+          const index = state.conversations.findIndex((c) => c.id === id);
+          if (index >= 0) setDeleted({ conv: state.conversations[index], index });
+          void forgetConversation(id).catch(() => undefined); // el servidor la olvida ya; «Deshacer» la restaura en local y la siguiente pregunta resiembra el historial
+          setState((s) => { const n = deleteConversation(s, id); return n.conversations.length ? n : startConversation(n); });
+        }}
         onClose={() => setMenu(false)}
       />
       <main ref={mainRef} className="flex min-w-0 flex-1 flex-col">
@@ -152,8 +159,13 @@ export default function App() {
             <div ref={endRef} />
           </div>
         </div>
-        <Composer onSend={send} onStop={loadingId !== null && loadingId === active?.id ? cancel : undefined} loading={loading} usesContext={historyFor(active?.messages ?? []).length > 0} />
+        <Composer onSend={send} onStop={loadingId !== null && loadingId === active?.id ? cancel : undefined} loading={loading} usesContext={historyFor(active?.messages ?? []).length > 0}
+          focus={focusFor(active?.messages ?? [])} onClearContext={() => setState(startConversation)} />
       </main>
+      {deleted && (
+        <UndoToast key={deleted.conv.id} message={`Conversación «${deleted.conv.title}» borrada`} onClose={() => setDeleted(null)}
+          onUndo={() => { const d = deleted; setDeleted(null); setState((s) => restoreConversation(s, d.conv, d.index)); }} />
+      )}
     </div>
   );
 }

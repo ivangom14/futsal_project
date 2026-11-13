@@ -103,6 +103,18 @@ export function deleteConversation(state: State, id: string): State {
   return { conversations, activeId };
 }
 
+/**
+ * Deshace un borrado: la conversación vuelve a su posición y queda activa. Se descartan las conversaciones vacías creadas
+ * mientras tanto (al borrar la última se abre una vacía). Si el servidor ya la olvidó, la siguiente pregunta le reenvía el
+ * historial (`history` siembra la conversación cuando el servidor no la conoce).
+ */
+export function restoreConversation(state: State, conv: Conversation, index: number): State {
+  if (state.conversations.some((c) => c.id === conv.id)) return { ...state, activeId: conv.id };
+  const rest = state.conversations.filter((c) => c.messages.length > 0);
+  const at = Math.max(0, Math.min(index, rest.length));
+  return { conversations: [...rest.slice(0, at), conv, ...rest.slice(at)], activeId: conv.id };
+}
+
 export function appendMessage(state: State, convId: string, message: Message): State {
   return {
     ...state,

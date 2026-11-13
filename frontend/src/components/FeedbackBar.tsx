@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { ThumbsDown, ThumbsUp } from "lucide-react";
 import type { Feedback, FeedbackReason } from "../types";
+import Button from "../ui/Button";
 
 export const REASONS: { value: FeedbackReason; label: string }[] = [
   { value: "wrong_data", label: "Dato incorrecto" },
@@ -64,8 +65,8 @@ export default function FeedbackBar({ value, onSubmit }: { value?: Feedback; onS
           </label>
           {error && <p role="alert" className="text-danger">No se ha podido guardar la valoración. Inténtalo de nuevo.</p>}
           <div className="flex gap-2">
-            <button type="submit" disabled={!reason} className="min-h-10 rounded-lg bg-brand px-3 py-1 text-brand-on hover:bg-brand-hover disabled:opacity-50">Enviar valoración</button>
-            <button type="button" className="min-h-10 rounded-lg px-2 underline" onClick={() => setAsking(false)}>Cancelar</button>
+            <Button type="submit" variant="primary" disabled={!reason}>Enviar valoración</Button>
+            <Button variant="ghost" onClick={() => setAsking(false)}>Cancelar</Button>
           </div>
         </form>
       )}

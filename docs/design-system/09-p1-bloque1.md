@@ -36,7 +36,7 @@ ahora comprueba que no vuelve la sección grande y que el pie está plegado y ag
 | JS | 114,20 KB | 116,42 KB | +2,2 KB |
 | CSS | 7,30 KB | 7,27 KB | −0,03 KB |
 
-## 9.4 Pendiente de P1
+## 9.4 Pendiente de P1 (resuelto en el segundo bloque, doc 10, salvo `ScoreHero`)
 
 - Clasificación con columna de equipo fija y columnas según el ancho; `ScoreHero`; goleadores con el estilo de la guía.
 - `TeamCrest` con monograma (sin URLs de escudos hasta P2).

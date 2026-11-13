@@ -1,4 +1,5 @@
 import { kickoffLabel, matchStatus, type MatchTone } from "../format";
+import TeamCrest from "../ui/TeamCrest";
 import type { MatchesVisual } from "../types";
 
 /**
@@ -22,8 +23,10 @@ export default function Matches({ v }: { v: MatchesVisual }) {
               <StatusChip status={m.status} />
             </div>
             <div className="match-row mt-1">
+              <TeamCrest name={m.home} size={20} className="match-crest match-crest-home" />
               <span className="match-team match-home" title={m.home}>{m.home}</span>
               <span className={`match-mid rounded-md text-center font-display font-extrabold stretch-score tabular-nums ${m.score ? "bg-inverse text-inverse-on" : "bg-surface-2 text-ink-2"}`}>{m.score ?? "vs"}</span>
+              <TeamCrest name={m.away} size={20} className="match-crest match-crest-away" />
               <span className="match-team match-away" title={m.away}>{m.away}</span>
             </div>
             {m.past_due && <p className="mt-0.5 text-xs text-warning">La fecha ya pasó y sigue como programado: el dato puede estar desactualizado.</p>}

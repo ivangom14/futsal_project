@@ -1,5 +1,6 @@
 import { useLayoutEffect, useRef, useState, type KeyboardEvent } from "react";
-import { SendHorizontal, Square } from "lucide-react";
+import { SendHorizontal, Square, X } from "lucide-react";
+import type { Focus } from "../types";
 
 export const MAX_CHARS = 2000;
 const MAX_HEIGHT = 168; // ~6 líneas: a partir de ahí el campo desplaza por dentro
@@ -11,10 +12,22 @@ interface Props {
   /** Para la consulta en curso de ESTA conversación: el botón de enviar pasa a «Detener». */
   onStop?: () => void;
   usesContext?: boolean;
+  /** Foco de la conversación (equipo, competición…) que Futsito arrastra a la siguiente pregunta. */
+  focus?: Focus;
+  /** Quitar el contexto = empezar una conversación nueva (el foco vive en el historial de esta). */
+  onClearContext?: () => void;
+}
+
+/** «Lope de Vega FS», «PREFERENTE · Grupo 2»… o null si no hay foco que mostrar. */
+export function focusLabel(f: Focus | undefined): string | null {
+  if (!f) return null;
+  const who = f.team ?? f.player;
+  if (who) return who;
+  return f.competition ? [f.competition, f.group].filter(Boolean).join(" · ") : null;
 }
 
 /** Caja de entrada (guía §F.2): crece con el texto, Enter envía, Shift+Enter salta de línea; durante la consulta, «Detener» al alcance del pulgar. */
-export default function Composer({ onSend, onStop, loading, usesContext = false }: Props) {
+export default function Composer({ onSend, onStop, loading, usesContext = false, focus, onClearContext }: Props) {
   const [text, setText] = useState("");
   const ref = useRef<HTMLTextAreaElement>(null);
   useLayoutEffect(() => {
@@ -36,13 +49,26 @@ export default function Composer({ onSend, onStop, loading, usesContext = false 
     }
   };
   const stop = loading && onStop;
+  const label = focusLabel(focus);
   const near = text.length >= MAX_CHARS - 200;
   return (
     <div className="border-t border-line bg-surface px-3 pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
       {usesContext && (
-        <p className="mx-auto mb-1.5 max-w-3xl text-xs text-ink-2" data-testid="context-hint">
-          Futsito tiene en cuenta los mensajes anteriores de esta conversación.
-        </p>
+        <div className="mx-auto mb-1.5 flex max-w-3xl items-center text-xs text-ink-2" data-testid="context-hint">
+          {label ? (
+            <span className="inline-flex min-w-0 items-center gap-1 rounded-full bg-accent-soft py-0.5 pl-2.5 pr-0.5 text-accent" title="Futsito tiene en cuenta los mensajes anteriores de esta conversación">
+              <span className="min-w-0 truncate">Hablando de <strong className="font-semibold">{label}</strong></span>
+              {onClearContext && (
+                <button type="button" onClick={onClearContext} aria-label="Quitar el contexto: empezar una conversación nueva"
+                  className="grid h-7 w-7 shrink-0 place-items-center rounded-full hover:bg-surface">
+                  <X size={14} aria-hidden="true" />
+                </button>
+              )}
+            </span>
+          ) : (
+            "Futsito tiene en cuenta los mensajes anteriores de esta conversación."
+          )}
+        </div>
       )}
       <div className="mx-auto flex max-w-3xl items-end gap-2 rounded-2xl border border-line-strong bg-surface py-1.5 pl-3.5 pr-1.5 focus-within:ring-2 focus-within:ring-focus">
         <textarea

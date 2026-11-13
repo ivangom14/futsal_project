@@ -3,6 +3,7 @@ import { Trash2, X } from "lucide-react";
 import { LogoMark } from "./Logo";
 import ThemeSwitch from "./ThemeSwitch";
 import type { Conversation } from "../types";
+import { buttonClass } from "../ui/Button";
 
 interface Props {
   conversations: Conversation[];
@@ -74,7 +75,7 @@ export default function Sidebar({ conversations, activeId, open, onNew, onSelect
           <span className="font-display text-xl font-extrabold tracking-tight text-brand-text stretch-brand">Futsito</span>
         </div>
         <div className="flex items-center gap-2 p-3">
-          <button onClick={onNew} className="min-h-10 flex-1 rounded-lg bg-brand px-3 py-2 text-sm font-medium text-brand-on hover:bg-brand-hover">
+          <button onClick={onNew} className={buttonClass("primary", "flex-1")}>
             + Nueva conversación
           </button>
           <button onClick={onClose} aria-label="Cerrar menú" className="grid h-10 w-10 place-items-center rounded-lg text-ink-2 hover:bg-surface-2 md:hidden">

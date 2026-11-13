@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
-import { TriangleAlert } from "lucide-react";
 import FutsitoLoader from "./FutsitoLoader";
+import Button from "../ui/Button";
+import Notice from "../ui/Notice";
 
 /**
  * Segundos desde que empezó la consulta; se enseñan a partir de 5 s (antes serían ruido). Se escriben directamente en el DOM:
@@ -32,14 +33,11 @@ export default function AgentStatus({ slow, onCancel }: { slow: boolean; onCance
           Futsito está consultando los datos oficiales…<Elapsed />
         </p>
         {slow && (
-          <p className="mt-2 flex gap-1.5 rounded-lg bg-warning-soft px-3 py-2 text-sm text-warning" data-testid="slow-hint">
-            <TriangleAlert size={16} aria-hidden="true" className="mt-0.5 shrink-0" />
+          <Notice tone="warning" className="mt-2" testId="slow-hint">
             Esto está tardando más de lo normal. Puede que el servicio de IA esté limitando las peticiones; puedes esperar o cancelar.
-          </p>
+          </Notice>
         )}
-        <button onClick={onCancel} className="mt-2 min-h-10 rounded-lg border border-line-strong bg-surface px-3 text-sm font-medium text-ink hover:bg-surface-2">
-          Cancelar
-        </button>
+        <Button onClick={onCancel} className="mt-2">Cancelar</Button>
       </div>
     </div>
   );

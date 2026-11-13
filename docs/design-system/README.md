@@ -1,7 +1,7 @@
 # Sistema de diseño de Futsito — «Pista»
 
 Sistema de diseño del frontend de Futsito. **Estado: P0 implementada** (tokens, claro/oscuro, Archivo, Lucide, contraste AA,
-estados de partido, menú móvil accesible; ver [08-p0-implementacion.md](08-p0-implementacion.md)). P1 en curso: primer bloque implementado ([09-p1-bloque1.md](09-p1-bloque1.md)). P2–P3 siguen en propuesta.
+estados de partido, menú móvil accesible; ver [08-p0-implementacion.md](08-p0-implementacion.md)). P1 implementada ([09-p1-bloque1.md](09-p1-bloque1.md), [10-p1-bloque2.md](10-p1-bloque2.md)); solo queda `ScoreHero`, que depende de P2. P2–P3 siguen en propuesta.
 Backend, MCP y agente no se han modificado.
 
 | # | Documento | Contenido |
@@ -15,6 +15,7 @@ Backend, MCP y agente no se han modificado.
 | 7 | [07-plan-implementacion.md](07-plan-implementacion.md) | Fases, prioridades, criterios de aceptación y cómo no romper nada |
 | 8 | [08-p0-implementacion.md](08-p0-implementacion.md) | Qué se implementó en P0, validación y medidas antes/después |
 | 9 | [09-p1-bloque1.md](09-p1-bloque1.md) | P1, primer bloque: chat a ancho completo, loader, caja de entrada, diagnóstico oculto y fuentes |
+| 10 | [10-p1-bloque2.md](10-p1-bloque2.md) | P1, segundo bloque: componentes base, escudos con monograma, clasificación, goleadores, aclaraciones, contexto y deshacer |
 | — | [demo/futsito-design-demo.html](demo/futsito-design-demo.html) | Demo estática aislada (abrir en el navegador): tokens, claro/oscuro, componentes, loader |
 
 ## Decisiones en una línea

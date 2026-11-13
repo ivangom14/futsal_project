@@ -8,8 +8,8 @@ Principio: **cambiar la piel sin tocar los contratos**. Las fases 0–3 son solo
 |---|---|---|---|---|
 | 0 | Correcciones de accesibilidad y estados (sin rediseño) — **implementada salvo fuentes, detalles técnicos y borrado (→ P1)** | frontend | **P0** | S |
 | 1 | Tokens, tema claro/oscuro, fuente, iconos — **implementada** (doc 8) | frontend | **P0** | M |
-| 2 | Componentes base (`ui/`) y turnos del chat — **turnos, loader, Composer, diagnóstico y fuentes implementados** (doc 9) | frontend | **P1** | M |
-| 3 | Visuales deportivos con el sistema + `TeamCrest` (con fallback) + loader | frontend | **P1** | M |
+| 2 | Componentes base (`ui/`) y turnos del chat — **implementada** (docs 9 y 10) | frontend | **P1** | M |
+| 3 | Visuales deportivos con el sistema + `TeamCrest` (con fallback) + loader — **implementada salvo `ScoreHero`** (docs 9 y 10) | frontend | **P1** | M |
 | 4 | Escudos por API y campos aditivos (`clarification`, `promotions`) | ingesta, API, `presentation.py` | **P2** | M |
 | 5 | Streaming de pasos reales del agente (SSE) | `agent/web.py`, frontend | **P3** | L |
 

@@ -54,7 +54,7 @@ try {
       const overflow = offenders.length; const offenderInfo = offenders.map((e) => `${e.tagName}.${String(e.className).slice(0, 50)} | ${e.textContent.slice(0, 40)} | sw=${e.scrollWidth} cw=${e.clientWidth}`);
       for (const r of rowsEl) {
         const g = r.querySelector(".match-row"), home = g.querySelector(".match-home"), away = g.querySelector(".match-away"), mid = g.querySelector(".match-mid");
-        narrow = getComputedStyle(g).gridTemplateColumns.trim().split(/\s+/).length === 2;
+        narrow = (getComputedStyle(g).gridTemplateAreas.match(/"[^"]*"/g) ?? []).length >= 2; // apilado = local y visitante en filas distintas (independiente de la columna del escudo)
         for (const el of [home, away]) {
           const lines = Math.round(el.getBoundingClientRect().height / lh(el));
           maxLines = Math.max(maxLines, lines);

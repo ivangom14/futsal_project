@@ -67,7 +67,7 @@
     --fs-brand-soft: #3a1a15;
     --fs-accent: #7db3f0;
     --fs-accent-soft: #16263a;
-    --fs-gold-text: #f7cf6a;
+    --fs-gold-text: #5a3e00; /* texto SOBRE relleno oro (que no cambia en oscuro): 5,25:1 */
     --fs-success: #5cc98a;
     --fs-success-soft: #14301f;
     --fs-warning: #f0b45a;
@@ -96,7 +96,7 @@
   --fs-brand-soft: #3a1a15;
   --fs-accent: #7db3f0;
   --fs-accent-soft: #16263a;
-  --fs-gold-text: #f7cf6a;
+  --fs-gold-text: #5a3e00; /* texto SOBRE relleno oro (que no cambia en oscuro): 5,25:1 */
   --fs-success: #5cc98a;
   --fs-success-soft: #14301f;
   --fs-warning: #f0b45a;

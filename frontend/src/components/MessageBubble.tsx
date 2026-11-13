@@ -9,6 +9,9 @@ import Visuals from "./Visuals";
 import SourceFooter from "./SourceFooter";
 import { showDiagnostics } from "../diagnostics";
 import type { ChatResponse, Feedback, Message } from "../types";
+import Button from "../ui/Button";
+import Notice from "../ui/Notice";
+import Chip from "../ui/Chip";
 
 interface Props {
   message: Message;
@@ -63,35 +66,47 @@ export default function MessageBubble({ message, onRetry, onSuggest, suggestDisa
           </details>
         )}
         {onRetry && (
-          <button onClick={onRetry} className="mt-2 min-h-10 rounded-lg border border-line-strong bg-surface px-3 py-1.5 font-medium text-ink hover:bg-surface-2">
-            Reintentar
-          </button>
+          <Button onClick={onRetry} className="mt-2">Reintentar</Button>
         )}
       </div>
     );
   }
   const r = message.response;
   const diagnostics = showDiagnostics();
+  const ctx = r?.diagnostics?.context;
+  // Aclaración: el agente pregunta y la comprensión de contexto ya conoce las opciones válidas → se ofrecen pulsables (solo en la última respuesta).
+  const options = ctx && (ctx.status === "ask" || ctx.status === "missing") ? (ctx.options ?? []).filter(Boolean) : [];
+  const asking = ctx?.status === "ask";
+  // Supuesto: el backend lo antepone al texto (assumption_prepended); se separa como nota SOLO si el texto empieza exactamente por él.
+  const assumption = ctx?.assumption_prepended && ctx.assumption && message.content.startsWith(ctx.assumption) ? ctx.assumption : null;
+  const body = assumption ? message.content.slice(assumption.length).trimStart() : message.content;
   // Turno del agente SIN burbuja y a todo el ancho: las tarjetas deportivas ganan ~70 px en móvil (guía §F.1).
   return (
-    <article className="min-w-0" data-testid="msg-agent" aria-label="Respuesta de Futsito">
+    <article className={`min-w-0 ${asking ? "border-l-[3px] border-accent pl-3" : ""}`} data-testid="msg-agent" aria-label={asking ? "Aclaración de Futsito" : "Respuesta de Futsito"}>
       <header className="mb-1.5 flex flex-wrap items-center gap-x-2 gap-y-1">
         <LogoMark className="h-7 w-7 shrink-0" />
         <span className="font-display text-sm font-bold text-ink">Futsito</span>
         {r && <Badges r={r} />}
+        {asking && <span className="rounded-full bg-accent-soft px-2 py-0.5 text-xs font-medium text-accent">Necesito un detalle</span>}
       </header>
+      {assumption && <Notice tone="info" className="mb-2" testId="assumption">{assumption}</Notice>}
       <div className="prose max-w-none break-words text-[15px] leading-relaxed [overflow-wrap:anywhere] sm:text-base prose-p:my-2 prose-table:text-sm">
-        <ReactMarkdown remarkPlugins={[remarkGfm]}>{message.content}</ReactMarkdown>
+        <ReactMarkdown remarkPlugins={[remarkGfm]}>{body}</ReactMarkdown>
       </div>
       {r?.error && (
-        <p role="status" className="mt-2 rounded-lg bg-warning-soft px-3 py-2 text-sm text-warning">
+        <Notice tone="warning" role="status" className="mt-2">
           No he podido completar del todo la consulta.{diagnostics ? " El detalle está en «Detalles técnicos»." : " Puede faltar parte de la información."}
-        </p>
+        </Notice>
       )}
       {r && <Visuals visuals={r.visuals ?? []} />}
       {r && <SourceFooter sources={r.sources ?? []} />}
       {r && <FeedbackBar value={message.feedback} onSubmit={(fb) => onFeedback(message.id, r.diagnostics.run_id, fb)} />}
-      {r && onSuggest && <Suggestions items={r.suggestions ?? []} onPick={onSuggest} disabled={suggestDisabled} />}
+      {r && onSuggest && options.length > 0 && (
+        <div className="mt-3 flex flex-wrap gap-2" role="group" aria-label="Opciones" data-testid="clarification-options">
+          {options.map((o) => <Chip key={o} variant="option" disabled={suggestDisabled} onClick={() => onSuggest(o)}>{o}</Chip>)}
+        </div>
+      )}
+      {r && onSuggest && options.length === 0 && <Suggestions items={r.suggestions ?? []} onPick={onSuggest} disabled={suggestDisabled} />}
       {r && diagnostics && <TechnicalDetails response={r} />}
     </article>
   );
