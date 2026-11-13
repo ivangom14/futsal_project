@@ -119,3 +119,33 @@ solo cambia la URL que entrega la API.
 1. `TeamCrest` con fallback (solo frontend, útil desde el primer día aunque no haya URLs).
 2. Pasos 1–3 con `CRESTS_MODE` (backend aditivo, sin migraciones).
 3. Solicitud de autorización a la RFFM → paso 4.
+
+## 4.8 Implementado: opción A para pruebas privadas (2026-11-13)
+
+Pasos 1–3 de §4.4, con una variación para no gastar tokens: las URLs **no** viajan por el MCP ni por el LLM ni por los
+visuales; el servicio de chat las sirve aparte y la interfaz las carga una vez.
+
+| Pieza | Qué hace |
+|---|---|
+| `python -m futsal.cli crest-backfill [--dir data] [--dry-run]` | Recorre las instantáneas `.html/.json` ya descargadas (jornadas, calendario, clasificación, acta), extrae pares código de equipo → ruta del escudo y rellena `teams.crest_url` (ruta relativa). Sin red, sin migraciones, idempotente (2.ª ejecución: 0 cambios); gana la instantánea más reciente; solo acepta rutas `/pnfg/pimg/…` de imagen. `src/futsal/importer/crest_backfill.py` |
+| API `GET /crests` | Equipos con escudo y URL absoluta (`RFFM_ASSET_HOST`). Solo lectura, aditivo. `src/futsal/api/app.py` |
+| Chat `GET /chat/crests` | `CRESTS_MODE=off` (por defecto): `{}` sin consultar la API. `link`: `{nombre: url}` desde la API, caché 10 min; si la API falla, lo último en caché o `{}`. `src/futsal/agent/web.py` |
+| Interfaz | `CrestProvider` pide el mapa una vez; `TeamCrest` muestra `<img>` (carga diferida, sin *referer*, sobre fondo blanco fijo) y vuelve al monograma si no hay escudo o la imagen falla. `frontend/src/crests.tsx`, `ui/TeamCrest.tsx` |
+
+**Activarlo en local:**
+
+```bash
+python -m futsal.cli crest-backfill --dir data
+```
+
+Después, `CRESTS_MODE=link` en `.env` y reiniciar el servicio de chat (`uvicorn futsal.agent.web:app_factory --factory --port 8001`).
+
+**Verificación (2026-11-13).** PostgreSQL 16 temporal con el fixture de liga: *backfill* 14 equipos, 2.ª pasada 0 cambios;
+`/crests` y `/chat/crests` devuelven 14 escudos; en Chromium (360/1280 px, claro y oscuro) cargaron las 12 imágenes visibles
+desde `appweb.rffm.es` sin cabecera *referer* y sin desbordes. En una segunda pasada el proxy del entorno de pruebas denegó
+`appweb.rffm.es` y todas las celdas mostraron el monograma: el respaldo funciona. Pruebas: `tests/test_crests.py`,
+`tests/integration/test_crests_pg.py`, `frontend/src/crests.test.tsx`. Peso: +0,3 KB gzip de JS.
+
+**Sigue pendiente para uso público:** autorización de la RFFM (§4.3), aviso de privacidad (la RFFM recibe la IP del
+visitante) y, con autorización, el paso 4 (copias normalizadas: 611 KB → 48,5 KB medidos).
+

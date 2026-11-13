@@ -1,9 +1,10 @@
 /**
- * Escudo de equipo (docs/design-system/04-escudos-equipos.md §4.5). Hoy siempre es el FALLBACK: escudo genérico con las
- * iniciales del equipo y un tono derivado del nombre (sin sufijo de categoría, para que el 'A' y el 'B' de un club coincidan).
- * Nunca imita colores reales de un club. Decorativo (`aria-hidden`): el nombre del equipo siempre va al lado.
- * Cuando la API exponga la URL del escudo (P2), este componente la mostrará y usará el monograma solo si falla.
+ * Escudo de equipo (docs/design-system/04-escudos-equipos.md §4.5). Con CRESTS_MODE=link y escudos en BD, la imagen oficial
+ * de la RFFM; si no hay o no carga, el FALLBACK: escudo genérico con las iniciales y un tono derivado del club (sin sufijo de
+ * categoría, para que el 'A' y el 'B' coincidan), que nunca imita colores reales. Decorativo: el nombre siempre va al lado.
  */
+import { useState } from "react";
+import { useCrestUrl } from "../crests";
 
 /** Tonos con texto blanco ≥ 5,7:1 (medido). */
 const TONES = ["#A12A20", "#1B5FA6", "#1C7444", "#6B3FA0", "#8A5A12", "#0F6E73", "#4A5563", "#9B2C68"];
@@ -36,6 +37,15 @@ export function crestTone(name: string): string {
 }
 
 export default function TeamCrest({ name, size = 24, className = "" }: { name: string; size?: number; className?: string }) {
+  const url = useCrestUrl(name);
+  const [failed, setFailed] = useState<string | null>(null);
+  if (url && failed !== url) {
+    // Escudo oficial: enlazado (no copiado) sobre un fondo blanco fijo que iguala JPEG con fondo y PNG transparentes, también en oscuro.
+    return (
+      <img src={url} alt="" width={size} height={size} loading="lazy" decoding="async" referrerPolicy="no-referrer" onError={() => setFailed(url)}
+        className={`team-crest shrink-0 rounded-[22%] border border-line bg-tile object-contain p-px ${className}`.trim()} data-testid="team-crest" />
+    );
+  }
   const initials = crestInitials(name);
   return (
     <svg viewBox="0 0 24 24" width={size} height={size} aria-hidden="true" focusable="false" className={`team-crest shrink-0 ${className}`.trim()} data-testid="team-crest">

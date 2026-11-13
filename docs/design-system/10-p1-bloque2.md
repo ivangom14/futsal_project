@@ -40,6 +40,6 @@ El acumulado de JS (+9,2 KB gzip, iconos incluidos) queda dentro del presupuesto
 
 - **`ScoreHero`** (cabecera común de un partido): no se implementa porque los visuales de acta solo traen el marcador dentro
   del texto del subtítulo; extraerlo con expresiones regulares sería frágil. Requiere un campo estructurado (P2).
-- **P2**: URLs de escudos oficiales (con `CRESTS_MODE` y autorización), `clarification`/`assumption` como campos de primer
+- **P2**: escudos oficiales ya enlazables en pruebas privadas (`CRESTS_MODE=link`, doc 4 §4.8; falta autorización para uso público), `clarification`/`assumption` como campos de primer
   nivel en la respuesta, zonas de ascenso/descenso en la clasificación, visual de ficha de equipo.
 - **P3**: progreso real del agente por streaming.

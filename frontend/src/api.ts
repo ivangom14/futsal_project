@@ -72,3 +72,6 @@ export const sendFeedback = (conversationId: string, messageId: string, runId: s
 /** Pide al servidor que olvide el historial de una conversación borrada (si falla, caduca solo: memoria acotada). */
 export const forgetConversation = (conversationId: string): Promise<{ deleted: boolean }> =>
   request(`/chat/conversations/${encodeURIComponent(conversationId)}`, { method: "DELETE" }, 5_000);
+
+/** Escudos oficiales por nombre de equipo (vacío si CRESTS_MODE=off en el servicio de chat). */
+export const getCrests = (): Promise<{ mode: string; crests: Record<string, string> }> => request("/chat/crests", undefined, 5_000);

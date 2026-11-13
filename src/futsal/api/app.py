@@ -10,6 +10,7 @@ from fastapi.responses import JSONResponse
 from sqlalchemy import Engine, func, select, text
 from sqlalchemy.orm import Session, aliased
 
+from futsal.config.targets import RFFM_ASSET_HOST
 from futsal.db.models import (
     Competition,
     CompetitionGroup,
@@ -117,6 +118,13 @@ def create_app(engine: Engine | None = None, today: Callable[[], date] = date.to
             {"id": c.id, "external_id": c.external_id, "name": c.name,
              "season_id": c.season_id, "season": season, "groups": by_comp.get(c.id, [])}
             for c, season in db.execute(stmt)])
+
+    @app.get("/crests")
+    def crests(db: Db) -> dict[str, Any]:
+        """Escudos conocidos (ruta en `teams.crest_url`, rellenada por `crest-backfill`) con URL absoluta de la RFFM.
+        No descarga ni sirve imágenes: quien las muestre decide si enlazarlas (ver CRESTS_MODE en el servicio de chat)."""
+        rows = db.execute(select(Team.id, Team.name, Team.crest_url).where(Team.crest_url.is_not(None)).order_by(Team.id))
+        return _items([{"team_id": i, "name": n, "crest_url": f"{RFFM_ASSET_HOST}{u}" if u and u.startswith("/") else u} for i, n, u in rows])
 
     @app.get("/teams")
     def find_teams(db: Db, name: Annotated[str, Query(min_length=2, max_length=80)],

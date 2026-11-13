@@ -26,3 +26,6 @@ CATALOG_SCOPE: tuple[tuple[str, str], ...] = (
     ("juvenil", "Copa Juvenil - fase previa - FS"),
     ("juvenil", "Primera Juvenil FS"),
 )
+
+# Host de las imágenes de la RFFM (escudos): en BD solo se guarda la ruta relativa (`teams.crest_url`).
+RFFM_ASSET_HOST = "https://appweb.rffm.es"

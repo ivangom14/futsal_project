@@ -338,13 +338,30 @@ def api_freshness(group_ids: list[int]) -> dict[int, dict[str, Any]]:
     return out
 
 
+def _api_crests() -> dict[str, str]:
+    """{nombre de equipo: URL del escudo} desde la API de datos (`GET /crests`). Sin escudos o con error: {} (la UI usa el monograma)."""
+    base = env_value("API_BASE_URL", "http://127.0.0.1:8000")
+    res = httpx.get(f"{base}/crests", timeout=5.0)
+    res.raise_for_status()
+    out: dict[str, str] = {}
+    for row in res.json().get("items", []):
+        name, url = row.get("name"), row.get("crest_url")
+        if isinstance(name, str) and isinstance(url, str) and url.startswith("https://"):
+            out.setdefault(name, url)
+    return out
+
+
+CRESTS_TTL_S = 600.0
+
+
 def create_chat_app(runner: AgentRunner | None = None,
                     data_api_status: Callable[[], dict[str, Any]] = _data_api_status,
                     memory: ConversationMemory | None = None,
                     freshness: Callable[[list[int]], dict[int, dict[str, Any]]] = api_freshness,
                     feedback_path: FilePath | None = None,
                     question_timeout: float | None = None,
-                    question_log: QuestionLog | None = None) -> FastAPI:
+                    question_log: QuestionLog | None = None,
+                    crests_source: Callable[[], dict[str, str]] = _api_crests) -> FastAPI:
     agent_runner = runner or AgentRunner()
     conversations = memory if memory is not None else ConversationMemory()
     summaries = RunSummaries()
@@ -369,6 +386,26 @@ def create_chat_app(runner: AgentRunner | None = None,
     async def _invalid(_: Request, exc: RequestValidationError) -> JSONResponse:
         detail = "; ".join(f"{'.'.join(str(p) for p in e['loc'])}: {e['msg']}" for e in exc.errors())
         return JSONResponse({"detail": f"parámetros inválidos: {detail}"}, status_code=400)
+
+    crest_cache: dict[str, Any] = {"at": 0.0, "data": {}}
+
+    @app.get("/chat/crests")
+    def crests() -> dict[str, Any]:
+        """Escudos oficiales para la interfaz. CRESTS_MODE=off (por defecto): ninguno, la UI usa monogramas.
+        CRESTS_MODE=link: URLs de la RFFM que el NAVEGADOR carga directamente (no se copian ni transforman; la RFFM ve la IP
+        del visitante). Uso previsto: pruebas privadas hasta contar con autorización (docs/design-system/04-escudos-equipos.md)."""
+        mode = env_value("CRESTS_MODE", "off").strip().lower()
+        if mode != "link":
+            return {"mode": "off", "crests": {}}
+        now = time.monotonic()
+        if crest_cache["data"] and now - crest_cache["at"] < CRESTS_TTL_S:
+            return {"mode": "link", "crests": crest_cache["data"]}
+        try:
+            data = crests_source()
+        except (httpx.HTTPError, ValueError) as exc:
+            return {"mode": "link", "crests": crest_cache["data"], "error": type(exc).__name__}
+        crest_cache.update(at=now, data=data)
+        return {"mode": "link", "crests": data}
 
     @app.get("/chat/health")
     def health() -> dict[str, Any]:
