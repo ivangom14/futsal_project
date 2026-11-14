@@ -11,7 +11,6 @@ demás: su estado queda en `bench.json`.
 """
 
 import json
-import os
 import random
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -29,6 +28,7 @@ from futsal.agent.llm import (
     ToolCall,
     Usage,
 )
+from futsal.config.settings import env_value
 from futsal.evals.bench.registry import ModelSpec, build_llm, call_cost
 from futsal.evals.datasets import bench_suite_file
 from futsal.evals.runner import RESULTS, RunConfig, commit_id, prepare_database, run_eval
@@ -161,7 +161,7 @@ class BenchConfig:
 
 
 def secrets_of(models: list[ModelSpec]) -> list[str]:
-    return [v for v in (os.environ.get(m.credentials_env, "").strip() for m in models) if len(v) >= 8]
+    return [v for v in (env_value(m.credentials_env).strip() for m in models) if len(v) >= 8]
 
 
 def redact(text: str, secrets: list[str]) -> str:

@@ -8,7 +8,6 @@ Coste: siempre CALCULADO con tarifas y tokens; nunca es un importe facturado (la
 tokens): en ese caso es `None`, no cero.
 """
 
-import os
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -17,6 +16,7 @@ from typing import Any
 import yaml  # type: ignore[import-untyped]
 
 from futsal.agent.llm import AnthropicLLM, GeminiLLM, LLMClient, LLMError, OpenAILLM, RetryPolicy
+from futsal.config.settings import env_value
 
 REGISTRY_FILE = Path("evals/bench/models.yaml")
 ID_CHARS = set("abcdefghijklmnopqrstuvwxyz0123456789-_.")
@@ -108,7 +108,7 @@ class ModelSpec:
     max_requests: int = 600
 
     def has_credentials(self) -> bool:
-        return bool(os.environ.get(self.credentials_env, "").strip())
+        return bool(env_value(self.credentials_env).strip())
 
     def as_dict(self) -> dict[str, Any]:
         """Descripción para los informes. Nunca incluye el valor de la credencial (solo el nombre de la variable)."""
@@ -204,7 +204,7 @@ def select(specs: dict[str, ModelSpec], ids: list[str] | None) -> list[ModelSpec
 
 def build_llm(spec: ModelSpec) -> LLMClient:
     """Cliente real del modelo. Lee la clave de `credentials_env` en el momento (nunca se guarda ni se registra)."""
-    key = os.environ.get(spec.credentials_env, "").strip()
+    key = env_value(spec.credentials_env).strip()  # entorno o .env, como el resto del proyecto
     if not key:
         raise LLMError(f"{spec.credentials_env} no definida: no se puede ejecutar {spec.id}")
     adapter = ADAPTERS[spec.adapter]

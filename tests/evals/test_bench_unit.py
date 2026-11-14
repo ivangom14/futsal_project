@@ -225,3 +225,16 @@ def test_v2_cases_are_graded_with_their_v2_expectation_and_legacy_is_unchanged()
     plain = ResolvedTurn("¿Cuántos puntos tiene X?", "answer", facts=[{"kind": "number", "value": "9"}], tools_allowed=None)
     same = expected_for(plain, "v2", frozenset({"matches_by_date"}))
     assert same.behavior == "answer" and same.facts == plain.facts  # sin expectativa v2: la de siempre
+
+
+def test_credentials_in_the_dotenv_file_are_found_like_in_the_rest_of_the_project(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("BENCH_TEST_KEY", raising=False)
+    monkeypatch.chdir(tmp_path)
+    s = spec()
+    assert s.has_credentials() is False
+    (tmp_path / ".env").write_text("# claves\nBENCH_TEST_KEY=sk-solo-en-dotenv-123\n", encoding="utf-8")
+    assert s.has_credentials() is True
+    llm = registry.build_llm(s)
+    assert isinstance(llm, AnthropicLLM) and llm._key == "sk-solo-en-dotenv-123"
+    from futsal.evals.bench.runner import secrets_of
+    assert secrets_of([s]) == ["sk-solo-en-dotenv-123"]  # también se ocultan en los mensajes de error
