@@ -31,7 +31,15 @@ from futsal.agent.llm import (
 from futsal.config.settings import env_value
 from futsal.evals.bench.registry import ModelSpec, build_llm, call_cost
 from futsal.evals.datasets import bench_suite_file
-from futsal.evals.runner import RESULTS, RunConfig, commit_id, prepare_database, run_eval
+from futsal.evals.runner import (
+    LIVE,
+    RESULTS,
+    RunConfig,
+    commit_id,
+    live_manifest,
+    prepare_database,
+    run_eval,
+)
 from futsal.evals.snapshot import MADRID
 
 BENCH_FILE = "bench.json"
@@ -158,6 +166,7 @@ class BenchConfig:
     admin_url: str | None = None
     dry_run: bool = False
     progress: Callable[[str], None] | None = None
+    as_of: str | None = None  # solo sin snapshot (`live`): «hoy» de la prueba; por defecto, el momento de empezar
 
 
 def secrets_of(models: list[ModelSpec]) -> list[str]:
@@ -217,8 +226,15 @@ def run_bench(cfg: BenchConfig, llm_factory: Callable[[ModelSpec], LLMClient] = 
         raise BenchError("--resume: la suite, los casos, las repeticiones o el agente no coinciden con la ejecución original")
     secrets = secrets_of(cfg.models)
     say = cfg.progress or (lambda _m: None)
+    live_m: dict[str, Any] | None = None
+    if cfg.snapshot == LIVE:  # sin snapshot: la BD actual, solo lectura; mismo «hoy» y huella inicial para todos los modelos
+        base_url = cfg.db_url or cfg.admin_url
+        if not base_url:
+            raise BenchError("modo sin snapshot: falta DATABASE_URL")
+        as_of = (previous or {}).get("snapshot", {}).get("as_of") if previous else cfg.as_of
+        live_m = live_manifest(base_url, as_of)
     url, manifest = prepare_database(RunConfig(suite=cfg.suite, snapshot=cfg.snapshot, output=out, root=cfg.root, db_url=cfg.db_url,
-                                               admin_url=cfg.admin_url))
+                                               admin_url=cfg.admin_url, live_manifest=live_m))
     order = [m.id for m in cfg.models]
     random.Random(cfg.seed).shuffle(order)
     by_id = {m.id: m for m in cfg.models}
@@ -232,7 +248,8 @@ def run_bench(cfg: BenchConfig, llm_factory: Callable[[ModelSpec], LLMClient] = 
                                         for c in suite["cases"] if c["id"] in set(case_ids)},
         "reps": cfg.reps, "arm": cfg.arm, "agent": agent,
         "snapshot": {"id": manifest["id"], "as_of": manifest["as_of"], "fingerprint": manifest["fingerprint"]["sha256"],
-                     "synthetic": bool(manifest.get("synthetic"))},
+                     "synthetic": bool(manifest.get("synthetic")), "live": bool(manifest.get("live")),
+                     **({"data_fingerprint_start": manifest["data_fingerprint"]["sha256"]} if live_m else {})},
         "models": {m.id: m.as_dict() for m in cfg.models}, "commit": commit_id(cfg.root),
         "started_at": (previous or {}).get("started_at") or datetime.now(MADRID).isoformat(timespec="seconds"),
         "fairness": ["mismo snapshot, reloj y herramientas MCP para todos", f"mismo agente para todos ({cfg.agent_arch}, contexto {context}, banderas {cfg.arm})",
@@ -247,7 +264,7 @@ def run_bench(cfg: BenchConfig, llm_factory: Callable[[ModelSpec], LLMClient] = 
             llm = DryRunLLM(spec) if cfg.dry_run else CostLimitedLLM(llm_factory(spec), spec, guard)
             rc = RunConfig(suite=cfg.suite, snapshot=cfg.snapshot, output=out / mid, reps=cfg.reps, max_requests=spec.max_requests,
                            min_interval=0.0 if cfg.dry_run else spec.min_interval_s, fill_missing=cfg.resume, arm=cfg.arm, root=cfg.root,
-                           agent_arch=cfg.agent_arch, context_mode=context,
+                           agent_arch=cfg.agent_arch, context_mode=context, live_manifest=live_m,
                            db_url=url, progress=_prefixed(say, mid), case_ids=case_ids,
                            extra_meta={"bench": {"run_id": run_id, "model_id": mid, "spec": spec.as_dict(), "dry_run": cfg.dry_run}})
             results = run_eval(rc, _constant(llm))
@@ -260,6 +277,13 @@ def run_bench(cfg: BenchConfig, llm_factory: Callable[[ModelSpec], LLMClient] = 
                           "unpriced_calls": guard.unpriced_calls,
                           "note": "gasto CALCULADO con tarifas y tokens del proveedor; no es el importe facturado"}
         meta["finished_at"] = datetime.now(MADRID).isoformat(timespec="seconds")
+        (out / BENCH_FILE).write_text(json.dumps(meta, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
+    if live_m is not None:  # ¿cambiaron los datos (p. ej. el cron) mientras se ejecutaba?
+        end = live_manifest(url, manifest["as_of"])["data_fingerprint"]
+        start = live_m["data_fingerprint"]
+        changed = sorted(t for t in set(start["tables"]) | set(end["tables"]) if start["tables"].get(t) != end["tables"].get(t))
+        meta["snapshot"].update(data_fingerprint_end=end["sha256"], data_changed=end["sha256"] != start["sha256"],
+                                changed_tables=changed)
         (out / BENCH_FILE).write_text(json.dumps(meta, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
     return meta
 

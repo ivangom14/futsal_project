@@ -325,4 +325,14 @@ def analyze(meta: dict[str, Any], results: dict[str, dict[str, Any]], gap: float
         warnings.insert(0, "EJECUCIÓN DE PRUEBA (dry-run): modelo simulado; los veredictos y costes NO miden ningún modelo")
     if meta["snapshot"].get("synthetic"):
         warnings.insert(0, "snapshot SINTÉTICO: solo desarrollo; no sirve para decidir")
+    snap = meta["snapshot"]
+    if snap.get("live"):
+        if snap.get("data_changed"):
+            warnings.insert(0, "DATOS VIVOS (sin snapshot) y CAMBIARON durante la ejecución (tablas con distinto número de filas: "
+                               f"{', '.join(snap.get('changed_tables') or []) or 'mismo número de filas, distinto contenido'}): "
+                               "algún veredicto puede deberse al cambio y no al modelo")
+        elif "data_changed" in snap:
+            warnings.insert(0, "datos vivos (sin snapshot): no cambiaron durante la ejecución (misma huella al empezar y al terminar)")
+        else:
+            warnings.insert(0, "datos vivos (sin snapshot): ejecución sin terminar; no se ha comprobado si los datos cambiaron")
     return {"meta": meta, "stats": stats, "comparison": compare(stats, rows, gap), "warnings": warnings, "rows": rows}

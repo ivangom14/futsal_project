@@ -18,7 +18,7 @@ from typing import Any
 
 from fastapi.testclient import TestClient
 from mcp.shared.memory import create_connected_server_and_client_session as connect
-from sqlalchemy import Engine, create_engine
+from sqlalchemy import Engine, create_engine, text
 
 from futsal.agent.agent import (
     DEFAULT_MAX_ROWS,
@@ -81,6 +81,7 @@ class RunConfig:
     case_ids: list[str] | None = None  # subconjunto ordenado de la suite (benchmark: --limit); None = la suite entera
     agent_arch: str | None = None  # legacy | v2; None = AGENT_ARCH del entorno (como siempre)
     context_mode: str | None = None  # legacy | deterministic | llm; None = AGENT_CONTEXT del entorno
+    live_manifest: dict[str, Any] | None = None  # solo con snapshot=live: el mismo «hoy» y huella para todos los modelos
 
 
 # ----------------------------------------------------------------------------- utilidades
@@ -130,8 +131,33 @@ async def mounted(engine: Engine, as_of: datetime) -> AsyncIterator[McpClient]:
         yield SessionMcpClient(session)
 
 
+LIVE = "live"  # «snapshot» especial: la BD actual sin congelar (solo lectura); el informe lo marca y avisa de cambios durante la ejecución
+
+
+def live_manifest(url: str, as_of: str | None = None) -> dict[str, Any]:
+    """Manifiesto de la BD VIVA: «hoy» = `as_of` (o ahora, en Europe/Madrid), huella del contenido en este momento (solo lectura)
+    y semilla fija `live` para elegir las mismas entidades mientras los datos no cambien."""
+    from futsal.evals.snapshot import MADRID, fingerprint, parse_as_of
+
+    engine = create_engine(url)
+    try:
+        moment = parse_as_of(as_of) if as_of else datetime.now(MADRID).replace(microsecond=0)
+        with engine.connect() as conn:
+            revision = conn.execute(text("SELECT version_num FROM alembic_version")).scalar()
+        return {"id": LIVE, "as_of": moment.isoformat(), "fingerprint": {"sha256": LIVE}, "live": True, "synthetic": False,
+                "alembic_revision": revision, "data_fingerprint": fingerprint(engine)}
+    finally:
+        engine.dispose()
+
+
 def prepare_database(cfg: RunConfig) -> tuple[str, dict[str, Any]]:
-    """Manifiesto + BD del snapshot con la huella verificada. Si no coincide, `FingerprintMismatch`: no se ejecuta nada."""
+    """Manifiesto + BD del snapshot con la huella verificada. Si no coincide, `FingerprintMismatch`: no se ejecuta nada.
+    Con `snapshot = live`: la BD actual (`db_url` o `admin_url`) sin verificar huella; `live_manifest` fijado por quien llama."""
+    if cfg.snapshot == LIVE:
+        url = cfg.db_url or cfg.admin_url
+        if not url:
+            raise SnapshotError("modo sin snapshot: falta DATABASE_URL")
+        return url, cfg.live_manifest or live_manifest(url)
     manifest = load_manifest(cfg.snapshot, cfg.root)
     if cfg.db_url:
         url = cfg.db_url
@@ -394,7 +420,8 @@ def build_meta(cfg: RunConfig, manifest: dict[str, Any], llm: Any, flags: dict[s
     return {
         "suite": cfg.suite, "split": cfg.split, "reps": cfg.reps, "arm": cfg.arm, "agent_flags": flags,
         "snapshot": {"id": manifest["id"], "as_of": manifest["as_of"], "fingerprint": manifest["fingerprint"]["sha256"],
-                     "synthetic": bool(manifest.get("synthetic")), "alembic_revision": manifest.get("alembic_revision")},
+                     "synthetic": bool(manifest.get("synthetic")), "alembic_revision": manifest.get("alembic_revision"),
+                     "live": bool(manifest.get("live"))},
         "model": {"provider": getattr(llm, "provider", None), "model": getattr(llm, "model", None)},
         "commit": commit_id(cfg.root), "generated_at": datetime.now(MADRID).isoformat(timespec="seconds"),
         "budget": {"max_requests": cfg.max_requests, "used": used, "min_interval_s": cfg.min_interval},

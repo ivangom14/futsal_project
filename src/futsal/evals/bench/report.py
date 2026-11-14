@@ -39,7 +39,9 @@ def render(a: dict[str, Any]) -> str:
          (f"- Suite `{meta['suite']['name']}` v{meta['suite']['version']} · {len(meta['case_ids'])} casos · {meta['reps']} repetición(es) · "
           f"agente **{meta.get('agent', {}).get('arch', 'legacy')}** (contexto `{meta.get('agent', {}).get('context_mode', 'legacy')}`, "
           f"banderas `{meta['arm']}`) · semilla {meta['seed']}"),
-         f"- Snapshot `{snap['id']}` (as_of {snap['as_of']}, huella `{snap['fingerprint'][:12]}`) · commit `{meta['commit'][:12]}`",
+         (f"- **Datos vivos (sin snapshot)** · «hoy» {snap['as_of']} · huella al empezar `{snap.get('data_fingerprint_start', '')[:12]}`"
+          f" · al terminar `{snap.get('data_fingerprint_end', '?')[:12]}` · commit `{meta['commit'][:12]}`" if snap.get("live") else
+          f"- Snapshot `{snap['id']}` (as_of {snap['as_of']}, huella `{snap['fingerprint'][:12]}`) · commit `{meta['commit'][:12]}`"),
          f"- Inicio {meta['started_at']} · fin {meta.get('finished_at')} · orden de modelos {', '.join(meta['model_order'])}",
          (f"- Gasto calculado {_usd(meta.get('budget', {}).get('spent_usd_calculated'), 4)} de un tope de "
           f"{_usd(meta.get('budget', {}).get('max_usd'), 2)} (calculado con tarifas; no es lo facturado)"), ""]

@@ -201,3 +201,34 @@ def test_v2_agent_is_the_default_and_its_tools_query_the_snapshot_not_database_u
     with pytest.raises(BenchError, match="agente"):
         run_bench(cfg(root, synthetic, tmp_path, [model("bueno")], run_id="v2", agent_arch="legacy", resume=True),
                   lambda spec: ScriptedLLM(v2_script))
+
+
+def test_live_mode_without_snapshot_reads_the_current_db_and_warns_if_data_change(root: Path, synthetic: Any, script: dict[Any, Any],
+                                                                                tmp_path: Path, keys: None) -> None:
+    from sqlalchemy import text
+
+    from futsal.evals.runner import LIVE
+
+    # 1) sin cambios durante la ejecución: misma huella al empezar y al terminar
+    meta = run_bench(cfg(root, synthetic, tmp_path, [model("bueno")], run_id="live1", snapshot=LIVE, limit=4,
+                         as_of="2026-10-20T12:00"), factory(script))
+    snap = meta["snapshot"]
+    assert snap["live"] is True and snap["as_of"].startswith("2026-10-20T12:00") and snap["data_changed"] is False
+    a = build_report(tmp_path / "live1")
+    assert a["warnings"][0].startswith("datos vivos (sin snapshot): no cambiaron")
+    assert "Datos vivos (sin snapshot)" in (tmp_path / "live1" / "report.md").read_text(encoding="utf-8")
+
+    # 2) el «cron» escribe a mitad de la ejecución: se detecta y se avisa con las tablas afectadas
+    def writer_factory(spec: ModelSpec) -> LLMClient:
+        with synthetic.engine.begin() as c:
+            c.execute(text("INSERT INTO ingest_controls (source, paused) VALUES ('prueba-live', false)"))
+        return ScriptedLLM(script)
+
+    try:
+        meta2 = run_bench(cfg(root, synthetic, tmp_path, [model("bueno")], run_id="live2", snapshot=LIVE, limit=2,
+                              as_of="2026-10-20T12:00"), writer_factory)
+        assert meta2["snapshot"]["data_changed"] is True and meta2["snapshot"]["changed_tables"] == ["ingest_controls"]
+        assert "CAMBIARON durante la ejecución" in build_report(tmp_path / "live2")["warnings"][0]
+    finally:
+        with synthetic.engine.begin() as c:
+            c.execute(text("DELETE FROM ingest_controls WHERE source = 'prueba-live'"))

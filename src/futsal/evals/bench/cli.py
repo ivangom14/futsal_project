@@ -24,6 +24,8 @@ from futsal.evals.bench.runner import (
     run_bench,
     suite_case_ids,
 )
+from futsal.evals.runner import LIVE
+from futsal.evals.snapshot import SnapshotError
 
 EXIT_FINGERPRINT, EXIT_INCOMPLETE = 3, 4
 OUTPUT_PESSIMISM = 5  # en el plan: salida × 5 como escenario pesimista (modelos que razonan facturan el razonamiento como salida)
@@ -50,7 +52,11 @@ def build_parser() -> argparse.ArgumentParser:
         if name == "plan":
             p.add_argument("--calibrate", type=Path, default=None, help="directorio de una ejecución anterior: usa el consumo medido por modelo")
         else:
-            p.add_argument("--snapshot", required=True)
+            src = p.add_mutually_exclusive_group(required=True)
+            src.add_argument("--snapshot", help="snapshot congelado (recomendado: mismos datos para todos y comparable en el tiempo)")
+            src.add_argument("--live", action="store_true",
+                             help="sin snapshot: la BD actual en solo lectura; el informe avisa si los datos cambian durante la ejecución")
+            p.add_argument("--as-of", default=None, help="solo con --live: «hoy» de la prueba (ISO; sin zona = Europe/Madrid)")
             p.add_argument("--db", default=None, help="BD del snapshot ya restaurada (si no, se restaura en futsal_eval_<id>)")
             p.add_argument("--admin-db", default=None)
             p.add_argument("--run-id", default=None)
@@ -150,7 +156,10 @@ def cmd_run(a: argparse.Namespace) -> int:
     from futsal.evals.runner import FingerprintMismatch
 
     specs = registry.select(registry.load_registry(a.registry), _ids(a.models))
-    cfg = BenchConfig(models=specs, snapshot=a.snapshot, suite=a.suite, reps=a.reps, limit=a.limit, budget_usd=a.budget_usd,
+    if a.as_of and not a.live:
+        print("error: --as-of solo se usa con --live (el snapshot ya fija su fecha)", file=sys.stderr)
+        return 1
+    cfg = BenchConfig(models=specs, snapshot=LIVE if a.live else a.snapshot, as_of=a.as_of, suite=a.suite, reps=a.reps, limit=a.limit, budget_usd=a.budget_usd,
                       output_root=a.output_root, run_id=a.run_id, resume=a.resume, seed=a.seed, arm=a.arm, agent_arch=a.agent, context_mode=a.context, db_url=a.db,
                       admin_url=a.admin_db or (None if a.db else database_url()), dry_run=a.dry_run, progress=lambda m: print(m, flush=True))
     try:
@@ -214,6 +223,11 @@ def main(argv: list[str] | None = None) -> int:
                 "reveal": cmd_reveal, "history": cmd_history}
     try:
         return handlers[args.cmd](args)
+    except SnapshotError as exc:
+        snap = getattr(args, "snapshot", "<id>")
+        print(f"error: {exc}\nCrea antes el snapshot con tus datos actuales:\n"
+              f"  python -m futsal.evals snapshot create --id {snap} --as-of AAAA-MM-DDTHH:MM", file=sys.stderr)
+        return 1
     except (registry.RegistryError, BenchError, FileNotFoundError, ValueError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1

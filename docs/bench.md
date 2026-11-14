@@ -63,7 +63,13 @@ Las respuestas esperadas **no se escriben a mano**: salen de la verdad SQL del s
 
 ## Ejecutar una comparación
 
-Requisito: el snapshot restaurado (la huella se verifica; si no coincide, no se ejecuta nada). El de referencia es `ref20261109`.
+Dos fuentes de datos:
+- **Snapshot** (`--snapshot ID`, recomendado): copia congelada; todos los modelos y ejecuciones ven lo mismo y los resultados son
+  comparables en el tiempo. Se crea con `python -m futsal.evals snapshot create --id ID --as-of AAAA-MM-DDTHH:MM` (necesita `pg_dump`).
+- **Datos vivos** (`--live [--as-of …]`): tu BD actual en solo lectura, sin copia. El «hoy» es el mismo para todos los modelos y la
+  huella de los datos se mide al empezar y al terminar: si el cron (u otra cosa) cambió algo, el informe lo avisa con las tablas
+  afectadas. Para comparar legacy con v2, usa el mismo `--as-of` en las dos ejecuciones y lánzalas fuera de las horas del cron
+  (entre semana solo corre a las 03:00).
 
 ```bash
 python -m futsal.evals.bench models
@@ -79,6 +85,10 @@ python -m futsal.evals.bench run --models gemini-flash-lite,claude-haiku --snaps
 
 ```bash
 python -m futsal.evals.bench run --models gemini-flash-lite,claude-haiku --snapshot ref20261109 --agent v2 --budget-usd 0.50 --confirm-live
+```
+
+```bash
+python -m futsal.evals.bench run --models gemini-flash-lite,claude-haiku --live --as-of 2026-11-14T18:00 --agent v2 --budget-usd 0.50 --confirm-live
 ```
 
 Opciones: `--agent v2|legacy` (v2 por defecto), `--context`, `--limit N` (los N primeros casos, intercalados por categoría), `--reps R` (repeticiones en orden rotado), `--suite`,
