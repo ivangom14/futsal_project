@@ -11,7 +11,7 @@ import os
 import subprocess
 from collections.abc import AsyncIterator, Callable, Iterator
 from contextlib import asynccontextmanager, contextmanager
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -20,7 +20,13 @@ from fastapi.testclient import TestClient
 from mcp.shared.memory import create_connected_server_and_client_session as connect
 from sqlalchemy import Engine, create_engine
 
-from futsal.agent.agent import DEFAULT_MAX_ROWS, DEFAULT_MAX_TOOL_CALLS, Agent
+from futsal.agent.agent import (
+    DEFAULT_MAX_ROWS,
+    DEFAULT_MAX_TOOL_CALLS,
+    Agent,
+    resolve_arch,
+    resolve_context_mode,
+)
 from futsal.agent.arms import arm_env, current_flags
 from futsal.agent.llm import BUDGET_EXHAUSTED, QUOTA_MARKER, BudgetedLLM, LLMClient, PacedLLM
 from futsal.agent.mcp_client import McpClient, SessionMcpClient
@@ -31,9 +37,10 @@ from futsal.evals.catalog import Catalog
 from futsal.evals.datasets import counts, suite_cases
 from futsal.evals.grading import grade_turn
 from futsal.evals.prices import cost_usd, has_price, price_info
-from futsal.evals.selector import ResolvedCase, resolve_case
+from futsal.evals.selector import ResolvedCase, ResolvedTurn, resolve_case
 from futsal.evals.snapshot import SnapshotError, load_manifest, restore_snapshot, verify_db
 from futsal.mcp_server.server import create_server
+from futsal.mcp_server.v2_tools import V2_TOOL_NAMES
 
 RESULTS = "results.json"
 REPORT = "report.md"
@@ -71,6 +78,9 @@ class RunConfig:
     admin_url: str | None = None
     progress: Callable[[str], None] | None = None
     extra_meta: dict[str, Any] = field(default_factory=dict)
+    case_ids: list[str] | None = None  # subconjunto ordenado de la suite (benchmark: --limit); None = la suite entera
+    agent_arch: str | None = None  # legacy | v2; None = AGENT_ARCH del entorno (como siempre)
+    context_mode: str | None = None  # legacy | deterministic | llm; None = AGENT_CONTEXT del entorno
 
 
 # ----------------------------------------------------------------------------- utilidades
@@ -136,6 +146,28 @@ def prepare_database(cfg: RunConfig) -> tuple[str, dict[str, Any]]:
     return url, manifest
 
 
+# ----------------------------------------------------------------------------- expectativa según la arquitectura
+def expected_for(turn: ResolvedTurn, arch: str, v2_tools: frozenset[str]) -> ResolvedTurn:
+    """Expectativa con la que se califica el turno. `legacy`: la de siempre. `v2`: si el caso declara qué haría una arquitectura que SÍ
+    resuelve la consulta (`expect.v2`, verdad SQL), esa conducta y esos hechos; las restricciones propias de la abstención de v1
+    (prohibir marcadores, herramientas necesarias, menciones de la aclaración) dejan de aplicarse cuando la conducta cambia. Las
+    herramientas v2 cuentan como permitidas (no son «inesperadas»)."""
+    if arch != "v2":
+        return turn
+    extra: dict[str, Any] = {}
+    if turn.tools_allowed is not None:
+        extra["tools_allowed"] = sorted(set(turn.tools_allowed) | v2_tools)
+    if not turn.v2:
+        return replace(turn, **extra)
+    v2 = turn.v2
+    behavior = str(v2["behavior"])
+    if behavior != turn.behavior:
+        extra.update(forbid_any_score=False, forbid_scores=[], tools_needed=[],
+                     clarify_mentions=turn.clarify_mentions if behavior == "clarify" else [])
+    return replace(turn, behavior=behavior, facts=list(v2.get("facts") or []),
+                   forbid_phrases=list(v2.get("forbid_phrases") or turn.forbid_phrases), **extra)
+
+
 # ----------------------------------------------------------------------------- registros
 def _usage(rec: Any, price: tuple[str | None, str | None]) -> dict[str, Any]:
     t = rec.totals()
@@ -148,15 +180,22 @@ def _usage(rec: Any, price: tuple[str | None, str | None]) -> dict[str, Any]:
         "exec_tier": t["exec_tier"]}
     metrics["cost_usd"] = cost_usd(price[0], price[1], t)
     timing = {"llm_call_ms": [c.latency_ms for c in rec.llm_calls], "tool_call_ms": [c.duration_ms for c in rec.tool_calls],
-              "latency_ms": t["latency_ms"], "basis": "call"}
-    return {"metrics": metrics, "timing": timing}
+              "latency_ms": t["latency_ms"], "basis": "call",
+              "llm_paced_ms": [c.paced_ms for c in rec.llm_calls], "llm_retry_wait_ms": [c.retry_wait_ms for c in rec.llm_calls]}
+    # Detalle por llamada (benchmark multimodelo): tokens de ESA llamada tal como los informó el proveedor (o estimados) y reintentos.
+    # Solo hechos deterministas (los tiempos van en `timing`). El coste lo calcula quien tenga la tarifa (bench/registry.py).
+    detail = [{"index": c.index, "input": c.input_tokens, "cached": c.cached_input_tokens, "output": c.output_tokens,
+               "thinking": c.thinking_tokens, "token_source": c.token_source, "retries": c.retries,
+               "error": (c.error or None) and str(c.error)[:200]}
+              for c in rec.llm_calls]
+    return {"metrics": metrics, "timing": timing, "llm_calls_detail": detail}
 
 
 def _empty_usage() -> dict[str, Any]:
     return {"metrics": {"llm_calls": 0, "tool_calls": 0, "context_calls": 0, "mcp_calls": 0, "input_tokens": 0, "cached_tokens": 0,
                         "output_tokens": 0, "thinking_tokens": 0, "billed_output_tokens": 0, "token_source": "unreported",
                         "retries": 0, "errors": 0, "exec_tier": "", "cost_usd": None},
-            "timing": {"llm_call_ms": [], "tool_call_ms": [], "latency_ms": 0.0, "basis": "call"}}
+            "timing": {"llm_call_ms": [], "tool_call_ms": [], "latency_ms": 0.0, "basis": "call"}, "llm_calls_detail": []}
 
 
 def _record(rc_id: str, stratum: str, holdout: bool, rep: int, idx: int, question: str, verdict: str, reason: str = "",
@@ -190,10 +229,13 @@ def _stop_reason(error: str | None) -> str | None:
 
 
 async def run_conversation(rc: ResolvedCase, rep: int, mcp: McpClient, llm: LLMClient, as_of: datetime, players: list[str], names: list[str],
-                           price: Any, stopped: str | None) -> tuple[list[dict[str, Any]], str | None]:
-    """Ejecuta los turnos de un caso (nuevo `Agent` por conversación). Devuelve los registros y, si procede, el motivo de parada."""
+                           price: Any, stopped: str | None,
+                           agent_kwargs: dict[str, Any] | None = None) -> tuple[list[dict[str, Any]], str | None]:
+    """Ejecuta los turnos de un caso (nuevo `Agent` por conversación). Devuelve los registros y, si procede, el motivo de parada.
+
+    `agent_kwargs`: arquitectura, modo de contexto y registro v2 (contra el snapshot) que fija `run_eval`."""
     records: list[dict[str, Any]] = []
-    agent = Agent(llm, mcp, DEFAULT_MAX_TOOL_CALLS, max_rows=DEFAULT_MAX_ROWS, trace_results=True)
+    agent = Agent(llm, mcp, DEFAULT_MAX_TOOL_CALLS, max_rows=DEFAULT_MAX_ROWS, trace_results=True, **(agent_kwargs or {}))
     agent._clock = lambda: as_of  # reloj fijo del snapshot (solo lo usa la frescura de Tier 0)
     history: list[Turn] = []
     focus: dict[str, Any] = {}
@@ -262,7 +304,8 @@ def _load_previous(cfg: RunConfig, manifest: dict[str, Any]) -> dict[str, Any] |
     old = data["meta"]
     mismatch = [name for name, same in (
         ("snapshot", old["snapshot"]["fingerprint"] == manifest["fingerprint"]["sha256"]), ("suite", old["suite"] == cfg.suite),
-        ("split", old["split"] == cfg.split), ("brazo", old["arm"] == cfg.arm)) if not same]
+        ("split", old["split"] == cfg.split), ("brazo", old["arm"] == cfg.arm),
+        ("agente", old.get("agent", {}).get("arch", resolve_arch(None)) == resolve_arch(cfg.agent_arch))) if not same]
     if mismatch:
         raise ValueError(f"--fill-missing: el results.json de {cfg.output} no coincide en {', '.join(mismatch)}: no se mezclan ejecuciones")
     return data
@@ -282,6 +325,12 @@ def run_eval(cfg: RunConfig, llm_factory: Callable[[], LLMClient]) -> dict[str, 
         as_of = datetime.fromisoformat(manifest["as_of"])
         cat = Catalog.load(engine, seed=manifest["fingerprint"]["sha256"], as_of=as_of)
         cases = suite_cases(cfg.suite, cfg.split, cfg.root)
+        if cfg.case_ids is not None:
+            by_case = {c.id: c for c in cases}
+            missing = [i for i in cfg.case_ids if i not in by_case]
+            if missing:
+                raise ValueError(f"casos que no están en la suite {cfg.suite}: {missing[:5]}")
+            cases = [by_case[i] for i in cfg.case_ids]
         caps = cat.capabilities()
         resolved = {c.id: resolve_case(c, cat, caps) for c in cases}
         by_id = {c.id: c for c in cases}
@@ -289,6 +338,11 @@ def run_eval(cfg: RunConfig, llm_factory: Callable[[], LLMClient]) -> dict[str, 
         pairs = [(cid, r) for r in range(cfg.reps) for cid in order]
         previous = _load_previous(cfg, manifest)
         todo = _pending_pairs(previous, pairs)
+        arch, context = resolve_arch(cfg.agent_arch), resolve_context_mode(cfg.context_mode)
+        agent_kwargs: dict[str, Any] = {"arch": arch, "context_mode": context}
+        # v1 y v2 pasan por el MCP y la API montados sobre el snapshot (con «hoy» = día del as_of): nunca tocan DATABASE_URL.
+        v2_tools = frozenset(V2_TOOL_NAMES) if arch == "v2" else frozenset()
+        resolved = {cid: replace(rc, turns=[expected_for(t, arch, v2_tools) for t in rc.turns]) for cid, rc in resolved.items()}
         base = llm_factory()
         budget = BudgetedLLM(PacedLLM(base, cfg.min_interval), cfg.max_requests)
         price = (getattr(base, "provider", None), getattr(base, "model", None))
@@ -307,7 +361,8 @@ def run_eval(cfg: RunConfig, llm_factory: Callable[[], LLMClient]) -> dict[str, 
                             out += _unevaluable(rc, [t.user for t in by_id[cid].turns], rep)
                             continue
                         say(f"[rep {rep + 1}/{cfg.reps}] {cid}")
-                        recs, stopped = await run_conversation(rc, rep, mcp, budget, as_of, cat.player_names, cat.known_names(), price, stopped)
+                        recs, stopped = await run_conversation(rc, rep, mcp, budget, as_of, cat.player_names, cat.known_names(), price, stopped,
+                                                               agent_kwargs)
                         out += recs
             return out, stopped
 
@@ -317,6 +372,7 @@ def run_eval(cfg: RunConfig, llm_factory: Callable[[], LLMClient]) -> dict[str, 
         records = sorted(kept + new_records, key=lambda r: (r["rep"], r["case_id"], r["turn"]))
         stop = stop or next((r["reason"] for r in records if r["verdict"] == "not_run"), None)
         meta = build_meta(cfg, manifest, base, flags, budget.used, stop, price)
+        meta["agent"] = {"arch": arch, "context_mode": context}
         results = {"schema": 1, "meta": meta,
                    "cases": {cid: _case_info(resolved[cid], by_id[cid].turns) for cid in order},
                    "records": records}

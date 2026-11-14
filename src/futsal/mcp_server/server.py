@@ -1,4 +1,5 @@
-"""Servidor MCP de solo lectura: capa fina de herramientas sobre la API REST (FastAPI)."""
+"""Servidor MCP de solo lectura: capa fina de herramientas sobre la API REST (FastAPI). Único servidor: herramientas v1 (por grupo)
+y v2 (sin grupo, `v2_tools.py`). Nunca accede a la base de datos: agente → MCP → API → BD."""
 
 import sys
 from typing import Annotated, Any, Literal
@@ -9,6 +10,7 @@ from pydantic import Field
 
 from futsal.config.settings import api_base_url
 from futsal.mcp_server.descriptions import overrides, tools_mode
+from futsal.mcp_server.v2_tools import register_v2_tools
 
 TIMEOUT_SECONDS = 10.0
 
@@ -240,6 +242,8 @@ def create_server(client: httpx.Client | None = None, descriptions: str | None =
         no esté en ellos. Sin resultados útiles: dilo."""
         return _get(http, "/knowledge/search", "reglamento", q=query, limit=limit, rule=rule)
 
+    # Herramientas v2 (consultas sin grupo) sobre la API /v2: mismo servidor y mismo cliente HTTP. El agente legacy no las ofrece al LLM.
+    register_v2_tools(mcp, lambda path, resource, **params: _get(http, path, resource, **params))
     return mcp
 
 

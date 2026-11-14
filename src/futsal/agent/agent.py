@@ -57,7 +57,7 @@ from futsal.agent.prompts import COMPACT, LEGACY, MODES, MODULE_V2, PromptSet, c
 from futsal.agent.v2 import fallback as v2fallback
 from futsal.agent.v2 import not_in_source as v2nir
 from futsal.agent.v2 import rules as v2rules
-from futsal.agent.v2.registry import V2Registry, default_registry
+from futsal.mcp_server.v2_tools import V2_TOOL_NAMES
 from futsal.domain.dates import parse_date_hint
 from futsal.agent import telemetry
 from futsal.agent.entities import TeamCatalog, decide, normalize, standings_only
@@ -328,6 +328,22 @@ def summarize(is_error: bool, text: str, limit: int = 120) -> str:
     return f"{text[:limit]}{'…' if len(text) > limit else ''}"
 
 
+def offered_tools(tools: list[dict[str, Any]], v2: bool) -> list[dict[str, Any]]:
+    """Herramientas que se ofrecen al LLM. El servidor MCP publica v1 y v2: legacy solo ve las v1 (idéntico byte a byte a antes);
+    v2 ve todas, con los esquemas v2 sin `default: null` (como los publicaba el registro en proceso, mismos tokens)."""
+    if not v2:
+        return [t for t in tools if t["name"] not in V2_TOOL_NAMES]
+
+    def drop_null_defaults(node: Any) -> Any:
+        if isinstance(node, dict):
+            return {k: drop_null_defaults(v) for k, v in node.items() if not (k == "default" and v is None)}
+        if isinstance(node, list):
+            return [drop_null_defaults(x) for x in node]
+        return node
+
+    return [drop_null_defaults(t) if t["name"] in V2_TOOL_NAMES else t for t in tools]
+
+
 def slim_tools(tools: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Mismo contrato, menos tokens: `anyOf[X, null]` -> X (los opcionales ya no están en `required`) y sin sangrías
     ni saltos de línea en las descripciones."""
@@ -453,11 +469,10 @@ class Agent:
                  aliases: dict[str, Any] | None = None, router_shadow: bool | None = None,
                  prompt_mode: str | None = None, prefetch: str | None = None, tools_mode: str | None = None,
                  tier0: str | None = None, group_repair: str | None = None, context_mode: str | None = None,
-                 arch: str | None = None, v2_registry: V2Registry | None = None) -> None:
+                 arch: str | None = None) -> None:
         self._llm = llm
         self._arch = resolve_arch(arch)  # legacy | v2 (ver `agent/v2`): con legacy no cambia nada
         self._v2 = self._arch == "v2"
-        self._v2_registry: V2Registry | None = (v2_registry or default_registry()) if self._v2 else None
         self._broad = False  # v2: la pregunta pide alcance amplio
         self._date_hint: Any = None  # v2: interpretación de fechas de ESTA pregunta
         self._nir: v2nir.NotInReport | None = None  # v2: dato que el acta de la RFFM no recoge, detectado en ESTA pregunta
@@ -859,9 +874,7 @@ class Agent:
     async def _loop(self, question: str, history: Sequence[Turn], focus: dict[str, Any], result: AgentResult, rec: RunRecord,
                     log: Callable[[str], None]) -> None:
         if self._tools is None:
-            self._tools = slim_tools(await self._mcp.list_tools())
-            if self._v2_registry is not None:
-                self._tools = [*self._tools, *slim_tools(self._v2_registry.tool_defs())]
+            self._tools = offered_tools(slim_tools(await self._mcp.list_tools()), self._v2)
         system = await self._system_prompt(rec)
         rec.prefix_chars = {"system_prompt": len(self._prompts.system), "context": len(system) - len(self._prompts.system),
                             "tools": len(json.dumps(self._tools, ensure_ascii=False, separators=(",", ":")))}
@@ -1036,9 +1049,7 @@ class Agent:
             messages.append(Message("tool", tool_results=results))
 
     async def _call(self, name: str, args: dict[str, Any]) -> tuple[bool, str]:
-        """Herramienta v2 en proceso (con v2) o MCP, como siempre."""
-        if self._v2_registry is not None and self._v2_registry.handles(name):
-            return await self._v2_registry.call(name, args)
+        """Toda herramienta, v1 o v2, por el MCP (agente → MCP → API → BD). Legacy nunca llega a pedir una v2: no se le ofrecen."""
         return await self._mcp.call_tool(name, args)
 
     def _v2_trace(self, rec: RunRecord) -> dict[str, Any]:

@@ -1,0 +1,136 @@
+# Registro de modelos del benchmark multimodelo de Futsito (docs/bench.md).
+#
+# Añadir un modelo = añadir una entrada aquí, siempre que su proveedor tenga adaptador (`adapter`):
+#   anthropic -> futsal.agent.llm.AnthropicLLM (Messages API)
+#   gemini    -> futsal.agent.llm.GeminiLLM    (generateContent)
+#   openai    -> futsal.agent.llm.OpenAILLM    (Responses API; también vale para endpoints compatibles con `base_url`)
+# Un proveedor sin adaptador (p. ej. Ollama) necesita primero uno nuevo en agent/llm.py y su alta en bench/registry.py (ADAPTERS).
+#
+# Precios: USD por 1M de tokens. `null` = desconocido (el coste de lo que dependa de él queda «no disponible», nunca se inventa).
+# Cada tarifa lleva `source` y `checked_at`. Revísalas antes de una comparación real: los proveedores las cambian.
+# `free_tier: true` = la cuenta usa el plan gratuito: el coste se calcula igual a tarifa de pago y se marca como equivalente
+# (lo facturado es 0).
+#
+# Parámetros (`params`) admitidos por adaptador: gemini {thinking_level}, openai {reasoning_effort}, anthropic {} (la caché de
+# prompts queda SIEMPRE desactivada en el benchmark para no dar ventaja a nadie).
+
+version: 1
+models:
+  - id: gemini-flash-lite
+    label: Gemini 3.5 Flash-Lite (modelo actual de Futsito)
+    provider: gemini
+    adapter: gemini
+    model: gemini-3.5-flash-lite
+    version: estable (alias del proveedor; el ID exacto se registra en cada ejecución)
+    credentials_env: GEMINI_API_KEY
+    enabled: true
+    free_tier: false
+    max_output_tokens: 1024        # el mismo límite que usa el agente en producción
+    params: {}
+    limits:
+      min_interval_s: 4.0          # separación mínima entre peticiones (límite por minuto del proveedor)
+      max_requests: 600            # tope duro de peticiones HTTP por ejecución de este modelo
+    pricing:
+      input: 0.30
+      output: 2.50                 # el razonamiento (thinking) se factura como salida
+      cached_input: 0.03           # caché implícita de Gemini (la informa el proveedor)
+      cache_write: null            # desconocido: la caché implícita no informa escrituras
+      long_context: null           # sin tramo distinto documentado en la fuente consultada
+      other: []
+      source: https://aistudio.google.com/docs/pricing
+      checked_at: "2026-11-09"
+
+  - id: claude-haiku
+    label: Claude Haiku 5.5
+    provider: anthropic
+    adapter: anthropic
+    model: claude-haiku-5-5
+    version: Claude Haiku 5.5 (ID sin fecha publicado por Anthropic)
+    credentials_env: ANTHROPIC_API_KEY
+    enabled: true
+    free_tier: false
+    max_output_tokens: 1024
+    params: {}
+    limits:
+      min_interval_s: 1.0
+      max_requests: 600
+    pricing:
+      input: 0.10
+      output: 0.50                 # incluye el razonamiento adaptativo (Anthropic lo cuenta como salida)
+      cached_input: 0.01
+      cache_write: 0.125           # 1,25 × entrada (TTL 5 min); no se usa: la caché está desactivada en el benchmark
+      long_context:                # tramo de prompts por encima de 100K tokens de entrada (por llamada)
+        above_input_tokens: 100000
+        input: 0.50
+        output: 2.50
+      other: []
+      source: https://platform.claude.com/docs/en/about-claude/pricing
+      checked_at: "2026-11-09"
+
+  # --- Plantillas desactivadas: actívalas (enabled: true) cuando tengas la clave y hayas revisado la tarifa ---
+  - id: claude-sonnet
+    label: Claude Sonnet 5.5
+    provider: anthropic
+    adapter: anthropic
+    model: claude-sonnet-5-5
+    version: Claude Sonnet 5.5
+    credentials_env: ANTHROPIC_API_KEY
+    enabled: false
+    free_tier: false
+    max_output_tokens: 1024
+    params: {}
+    limits: {min_interval_s: 1.0, max_requests: 600}
+    pricing:
+      input: 2.00
+      output: 10.00
+      cached_input: 0.10
+      cache_write: null
+      long_context: null
+      other: []
+      source: https://platform.claude.com/docs/en/about-claude/pricing
+      checked_at: "2026-11-09"
+
+  - id: gemini-flash
+    label: Gemini 3.8 Flash
+    provider: gemini
+    adapter: gemini
+    model: gemini-3.8-flash
+    version: estable
+    credentials_env: GEMINI_API_KEY
+    enabled: false
+    free_tier: false
+    max_output_tokens: 1024
+    params: {}
+    limits: {min_interval_s: 4.0, max_requests: 600}
+    pricing:
+      input: 0.75
+      output: 3.75
+      cached_input: 0.075
+      cache_write: null
+      long_context: null
+      other:
+        - {name: subida de tarifa, note: "1,50 / 0,15 / 7,50 desde el 2027-01-01 (según la fuente)"}
+      source: https://aistudio.google.com/docs/pricing
+      checked_at: "2026-11-09"
+
+  - id: openai-luna
+    label: OpenAI GPT-6 Luna
+    provider: openai
+    adapter: openai
+    model: gpt-6-luna
+    version: alias del proveedor
+    credentials_env: OPENAI_API_KEY
+    enabled: false
+    free_tier: false
+    max_output_tokens: 1024
+    params: {}
+    limits: {min_interval_s: 1.0, max_requests: 600}
+    pricing:
+      input: 0.10
+      output: 0.50
+      cached_input: 0.01
+      cache_write: null
+      long_context: null
+      other: []
+      source: https://developers.openai.com/api/docs/pricing
+      checked_at: null             # el fichero de precios del proyecto no lo marca como verificado

@@ -21,6 +21,13 @@ Dependencias permitidas: `domain` no depende de nadie; `rules` solo de `domain`;
 `ingestion` y `repositories` dependen de `domain`; `api` de `repositories` y `rules`;
 `mcp_server` y `agent` solo hablan con la API/herramientas, nunca con la BD.
 
+**Camino obligatorio de los datos del chat: agente → MCP → API → BD**, para todas las herramientas. Un único servidor MCP
+(`mcp_server/server.py`) publica las herramientas v1 (por grupo) y las v2 (sin grupo, `mcp_server/v2_tools.py`, sobre la API
+`/v2`); el agente legacy solo ofrece al LLM las v1 y el v2 todas. Lo vigila
+`tests/test_agent_v2.py::test_agent_and_mcp_never_touch_the_database` (`agent/evaluate.py` y `agent/preflight.py` son herramientas de
+evaluación que leen la verdad de la BD; no forman parte del camino del chat). El registro v2 «en el mismo proceso» que consultaba la
+BD directamente se retiró el 2026-11-14 por incumplir esta regla.
+
 ## Flujo de ingesta
 
 Fuente oficial → adaptador (`ingestion`) → normalización a entidades de `domain`

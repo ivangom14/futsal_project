@@ -1,28 +1,29 @@
-"""AGENT_ARCH=v2: reglas deterministas, registro en proceso y legacy intacto. LLM guionizado, registro simulado (sin red ni BD)."""
+"""AGENT_ARCH=v2: reglas deterministas, herramientas v2 por el MCP y legacy intacto. LLM guionizado y MCP simulado con los esquemas
+REALES de las herramientas v2 del servidor (sin red ni BD)."""
 
 import asyncio
 import json
-import threading
-from contextlib import nullcontext
 from datetime import datetime
 from pathlib import Path
 from typing import Any
 from zoneinfo import ZoneInfo
 
+import httpx
 import pytest
+from mcp.shared.memory import create_connected_server_and_client_session as connect
 
 from futsal.agent.agent import OFF_TOPIC_MESSAGE, Agent, resolve_arch
 from futsal.agent.criteria import figures_without_table
 from futsal.agent.llm import LLMResponse, Message, ToolCall
+from futsal.agent.mcp_client import SessionMcpClient, strip_titles
 from futsal.agent.memory import Turn
 from futsal.agent.messages import NOT_IN_REPORT
 from futsal.agent.prompts import MODULE_V2
 from futsal.agent.tokens import est_tokens
 from futsal.agent.understanding_eval import FakeMcp
-from futsal.agent.v2.registry import V2Registry
 from futsal.agent.v2.rules import BROAD_ACT_MESSAGE, SUGGESTION_NOTE
-from futsal.mcp_server.v2 import create_server
-from futsal.repositories import v2_queries as q
+from futsal.mcp_server.server import create_server
+from futsal.mcp_server.v2_tools import V2_TOOL_NAMES
 
 GOLDEN = json.loads((Path(__file__).parent / "fixtures" / "prompt_legacy_golden.json").read_text(encoding="utf-8"))
 NOW = datetime(2026, 11, 9, 10, 0, tzinfo=ZoneInfo("Europe/Madrid"))
@@ -46,24 +47,40 @@ class Rec:
         return self.steps.pop(0)
 
 
-class Stub(V2Registry):
-    """Registro con respuestas guionizadas por herramienta; guarda (nombre, argumentos) de cada llamada."""
+def v2_tool_defs() -> list[dict[str, Any]]:
+    """Esquemas que publica el servidor MCP real para las herramientas v2 (como los entrega `SessionMcpClient`)."""
+    tools = asyncio.run(create_server(httpx.Client(base_url="http://api.invalid")).list_tools())
+    return [{"name": t.name, "description": t.description or "", "input_schema": strip_titles(t.inputSchema)} for t in tools
+            if t.name in V2_TOOL_NAMES]
+
+
+V2_DEFS = v2_tool_defs()
+
+
+class Stub(FakeMcp):
+    """MCP simulado: las v1 del `FakeMcp` de siempre y las v2 con los esquemas reales y respuestas guionizadas por herramienta.
+    Guarda (nombre, argumentos) de cada llamada v2 en `calls_v2`."""
 
     def __init__(self, replies: dict[str, dict[str, Any]] | None = None) -> None:
-        super().__init__(lambda: None)  # type: ignore[arg-type, return-value]
-        self.replies, self.calls = replies or {}, []
+        super().__init__()
+        self.replies, self.calls_v2 = replies or {}, []
 
-    def _run_sync(self, name: str, args: dict[str, Any]) -> str:
-        self.calls.append((name, dict(args)))
-        return json.dumps(self.replies.get(name, EMPTY), ensure_ascii=False)
+    async def list_tools(self) -> list[dict[str, Any]]:
+        return [*await super().list_tools(), *V2_DEFS]
+
+    async def call_tool(self, name: str, arguments: dict[str, Any]) -> tuple[bool, str]:
+        if name not in V2_TOOL_NAMES:
+            return await super().call_tool(name, arguments)
+        self.calls_v2.append((name, dict(arguments)))
+        return False, json.dumps(self.replies.get(name, EMPTY), ensure_ascii=False)
 
 
 def call(tool: str, **args: Any) -> LLMResponse:
     return LLMResponse("", [ToolCall("c", tool, args)])
 
 
-def ask(llm: Rec, question: str, history: list[Turn] | None = None, reg: V2Registry | None = None, arch: str | None = "v2", **kw: Any) -> Any:
-    agent = Agent(llm, FakeMcp(), 8, router_shadow=False, arch=arch, v2_registry=reg or Stub(), **kw)
+def ask(llm: Rec, question: str, history: list[Turn] | None = None, reg: Stub | None = None, arch: str | None = "v2", **kw: Any) -> Any:
+    agent = Agent(llm, reg or Stub(), 8, router_shadow=False, arch=arch, **kw)
     agent._clock = lambda: NOW
     return asyncio.run(agent.run(question, history or []))
 
@@ -117,7 +134,7 @@ def test_v2_tools_run_in_process_and_results_are_compacted() -> None:
     llm = Rec([call("matches_by_date", date_from="2026-11-07"), LLMResponse("ok", [])])
     res = ask(llm, "Partidos del 7/11", reg=reg, max_rows=40)
     sent = json.loads(next(m for m in llm.seen[1] if m.role == "tool").tool_results[0].content)
-    assert reg.calls and reg.calls[0][0] == "matches_by_date" and len(sent["items"]) == 40 and sent["truncated"]["total"] == 60 and sent["count"] == 60
+    assert reg.calls_v2 and reg.calls_v2[0][0] == "matches_by_date" and len(sent["items"]) == 40 and sent["truncated"]["total"] == 60 and sent["count"] == 60
     assert res.tool_calls == 1 and res.answer == "ok"
 
 
@@ -128,31 +145,59 @@ def test_v1_id_validation_is_kept_for_v1_tools() -> None:
 
 
 def test_two_v2_tools_in_one_answer_run_in_parallel() -> None:
-    barrier = threading.Barrier(2, timeout=3)
-
     class Parallel(Stub):
-        def _run_sync(self, name: str, args: dict[str, Any]) -> str:
-            barrier.wait()  # solo pasa si las dos herramientas están en curso a la vez
-            return super()._run_sync(name, args)
+        """Cada llamada v2 espera a que la otra también esté en curso: solo termina si van a la vez."""
+
+        def __init__(self) -> None:
+            super().__init__()
+            self.in_flight = 0
+            self.both: asyncio.Event | None = None
+
+        async def call_tool(self, name: str, arguments: dict[str, Any]) -> tuple[bool, str]:
+            if name not in V2_TOOL_NAMES:
+                return await super().call_tool(name, arguments)
+            self.both = self.both or asyncio.Event()
+            self.in_flight += 1
+            if self.in_flight == 2:
+                self.both.set()
+            await asyncio.wait_for(self.both.wait(), timeout=3)
+            return await super().call_tool(name, arguments)
 
     reg = Parallel()
     llm = Rec([LLMResponse("", [ToolCall("a", "find_player", {"name": "Pablo Quintanar"}), ToolCall("b", "find_official", {"name": "Ramos"})]),
                LLMResponse("ok", [])])
     res = ask(llm, "¿Dónde juega Pablo Quintanar y quién es el árbitro Ramos?", reg=reg)
     results = next(m for m in llm.seen[1] if m.role == "tool").tool_results
-    assert [r.is_error for r in results] == [False, False] and {c[0] for c in reg.calls} == {"find_player", "find_official"} and res.tool_calls == 2
+    assert [r.is_error for r in results] == [False, False] and {c[0] for c in reg.calls_v2} == {"find_player", "find_official"} and res.tool_calls == 2
+
+
+def api_stub(seen: list[httpx.Request]) -> httpx.Client:
+    """API simulada para el servidor MCP real: 422 en fechas mal formadas (como FastAPI) y un ranking fijo."""
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request)
+        if request.url.path == "/v2/matches" and not request.url.params.get("date_from", "").startswith("20"):
+            return httpx.Response(422, json={"detail": "parámetros inválidos: query.date_from: Input should be a valid date"})
+        if request.url.path == "/v2/rankings/teams":
+            return httpx.Response(200, json={"items": [{"rank": 1, "team": "X"}], "count": 1, "shown": 1, "notes": [], "freshness": None,
+                                             "metric": request.url.params["metric"]})
+        return httpx.Response(404, json={"detail": "no existe"})
+    return httpx.Client(base_url="http://api", transport=httpx.MockTransport(handler))
 
 
 def test_invalid_v2_arguments_return_a_validation_error_without_crashing() -> None:
     llm = Rec([call("teams_ranking", metric="nada"), call("matches_by_date", date_from="mañana"), LLMResponse("ok", [])])
+    seen: list[httpx.Request] = []
 
-    class Real(V2Registry):
-        pass
+    async def go() -> Any:
+        async with connect(create_server(api_stub(seen))._mcp_server) as session:
+            agent = Agent(llm, SessionMcpClient(session), 8, router_shadow=False, arch="v2")
+            agent._clock = lambda: NOW
+            return await agent.run("Ranking de equipos")
 
-    reg = Real(lambda: None)  # type: ignore[arg-type, return-value]
-    res = ask(llm, "Ranking de equipos", reg=reg)
+    res = asyncio.run(go())
     errors = [r.content for m in llm.seen[2] if m.role == "tool" for r in m.tool_results]
-    assert len(errors) == 2 and all(e.startswith("error_validacion") for e in errors) and res.answer == "ok"
+    assert len(errors) == 2 and "metric" in errors[0] and "error_validacion" in errors[1] and res.answer == "ok"
+    assert [r.url.path for r in seen if r.url.path.startswith("/v2/")] == ["/v2/matches"]  # la métrica inválida ni llega a la API
 
 
 # --- 3. fechas ---------------------------------------------------------------------------------------------------------------------
@@ -162,7 +207,7 @@ def test_date_note_and_deterministic_repair_of_matches_by_date() -> None:
     res = ask(llm, "Dime los partidos del sábado 7 de noviembre por la tarde", reg=reg)
     note = last_user(llm)
     assert "2026-11-07" in note and "15:00" in note and "23:59" in note and "Nota de la aplicación" in note
-    assert reg.calls == [("matches_by_date", {"date_from": "2026-11-07", "date_to": "2026-11-07", "time_from": "15:00", "time_to": "23:59"})]
+    assert reg.calls_v2 == [("matches_by_date", {"date_from": "2026-11-07", "date_to": "2026-11-07", "time_from": "15:00", "time_to": "23:59"})]
     rec = res.run.tool_calls[0] if res.run else None
     assert rec is not None and rec.repaired is not None and rec.repaired["source"] == "dates"
     assert rec.original_arguments == {"date_from": "2026-11-14", "date_to": "2026-11-14", "time_from": "00:00"}
@@ -172,14 +217,14 @@ def test_matching_arguments_are_not_repaired() -> None:
     reg = Stub()
     llm = Rec([call("matches_by_date", date_from="2026-11-07", time_from="15:00", time_to="23:59"), LLMResponse("ok", [])])
     res = ask(llm, "Dime los partidos del sábado 7 de noviembre por la tarde", reg=reg)
-    assert res.run is not None and res.run.tool_calls[0].repaired is None and reg.calls[0][1]["date_from"] == "2026-11-07"
+    assert res.run is not None and res.run.tool_calls[0].repaired is None and reg.calls_v2[0][1]["date_from"] == "2026-11-07"
 
 
 def test_no_date_hint_leaves_arguments_alone() -> None:
     reg = Stub()
     llm = Rec([call("matches_by_date", date_from="2026-12-01"), LLMResponse("ok", [])])
     ask(llm, "Partidos del primero de diciembre", reg=reg)
-    assert reg.calls == [("matches_by_date", {"date_from": "2026-12-01"})]
+    assert reg.calls_v2 == [("matches_by_date", {"date_from": "2026-12-01"})]
 
 
 # --- 4. alcance amplio y aclaración repetida --------------------------------------------------------------------------------------
@@ -232,7 +277,7 @@ def test_deterministic_context_second_scope_question_assumes_and_declares() -> N
     first = ask(Rec([LLMResponse(OFF_TOPIC_MESSAGE, [])]), q, [Turn("¿Cómo va la tercera división?", "…")], context_mode="deterministic")
     assert first.run is not None and first.run.context["status"] == "ask" and first.state is not None
     llm = Rec([call("club_overview", name="DOSA", results=True), LLMResponse("Va bien.", [])])
-    agent = Agent(llm, FakeMcp(), 8, router_shadow=False, arch="v2", v2_registry=Stub(), context_mode="deterministic")
+    agent = Agent(llm, Stub(), 8, router_shadow=False, arch="v2", context_mode="deterministic")
     hist = [Turn("¿Cómo va la tercera división?", "…"), Turn(q, first.answer or "¿A cuál de estas competiciones te refieres?")]
     res = asyncio.run(agent.run("el dosa, no sé", hist, state=first.state))
     assert res.run is not None and res.run.context["status"] in ("assume", "act")
@@ -270,17 +315,29 @@ def test_suggestions_without_items_get_the_mandatory_note() -> None:
 
 
 # --- 6. servidor MCP v2 ------------------------------------------------------------------------------------------------------------
-def test_mcp_v2_server_lists_the_registry_and_runs_a_call(monkeypatch: pytest.MonkeyPatch) -> None:
-    canned = {"items": [{"rank": 1, "team": "X"}], "count": 1, "shown": 1, "notes": [], "freshness": None}
-    monkeypatch.setattr(q, "build_scope", lambda *a, **k: None)
-    monkeypatch.setattr(q, "teams_ranking", lambda db, scope, metric, order, min_played, limit: {**canned, "metric": metric})
-    server = create_server(V2Registry(lambda: nullcontext()))  # type: ignore[arg-type, return-value]
-    tools = asyncio.run(server.list_tools())
-    assert {t.name for t in tools} == V2_TOOLS
-    assert all(t.description and t.inputSchema.get("properties") is not None for t in tools)
+def test_single_mcp_server_publishes_v1_and_v2_and_v2_calls_go_through_the_api() -> None:
+    seen: list[httpx.Request] = []
+    server = create_server(api_stub(seen))
+    names = {t.name for t in asyncio.run(server.list_tools())}
+    assert V2_TOOLS <= names and {"list_matches", "get_standings", "find_teams"} <= names  # un solo servidor: v1 y v2
+    assert all(t["description"] and t["input_schema"].get("properties") is not None for t in V2_DEFS)
     out = asyncio.run(server.call_tool("teams_ranking", {"metric": "goals_for"}))
     payload = out[1] if isinstance(out, tuple) else out
     assert isinstance(payload, dict) and payload["items"][0]["rank"] == 1 and payload["metric"] == "goals_for"
+    assert seen[0].url.path == "/v2/rankings/teams" and dict(seen[0].url.params) == {"metric": "goals_for", "min_played": "1", "limit": "20"}
+
+
+def test_agent_and_mcp_never_touch_the_database() -> None:
+    """Arquitectura obligatoria agente → MCP → API → BD: el agente en ejecución y el servidor MCP no importan la capa de datos.
+    (`agent/evaluate.py` y `agent/preflight.py` son herramientas de evaluación que leen la verdad de la BD: fuera del camino del chat.)"""
+    import re
+
+    root = Path(__file__).parents[1] / "src" / "futsal"
+    forbidden = re.compile(r"^\s*(from|import)\s+(futsal\.(db|repositories)\b|sqlalchemy\b)", re.MULTILINE)
+    allowed = {"agent/evaluate.py", "agent/preflight.py"}
+    offenders = [str(f.relative_to(root)) for pkg in ("agent", "mcp_server") for f in (root / pkg).rglob("*.py")
+                 if str(f.relative_to(root)) not in allowed and forbidden.search(f.read_text(encoding="utf-8"))]
+    assert offenders == [], f"acceden a la BD sin pasar por la API: {offenders}"
 
 
 def test_insistent_clarification_is_counted_in_the_trace() -> None:
@@ -290,7 +347,7 @@ def test_insistent_clarification_is_counted_in_the_trace() -> None:
 
 
 def test_every_list_tool_accepts_limit() -> None:
-    for t in Stub().tool_defs():
+    for t in V2_DEFS:
         assert t["input_schema"]["properties"]["limit"]["maximum"] == 100, t["name"]
 
 
@@ -314,13 +371,13 @@ def test_fallback_matches_by_date_composes_total_list_and_all_notes() -> None:
     body = {"items": [_match(i) for i in range(30)], "count": 48, "shown": 30, "notes": ["filtro horario: solo partidos con hora conocida", "otra nota"], "freshness": None}
     res, reg, llm = _fallback_run(DAY_Q, {"matches_by_date": body})
     assert len(llm.seen) == 3 and res.tool_calls == 1  # 2 empujones y la tercera vuelta insistente; sin más llamadas al LLM
-    assert reg.calls == [("matches_by_date", {"date_from": "2026-11-07", "date_to": "2026-11-07", "time_from": "15:00", "time_to": "23:59", "limit": 100})]
+    assert reg.calls_v2 == [("matches_by_date", {"date_from": "2026-11-07", "date_to": "2026-11-07", "time_from": "15:00", "time_to": "23:59", "limit": 100})]
     lines = res.answer.splitlines()
     assert lines[0] == "48 partidos el sábado 7 de noviembre de 2026 entre las 15:00 y las 23:59:"
     assert sum(x.startswith("- 2026-") for x in lines) == 20 and "- y 28 más" in lines
     assert all(n in res.answer for n in body["notes"]) and "LOCAL 0 - VISITANTE 0" in res.answer and CLARIFY not in res.answer
     v2 = res.run.context["v2"] if res.run else {}
-    assert v2["fallback"] == {"plan": "matches_by_date", "tool": "matches_by_date", "args": reg.calls[0][1]} and v2["answer_source"] == "deterministic_fallback"
+    assert v2["fallback"] == {"plan": "matches_by_date", "tool": "matches_by_date", "args": reg.calls_v2[0][1]} and v2["answer_source"] == "deterministic_fallback"
     assert figures_without_table(res.answer, [body], DAY_Q + " (franja interpretada 15:00-23:59)") == []  # ninguna cifra ajena a la herramienta, la pregunta y la franja interpretada
 
 
@@ -329,7 +386,7 @@ def test_fallback_top_scorer_of_all_senior_leagues() -> None:
     body = {"items": [{"rank": 1, "player": {"name": "GOLEADOR, A"}, "team": {"name": "EQ"}, "competition": {"name": "TERCERA"}, "group": {"name": "G1"}, "goals": 9, "matches": 7}],
             "count": 1, "shown": 1, "notes": ["compara grupos distintos"], "freshness": None}
     res, reg, _ = _fallback_run(q, {"scorers_ranking": body})
-    assert reg.calls == [("scorers_ranking", {"category": "senior"})]
+    assert reg.calls_v2 == [("scorers_ranking", {"category": "senior"})]
     assert "GOLEADOR, A" in res.answer and "9 goles" in res.answer and "compara grupos distintos" in res.answer
     assert res.run is not None and res.run.context["v2"]["fallback"]["plan"] == "scorers_ranking"
     assert figures_without_table(res.answer, [body], q) == []
@@ -343,7 +400,7 @@ def _club(name: str, ambiguous: bool) -> dict[str, Any]:
 def test_fallback_club_unique_and_ambiguous() -> None:
     ok = {"items": [_club("C.D. ALAMO", False)], "count": 1, "shown": 1, "notes": ["agrupado por nombre"], "freshness": None}
     res, reg, _ = _fallback_run("Resultados de todos los equipos del álamo?", {"club_overview": ok})
-    assert reg.calls == [("club_overview", {"name": "álamo", "results": True})]
+    assert reg.calls_v2 == [("club_overview", {"name": "álamo", "results": True})]
     assert res.answer.startswith("1 equipo de C.D. ALAMO:") and "3 jugados, 2 ganados" in res.answer and "agrupado por nombre" in res.answer
     amb = {"items": [_club("PINTO", True), _club("ATLETICO PINTO", True)], "count": 2, "shown": 2, "notes": ["varios clubes"], "freshness": None}
     res2, _, _ = _fallback_run("Resultados de todos los equipos del pinto", {"club_overview": amb})
@@ -356,7 +413,7 @@ def test_fallback_official_matches_and_not_found_with_suggestions() -> None:
     listed = {"date": "2026-11-07", "time": "16:00", "home": "A", "away": "B", "score": {"home": 2, "away": 1}, "competition": {"name": "TERCERA"}}
     body = {"items": [{"name": "BERMEJO, ALVARO", "matches": 1, "matches_list": [listed]}], "count": 1, "shown": 1, "notes": ["cobertura"], "freshness": None}
     res, reg, _ = _fallback_run(q, {"find_official": body}, REPEATED)
-    assert reg.calls == [("find_official", {"name": "Álvaro Bermejo", "include_matches": True})]
+    assert reg.calls_v2 == [("find_official", {"name": "Álvaro Bermejo", "include_matches": True})]
     assert "BERMEJO, ALVARO figura en 1 partido:" in res.answer and "A - B (2-1)" in res.answer and "cobertura" in res.answer
     none = {"items": [], "count": 0, "shown": 0, "notes": ["no figura; nombres parecidos: X"], "suggestions": [{"name": "BERMEJO, ALBERTO"}], "freshness": None}
     res2, _, _ = _fallback_run(q, {"find_official": none}, REPEATED)
@@ -366,9 +423,9 @@ def test_fallback_official_matches_and_not_found_with_suggestions() -> None:
 def test_fallback_is_skipped_without_plan_or_with_empty_result_and_keeps_the_clarification() -> None:
     history = [Turn("¿Quién es el máximo goleador del grupo?", CLARIFY)]
     res, reg, _ = _fallback_run("¿y eso qué tal?", {}, history)
-    assert res.answer == CLARIFY and reg.calls == [] and res.run is not None and res.run.context["v2"]["fallback_skipped"] == "sin_plan"
+    assert res.answer == CLARIFY and reg.calls_v2 == [] and res.run is not None and res.run.context["v2"]["fallback_skipped"] == "sin_plan"
     res2, reg2, _ = _fallback_run(DAY_Q, {"matches_by_date": EMPTY})  # count=0
-    assert res2.answer == CLARIFY and len(reg2.calls) == 1 and res2.run is not None
+    assert res2.answer == CLARIFY and len(reg2.calls_v2) == 1 and res2.run is not None
     assert res2.run.context["v2"]["fallback_skipped"] == "count_0" and "fallback" not in res2.run.context["v2"]
     res3, _, _ = _fallback_run("Dime todos los partidos del sábado 7 de noviembre y los máximos goleadores senior", {"matches_by_date": EMPTY})
     assert res3.answer == CLARIFY  # sin plan inequívoco: pista de fechas y otra pregunta a la vez no se resuelve
@@ -376,7 +433,7 @@ def test_fallback_is_skipped_without_plan_or_with_empty_result_and_keeps_the_cla
 
 def test_fallback_legacy_is_unchanged() -> None:
     res, reg, _ = _fallback_run(DAY_Q, {"matches_by_date": {"items": [_match(1)], "count": 1, "shown": 1, "notes": [], "freshness": None}}, arch="legacy")
-    assert reg.calls == [] and res.tool_calls == 0 and res.run is not None and res.run.context is None and res.answer != ""
+    assert reg.calls_v2 == [] and res.tool_calls == 0 and res.run is not None and res.run.context is None and res.answer != ""
 
 
 # --- 8. «no consta en el acta» -------------------------------------------------------------------------------------------------------

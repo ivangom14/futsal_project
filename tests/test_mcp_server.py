@@ -8,6 +8,7 @@ import httpx
 import pytest
 
 from futsal.mcp_server.server import create_server
+from futsal.mcp_server.v2_tools import V2_TOOL_NAMES
 
 TOOLS = {"list_competitions", "list_groups", "list_rounds", "list_teams", "list_matches",
          "get_match", "get_match_report", "list_match_events", "top_scorers", "find_players", "find_teams",
@@ -48,7 +49,7 @@ def _description(name: str) -> str:
 
 def test_tools_registered_with_descriptions() -> None:
     tools = asyncio.run(create_server().list_tools())
-    assert {t.name for t in tools} == TOOLS
+    assert {t.name for t in tools} == TOOLS | set(V2_TOOL_NAMES)  # un solo servidor: v1 (por grupo) y v2 (sin grupo, sobre la API /v2)
     assert all(t.description and t.inputSchema for t in tools)
 
 
@@ -183,7 +184,7 @@ def test_list_matches_forwards_limit_and_exposes_shown() -> None:
 
 
 def test_list_matches_limit_is_enforced_even_if_the_api_ignores_it() -> None:
-    old_api = lambda req: httpx.Response(200, json={"items": [{"id": i} for i in range(19)], "count": 19})  # noqa: E731
+    old_api = lambda req: httpx.Response(200, json={"items": [{"id": i} for i in range(19)], "count": 19})
     is_error, text = _run("list_matches", {"group_id": 1, "status": "finished", "limit": 1}, old_api)
     assert not is_error and json.loads(text) == {"matches": [{"id": 0}], "count": 19, "shown": 1}
 

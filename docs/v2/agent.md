@@ -51,9 +51,10 @@ dato parcial, no clasificado, tabla oficial frente a actas). Las listas llevan s
 Son 9 herramientas frente a las 15 actuales. Presupuesto de respuesta: ≤ 1.500 tokens en el caso típico. Esquemas sin
 `title`, con descripciones de una línea. La v1 (15 herramientas) se mantiene hasta retirarla (paso R5).
 
-**En el mismo proceso**: el agente v2 llama a un registro de herramientas compartido en el mismo proceso. El servidor MCP
-publica ese mismo registro para clientes externos. Se elimina el salto stdio y el HTTP intermedio en el camino caliente; el
-contrato es el mismo. Las herramientas de una misma respuesta se ejecutan en paralelo.
+**Por el MCP y la API (corregido el 2026-11-14)**: el diseño original ejecutaba las herramientas v2 en el mismo proceso del agente,
+contra la BD, para ahorrar el salto MCP/HTTP. Incumplía la arquitectura obligatoria (agente → MCP → API → BD) y se retiró sin
+medición que lo justificara. Ahora las herramientas v2 las publica el único servidor MCP (`mcp_server/v2_tools.py`) sobre la API `/v2`,
+con el mismo contrato; las de una misma respuesta siguen ejecutándose en paralelo.
 
 **Code Mode**: descartado por ahora. Para estadísticas libres (oleada posterior), `stats_query` con un DSL validado (filtros,
 agregaciones y orden sobre vistas de solo lectura), nunca SQL ni código arbitrario.

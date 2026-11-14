@@ -9,6 +9,8 @@ de Futsito-Eval.
 Primera porción de la arquitectura v2, **sin sustituir** el flujo actual:
 
 - `AGENT_ARCH=v2` (por defecto `legacy`, que no cambia ni un byte: protegido por `prompt_legacy_golden.json`).
+- **Corregido el 2026-11-14:** el registro en proceso se retiró; las herramientas v2 van por el MCP único y la API `/v2`
+  (`mcp_server/v2_tools.py`). Texto original de la entrega:
 - Con `v2`, el mismo bucle de herramientas recibe un **registro en el mismo proceso** (`agent/v2/registry.py`) con las
   herramientas v2 de abajo, que llaman a `repositories/v2_queries.py` directamente (sin stdio ni HTTP). El servidor MCP publica
   el mismo registro (`mcp_server/v2.py`) para clientes externos. Las herramientas v1 siguen disponibles en v2 durante la transición.

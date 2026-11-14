@@ -31,14 +31,17 @@ from futsal.agent.prompt_compare import measure, prefix_tokens, replay
 from futsal.agent.prompts import COMPACT, LEGACY, MODULES, compact_system
 from futsal.mcp_server.descriptions import COMPACT as COMPACT_DESCRIPTIONS
 from futsal.mcp_server.server import create_server
+from futsal.mcp_server.v2_tools import V2_TOOL_NAMES
 
 GOLDEN = json.loads((Path(__file__).parent / "fixtures" / "prompt_legacy_golden.json").read_text(encoding="utf-8"))
 TOOL_NAMES = {t["name"] for t in GOLDEN["tools_raw"]}
 
 
 async def _raw(mode: str | None) -> list[dict[str, Any]]:
+    """Herramientas v1 del servidor (las que ve el agente legacy). El mismo servidor publica también las v2, que legacy no ofrece."""
     listed = await create_server(descriptions=mode).list_tools()
-    return [{"name": t.name, "description": t.description or "", "input_schema": strip_titles(t.inputSchema)} for t in listed]
+    return [{"name": t.name, "description": t.description or "", "input_schema": strip_titles(t.inputSchema)} for t in listed
+            if t.name not in V2_TOOL_NAMES]
 
 
 def norm(obj: Any) -> Any:

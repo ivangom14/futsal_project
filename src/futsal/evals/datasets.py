@@ -111,7 +111,26 @@ def suite_cases(suite: str, split: str = "dev", root: Path = Path(".")) -> list[
         if missing:
             raise CaseError(f"smoke40 referencia casos que no están en dev: {missing[:5]}")
         return [by_id[i] for i in wanted]
+    bench = bench_suite_file(suite, root)
+    if bench is not None:
+        if split != "dev":
+            raise ValueError(f"la suite de benchmark {suite} es un subconjunto de dev: no admite --split holdout/all")
+        wanted = [c["id"] for c in json.loads(bench.read_text(encoding="utf-8"))["cases"]]
+        by_id = {c.id: c for c in load_cases(root, "dev")}
+        missing = [i for i in wanted if i not in by_id]
+        if missing:
+            raise CaseError(f"{suite} referencia casos que no están en dev: {missing[:5]}")
+        return [by_id[i] for i in wanted]
     raise ValueError(f"suite {suite!r} no es una batería de casos YAML")
+
+
+BENCH_SUITES_DIR = Path("evals/bench/suites")
+
+
+def bench_suite_file(suite: str, root: Path = Path(".")) -> Path | None:
+    """Suites del benchmark multimodelo: `evals/bench/suites/<nombre>.json` (ids de casos de dev con su categoría)."""
+    path = root / BENCH_SUITES_DIR / f"{suite}.json"
+    return path if suite.replace("-", "").replace("_", "").isalnum() and path.exists() else None
 
 
 def counts(cases: list[Case]) -> dict[str, dict[str, int]]:

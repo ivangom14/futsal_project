@@ -1,23 +1,34 @@
-"""Agente v2 de extremo a extremo: LLM guionizado + registro real sobre PG desechable con datos sembrados (las 6 preguntas reales del responsable)."""
+"""Agente v2 de extremo a extremo: LLM guionizado y las herramientas v2 por el camino real agente → MCP → API → PostgreSQL desechable con
+datos sembrados (las 6 preguntas reales del responsable). Las v1 siguen en el MCP simulado de siempre (`FakeMcp`), como antes."""
 
 import asyncio
 import json
-from collections.abc import Iterator
+from collections.abc import Awaitable, Callable, Iterator
 from datetime import date
-from typing import Any
+from typing import Any, TypeVar
 
 import pytest
+from fastapi.testclient import TestClient
+from mcp.shared.memory import create_connected_server_and_client_session as connect
 from sqlalchemy.orm import Session
-from tests.integration.test_api_v2_pg import Seed, at, utc, world  # noqa: F401 - `world` es un fixture
+from tests.integration.test_api_v2_pg import (  # noqa: F401 - `world` es un fixture
+    Seed,
+    at,
+    utc,
+    world,
+)
 from tests.test_agent_v2 import NOW, Rec, call, last_user
 
 from futsal.agent.agent import Agent
 from futsal.agent.llm import LLMResponse
+from futsal.agent.mcp_client import SessionMcpClient
 from futsal.agent.memory import Turn
 from futsal.agent.understanding_eval import FakeMcp
-from futsal.agent.v2.registry import V2Registry
 from futsal.agent.v2.rules import SUGGESTION_NOTE
+from futsal.api.app import create_app
 from futsal.db.models import Competition
+from futsal.mcp_server.server import create_server
+from futsal.mcp_server.v2_tools import V2_TOOL_NAMES
 
 pytestmark = pytest.mark.integration
 
@@ -40,14 +51,43 @@ def seeded(world: dict[str, Any]) -> Iterator[dict[str, Any]]:  # noqa: F811
     yield world
 
 
-def registry(w: dict[str, Any]) -> V2Registry:
-    return V2Registry(lambda: Session(w["engine"]), lambda: date(2026, 11, 9))
+T = TypeVar("T")
 
 
-def converse(w: dict[str, Any], llm: Rec, question: str, history: list[Turn] | None = None) -> Any:
-    agent = Agent(llm, FakeMcp(), 8, router_shadow=False, arch="v2", v2_registry=registry(w))
-    agent._clock = lambda: NOW
-    return asyncio.run(agent.run(question, history or []))
+class HybridMcp(FakeMcp):
+    """v1: el MCP simulado de siempre. v2: el servidor MCP real sobre la API real sobre la BD sembrada (con «hoy» fijo)."""
+
+    def __init__(self, real: SessionMcpClient) -> None:
+        super().__init__()
+        self.real = real
+
+    async def list_tools(self) -> list[dict[str, Any]]:
+        return [*await super().list_tools(), *[t for t in await self.real.list_tools() if t["name"] in V2_TOOL_NAMES]]
+
+    async def call_tool(self, name: str, arguments: dict[str, Any]) -> tuple[bool, str]:
+        if name in V2_TOOL_NAMES:
+            return await self.real.call_tool(name, arguments)
+        return await super().call_tool(name, arguments)
+
+
+def with_mcp(w: dict[str, Any], fn: Callable[[HybridMcp], Awaitable[T]]) -> T:
+    async def go() -> T:
+        server = create_server(TestClient(create_app(w["engine"], today=lambda: date(2026, 11, 9))))  # type: ignore[arg-type]
+        async with connect(server._mcp_server) as session:
+            return await fn(HybridMcp(SessionMcpClient(session)))
+    return asyncio.run(go())
+
+
+def v2_call(w: dict[str, Any], name: str, args: dict[str, Any]) -> tuple[bool, str]:
+    return with_mcp(w, lambda mcp: mcp.call_tool(name, args))
+
+
+def converse(w: dict[str, Any], llm: Rec, question: str, history: list[Turn] | None = None, **kw: Any) -> Any:
+    async def run(mcp: HybridMcp) -> Any:
+        agent = Agent(llm, mcp, 8, router_shadow=False, arch="v2", **kw)
+        agent._clock = lambda: NOW
+        return await agent.run(question, history or [])
+    return with_mcp(w, run)
 
 
 def tool_json(llm: Rec, turn: int = 1) -> list[dict[str, Any]]:
@@ -116,28 +156,24 @@ def test_club_homonyms_are_flagged_so_the_agent_asks(seeded: dict[str, Any]) -> 
 
 
 def test_invalid_arguments_and_unknown_player_do_not_break(seeded: dict[str, Any]) -> None:
-    reg = registry(seeded)
-    is_error, text = asyncio.run(reg.call("find_player", {"name": "x"}))
-    assert is_error and text.startswith("error_validacion")
-    is_error, text = asyncio.run(reg.call("matches_by_date", {"date_from": "2026-11-09", "time_from": "20:00", "time_to": "10:00"}))
-    assert is_error and text.startswith("error_validacion")
-    ok, body = asyncio.run(reg.call("find_player", {"name": "Zzyzx Qwerty"}))
+    is_error, text = v2_call(seeded, "find_player", {"name": "x"})
+    assert is_error and "name" in text  # validación del esquema en el MCP (como en las herramientas v1)
+    is_error, text = v2_call(seeded, "matches_by_date", {"date_from": "2026-11-09", "time_from": "20:00", "time_to": "10:00"})
+    assert is_error and "error_validacion" in text  # la API responde 422
+    ok, body = v2_call(seeded, "find_player", {"name": "Zzyzx Qwerty"})
     assert not ok and json.loads(body)["items"] == [] and utc(2026, 1, 1).year == 2026
 
 
 def test_all_matches_of_a_saturday_with_48_games_uses_a_bigger_limit(seeded: dict[str, Any]) -> None:
-    reg = registry(seeded)
-    default = json.loads(asyncio.run(reg.call("matches_by_date", {"date_from": "2026-11-14"}))[1])
+    default = json.loads(v2_call(seeded, "matches_by_date", {"date_from": "2026-11-14"})[1])
     assert default["count"] == 48 and default["shown"] == 20  # por defecto 20: el LLM ve que faltan
     llm = Rec([call("matches_by_date", date_from="2026-11-14", limit=60), LLMResponse("Hay 48 partidos el sábado.", [])])
-    agent = Agent(llm, FakeMcp(), 8, router_shadow=False, arch="v2", v2_registry=reg, max_rows=100)
-    agent._clock = lambda: NOW
-    res = asyncio.run(agent.run("Dime todos los partidos del sábado 14 de noviembre"))
+    res = converse(seeded, llm, "Dime todos los partidos del sábado 14 de noviembre", max_rows=100)
     body = tool_json(llm)[0]
     assert body["count"] == 48 and body["shown"] == 48 and "truncated" not in body and "48" in res.answer
     for tool, args in (("find_official", {"name": "ramos", "limit": 1}), ("officials_ranking", {"limit": 2}), ("club_overview", {"name": "alamo", "limit": 1}),
                        ("teams_ranking", {"metric": "goals_for", "limit": 1}), ("find_player", {"name": "juan garcia lopez", "limit": 1})):
-        out = json.loads(asyncio.run(reg.call(tool, args))[1])
+        out = json.loads(v2_call(seeded, tool, args)[1])
         assert out["shown"] <= args["limit"] and len(out["items"]) <= args["limit"], tool
 
 

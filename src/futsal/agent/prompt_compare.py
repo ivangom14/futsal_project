@@ -16,7 +16,7 @@ from collections import defaultdict
 from pathlib import Path
 from typing import Any
 
-from futsal.agent.agent import PROMPT_SETS, slim_tools
+from futsal.agent.agent import PROMPT_SETS, offered_tools, slim_tools
 from futsal.agent.llm import _gemini_tools
 from futsal.agent.mcp_client import strip_titles
 from futsal.agent.prompts import COMPACT, LEGACY
@@ -25,8 +25,10 @@ from futsal.mcp_server.server import create_server
 
 
 async def _tools(mode: str) -> list[dict[str, Any]]:
+    """Herramientas que el agente legacy ofrece al LLM (las v1; el servidor publica también las v2, que legacy no envía)."""
     listed = await create_server(descriptions=mode).list_tools()
-    return slim_tools([{"name": t.name, "description": t.description or "", "input_schema": strip_titles(t.inputSchema)} for t in listed])
+    raw = [{"name": t.name, "description": t.description or "", "input_schema": strip_titles(t.inputSchema)} for t in listed]
+    return offered_tools(slim_tools(raw), v2=False)
 
 
 def _json_chars(obj: Any) -> int:
