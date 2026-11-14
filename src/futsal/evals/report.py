@@ -102,7 +102,8 @@ def render_markdown(results: dict[str, Any]) -> str:
     lines = [f"# Informe Futsito-Eval v1 · {meta['suite']} ({meta['split']})", "",
              f"- Snapshot `{snap['id']}` · as_of {snap['as_of']} · huella `{snap['fingerprint'][:12]}`"
              + (" · **SINTÉTICO (solo desarrollo, no es referencia)**" if snap["synthetic"] else ""),
-             (f"- Modelo: `{meta['model']['provider']}/{meta['model']['model']}` · brazo `{meta['arm']}` · commit `{meta['commit'][:12]}` "
+             (f"- Modelo: `{meta['model']['provider']}/{meta['model']['model']}` · agente **{meta.get('agent', {}).get('arch', 'legacy')}** "
+              f"(contexto `{meta.get('agent', {}).get('context_mode', 'legacy')}`) · banderas `{meta['arm']}` · commit `{meta['commit'][:12]}` "
               f"· repeticiones {meta['reps']} · {meta['generated_at']}"),
              f"- Peticiones al LLM: {meta['budget']['used']} de un tope de {meta['budget']['max_requests']}"
              + (f" · **PARADA: {meta['stopped']}**" if meta["stopped"] else ""),

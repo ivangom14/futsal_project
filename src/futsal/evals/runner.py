@@ -288,12 +288,13 @@ async def run_conversation(rc: ResolvedCase, rep: int, mcp: McpClient, llm: LLMC
                 records.append(_record(rc.case_id, rc.stratum, rc.holdout, rep, i, turn.user, "not_evaluable",
                                        f"{INFRA} {result.error}", run_id=run.run_id, **usage))
             continue
-        grade = grade_turn(turn, result.answer, [tc.name for tc in run.tool_calls], _payloads(run),
+        evidence = _payloads(run)
+        grade = grade_turn(turn, result.answer, [tc.name for tc in run.tool_calls], evidence,
                            usage["metrics"]["llm_calls"], players, names)
         records.append(_record(
             rc.case_id, rc.stratum, rc.holdout, rep, i, turn.user, grade.verdict, "; ".join(grade.reasons),
             error_class=grade.error_class, answer=result.answer, tools_used=[tc.name for tc in run.tool_calls],
-            grade=grade.to_dict(), run_id=run.run_id, **usage))
+            grade=grade.to_dict(), run_id=run.run_id, evidence=evidence, **usage))  # evidencia: permite recalificar sin el LLM
         history.append(Turn(turn.user, result.answer))
         focus = result.focus or {}
         state = getattr(result, "state", None)

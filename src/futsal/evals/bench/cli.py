@@ -1,4 +1,4 @@
-"""CLI del benchmark multimodelo: `python -m futsal.evals.bench {models,plan,run,report,blind,reveal,history}`.
+"""CLI del benchmark multimodelo: `python -m futsal.evals.bench {models,plan,run,report,regrade,blind,reveal,history}`.
 
 `models`, `plan`, `report`, `blind`, `reveal` y `history` no llaman a ningún LLM. `run` solo llama a modelos reales con
 `--confirm-live` y `--budget-usd`; `run --dry-run` usa un modelo simulado (sin red ni gasto) para validar todo el circuito.
@@ -73,6 +73,10 @@ def build_parser() -> argparse.ArgumentParser:
     r = sub.add_parser("report", help="regenera summary.json y report.md de una ejecución")
     r.add_argument("run_dir", type=Path)
     r.add_argument("--gap", type=float, default=0.05, help="diferencia de exactitud tolerada como «comparable» (0.05 = 5 puntos)")
+    rg = sub.add_parser("regrade", help="recalifica una ejecución con el calificador actual y la evidencia guardada (SIN llamar al LLM)")
+    rg.add_argument("run_dir", type=Path)
+    rg.add_argument("--db", default=None, help="BD del snapshot ya restaurada (si no, se usa DATABASE_URL para restaurarlo o leer la BD viva)")
+    rg.add_argument("--output", type=Path, default=None, help="directorio nuevo (por defecto <run>-regraded)")
     b = sub.add_parser("blind", help="prepara la evaluación ciega para Opus")
     b.add_argument("run_dir", type=Path)
     b.add_argument("--seed", type=int, default=7)
@@ -185,6 +189,21 @@ def cmd_report(a: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_regrade(a: argparse.Namespace) -> int:
+    from futsal.evals.bench.regrade import regrade_run
+    from futsal.evals.bench.report import build_report
+    res = regrade_run(a.run_dir, a.db, None if a.db else database_url(), output=a.output)
+    out = Path(res["output"])
+    build_report(out)
+    print(f"recalificado en {out} (0 llamadas al LLM):")
+    for mid, m in res["models"].items():
+        acc_before, acc_after, n = m["accuracy"]
+        print(f"  {mid}: {m['changed']} veredictos cambian · exactitud {acc_before}/{n} → {acc_after}/{n} · críticos "
+              f"{m['critical'][0]} → {m['critical'][1]}" + (f" · {m['without_evidence']} turnos sin evidencia (sin recalificar)"
+                                                           if m["without_evidence"] else ""))
+    return 0
+
+
 def cmd_blind(a: argparse.Namespace) -> int:
     from futsal.evals.bench.blind import build_blind
     info = build_blind(a.run_dir, a.seed, a.rep - 1)
@@ -219,7 +238,7 @@ def cmd_history(a: argparse.Namespace) -> int:
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
-    handlers = {"models": cmd_models, "plan": cmd_plan, "run": cmd_run, "report": cmd_report, "blind": cmd_blind,
+    handlers = {"models": cmd_models, "plan": cmd_plan, "run": cmd_run, "report": cmd_report, "regrade": cmd_regrade, "blind": cmd_blind,
                 "reveal": cmd_reveal, "history": cmd_history}
     try:
         return handlers[args.cmd](args)

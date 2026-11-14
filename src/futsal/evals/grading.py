@@ -231,13 +231,14 @@ GENERIC = frozenset({
     "proximo", "ultimo", "siguiente", "anterior", "fuente", "nota", "importante", "total", "fuera", "casa", "local", "visitante", "madrid",
     "comunidad", "fase", "final", "previa", "campeonato", "posicion", "puesto", "lider", "colista", "lunes", "martes", "miercoles", "jueves",
     "viernes", "sabado", "domingo", "enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre",
-    "noviembre", "diciembre", "solo", "puedo", "responder", "jugo", "marco", "gano", "perdio", "empato", "juega", "jugara"})
+    "noviembre", "diciembre", "solo", "puedo", "responder", "jugo", "marco", "gano", "perdio", "empato", "juega", "jugara",
+    "fs", "unico", "eliminatorias"})
 _CAP = re.compile(r"^[A-ZÁÉÍÓÚÑÜ]")
 _ABBR = re.compile(r"^(?:[A-Za-z]\.){2,}$")
 
 
 def _strip(word: str) -> str:
-    w = word.strip(",;:!?()[]«»\"“”¿¡")
+    w = word.strip(",;:!?()[]«»\"“”¿¡*_")  # también la negrita/cursiva de Markdown (**NOMBRE**)
     return w if _ABBR.match(w) else w.rstrip(".")
 
 
@@ -271,7 +272,8 @@ def _name_runs(text: str) -> list[list[str]]:
             pending.append(w)
         else:
             flush()
-        brk = raw[-1:] in ",;:.!?" and not _ABBR.match(w)  # una coma o un punto cierran el nombre («GARCIA, JAVIER; CASTRO, SERGIO»)
+        # una coma, un punto o el cierre de una negrita cierran el nombre («GARCIA, JAVIER; CASTRO, SERGIO», «**GARCIA, JAVIER** (EQUIPO)»)
+        brk = (raw[-1:] in ",;:.!?" and not _ABBR.match(w)) or raw.rstrip(",;:.!?)").endswith(("**", "__"))
         if brk:
             flush()
         sentence_start = brk and raw[-1:] in ".!?:;"
@@ -294,6 +296,23 @@ def _toks(text: str) -> frozenset[str]:
     return frozenset(t for t in norm(text).split() if t not in CONNECTORS)
 
 
+def _covered(run: list[str], known: list[frozenset[str]]) -> bool:
+    """¿El tramo es una concatenación de nombres conocidos? El modelo escribe seguidos equipo y competición («PARQUE NORTE F.S. PRIMERA
+    JUVENIL FS») o competición y «Grupo»: cada trozo contiguo debe estar dentro de UN nombre conocido. Un trozo de una sola palabra solo
+    vale si es genérica o es, ella sola, un nombre conocido (así no se aceptan nombres compuestos con palabras sueltas de otros)."""
+    toks = [t for t in norm(" ".join(run)).split() if t not in CONNECTORS]
+    singles = {next(iter(k)) for k in known if len(k) == 1}
+    ok = [True] + [False] * len(toks)
+    for i in range(len(toks)):
+        if not ok[i]:
+            continue
+        for j in range(i + 1, len(toks) + 1):
+            piece = frozenset(toks[i:j])
+            if (len(piece) == 1 and (toks[i] in GENERIC or toks[i] in singles)) or (len(piece) > 1 and any(piece <= k for k in known)):
+                ok[j] = True
+    return ok[len(toks)]
+
+
 def unknown_names(turn: Any, answer: str, payloads: list[dict[str, Any]], catalog_names: Sequence[str]) -> tuple[list[str], list[str]]:
     """(críticos, a revisar). Un nombre con forma de equipo, jugador o competición debe figurar en la evidencia del turno, en la verdad del caso
     o en la pregunta (se compara sin acentos ni mayúsculas, por palabras). Si existe en el snapshot pero no en lo anterior, es de otra entidad;
@@ -307,7 +326,7 @@ def unknown_names(turn: Any, answer: str, payloads: list[dict[str, Any]], catalo
     for run in _name_runs(answer):
         cand = _toks(" ".join(run))
         shown = " ".join(run)
-        if not cand or any(cand <= k for k in case_known):
+        if not cand or any(cand <= k for k in case_known) or _covered(run, case_known):
             continue
         if any(cand <= k for k in catalog):
             critical.append(f"nombra a «{shown}», que existe en el snapshot pero no figura en la evidencia ni en la verdad del caso (otra entidad)")

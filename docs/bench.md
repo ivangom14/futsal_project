@@ -99,6 +99,18 @@ regeneran informes, preparan la evaluación ciega y listan ejecuciones.
 Resultado en `data/bench/<run_id>/`: `bench.json` (configuración, orden, tarifas, estado y gasto), `<modelo>/results.json` y
 `report.md` (el informe de Futsito-Eval de cada modelo), `summary.json` y `report.md` (la comparación).
 
+## Recalificar sin gastar
+
+Cada turno guarda su evidencia (lo que devolvieron las herramientas). Si se corrige el calificador, `python -m futsal.evals.bench
+regrade data/bench/<run_id>` recalcula los veredictos sin llamar a ningún LLM y escribe `data/bench/<run_id>-regraded/` (con
+`verdict-diff.json` por modelo); el original no se toca. Necesita la BD de la ejecución (el snapshot o, si fue `--live`, la actual)
+solo para el catálogo de nombres. Las ejecuciones anteriores al 2026-11-14 (sin evidencia guardada) no se pueden recalificar.
+
+Correcciones del calificador del 2026-11-14 (vistas en la primera comparación real): el marcador de las herramientas v2
+(`score: {home, away}`) cuenta como evidencia (antes se marcaba como inventado y penalizaba solo a v2); un tramo con varios nombres
+conocidos seguidos («EQUIPO COMPETICIÓN», «COMPETICIÓN Grupo») ya no es «nombre inventado», pero palabras sueltas de nombres distintos
+sí lo siguen siendo; la negrita de Markdown corta el nombre; «FS», «único» y «eliminatorias» son palabras genéricas.
+
 ## Limitar el gasto
 
 - `run` real exige `--confirm-live` **y** `--budget-usd`; sin claves o sin tarifas no arranca.

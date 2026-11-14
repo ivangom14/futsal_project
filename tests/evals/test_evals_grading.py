@@ -268,3 +268,30 @@ def test_score_range_in_a_document_reference_is_not_a_score() -> None:
     assert not [r for r in only_reference.reasons if "incompatible" in r] and only_reference.verdict != "correct"
     wrong = grade_turn(turn, "Acabó 2-0 (páginas 1-2).", LM, payloads, 2, [])
     assert wrong.verdict == "critical" and any("incompatible" in r for r in wrong.reasons)
+
+
+# ----------------------------------------------------------------------------- falsos positivos vistos en el benchmark real (2026-11-14)
+def test_v2_score_format_counts_as_evidence() -> None:
+    from futsal.agent.criteria import unsupported_scores
+
+    payload = {"items": [{"home": {"name": "A"}, "away": {"name": "B"}, "score": {"home": 3, "away": 0}}]}
+    assert unsupported_scores("Ganó 3-0 el A.", [payload]) == []  # antes: «dato inventado» con las herramientas v2
+    assert unsupported_scores("Ganó 4-0 el A.", [payload]) == ["4-0"]  # un marcador que no está sigue detectándose
+
+
+def test_names_written_side_by_side_are_not_invented_but_real_inventions_still_are() -> None:
+    from types import SimpleNamespace
+
+    from futsal.evals.grading import unknown_names
+
+    turn = SimpleNamespace(user="¿En qué puesto va el Parque Norte?", known_names=[])
+    payloads = [{"team": "PARQUE NORTE F.S.", "competition": "PRIMERA JUVENIL FS", "group": "Grupo 2",
+                 "players": ["MONTERO HERNANDEZ, PABLO"], "teams": ["INTER FUTBOL SALA"]}]
+    ok = ("PARQUE NORTE F.S. PRIMERA JUVENIL FS va tercero. En la PRIMERA JUVENIL FS Grupo 2 lidera el INTER FUTBOL SALA. "
+          "El máximo goleador es **MONTERO HERNANDEZ, PABLO** (INTER FUTBOL SALA).")
+    critical, _ = unknown_names(turn, ok, payloads, catalog_names=[])
+    assert critical == [], critical
+    invented = "Lidera el ATLETICO INVENTADO SALA. El pichichi es Pablo Inter."
+    critical, _ = unknown_names(turn, invented, payloads, catalog_names=[])
+    assert any("ATLETICO INVENTADO" in c for c in critical)  # nombre inexistente: sigue siendo crítico
+    assert any("Pablo Inter" in c for c in critical)  # palabras sueltas de nombres distintos no componen un nombre válido

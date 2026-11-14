@@ -119,14 +119,20 @@ def has_any_score(text: str) -> bool:
 
 
 def _evidence_scores(payloads: list[dict[str, Any]]) -> set[tuple[int, int]]:
-    """Marcadores presentes en lo devuelto por las tools: pares home_score/away_score y cualquier «N-M» en textos."""
+    """Marcadores presentes en lo devuelto por las tools: pares home_score/away_score (v1), `score: {home, away}` (herramientas v2) y
+    cualquier «N-M» en textos."""
     out: set[tuple[int, int]] = set()
+
+    def pair(h: Any, a: Any) -> None:
+        if isinstance(h, int) and isinstance(a, int) and not isinstance(h, bool) and not isinstance(a, bool):
+            out.add((h, a))
 
     def walk(o: Any) -> None:
         if isinstance(o, dict):
-            h, a = o.get("home_score"), o.get("away_score")
-            if isinstance(h, int) and isinstance(a, int) and not isinstance(h, bool):
-                out.add((h, a))
+            pair(o.get("home_score"), o.get("away_score"))
+            score = o.get("score")
+            if isinstance(score, dict):
+                pair(score.get("home"), score.get("away"))
             for v in o.values():
                 walk(v)
         elif isinstance(o, list):

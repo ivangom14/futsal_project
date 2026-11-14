@@ -232,3 +232,26 @@ def test_live_mode_without_snapshot_reads_the_current_db_and_warns_if_data_chang
     finally:
         with synthetic.engine.begin() as c:
             c.execute(text("DELETE FROM ingest_controls WHERE source = 'prueba-live'"))
+
+
+def test_regrade_without_llm_uses_stored_evidence_and_never_overwrites(root: Path, synthetic: Any, script: dict[Any, Any],
+                                                                      tmp_path: Path, keys: None) -> None:
+    from futsal.evals.bench.regrade import regrade_run
+
+    run_bench(cfg(root, synthetic, tmp_path, [model("bueno")], run_id="rg", limit=6), factory(script))
+    res_path = tmp_path / "rg" / "bueno" / "results.json"
+    data = json.loads(res_path.read_text(encoding="utf-8"))
+    graded = [r for r in data["records"] if r["verdict"] == "correct"]
+    assert graded and all("evidence" in r for r in graded)  # cada turno guarda lo que devolvieron las herramientas
+    graded[0]["verdict"] = "critical"  # como si lo hubiera calificado un calificador antiguo y equivocado
+    del graded[1]["evidence"]  # turno de una ejecución anterior a guardar la evidencia
+    res_path.write_text(json.dumps(data), encoding="utf-8")
+    out = regrade_run(tmp_path / "rg", synthetic.url, None, root=root)
+    m = out["models"]["bueno"]
+    assert m["changed"] == 1 and m["without_evidence"] == 1
+    new = json.loads((tmp_path / "rg-regraded" / "bueno" / "results.json").read_text(encoding="utf-8"))
+    assert next(r for r in new["records"] if r["case_id"] == graded[0]["case_id"] and r["turn"] == graded[0]["turn"])["verdict"] == "correct"
+    assert new["meta"]["regraded"]["llm_calls"] == 0
+    assert json.loads(res_path.read_text(encoding="utf-8"))["records"]  # el original sigue ahí, intacto
+    with pytest.raises(ValueError, match="nunca sobrescribe"):
+        regrade_run(tmp_path / "rg", synthetic.url, None, root=root)
