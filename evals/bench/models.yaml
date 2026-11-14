@@ -11,8 +11,9 @@
 # `free_tier: true` = la cuenta usa el plan gratuito: el coste se calcula igual a tarifa de pago y se marca como equivalente
 # (lo facturado es 0).
 #
-# Parámetros (`params`) admitidos por adaptador: gemini {thinking_level}, openai {reasoning_effort}, anthropic {} (la caché de
-# prompts queda SIEMPRE desactivada en el benchmark para no dar ventaja a nadie).
+# Parámetros (`params`) admitidos por adaptador: gemini {thinking_level}, openai {reasoning_effort}, anthropic {prompt_cache}.
+# La caché de prompts de Anthropic está desactivada salvo `prompt_cache: true` (p. ej. `claude-haiku-cache`): así se puede medir
+# su efecto. Gemini aplica su caché implícita siempre (se informa como entrada cacheada).
 
 version: 1
 models:
@@ -58,8 +59,35 @@ models:
       input: 0.10
       output: 0.50                 # incluye el razonamiento adaptativo (Anthropic lo cuenta como salida)
       cached_input: 0.01
-      cache_write: 0.125           # 1,25 × entrada (TTL 5 min); no se usa: la caché está desactivada en el benchmark
+      cache_write: 0.125           # 1,25 × entrada (TTL 5 min); solo se usa si el modelo activa prompt_cache
       long_context:                # tramo de prompts por encima de 100K tokens de entrada (por llamada)
+        above_input_tokens: 100000
+        input: 0.50
+        output: 2.50
+      other: []
+      source: https://platform.claude.com/docs/en/about-claude/pricing
+      checked_at: "2026-11-09"
+
+  - id: claude-haiku-cache
+    label: Claude Haiku 5.5 con caché de prompts (como el chat con ANTHROPIC_PROMPT_CACHE=on)
+    provider: anthropic
+    adapter: anthropic
+    model: claude-haiku-5-5
+    version: Claude Haiku 5.5 (ID sin fecha publicado por Anthropic)
+    credentials_env: ANTHROPIC_API_KEY
+    enabled: false                 # se pide con --models claude-haiku,claude-haiku-cache
+    free_tier: false
+    max_output_tokens: 1024
+    params: {prompt_cache: true}
+    limits:
+      min_interval_s: 1.0
+      max_requests: 600
+    pricing:
+      input: 0.10
+      output: 0.50
+      cached_input: 0.01           # lecturas de caché
+      cache_write: 0.125           # escrituras de caché: 1,25 × entrada (TTL 5 min)
+      long_context:
         above_input_tokens: 100000
         input: 0.50
         output: 2.50
@@ -84,7 +112,7 @@ models:
       input: 2.00
       output: 10.00
       cached_input: 0.10
-      cache_write: null
+      cache_write: 2.50            # 1,25 × entrada (TTL 5 min)
       long_context: null
       other: []
       source: https://platform.claude.com/docs/en/about-claude/pricing

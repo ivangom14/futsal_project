@@ -238,3 +238,35 @@ def test_credentials_in_the_dotenv_file_are_found_like_in_the_rest_of_the_projec
     assert isinstance(llm, AnthropicLLM) and llm._key == "sk-solo-en-dotenv-123"
     from futsal.evals.bench.runner import secrets_of
     assert secrets_of([s]) == ["sk-solo-en-dotenv-123"]  # también se ocultan en los mensajes de error
+
+
+# ----------------------------------------------------------------------------- caché de prompts de Anthropic
+def test_anthropic_cache_writes_are_read_from_the_api_and_priced(monkeypatch: pytest.MonkeyPatch) -> None:
+    import httpx
+
+    from futsal.agent.llm import estimate_cost
+
+    sent: list[dict[str, Any]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        sent.append(json.loads(request.content))
+        return httpx.Response(200, json={"content": [{"type": "text", "text": "ok"}], "usage": {
+            "input_tokens": 200, "output_tokens": 50, "cache_read_input_tokens": 3000, "cache_creation_input_tokens": 4000}})
+
+    llm = AnthropicLLM("k", "claude-haiku-5-5", client=httpx.Client(base_url="http://x", transport=httpx.MockTransport(handler)),
+                       prompt_cache=True)
+    resp = llm.complete("sistema", [], [{"name": "t", "description": "d", "input_schema": {"type": "object"}}])
+    u = resp.usage
+    assert u is not None and (u.input_tokens, u.cached_input_tokens, u.cache_write_tokens) == (200, 3000, 4000)
+    assert sent[0]["tools"][-1]["cache_control"] == {"type": "ephemeral"} and sent[0]["system"][0]["cache_control"]
+    # coste del agente (config/llm_prices.json): entrada 0,10 · lectura 0,01 · escritura 0,125 · salida 0,50 por 1M
+    assert estimate_cost("anthropic", "claude-haiku-5-5", u) == pytest.approx((200 * 0.10 + 3000 * 0.01 + 4000 * 0.125 + 50 * 0.50) / 1e6)
+    # coste del benchmark (models.yaml): igual, y la variante con caché activa el parámetro
+    s = registry.load_registry(root=ROOT)["claude-haiku-cache"]
+    c = call_cost(s, {"input": 200, "cached": 3000, "cache_write": 4000, "output": 50, "token_source": "provider"})
+    assert c.usd == pytest.approx((200 * 0.10 + 3000 * 0.01 + 4000 * 0.125 + 50 * 0.50) / 1e6)
+    assert c.usd_no_cache == pytest.approx((7200 * 0.10 + 50 * 0.50) / 1e6)
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-x-12345678")
+    assert registry.build_llm(s)._prompt_cache is True and registry.build_llm(registry.load_registry(root=ROOT)["claude-haiku"])._prompt_cache is False
+    no_write_rate = spec(pricing={"input": 1.0, "output": 1.0, "cached_input": 0.1})
+    assert call_cost(no_write_rate, {"input": 10, "cache_write": 5, "output": 1, "token_source": "provider"}).usd is None  # no se inventa

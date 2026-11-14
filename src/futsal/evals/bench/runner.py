@@ -87,7 +87,7 @@ class CostGuard:
     def worst_case(self, spec: ModelSpec) -> float:
         tokens_in = max(int(self.max_input_seen.get(spec.id, 0) * 1.5), 8000)
         p = spec.pricing
-        rate_in, rate_out = p.input or 0.0, p.output or 0.0
+        rate_in, rate_out = max(p.input or 0.0, p.cache_write or 0.0), p.output or 0.0  # peor caso: la entrada se escribe en caché
         if p.long_context is not None and tokens_in > p.long_context.above_input_tokens:
             rate_in, rate_out = p.long_context.input or rate_in, p.long_context.output or rate_out
         return (tokens_in * rate_in + spec.max_output_tokens * rate_out) / 1_000_000
@@ -105,9 +105,11 @@ class CostGuard:
         if usage is None:
             self.unpriced_calls += 1
             return
-        tokens_in = int(usage.input_tokens or 0) + (0 if spec.adapter != "anthropic" else int(usage.cached_input_tokens or 0))
+        tokens_in = int(usage.input_tokens or 0) + (0 if spec.adapter != "anthropic" else
+                                                     int(usage.cached_input_tokens or 0) + int(usage.cache_write_tokens or 0))
         self.max_input_seen[spec.id] = max(self.max_input_seen.get(spec.id, 0), tokens_in)
-        cost = call_cost(spec, {"input": usage.input_tokens, "cached": usage.cached_input_tokens, "output": usage.output_tokens,
+        cost = call_cost(spec, {"input": usage.input_tokens, "cached": usage.cached_input_tokens, "cache_write": usage.cache_write_tokens,
+                                "output": usage.output_tokens,
                                 "thinking": usage.thinking_tokens, "token_source": "estimated" if usage.estimated else "provider"})
         if cost.usd is None:
             self.unpriced_calls += 1

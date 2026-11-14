@@ -99,6 +99,13 @@ regeneran informes, preparan la evaluación ciega y listan ejecuciones.
 Resultado en `data/bench/<run_id>/`: `bench.json` (configuración, orden, tarifas, estado y gasto), `<modelo>/results.json` y
 `report.md` (el informe de Futsito-Eval de cada modelo), `summary.json` y `report.md` (la comparación).
 
+## Caché de prompts (Anthropic)
+
+`claude-haiku` corre sin caché (comparación en igualdad de condiciones) y `claude-haiku-cache` con ella (`params: {prompt_cache: true}`,
+como el chat con `ANTHROPIC_PROMPT_CACHE=on`). Para medir su efecto: `--models claude-haiku,claude-haiku-cache`. El coste incluye las
+lecturas (`cached_input`, 10 % de la entrada) y las escrituras (`cache_write`, 125 %, TTL 5 min) que informa la API; el informe da
+también el total «sin caché».
+
 ## Recalificar sin gastar
 
 Cada turno guarda su evidencia (lo que devolvieron las herramientas). Si se corrige el calificador, `python -m futsal.evals.bench

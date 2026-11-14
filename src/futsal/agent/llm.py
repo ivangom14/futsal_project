@@ -49,6 +49,7 @@ class Usage:
     total_tokens: int | None = None  # el que informa el proveedor, si lo hace
     estimated: bool = False
     cached_input_tokens: int | None = None  # parte de la entrada servida desde caché del proveedor (suele facturarse menos)
+    cache_write_tokens: int | None = None  # entrada ESCRITA en la caché en esta llamada (Anthropic la cobra más cara: 1,25 × a 5 min)
     # Normalización entre proveedores: `output_tokens` = salida VISIBLE y `thinking_tokens` = razonamiento, siempre por separado.
     # Gemini ya los informa separados; OpenAI informa `output_tokens` INCLUYENDO el razonamiento y el adaptador lo descuenta.
 
@@ -292,8 +293,10 @@ class AnthropicLLM:
             data = resp.json()
             raw = data.get("usage", {})
             cached = raw.get("cache_read_input_tokens")
+            written = raw.get("cache_creation_input_tokens")
             usage = Usage(int(raw.get("input_tokens", 0)), int(raw.get("output_tokens", 0)),
-                          cached_input_tokens=int(cached) if cached is not None else None)
+                          cached_input_tokens=int(cached) if cached is not None else None,
+                          cache_write_tokens=int(written) if written is not None else None)
             blocks = data.get("content", [])
             text = "".join(b["text"] for b in blocks if b["type"] == "text")
             calls = [ToolCall(b["id"], b["name"], b.get("input", {})) for b in blocks if b["type"] == "tool_use"]
@@ -548,7 +551,12 @@ def estimate_cost(provider: str, model: str, usage: Usage | None) -> float | Non
         uncached = usage.input_tokens if provider == "anthropic" else max(usage.input_tokens - cached, 0)
         in_rate, out_rate = float(rate["input"]), float(rate["output"])
         cached_rate = float(rate["cached_input"]) if rate.get("cached_input") is not None else in_rate
-        return (uncached * in_rate + cached * cached_rate + (usage.output_tokens + usage.thinking_tokens) * out_rate) / 1_000_000
+        written = usage.cache_write_tokens or 0  # Anthropic: escrituras de caché aparte de `input_tokens`, a su propia tarifa
+        if written and rate.get("cache_write") is None:
+            return None  # sin tarifa de escritura no se inventa el coste
+        write_rate = float(rate["cache_write"]) if written else 0.0
+        return (uncached * in_rate + cached * cached_rate + written * write_rate
+                + (usage.output_tokens + usage.thinking_tokens) * out_rate) / 1_000_000
     except (KeyError, TypeError):
         return None
 

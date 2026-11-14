@@ -210,7 +210,8 @@ def _usage(rec: Any, price: tuple[str | None, str | None]) -> dict[str, Any]:
               "llm_paced_ms": [c.paced_ms for c in rec.llm_calls], "llm_retry_wait_ms": [c.retry_wait_ms for c in rec.llm_calls]}
     # Detalle por llamada (benchmark multimodelo): tokens de ESA llamada tal como los informó el proveedor (o estimados) y reintentos.
     # Solo hechos deterministas (los tiempos van en `timing`). El coste lo calcula quien tenga la tarifa (bench/registry.py).
-    detail = [{"index": c.index, "input": c.input_tokens, "cached": c.cached_input_tokens, "output": c.output_tokens,
+    detail = [{"index": c.index, "input": c.input_tokens, "cached": c.cached_input_tokens, "cache_write": c.cache_write_tokens,
+               "output": c.output_tokens,
                "thinking": c.thinking_tokens, "token_source": c.token_source, "retries": c.retries,
                "error": (c.error or None) and str(c.error)[:200]}
               for c in rec.llm_calls]

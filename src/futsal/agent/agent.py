@@ -957,7 +957,8 @@ class Agent:
                 attempts=[asdict(a) for a in resp.attempts],
                 retry_wait_ms=round(sum(a.waited_s for a in resp.attempts) * 1000, 1),
                 token_source="unreported" if u is None else "estimated" if u.estimated else "provider",
-                cached_input_tokens=u.cached_input_tokens if u else None, paced_ms=paced_ms, cost_usd=_call_cost(self._llm, u),
+                cached_input_tokens=u.cached_input_tokens if u else None, cache_write_tokens=u.cache_write_tokens if u else None,
+                paced_ms=paced_ms, cost_usd=_call_cost(self._llm, u),
                 input_breakdown=self._with_provider(bd, u)))
             if self._ctx_on and not resp.tool_calls and self._und is not None:
                 verdict = await self._ctx_guard(resp.text, messages, result, rec, recovery, log)

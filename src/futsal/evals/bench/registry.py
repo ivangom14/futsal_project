@@ -35,7 +35,9 @@ class Adapter:
 
 
 def _anthropic(key: str, model: str, base_url: str, max_tokens: int, params: dict[str, Any]) -> LLMClient:
-    return AnthropicLLM(key, model, base_url, max_tokens=max_tokens, retry=RetryPolicy.from_env(), prompt_cache=False)
+    # Caché de prompts desactivada salvo que el modelo la pida (`params: {prompt_cache: true}`): así se compara con y sin caché.
+    return AnthropicLLM(key, model, base_url, max_tokens=max_tokens, retry=RetryPolicy.from_env(),
+                        prompt_cache=bool(params.get("prompt_cache", False)))
 
 
 def _gemini(key: str, model: str, base_url: str, max_tokens: int, params: dict[str, Any]) -> LLMClient:
@@ -49,7 +51,7 @@ def _openai(key: str, model: str, base_url: str, max_tokens: int, params: dict[s
 
 
 ADAPTERS: dict[str, Adapter] = {
-    "anthropic": Adapter(_anthropic, (), "https://api.anthropic.com", False),
+    "anthropic": Adapter(_anthropic, ("prompt_cache",), "https://api.anthropic.com", False),
     "gemini": Adapter(_gemini, ("thinking_level",), "https://generativelanguage.googleapis.com", True),
     "openai": Adapter(_openai, ("reasoning_effort",), "https://api.openai.com", True),
 }
@@ -227,10 +229,11 @@ def call_cost(spec: ModelSpec, call: dict[str, Any]) -> CallCost:
         return CallCost(None, "unavailable", "el proveedor no informó tokens")
     p = spec.pricing
     tokens_in, cached = int(call.get("input") or 0), int(call.get("cached") or 0)
+    written = int(call.get("cache_write") or 0)  # Anthropic: escrituras de caché, aparte de `input` y a su propia tarifa
     billed_out = int(call.get("output") or 0) + int(call.get("thinking") or 0)
     includes = ADAPTERS[spec.adapter].input_includes_cached
     uncached = max(tokens_in - cached, 0) if includes else tokens_in
-    total_in = uncached + cached
+    total_in = uncached + cached + written
     rate_in, rate_out, rate_cached = p.input, p.output, p.cached_input
     if p.long_context is not None and total_in > p.long_context.above_input_tokens:
         rate_in, rate_out, rate_cached = p.long_context.input, p.long_context.output, p.long_context.cached_input
@@ -239,5 +242,7 @@ def call_cost(spec: ModelSpec, call: dict[str, Any]) -> CallCost:
     no_cache = (total_in * rate_in + billed_out * rate_out) / 1_000_000
     if cached and rate_cached is None:
         return CallCost(None, "unavailable", "hay entrada cacheada y su tarifa es desconocida", round(no_cache, 10))
-    usd = (uncached * rate_in + cached * (rate_cached or 0.0) + billed_out * rate_out) / 1_000_000
+    if written and p.cache_write is None:
+        return CallCost(None, "unavailable", "hay escrituras de caché y su tarifa es desconocida", round(no_cache, 10))
+    usd = (uncached * rate_in + cached * (rate_cached or 0.0) + written * (p.cache_write or 0.0) + billed_out * rate_out) / 1_000_000
     return CallCost(round(usd, 10), source, "", round(no_cache, 10))

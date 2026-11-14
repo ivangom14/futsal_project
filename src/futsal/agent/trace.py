@@ -42,6 +42,7 @@ class LlmCallRecord:
     retry_wait_ms: float = 0.0  # parte de latency_ms que fue espera de reintentos
     token_source: str = "unreported"  # provider | estimated | unreported
     cached_input_tokens: int | None = None  # entrada servida desde la caché del proveedor (si la informa)
+    cache_write_tokens: int | None = None  # entrada escrita en la caché del proveedor en esta llamada (Anthropic; se cobra aparte)
     cost_usd: float | None = None  # coste estimado de la llamada (`llm.estimate_cost`); None = sin tarifa o trazas anteriores
     paced_ms: float = 0.0  # pausa de ritmo (--min-interval) ANTES de la llamada; no forma parte de latency_ms
     # Fase 0: reparto ESTIMADO de la entrada por origen (ver `tokens.input_breakdown`); None en trazas antiguas o sin desglose
@@ -123,6 +124,7 @@ class RunRecord:
             "input_tokens": inp, "output_tokens": out, "thinking_tokens": think,
             "billed_output_tokens": out + think,
             "cached_input_tokens": sum(c.cached_input_tokens or 0 for c in reported),
+            "cache_write_tokens": sum(c.cache_write_tokens or 0 for c in reported),
             "peak_input_tokens": max((c.input_tokens or 0 for c in reported), default=0),
             "calls_without_usage": len(self.llm_calls) - len(reported),
             "tokens_estimated": any(c.tokens_estimated for c in reported),
