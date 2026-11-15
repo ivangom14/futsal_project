@@ -122,7 +122,7 @@ def _bootstrap_mean(values: Sequence[float], seed: int = BOOTSTRAP_SEED, rounds:
     return round(means[int(rounds * 0.025)], 8), round(means[int(rounds * 0.975) - 1], 8)
 
 
-def _cost(rows: list[dict[str, Any]], free_tier: bool) -> dict[str, Any]:
+def _cost(rows: list[dict[str, Any]], free_tier: bool, prompt_cache: bool = False) -> dict[str, Any]:
     executed = [r for r in rows if r["executed"]]
     priced = [r for r in executed if r["cost_usd"] is not None]
     values = [float(r["cost_usd"]) for r in priced]
@@ -154,6 +154,8 @@ def _cost(rows: list[dict[str, Any]], free_tier: bool) -> dict[str, Any]:
         "projections": {str(n): {"usd": round(avg * n, 4) if avg is not None else None,
                                  "range95": [round(ci[0] * n, 4), round(ci[1] * n, 4)] if ci else None} for n in PROJECTIONS},
         "projection_assumptions": ["misma mezcla de categorías y conversaciones que la suite", "mismo prompt, herramientas y modelo",
+                                   ("con caché de prompts, escrituras incluidas; medida con preguntas seguidas (la caché dura 5 min): "
+                                    "con uso esporádico se escribe más a menudo y el ahorro es menor") if prompt_cache else
                                    "sin caché de prompts", "tarifas del registro en su fecha de consulta",
                                    "media por pregunta medida en esta ejecución; rango = IC 95 % bootstrap de la media"]}
 
@@ -185,7 +187,7 @@ def model_stats(rows: list[dict[str, Any]], spec: ModelSpec, summary: dict[str, 
                   "tokens": {"input": sum(r["input_tokens"] for r in executed), "cached": sum(r["cached_tokens"] for r in executed),
                              "output": sum(r["output_tokens"] for r in executed), "thinking": sum(r["thinking_tokens"] for r in executed),
                              "sources": dict(Counter(r["token_source"] for r in executed))}},
-        "cost": _cost(rows, spec.free_tier), "latency": _latency(rows)}
+        "cost": _cost(rows, spec.free_tier, bool(spec.params.get("prompt_cache"))), "latency": _latency(rows)}
 
 
 # ----------------------------------------------------------------------------- comparación entre modelos
@@ -225,6 +227,12 @@ def _comparable(a: str, b: str, stats: dict[str, Any], pairs: dict[tuple[str, st
     return qa - qb <= gap and not proven_worse
 
 
+def _proven_better(a: str, b: str, pairs: dict[tuple[str, str], Any]) -> bool:
+    """¿El IC pareado (bootstrap) demuestra que `a` acierta más que `b`? (límite inferior de a − b por encima de 0)."""
+    pair = pairs.get((a, b))
+    return bool(pair and pair["ci95"] and pair["ci95"][0] > 0)
+
+
 def compare(stats: dict[str, dict[str, Any]], rows: dict[str, list[dict[str, Any]]], gap: float = DEFAULT_GAP) -> dict[str, Any]:
     models = [m for m in stats if stats[m]["quality"]["evaluable"]]
     pairs = {(a, b): paired(rows[a], rows[b]) for a in models for b in models if a != b}
@@ -249,10 +257,12 @@ def compare(stats: dict[str, dict[str, Any]], rows: dict[str, list[dict[str, Any
     recs: dict[str, Any] = {}
     if quality_rank:
         top = quality_rank[0]
-        tied = [m for m in quality_rank if m == top or _comparable(top, m, stats, pairs, 0.0)]
+        # Empatados con el de mayor exactitud: aquellos frente a los que el IC pareado NO demuestra que el primero sea mejor.
+        tied = [m for m in quality_rank if m == top or not _proven_better(top, m, pairs)]
         best = min(tied, key=lambda m: (hall(m), cpq(m)))
         recs["best_overall"] = {"model": best, "tied_with": [m for m in tied if m != best],
-                                "evidence": "IC pareado: sin diferencia demostrada con los empatados" if len(tied) > 1 else
+                                "evidence": ("IC pareado: sin diferencia demostrada en exactitud con los empatados; decide la menor tasa de "
+                                             "alucinaciones y, después, el coste") if len(tied) > 1 else
                                 "mayor exactitud con diferencia pareada demostrada" if len(models) > 1 else "único modelo"}
         acceptable = [m for m in models if _comparable(best, m, stats, pairs, gap) and hall(m) <= hall(best) + gap]
         recs["cheapest_acceptable"] = {"model": min(acceptable, key=cpq) if acceptable else None, "criterion":

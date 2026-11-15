@@ -87,9 +87,9 @@ def render(a: dict[str, Any]) -> str:
         L.append(f"| {mid} | " + " | ".join(
             f"{_usd(pr[str(n)]['usd'], 2)}" + (f" [{pr[str(n)]['range95'][0]:.2f}–{pr[str(n)]['range95'][1]:.2f}]" if pr[str(n)]["range95"] else "")
             for n in PROJECTIONS) + " |")
-    if stats:
-        first = next(iter(stats.values()))["cost"]
-        L += ["", "Supuestos: " + "; ".join(first["projection_assumptions"]) + "."]
+    L.append("")
+    for mid in cmp_["rank_economic"]:  # cada modelo con los suyos (p. ej. con o sin caché de prompts)
+        L.append(f"- Supuestos de {mid}: " + "; ".join(stats[mid]["cost"]["projection_assumptions"]) + ".")
     L += ["", "## C. Ranking de velocidad", "", "| # | modelo | p50 | p95 | media | llamadas LLM / MCP por pregunta | reintentos | errores de herramienta |",
           "|---|---|---|---|---|---|---|---|"]
     for i, mid in enumerate(cmp_["rank_speed"], 1):

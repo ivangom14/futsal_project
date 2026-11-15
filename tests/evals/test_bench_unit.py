@@ -270,3 +270,28 @@ def test_anthropic_cache_writes_are_read_from_the_api_and_priced(monkeypatch: py
     assert registry.build_llm(s)._prompt_cache is True and registry.build_llm(registry.load_registry(root=ROOT)["claude-haiku"])._prompt_cache is False
     no_write_rate = spec(pricing={"input": 1.0, "output": 1.0, "cached_input": 0.1})
     assert call_cost(no_write_rate, {"input": 10, "cache_write": 5, "output": 1, "token_source": "provider"}).usd is None  # no se inventa
+
+
+def test_non_significant_accuracy_gap_is_a_tie_decided_by_hallucinations_then_cost() -> None:
+    # caso real (haiku con y sin caché): 30/45 frente a 28/45, sin diferencia demostrada por el IC pareado
+    a, b = spec(id="sin-cache"), spec(id="con-cache", pricing={"input": 0.1, "output": 1.0})
+    cases = {f"k{i}": {"category": "clasificacion", "complexity": "complex", "turns": 1} for i in range(45)}
+    ra = [rec(f"k{i}", "correct" if i < 30 else "critical" if i < 35 else "fail") for i in range(45)]
+    rb = [rec(f"k{i}", "correct" if i < 28 else "critical" if i < 34 else "fail") for i in range(45)]
+    rows = {"sin-cache": turn_rows({"records": ra}, a, cases), "con-cache": turn_rows({"records": rb}, b, cases)}
+    stats = {m: model_stats(rows[m], sp, None) for m, sp in (("sin-cache", a), ("con-cache", b))}
+    c = compare(stats, rows)
+    assert c["pairs"]["sin-cache|con-cache"]["verdict"] == "sin diferencia demostrada"
+    best = c["recommendations"]["best_overall"]
+    assert best["model"] == "sin-cache" and best["tied_with"] == ["con-cache"]  # empate: gana por menos alucinaciones (5 frente a 6)
+    assert "sin diferencia demostrada" in best["evidence"] and "demostrada" not in best["evidence"].replace("sin diferencia demostrada", "")
+    assert c["recommendations"]["cheapest_acceptable"]["model"] == "con-cache"
+
+
+def test_projection_assumptions_say_whether_prompt_cache_was_used() -> None:
+    plain = spec()
+    cached = spec(id="c", params={"prompt_cache": True}, pricing={"input": 1.0, "output": 10.0, "cached_input": 0.1, "cache_write": 1.25})
+    rows = turn_rows({"records": [rec("a", "correct")]}, plain, CASES)
+    assert "sin caché de prompts" in model_stats(rows, plain, None)["cost"]["projection_assumptions"]
+    with_cache = model_stats(turn_rows({"records": [rec("a", "correct")]}, cached, CASES), cached, None)["cost"]["projection_assumptions"]
+    assert any(x.startswith("con caché de prompts") for x in with_cache) and "sin caché de prompts" not in with_cache
