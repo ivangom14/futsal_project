@@ -103,7 +103,7 @@ class ModelSpec:
     pricing: Pricing
     enabled: bool = True
     free_tier: bool = False
-    max_output_tokens: int = 1024
+    max_output_tokens: int = 2048
     params: dict[str, Any] = field(default_factory=dict)
     base_url: str | None = None
     min_interval_s: float = 0.0
@@ -163,7 +163,7 @@ def parse_model(raw: dict[str, Any]) -> ModelSpec:
         raise RegistryError(f"{where}: parámetros no admitidos por el adaptador {adapter}: {unknown} "
                             f"(admite {list(ADAPTERS[adapter].params) or 'ninguno'})")
     limits = raw.get("limits") or {}
-    max_out = raw.get("max_output_tokens", 1024)
+    max_out = raw.get("max_output_tokens", 2048)
     if not isinstance(max_out, int) or max_out <= 0:
         raise RegistryError(f"{where}: max_output_tokens debe ser un entero > 0")
     return ModelSpec(

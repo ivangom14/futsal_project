@@ -26,7 +26,7 @@ models:
     credentials_env: GEMINI_API_KEY
     enabled: true
     free_tier: false
-    max_output_tokens: 1024        # el mismo límite que usa el agente en producción
+    max_output_tokens: 2048        # el mismo límite que usa el agente en producción (LLM_MAX_TOKENS)
     params: {}
     limits:
       min_interval_s: 4.0          # separación mínima entre peticiones (límite por minuto del proveedor)
@@ -50,7 +50,7 @@ models:
     credentials_env: ANTHROPIC_API_KEY
     enabled: true
     free_tier: false
-    max_output_tokens: 1024
+    max_output_tokens: 2048
     params: {}
     limits:
       min_interval_s: 1.0
@@ -77,7 +77,7 @@ models:
     credentials_env: ANTHROPIC_API_KEY
     enabled: false                 # se pide con --models claude-haiku,claude-haiku-cache
     free_tier: false
-    max_output_tokens: 1024
+    max_output_tokens: 2048
     params: {prompt_cache: true}
     limits:
       min_interval_s: 1.0
@@ -105,7 +105,7 @@ models:
     credentials_env: ANTHROPIC_API_KEY
     enabled: false
     free_tier: false
-    max_output_tokens: 1024
+    max_output_tokens: 2048
     params: {}
     limits: {min_interval_s: 1.0, max_requests: 600}
     pricing:
@@ -127,7 +127,7 @@ models:
     credentials_env: GEMINI_API_KEY
     enabled: false
     free_tier: false
-    max_output_tokens: 1024
+    max_output_tokens: 2048
     params: {}
     limits: {min_interval_s: 4.0, max_requests: 600}
     pricing:
@@ -150,7 +150,7 @@ models:
     credentials_env: OPENAI_API_KEY
     enabled: false
     free_tier: false
-    max_output_tokens: 1024
+    max_output_tokens: 2048
     params: {}
     limits: {min_interval_s: 1.0, max_requests: 600}
     pricing:

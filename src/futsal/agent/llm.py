@@ -78,6 +78,20 @@ class LLMResponse:
 
 DEFAULT_GEMINI_MODEL = "gemini-3.5-flash-lite"
 DEFAULT_ANTHROPIC_MODEL = "claude-haiku-5-5"
+# Tope de tokens de salida por llamada (`LLM_MAX_TOKENS`). Solo se paga lo que se genera: el tope evita respuestas cortadas (y vacías) en
+# listas largas («todos los partidos del sábado»), no encarece las respuestas normales.
+DEFAULT_MAX_TOKENS = 2048
+
+
+def max_tokens_from_env() -> int:
+    raw = env_value("LLM_MAX_TOKENS", str(DEFAULT_MAX_TOKENS)).strip()
+    try:
+        value = int(raw)
+    except ValueError as exc:
+        raise LLMError(f"LLM_MAX_TOKENS inválido: {raw!r} (entero > 0)") from exc
+    if value <= 0:
+        raise LLMError(f"LLM_MAX_TOKENS inválido: {raw!r} (entero > 0)")
+    return value
 DEFAULT_OPENAI_MODEL = "gpt-6-luna"
 
 
@@ -254,7 +268,7 @@ class AnthropicLLM:
     """Messages API de Anthropic vía httpx. Credenciales solo por entorno."""
 
     def __init__(self, api_key: str, model: str, base_url: str = "https://api.anthropic.com",
-                 max_tokens: int = 1024, client: httpx.Client | None = None,
+                 max_tokens: int = DEFAULT_MAX_TOKENS, client: httpx.Client | None = None,
                  retry: RetryPolicy | None = None, prompt_cache: bool = False) -> None:
         self._key = api_key
         self._model = model
@@ -272,7 +286,8 @@ class AnthropicLLM:
             raise LLMError("ANTHROPIC_API_KEY no definida (ver .env.example)")
         return cls(key, model or env_value("LLM_MODEL", DEFAULT_ANTHROPIC_MODEL),
                    env_value("ANTHROPIC_BASE_URL", "https://api.anthropic.com").rstrip("/"),
-                   retry=RetryPolicy.from_env(), prompt_cache=env_value("ANTHROPIC_PROMPT_CACHE").lower() == "on")
+                   retry=RetryPolicy.from_env(), prompt_cache=env_value("ANTHROPIC_PROMPT_CACHE").lower() == "on",
+                   max_tokens=max_tokens_from_env())
 
     def complete(self, system: str, messages: list[Message],
                  tools: list[dict[str, Any]]) -> LLMResponse:
@@ -372,7 +387,7 @@ class GeminiLLM:
 
     def __init__(self, api_key: str, model: str,
                  base_url: str = "https://generativelanguage.googleapis.com",
-                 max_tokens: int = 1024, client: httpx.Client | None = None,
+                 max_tokens: int = DEFAULT_MAX_TOKENS, client: httpx.Client | None = None,
                  retry: RetryPolicy | None = None, thinking_level: str | None = None) -> None:
         self._key = api_key
         self._model = model
@@ -389,7 +404,7 @@ class GeminiLLM:
         if not key:
             raise LLMError("GEMINI_API_KEY no definida (ver .env.example)")
         return cls(key, model or env_value("GEMINI_MODEL", DEFAULT_GEMINI_MODEL), retry=RetryPolicy.from_env(),
-                   thinking_level=env_value("GEMINI_THINKING_LEVEL") or None)
+                   thinking_level=env_value("GEMINI_THINKING_LEVEL") or None, max_tokens=max_tokens_from_env())
 
     def complete(self, system: str, messages: list[Message],
                  tools: list[dict[str, Any]]) -> LLMResponse:
@@ -463,7 +478,7 @@ class OpenAILLM:
     """Responses API de OpenAI (`POST /v1/responses`) vía httpx, sin estado (`store: false`). La clave solo viaja en cabecera."""
 
     def __init__(self, api_key: str, model: str, base_url: str = "https://api.openai.com",
-                 max_tokens: int = 1024, client: httpx.Client | None = None,
+                 max_tokens: int = DEFAULT_MAX_TOKENS, client: httpx.Client | None = None,
                  retry: RetryPolicy | None = None, reasoning_effort: str | None = None) -> None:
         self._key = api_key
         self._model = model
@@ -481,7 +496,8 @@ class OpenAILLM:
             raise LLMError("OPENAI_API_KEY no definida (ver .env.example)")
         return cls(key, model or env_value("OPENAI_MODEL", DEFAULT_OPENAI_MODEL),
                    env_value("OPENAI_BASE_URL", "https://api.openai.com").rstrip("/"),
-                   retry=RetryPolicy.from_env(), reasoning_effort=env_value("OPENAI_REASONING_EFFORT") or None)
+                   retry=RetryPolicy.from_env(), reasoning_effort=env_value("OPENAI_REASONING_EFFORT") or None,
+                   max_tokens=max_tokens_from_env())
 
     def complete(self, system: str, messages: list[Message],
                  tools: list[dict[str, Any]]) -> LLMResponse:

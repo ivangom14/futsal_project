@@ -99,7 +99,7 @@ def test_openai_request_shape_and_headers() -> None:
     b = bodies[0]
     assert reqs[0].url.path == "/v1/responses" and reqs[0].headers["Authorization"] == f"Bearer {KEY}"
     assert b["instructions"] == "SYS" and b["store"] is False and b["include"] == ["reasoning.encrypted_content"]
-    assert b["max_output_tokens"] == 1024 and "reasoning" not in b
+    assert b["max_output_tokens"] == 2048 and "reasoning" not in b
     assert b["input"] == [{"type": "message", "role": "user", "content": [{"type": "input_text", "text": "q"}]}]
     assert b["tools"][0] == {"type": "function", "name": "get_team", "description": "d", "parameters": TOOLS[0]["input_schema"]}
     llm2, bodies2, _ = _make("openai", [OPENAI_TEXT], reasoning_effort="low")
@@ -240,6 +240,19 @@ def test_anthropic_default_model_and_cached_usage(monkeypatch: pytest.MonkeyPatc
     assert AnthropicLLM.from_env().model == "claude-haiku-5-5"
     llm, _, _ = _make("anthropic", [ANTHROPIC_TEXT])
     assert llm.complete("s", [Message("user", "q")], []).usage.cached_input_tokens == 4  # type: ignore[union-attr]
+
+
+def test_output_token_limit_defaults_to_2048_and_is_configurable(monkeypatch: pytest.MonkeyPatch) -> None:
+    from futsal.agent.llm import LLMError
+
+    monkeypatch.setenv("ANTHROPIC_API_KEY", KEY)
+    monkeypatch.delenv("LLM_MAX_TOKENS", raising=False)
+    assert AnthropicLLM.from_env()._max_tokens == 2048
+    monkeypatch.setenv("LLM_MAX_TOKENS", "4096")
+    assert AnthropicLLM.from_env()._max_tokens == 4096
+    monkeypatch.setenv("LLM_MAX_TOKENS", "mucho")
+    with pytest.raises(LLMError, match="LLM_MAX_TOKENS"):
+        AnthropicLLM.from_env()
 
 
 def test_anthropic_cache_control_is_opt_in() -> None:
