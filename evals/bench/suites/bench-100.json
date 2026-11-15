@@ -1,0 +1,724 @@
+{
+ "name": "bench-100",
+ "version": "1.0",
+ "created_at": "2026-11-15",
+ "source_dataset": "evals/datasets/futsito-v1 (dev)",
+ "note": "100 casos de todos los tipos para comparar modelos y arquitecturas, intercalados por categoría. Las respuestas esperadas salen de la verdad SQL de los datos; las conversaciones encadenadas usan la respuesta real del modelo como historial. Revisión humana: evals/bench/review/bench-100-revision.csv (python -m futsal.evals.bench import-suite).",
+ "categories": [
+  "encadenadas",
+  "clasificacion",
+  "resultados",
+  "proximos_partidos",
+  "goleadores",
+  "arbitros_actas",
+  "jugadores",
+  "equipos_ambiguos",
+  "competiciones_grupos",
+  "estadisticas",
+  "sin_datos",
+  "adversariales",
+  "reglamento"
+ ],
+ "cases": [
+  {
+   "id": "s10_jug_conv_premisa_falsa",
+   "category": "encadenadas",
+   "complexity": "complex",
+   "stratum": "S10",
+   "turns": 2
+  },
+  {
+   "id": "s1_competicion_equipo",
+   "category": "clasificacion",
+   "complexity": "simple",
+   "stratum": "S1",
+   "turns": 1
+  },
+  {
+   "id": "s1_ultimo_rival",
+   "category": "resultados",
+   "complexity": "simple",
+   "stratum": "S1",
+   "turns": 1
+  },
+  {
+   "id": "s10_fecha_fin_de_semana",
+   "category": "proximos_partidos",
+   "complexity": "complex",
+   "stratum": "S10",
+   "turns": 1
+  },
+  {
+   "id": "s10_rank_literal_goleador_senior",
+   "category": "goleadores",
+   "complexity": "complex",
+   "stratum": "S10",
+   "turns": 1
+  },
+  {
+   "id": "s10_arb_existente",
+   "category": "arbitros_actas",
+   "complexity": "complex",
+   "stratum": "S10",
+   "turns": 1
+  },
+  {
+   "id": "s10_jug_inexistente_verosimil",
+   "category": "jugadores",
+   "complexity": "complex",
+   "stratum": "S10",
+   "turns": 1
+  },
+  {
+   "id": "s10_club_ambiguo",
+   "category": "equipos_ambiguos",
+   "complexity": "complex",
+   "stratum": "S10",
+   "turns": 1
+  },
+  {
+   "id": "s7_comparar_grupos_puntos",
+   "category": "competiciones_grupos",
+   "complexity": "complex",
+   "stratum": "S7",
+   "turns": 1
+  },
+  {
+   "id": "s8_casa_victorias",
+   "category": "estadisticas",
+   "complexity": "complex",
+   "stratum": "S8",
+   "turns": 1
+  },
+  {
+   "id": "s5_jugador_inexistente",
+   "category": "sin_datos",
+   "complexity": "complex",
+   "stratum": "S5",
+   "turns": 1
+  },
+  {
+   "id": "s6_equipo_inventado",
+   "category": "adversariales",
+   "complexity": "complex",
+   "stratum": "S6",
+   "turns": 1
+  },
+  {
+   "id": "s10_reg_faltas_acumuladas",
+   "category": "reglamento",
+   "complexity": "complex",
+   "stratum": "S10",
+   "turns": 1
+  },
+  {
+   "id": "s3_aclaracion_club",
+   "category": "encadenadas",
+   "complexity": "complex",
+   "stratum": "S3",
+   "turns": 3
+  },
+  {
+   "id": "s1_extra_errata_puntos",
+   "category": "clasificacion",
+   "complexity": "simple",
+   "stratum": "S1",
+   "turns": 1
+  },
+  {
+   "id": "s4_ultimos_resultados",
+   "category": "resultados",
+   "complexity": "complex",
+   "stratum": "S4",
+   "turns": 1
+  },
+  {
+   "id": "s1_extra_horario_proximo",
+   "category": "proximos_partidos",
+   "complexity": "simple",
+   "stratum": "S1",
+   "turns": 1
+  },
+  {
+   "id": "s1_goleador",
+   "category": "goleadores",
+   "complexity": "simple",
+   "stratum": "S1",
+   "turns": 1
+  },
+  {
+   "id": "s10_arb_mas_partidos",
+   "category": "arbitros_actas",
+   "complexity": "complex",
+   "stratum": "S10",
+   "turns": 1
+  },
+  {
+   "id": "s10_jug_nombre_apellido",
+   "category": "jugadores",
+   "complexity": "complex",
+   "stratum": "S10",
+   "turns": 1
+  },
+  {
+   "id": "s2_club_ab_como_va",
+   "category": "equipos_ambiguos",
+   "complexity": "complex",
+   "stratum": "S2",
+   "turns": 1
+  },
+  {
+   "id": "s10_club_a_b_c",
+   "category": "competiciones_grupos",
+   "complexity": "complex",
+   "stratum": "S10",
+   "turns": 1
+  },
+  {
+   "id": "s8_distancia_lider_colista",
+   "category": "estadisticas",
+   "complexity": "complex",
+   "stratum": "S8",
+   "turns": 1
+  },
+  {
+   "id": "s5_sin_acta_goleadores",
+   "category": "sin_datos",
+   "complexity": "complex",
+   "stratum": "S5",
+   "turns": 1
+  },
+  {
+   "id": "s6_inyeccion_prompt",
+   "category": "adversariales",
+   "complexity": "complex",
+   "stratum": "S6",
+   "turns": 1
+  },
+  {
+   "id": "s10_reg_saque_portero_area",
+   "category": "reglamento",
+   "complexity": "complex",
+   "stratum": "S10",
+   "turns": 1
+  },
+  {
+   "id": "s3_cambio_categoria",
+   "category": "encadenadas",
+   "complexity": "complex",
+   "stratum": "S3",
+   "turns": 3
+  },
+  {
+   "id": "s1_lider_puntos",
+   "category": "clasificacion",
+   "complexity": "simple",
+   "stratum": "S1",
+   "turns": 1
+  },
+  {
+   "id": "s1_derrotas",
+   "category": "resultados",
+   "complexity": "simple",
+   "stratum": "S1",
+   "turns": 1
+  },
+  {
+   "id": "s1_proximo_campo",
+   "category": "proximos_partidos",
+   "complexity": "simple",
+   "stratum": "S1",
+   "turns": 1
+  },
+  {
+   "id": "s4_extra_goleador_y_ultimo",
+   "category": "goleadores",
+   "complexity": "complex",
+   "stratum": "S4",
+   "turns": 1
+  },
+  {
+   "id": "s4_goleadores_acta",
+   "category": "arbitros_actas",
+   "complexity": "complex",
+   "stratum": "S4",
+   "turns": 1
+  },
+  {
+   "id": "s10_jug_premisa_falsa",
+   "category": "jugadores",
+   "complexity": "complex",
+   "stratum": "S10",
+   "turns": 1
+  },
+  {
+   "id": "s2_competicion_dos_grupos",
+   "category": "equipos_ambiguos",
+   "complexity": "complex",
+   "stratum": "S2",
+   "turns": 1
+  },
+  {
+   "id": "s10_club_resultados_categoria",
+   "category": "competiciones_grupos",
+   "complexity": "complex",
+   "stratum": "S10",
+   "turns": 1
+  },
+  {
+   "id": "s10_rank_comparativa_goles",
+   "category": "estadisticas",
+   "complexity": "complex",
+   "stratum": "S10",
+   "turns": 1
+  },
+  {
+   "id": "s5_sin_clasificacion_puntos",
+   "category": "sin_datos",
+   "complexity": "complex",
+   "stratum": "S5",
+   "turns": 1
+  },
+  {
+   "id": "s6_prediccion",
+   "category": "adversariales",
+   "complexity": "complex",
+   "stratum": "S6",
+   "turns": 1
+  },
+  {
+   "id": "s10_reg_sin_evidencia_rffm_cronometro",
+   "category": "reglamento",
+   "complexity": "complex",
+   "stratum": "S10",
+   "turns": 1
+  },
+  {
+   "id": "s3_equipo_goleador_resultado",
+   "category": "encadenadas",
+   "complexity": "complex",
+   "stratum": "S3",
+   "turns": 3
+  },
+  {
+   "id": "s1_puesto",
+   "category": "clasificacion",
+   "complexity": "simple",
+   "stratum": "S1",
+   "turns": 1
+  },
+  {
+   "id": "s1_extra_catalan_ultimo",
+   "category": "resultados",
+   "complexity": "simple",
+   "stratum": "S1",
+   "turns": 1
+  },
+  {
+   "id": "s1_proximo_fecha",
+   "category": "proximos_partidos",
+   "complexity": "simple",
+   "stratum": "S1",
+   "turns": 1
+  },
+  {
+   "id": "s10_rank_equipo_goleador",
+   "category": "goleadores",
+   "complexity": "complex",
+   "stratum": "S10",
+   "turns": 1
+  },
+  {
+   "id": "s10_arb_literal_inexistente_parecido",
+   "category": "arbitros_actas",
+   "complexity": "complex",
+   "stratum": "S10",
+   "turns": 1
+  },
+  {
+   "id": "s10_jug_premisa_verdadera",
+   "category": "jugadores",
+   "complexity": "complex",
+   "stratum": "S10",
+   "turns": 1
+  },
+  {
+   "id": "s2_homonimo_puntos",
+   "category": "equipos_ambiguos",
+   "complexity": "complex",
+   "stratum": "S2",
+   "turns": 1
+  },
+  {
+   "id": "s10_club_todos_equipos",
+   "category": "competiciones_grupos",
+   "complexity": "complex",
+   "stratum": "S10",
+   "turns": 1
+  },
+  {
+   "id": "s10_rank_mas_victorias",
+   "category": "estadisticas",
+   "complexity": "complex",
+   "stratum": "S10",
+   "turns": 1
+  },
+  {
+   "id": "s5_sustituciones_cambios",
+   "category": "sin_datos",
+   "complexity": "complex",
+   "stratum": "S5",
+   "turns": 1
+  },
+  {
+   "id": "s6_premisa_10_0",
+   "category": "adversariales",
+   "complexity": "complex",
+   "stratum": "S6",
+   "turns": 1
+  },
+  {
+   "id": "s10_reg_tiempo_muerto",
+   "category": "reglamento",
+   "complexity": "complex",
+   "stratum": "S10",
+   "turns": 1
+  },
+  {
+   "id": "s3_equipo_proximo_campo",
+   "category": "encadenadas",
+   "complexity": "complex",
+   "stratum": "S3",
+   "turns": 3
+  },
+  {
+   "id": "s1_puntos",
+   "category": "clasificacion",
+   "complexity": "simple",
+   "stratum": "S1",
+   "turns": 1
+  },
+  {
+   "id": "s1_jornada_actual",
+   "category": "resultados",
+   "complexity": "simple",
+   "stratum": "S1",
+   "turns": 1
+  },
+  {
+   "id": "s10_fecha_genero_femenino",
+   "category": "proximos_partidos",
+   "complexity": "complex",
+   "stratum": "S10",
+   "turns": 1
+  },
+  {
+   "id": "s10_rank_goleador_juvenil",
+   "category": "goleadores",
+   "complexity": "complex",
+   "stratum": "S10",
+   "turns": 1
+  },
+  {
+   "id": "s10_arb_varias_competiciones",
+   "category": "arbitros_actas",
+   "complexity": "complex",
+   "stratum": "S10",
+   "turns": 1
+  },
+  {
+   "id": "s10_jug_sin_acentos_minusculas",
+   "category": "jugadores",
+   "complexity": "complex",
+   "stratum": "S10",
+   "turns": 1
+  },
+  {
+   "id": "s10_aclarar_competicion_varios_grupos",
+   "category": "equipos_ambiguos",
+   "complexity": "complex",
+   "stratum": "S10",
+   "turns": 1
+  },
+  {
+   "id": "s10_fecha_categoria_senior",
+   "category": "competiciones_grupos",
+   "complexity": "complex",
+   "stratum": "S10",
+   "turns": 1
+  },
+  {
+   "id": "s10_rank_menos_goles_contra",
+   "category": "estadisticas",
+   "complexity": "complex",
+   "stratum": "S10",
+   "turns": 1
+  },
+  {
+   "id": "s5_categoria_inexistente",
+   "category": "sin_datos",
+   "complexity": "complex",
+   "stratum": "S5",
+   "turns": 1
+  },
+  {
+   "id": "s6_presion_numero",
+   "category": "adversariales",
+   "complexity": "complex",
+   "stratum": "S6",
+   "turns": 1
+  },
+  {
+   "id": "s3_grupo_lider_puntos_colista",
+   "category": "encadenadas",
+   "complexity": "complex",
+   "stratum": "S3",
+   "turns": 3
+  },
+  {
+   "id": "s1_colista",
+   "category": "clasificacion",
+   "complexity": "simple",
+   "stratum": "S1",
+   "turns": 1
+  },
+  {
+   "id": "s1_jugados_resultados",
+   "category": "resultados",
+   "complexity": "simple",
+   "stratum": "S1",
+   "turns": 1
+  },
+  {
+   "id": "s10_fecha_pabellon",
+   "category": "proximos_partidos",
+   "complexity": "complex",
+   "stratum": "S10",
+   "turns": 1
+  },
+  {
+   "id": "s1_goles_goleador",
+   "category": "goleadores",
+   "complexity": "simple",
+   "stratum": "S1",
+   "turns": 1
+  },
+  {
+   "id": "s2_ambito_categoria",
+   "category": "equipos_ambiguos",
+   "complexity": "complex",
+   "stratum": "S2",
+   "turns": 1
+  },
+  {
+   "id": "s10_todos_responder_total_categorias",
+   "category": "competiciones_grupos",
+   "complexity": "complex",
+   "stratum": "S10",
+   "turns": 1
+  },
+  {
+   "id": "s5_extra_acta_sin_cerrar",
+   "category": "sin_datos",
+   "complexity": "complex",
+   "stratum": "S5",
+   "turns": 1
+  },
+  {
+   "id": "s6_competicion_inexistente_goleador",
+   "category": "adversariales",
+   "complexity": "complex",
+   "stratum": "S6",
+   "turns": 1
+  },
+  {
+   "id": "s10_arb_conv_seguimiento",
+   "category": "encadenadas",
+   "complexity": "complex",
+   "stratum": "S10",
+   "turns": 2
+  },
+  {
+   "id": "s1_extra_catalan_puntos",
+   "category": "clasificacion",
+   "complexity": "simple",
+   "stratum": "S1",
+   "turns": 1
+  },
+  {
+   "id": "s1_ultimo_jornada",
+   "category": "resultados",
+   "complexity": "simple",
+   "stratum": "S1",
+   "turns": 1
+  },
+  {
+   "id": "s10_fecha_sin_partidos",
+   "category": "proximos_partidos",
+   "complexity": "complex",
+   "stratum": "S10",
+   "turns": 1
+  },
+  {
+   "id": "s4_lider_y_goleador",
+   "category": "goleadores",
+   "complexity": "complex",
+   "stratum": "S4",
+   "turns": 1
+  },
+  {
+   "id": "s2_ambito_competicion",
+   "category": "equipos_ambiguos",
+   "complexity": "complex",
+   "stratum": "S2",
+   "turns": 1
+  },
+  {
+   "id": "s5_extra_aplazado_resultado",
+   "category": "sin_datos",
+   "complexity": "complex",
+   "stratum": "S5",
+   "turns": 1
+  },
+  {
+   "id": "s6_equipo_inventado_resultado",
+   "category": "adversariales",
+   "complexity": "complex",
+   "stratum": "S6",
+   "turns": 1
+  },
+  {
+   "id": "s10_club_literal_alamo",
+   "category": "encadenadas",
+   "complexity": "complex",
+   "stratum": "S10",
+   "turns": 2
+  },
+  {
+   "id": "s1_extra_dos_intenciones",
+   "category": "clasificacion",
+   "complexity": "simple",
+   "stratum": "S1",
+   "turns": 1
+  },
+  {
+   "id": "s1_victorias",
+   "category": "resultados",
+   "complexity": "simple",
+   "stratum": "S1",
+   "turns": 1
+  },
+  {
+   "id": "s10_fecha_tarde",
+   "category": "proximos_partidos",
+   "complexity": "complex",
+   "stratum": "S10",
+   "turns": 1
+  },
+  {
+   "id": "s2_ambito_grupo_ultimo",
+   "category": "equipos_ambiguos",
+   "complexity": "complex",
+   "stratum": "S2",
+   "turns": 1
+  },
+  {
+   "id": "s6_extra_instrucciones_sistema",
+   "category": "adversariales",
+   "complexity": "complex",
+   "stratum": "S6",
+   "turns": 1
+  },
+  {
+   "id": "s10_fecha_conv_categoria",
+   "category": "encadenadas",
+   "complexity": "complex",
+   "stratum": "S10",
+   "turns": 2
+  },
+  {
+   "id": "s1_extra_emoji_ruido",
+   "category": "clasificacion",
+   "complexity": "simple",
+   "stratum": "S1",
+   "turns": 1
+  },
+  {
+   "id": "s10_fecha_un_dia",
+   "category": "proximos_partidos",
+   "complexity": "complex",
+   "stratum": "S10",
+   "turns": 1
+  },
+  {
+   "id": "s6_extra_inyeccion_emoji",
+   "category": "adversariales",
+   "complexity": "complex",
+   "stratum": "S6",
+   "turns": 1
+  },
+  {
+   "id": "s10_fecha_literal_sabado_tarde",
+   "category": "encadenadas",
+   "complexity": "complex",
+   "stratum": "S10",
+   "turns": 2
+  },
+  {
+   "id": "s1_extra_hora_canarias",
+   "category": "clasificacion",
+   "complexity": "simple",
+   "stratum": "S1",
+   "turns": 1
+  },
+  {
+   "id": "s10_jug_literal_silvosa",
+   "category": "encadenadas",
+   "complexity": "complex",
+   "stratum": "S10",
+   "turns": 2
+  },
+  {
+   "id": "s10_reg_literal_portero_medio_campo",
+   "category": "encadenadas",
+   "complexity": "complex",
+   "stratum": "S10",
+   "turns": 2
+  },
+  {
+   "id": "s10_temporada_pasada_conv",
+   "category": "encadenadas",
+   "complexity": "complex",
+   "stratum": "S10",
+   "turns": 2
+  },
+  {
+   "id": "s3_aclaracion_categoria_posicion",
+   "category": "encadenadas",
+   "complexity": "complex",
+   "stratum": "S3",
+   "turns": 3
+  },
+  {
+   "id": "s3_equipo_gf_gc",
+   "category": "encadenadas",
+   "complexity": "complex",
+   "stratum": "S3",
+   "turns": 3
+  },
+  {
+   "id": "s3_equipo_posicion_victorias",
+   "category": "encadenadas",
+   "complexity": "complex",
+   "stratum": "S3",
+   "turns": 3
+  },
+  {
+   "id": "s3_equipo_resultado_rival_puntos",
+   "category": "encadenadas",
+   "complexity": "complex",
+   "stratum": "S3",
+   "turns": 3
+  }
+ ]
+}

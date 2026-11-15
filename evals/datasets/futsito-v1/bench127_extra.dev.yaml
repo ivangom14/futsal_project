@@ -1,0 +1,448 @@
+# Futsito-Eval v1 · preguntas nuevas de la revisión humana del bench (bench-127, dev). Formato: docs/v2/evaluation.md §3.
+# Los hechos text_any de reglamento son mínimos; lo no contrastable se decide en la columna «humano» del Excel de revisión.
+
+- id: s9_b127_jugadores_pista
+  stratum: S9
+  holdout: false
+  requires: ["kb:fifa-futsal-laws-2025-26"]
+  capability: v1
+  select: {}
+  turns:
+    - user: "¿Cuántos jugadores componen un equipo en pista?"
+      expect:
+        behavior: "answer"
+        facts: [{"kind": "text_any", "any": ["cinco", "5 jugadores"]}]
+        tools: {"needed": ["search_rules"], "allowed": ["search_rules"]}
+        source: "rules"
+        max_llm_calls: 4
+        note: "5 en pista, uno de ellos portero"
+
+- id: s9_b127_sustituciones
+  stratum: S9
+  holdout: false
+  requires: ["kb:fifa-futsal-laws-2025-26"]
+  capability: v1
+  select: {}
+  turns:
+    - user: "¿Cuántas sustituciones se pueden hacer?"
+      expect:
+        behavior: "answer"
+        facts: [{"kind": "text_any", "any": ["ilimitad", "sin limite", "cualquier numero"]}]
+        tools: {"needed": ["search_rules"], "allowed": ["search_rules"]}
+        source: "rules"
+        max_llm_calls: 4
+        note: "ilimitadas y volantes"
+
+- id: s9_b127_descanso
+  stratum: S9
+  holdout: false
+  requires: ["kb:fifa-futsal-laws-2025-26"]
+  capability: v1
+  select: {}
+  turns:
+    - user: "¿Cuánto dura el descanso entre las dos mitades?"
+      expect:
+        behavior: "answer"
+        facts: [{"kind": "text_any", "any": ["15 minutos", "quince minutos"]}]
+        tools: {"needed": ["search_rules"], "allowed": ["search_rules"]}
+        source: "rules"
+        max_llm_calls: 4
+        note: "no más de 15 minutos"
+
+- id: s9_b127_portero_saque_meta
+  stratum: S9
+  holdout: false
+  requires: ["kb:fifa-futsal-laws-2025-26"]
+  capability: v1
+  select: {}
+  turns:
+    - user: "¿Cuántos segundos tiene el portero para sacar de meta?"
+      expect:
+        behavior: "answer"
+        facts: [{"kind": "text_any", "any": ["4 segundos", "cuatro segundos"]}]
+        tools: {"needed": ["search_rules"], "allowed": ["search_rules"]}
+        source: "rules"
+        max_llm_calls: 4
+        note: "4 segundos"
+
+- id: s9_b127_cuando_corner
+  stratum: S9
+  holdout: false
+  requires: ["kb:fifa-futsal-laws-2025-26"]
+  capability: v1
+  select: {}
+  turns:
+    - user: "¿Cuándo se pita córner?"
+      expect:
+        behavior: "answer"
+        facts: [{"kind": "text_any", "any": ["linea de meta"]}]
+        tools: {"needed": ["search_rules"], "allowed": ["search_rules"]}
+        source: "rules"
+        max_llm_calls: 4
+        note: "balón que cruza la línea de meta tocado por último por un defensor, sin gol"
+
+- id: s9_b127_portero_mano_pase
+  stratum: S9
+  holdout: false
+  requires: ["kb:fifa-futsal-laws-2025-26"]
+  capability: v1
+  select: {}
+  turns:
+    - user: "¿Puede el portero coger el balón con la mano si se lo pasa un compañero?"
+      expect:
+        behavior: "answer"
+        tools: {"needed": ["search_rules"], "allowed": ["search_rules"]}
+        source: "rules"
+        max_llm_calls: 4
+        note: "revisión humana: cesión deliberada de un compañero dentro del área → tiro libre indirecto"
+
+- id: s9_b127_faltas_penalti
+  stratum: S9
+  holdout: false
+  requires: ["kb:fifa-futsal-laws-2025-26"]
+  capability: v1
+  select: {}
+  turns:
+    - user: "¿Cuántas faltas puede hacer un equipo antes de que le piten penalti?"
+      expect:
+        behavior: "answer"
+        facts: [{"kind": "text_any", "any": ["sexta", "sin barrera"]}]
+        tools: {"needed": ["search_rules"], "allowed": ["search_rules"]}
+        source: "rules"
+        max_llm_calls: 4
+        note: "premisa errónea: la acumulación no da penalti; desde la sexta, libre directo sin barrera"
+
+- id: s9_b127_banda_gol_directo
+  stratum: S9
+  holdout: false
+  requires: ["kb:fifa-futsal-laws-2025-26"]
+  capability: v1
+  select: {}
+  turns:
+    - user: "¿Qué pasa si saco de banda y meto gol directamente?"
+      expect:
+        behavior: "answer"
+        facts: [{"kind": "text_any", "any": ["saque de meta", "no es valido", "no vale", "no se concede"]}]
+        tools: {"needed": ["search_rules"], "allowed": ["search_rules"]}
+        source: "rules"
+        max_llm_calls: 4
+        note: "no vale: saque de meta"
+
+- id: s9_b127_tiempo_saque_banda
+  stratum: S9
+  holdout: false
+  requires: ["kb:fifa-futsal-laws-2025-26"]
+  capability: v1
+  select: {}
+  turns:
+    - user: "¿Cuánto tiempo tengo para sacar de banda?"
+      expect:
+        behavior: "answer"
+        facts: [{"kind": "text_any", "any": ["4 segundos", "cuatro segundos"]}]
+        tools: {"needed": ["search_rules"], "allowed": ["search_rules"]}
+        source: "rules"
+        max_llm_calls: 4
+        note: "4 segundos"
+
+- id: s9_b127_jugar_con_menos
+  stratum: S9
+  holdout: false
+  requires: ["kb:fifa-futsal-laws-2025-26"]
+  capability: v1
+  select: {}
+  turns:
+    - user: "¿Se puede jugar con un jugador menos en pista?"
+      expect:
+        behavior: "answer"
+        facts: [{"kind": "text_any", "any": ["tres", "3 jugadores"]}]
+        tools: {"needed": ["search_rules"], "allowed": ["search_rules"]}
+        source: "rules"
+        max_llm_calls: 4
+        note: "sí; mínimo 3 jugadores"
+
+- id: s9_b127_corner_gol_propia
+  stratum: S9
+  holdout: false
+  requires: ["kb:fifa-futsal-laws-2025-26"]
+  capability: v1
+  select: {}
+  turns:
+    - user: "¿Si saco de corner y me meto gol directo en mi porteria es valido?"
+      expect:
+        behavior: "answer"
+        tools: {"needed": ["search_rules"], "allowed": ["search_rules"]}
+        source: "rules"
+        max_llm_calls: 4
+        note: "revisión humana: no es gol; saque de esquina para el rival"
+
+- id: s9_b127_directo_indirecto
+  stratum: S9
+  holdout: false
+  requires: ["kb:fifa-futsal-laws-2025-26"]
+  capability: v1
+  select: {}
+  turns:
+    - user: "¿Cuál es la diferencia entre un libre directo y uno indirecto?"
+      expect:
+        behavior: "answer"
+        facts: [{"kind": "text_any", "any": ["otro jugador"]}]
+        tools: {"needed": ["search_rules"], "allowed": ["search_rules"]}
+        source: "rules"
+        max_llm_calls: 4
+        note: "el indirecto necesita que toque otro jugador antes del gol"
+
+- id: s9_b127_fuera_de_juego
+  stratum: S9
+  holdout: false
+  requires: ["kb:fifa-futsal-laws-2025-26"]
+  capability: v1
+  select: {}
+  turns:
+    - user: "¿Cuándo está en fuera de juego un jugador?"
+      expect:
+        behavior: "answer"
+        facts: [{"kind": "text_any", "any": ["no existe", "no hay fuera de juego", "no hay"]}]
+        tools: {"needed": ["search_rules"], "allowed": ["search_rules"]}
+        source: "rules"
+        max_llm_calls: 4
+        note: "premisa errónea: en fútbol sala no hay fuera de juego"
+
+- id: s9_b127_portero_mano_fuera
+  stratum: S9
+  holdout: false
+  requires: ["kb:fifa-futsal-laws-2025-26"]
+  capability: v1
+  select: {}
+  turns:
+    - user: "¿Qué pasa si el portero toca el balón con la mano fuera de su área?"
+      expect:
+        behavior: "answer"
+        facts: [{"kind": "text_any", "any": ["libre directo"]}]
+        tools: {"needed": ["search_rules"], "allowed": ["search_rules"]}
+        source: "rules"
+        max_llm_calls: 4
+        note: "tiro libre directo (y sanción disciplinaria si procede)"
+
+- id: s9_b127_agarron_ocasion
+  stratum: S9
+  holdout: false
+  requires: ["kb:fifa-futsal-laws-2025-26"]
+  capability: v1
+  select: {}
+  turns:
+    - user: "¿Qué tarjeta se muestra por un agarrón que corta una ocasión de gol?"
+      expect:
+        behavior: "answer"
+        facts: [{"kind": "text_any", "any": ["roja", "expuls"]}]
+        tools: {"needed": ["search_rules"], "allowed": ["search_rules"]}
+        source: "rules"
+        max_llm_calls: 4
+        note: "tarjeta roja (malograr ocasión manifiesta de gol)"
+
+- id: s9_b127_entrada_detras
+  stratum: S9
+  holdout: false
+  requires: ["kb:fifa-futsal-laws-2025-26"]
+  capability: v1
+  select: {}
+  turns:
+    - user: "¿Qué diferencia hay entre tarjeta amarilla y roja en una entrada por detrás?"
+      expect:
+        behavior: "answer"
+        facts: [{"kind": "text_any", "any": ["fuerza excesiva", "temerari", "imprudente"]}]
+        tools: {"needed": ["search_rules"], "allowed": ["search_rules"]}
+        source: "rules"
+        max_llm_calls: 4
+        note: "temeraria → amarilla; fuerza excesiva → roja"
+
+- id: s9_b127_sexta_falta_portero
+  stratum: S9
+  holdout: false
+  requires: ["kb:fifa-futsal-laws-2025-26"]
+  capability: v1
+  select: {}
+  turns:
+    - user: "¿Qué pasa si el equipo ya tiene cinco faltas y el portero comete otra?"
+      expect:
+        behavior: "answer"
+        facts: [{"kind": "text_any", "any": ["sexta", "sin barrera"]}]
+        tools: {"needed": ["search_rules"], "allowed": ["search_rules"]}
+        source: "rules"
+        max_llm_calls: 4
+        note: "cuenta como sexta falta acumulada: libre directo sin barrera"
+
+- id: s9_b127_medidas_campo
+  stratum: S9
+  holdout: false
+  requires: ["kb:fifa-futsal-laws-2025-26"]
+  capability: v1
+  select: {}
+  turns:
+    - user: "¿Cuánto mide el campo y las porterías?"
+      expect:
+        behavior: "answer"
+        facts: [{"kind": "text_any", "any": ["3 m", "3 metros", "tres metros"]}]
+        tools: {"needed": ["search_rules"], "allowed": ["search_rules"]}
+        source: "rules"
+        max_llm_calls: 4
+        note: "porterías de 3 × 2 m; campo 25-42 × 16-25 m"
+
+- id: s9_b127_distancia_barrera
+  stratum: S9
+  holdout: false
+  requires: ["kb:fifa-futsal-laws-2025-26"]
+  capability: v1
+  select: {}
+  turns:
+    - user: "¿A qué distancia debe estar la barrera en un libre?"
+      expect:
+        behavior: "answer"
+        facts: [{"kind": "text_any", "any": ["5 m", "5 metros", "cinco metros"]}]
+        tools: {"needed": ["search_rules"], "allowed": ["search_rules"]}
+        source: "rules"
+        max_llm_calls: 4
+        note: "5 metros"
+
+- id: s9_b127_tiempos_muertos_equipo
+  stratum: S9
+  holdout: false
+  requires: ["kb:fifa-futsal-laws-2025-26"]
+  capability: v1
+  select: {}
+  turns:
+    - user: "¿Cuántos tiempos muertos tiene cada equipo?"
+      expect:
+        behavior: "answer"
+        facts: [{"kind": "text_any", "any": ["uno por", "un tiempo muerto por", "1 por", "cada periodo", "cada parte", "por periodo", "por parte", "cada mitad", "por mitad"]}]
+        tools: {"needed": ["search_rules"], "allowed": ["search_rules"]}
+        source: "rules"
+        max_llm_calls: 4
+        note: "uno por periodo"
+
+- id: s9_b127_prorroga
+  stratum: S9
+  holdout: false
+  requires: ["kb:fifa-futsal-laws-2025-26"]
+  capability: v1
+  select: {}
+  turns:
+    - user: "¿Cuánto dura un tiempo suplementario?"
+      expect:
+        behavior: "answer"
+        facts: [{"kind": "text_any", "any": ["5 minutos", "cinco minutos"]}]
+        tools: {"needed": ["search_rules"], "allowed": ["search_rules"]}
+        source: "rules"
+        max_llm_calls: 4
+        note: "dos periodos de 5 minutos"
+
+- id: s9_b127_sancion_agresion_rffm
+  stratum: S9
+  holdout: false
+  requires: ["kb:fifa-futsal-laws-2025-26"]
+  capability: v1
+  select: {}
+  turns:
+    - user: "¿Cuántos partidos de sanción hay por agredir a un árbitro en la RFFM?"
+      expect:
+        behavior: "abstain"
+        forbid_any_score: true
+        tools: {"needed": ["search_rules"], "allowed": ["search_rules"]}
+        source: "rules"
+        max_llm_calls: 4
+        note: "el código disciplinario de la RFFM no está indexado: no debe inventar una cifra"
+
+- id: s9_b127_hora_tercera
+  stratum: S9
+  holdout: false
+  requires: ["kb:fifa-futsal-laws-2025-26"]
+  capability: v1
+  select: {}
+  turns:
+    - user: "¿A qué hora se juegan los partidos de Tercera División?"
+      expect:
+        behavior: "abstain"
+        forbid_any_score: true
+        tools: {"needed": ["search_rules"], "allowed": ["search_rules"]}
+        source: "rules"
+        max_llm_calls: 4
+        note: "no hay horarios generales por división en los datos: no debe inventar"
+
+- id: s9_b127_inscritos_acta_rffm
+  stratum: S9
+  holdout: false
+  requires: ["kb:fifa-futsal-laws-2025-26"]
+  capability: v1
+  select: {}
+  turns:
+    - user: "¿Cuántos jugadores puede inscribir un club en el acta de la RFFM?"
+      expect:
+        behavior: "abstain"
+        forbid_any_score: true
+        tools: {"needed": ["search_rules"], "allowed": ["search_rules"]}
+        source: "rules"
+        max_llm_calls: 4
+        note: "normativa de la RFFM no indexada; puede citar las Reglas de Juego indicando la fuente (revisión humana)"
+
+- id: s9_b127_mundial
+  stratum: S9
+  holdout: false
+  requires: ["kb:fifa-futsal-laws-2025-26"]
+  capability: v1
+  select: {}
+  turns:
+    - user: "¿Quién ganó el último Mundial de futsal?"
+      expect:
+        behavior: "abstain"
+        forbid_any_score: true
+        tools: {"allowed": ["search_rules"]}
+        source: "rules"
+        max_llm_calls: 4
+        note: "fuera de los datos de Futsito: no debe responder de memoria"
+
+- id: s10_b127_arb_literal_martinez_montoro
+  stratum: S10
+  holdout: false
+  requires: ["officials"]
+  capability: v2
+  select:
+    ref: {"kind": "referee", "name_like": "MARTINEZ MONTORO"}
+  turns:
+    - user: "Cuales son los ultimos partidos que ha pitado el arbitro Eduardo Martinez Montoro?"
+      expect:
+        behavior: "abstain"
+        max_llm_calls: 6
+        forbid_any_score: true
+        v2: {"behavior": "answer", "facts": [{"kind": "names", "value": "{ref.sample_home}"}], "note": "v2: partidos de las actas en las que consta como árbitro; pregunta literal del responsable (sin tildes)"}
+
+- id: s10_b127_jug_dosa_juvenil_senior
+  stratum: S10
+  holdout: false
+  requires: ["players"]
+  capability: v2
+  select:
+    club: {"kind": "club_multi", "name_like": "DOSA"}
+  turns:
+    - user: "¿Me podrias decir que jugadores del dosa juvenil han jugado partidos con el dosa senior?"
+      expect:
+        behavior: "abstain"
+        max_llm_calls: 6
+        v2: {"behavior": "answer", "human_review": true, "note": "sin verdad SQL automática: jugadores de las actas del juvenil que también constan en actas del senior del mismo club (revisión humana)"}
+
+- id: s3_b127_equipo_rival_resultado
+  stratum: S3
+  holdout: false
+  requires: ["results", "standings"]
+  capability: v1
+  select:
+    team: {kind: "team", unique_in_snapshot: true, with: ["standings", "finished"]}
+  turns:
+    - user: "¿Contra quién jugó {team.name} su último partido?"
+      expect:
+        behavior: "answer"
+        facts: [{kind: "name", value: "{team.last_match.rival}"}]
+        tools: {needed: ["list_matches"], allowed: ["find_teams", "get_data_freshness", "list_competitions", "list_groups", "list_matches", "list_rounds", "list_teams"]}
+    - user: "¿y cómo acabó?"
+      expect:
+        behavior: "answer"
+        facts: [{kind: "score", value: "{team.last_match.score}"}]
+        tools: {needed: ["list_matches"], allowed: ["find_teams", "get_data_freshness", "list_competitions", "list_groups", "list_matches", "list_rounds", "list_teams"]}

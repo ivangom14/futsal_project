@@ -41,7 +41,8 @@ def new_cases(split: str = "all") -> list[Case]:
 
 
 def test_s10_size_split_and_literal_questions() -> None:
-    s10 = [c for c in load_cases(ROOT, "all") if c.stratum == "S10"]
+    # batería S10 cerrada (las preguntas nuevas del bench-127, en bench127_extra.dev.yaml, se cuentan aparte)
+    s10 = [c for c in load_cases(ROOT, "all") if c.stratum == "S10" and c.source_file.startswith("s10_multiambito")]
     assert len(s10) == 60 and sum(c.holdout for c in s10) == 18  # 30 % holdout
     assert all(c.source_file == ("s10_multiambito.holdout.yaml" if c.holdout else "s10_multiambito.dev.yaml") for c in s10)
     dev_questions = {t.user for c in s10 if not c.holdout for t in c.turns}
@@ -50,7 +51,7 @@ def test_s10_size_split_and_literal_questions() -> None:
     assert counts(s10)["S10"] == {"cases": len(s10), "turns": sum(len(c.turns) for c in s10), "holdout": 18}
     convs = [c for c in s10 if c.conversation]
     assert len(convs) >= 8  # los seguimientos son conversaciones multi-turno
-    extras = [c for c in load_cases(ROOT, "all") if "_extra" in c.source_file]
+    extras = [c for c in load_cases(ROOT, "all") if "_extra" in c.source_file and not c.source_file.startswith("bench127")]
     assert 35 <= len(extras) <= 45 and not any(c.holdout for c in extras)  # solo dev: los holdout sellados no se tocan
 
 
@@ -101,8 +102,8 @@ def test_every_new_case_has_sql_truth_and_a_v2_target_when_v1_cannot_answer() ->
                 assert v2 and v2["behavior"] in ("answer", "clarify", "abstain"), c.id
                 assert t.expect["behavior"] in ("abstain", "clarify")  # en v1: abstención honesta o aclaración, nunca un dato
                 if v2["behavior"] == "answer":
-                    assert v2.get("facts"), c.id  # el hecho esperado sale de la verdad SQL
-                    assert all(PLACEHOLDER.search(str(f.get("value", f.get("any")))) for f in v2["facts"]
+                    assert v2.get("facts") or v2.get("human_review"), c.id  # el hecho esperado sale de la verdad SQL (o se revisa a mano)
+                    assert all(PLACEHOLDER.search(str(f.get("value", f.get("any")))) for f in v2.get("facts", [])
                                if f["kind"] != "text_any"), c.id
         if c.capability == "v2":
             assert c.stratum == "S10"
@@ -157,10 +158,10 @@ def test_person_fragment_selectors_with_invented_names(world: World) -> None:
 
 def test_plan_counts_the_new_stratum(synthetic: Any) -> None:
     plan = build_plan("futsito-v1", "all", 1, synthetic.root)
-    assert plan["by_stratum"]["S10"] == {"cases": 60, "turns": plan["by_stratum"]["S10"]["turns"], "holdout": 18}
+    assert plan["by_stratum"]["S10"] == {"cases": 62, "turns": plan["by_stratum"]["S10"]["turns"], "holdout": 18}  # 60 + 2 del bench-127
     assert plan["by_stratum"]["S10"]["turns"] > 60 and set(plan["by_stratum"]) >= {f"S{i}" for i in range(1, 11)}
     dev = build_plan("futsito-v1", "dev", 1, synthetic.root)
-    assert dev["by_stratum"]["S10"]["cases"] == 42 and dev["by_stratum"]["S10"]["holdout"] == 0
+    assert dev["by_stratum"]["S10"]["cases"] == 44 and dev["by_stratum"]["S10"]["holdout"] == 0
 
 
 # ----------------------------------------------------------------------------- verdad SQL

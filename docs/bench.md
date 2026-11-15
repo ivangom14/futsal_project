@@ -61,6 +61,41 @@ Las respuestas esperadas **no se escriben a mano**: salen de la verdad SQL del s
 2. añade su `id` con `category` y `complexity` a `evals/bench/suites/bench-v1.json` (o crea otra suite, p. ej. `bench-v2.json`,
    y súbele la `version`); los informes registran nombre y versión de la suite.
 
+## Set de 100 preguntas (`bench-100`) y su revisión
+
+`evals/bench/suites/bench-100.json`: 100 casos de desarrollo (126 turnos) de 13 categorías, con 17 conversaciones encadenadas, que se
+ejecutan con la respuesta REAL del modelo como historial del siguiente turno. Se revisa en `evals/bench/review/bench-100-revision.csv`
+(Excel/LibreOffice, separador «;»): una fila por turno; las preguntas son plantillas (`{team.name}` se rellena en cada ejecución con un
+equipo real elegido por el criterio de la columna `como_se_elige_la_entidad`); las respuestas correctas salen de los datos y no se
+escriben a mano. Para quitar un caso, `incluir` = no en su primera fila; para proponer uno nuevo, una fila con `incluir` = si, sin `id`
+y con la pregunta (y lo que esperas en `notas_revision`). Después:
+`python -m futsal.evals.bench import-suite evals/bench/review/bench-100-revision.csv --name bench-100` (sube la versión de la suite;
+las preguntas nuevas quedan en `bench-100-nuevas.json` hasta definir su caso en `evals/datasets/futsito-v1`). Se ejecuta con
+`--suite bench-100`.
+
+### `bench-127`: el set revisado por el responsable
+
+`evals/bench/suites/bench-127.json` (127 casos, 152 turnos) es la revisión de `bench-100`, en el orden y con las categorías de la
+hoja del responsable. Incluye los 100 casos; `s3_equipo_resultado_rival_puntos` pierde su tercer turno y pasa a ser
+`s3_b127_equipo_rival_resultado`. Añade 27 preguntas nuevas en `evals/datasets/futsito-v1/bench127_extra.dev.yaml`:
+25 de reglamento, el árbitro «Eduardo Martinez Montoro» y los jugadores del Dosa juvenil que han jugado con el senior. Su CSV con ids es
+`evals/bench/review/bench-127-revision.csv` (`import-suite … --name bench-127`). Las preguntas que no tienen verdad automática completa
+(«revisión humana» en la nota) se deciden en el Excel de revisión.
+
+## Excel de revisión de respuestas
+
+`python -m futsal.evals.bench export <run>` (necesita `pip install -e '.[bench]'`, que instala openpyxl) escribe `<run>/respuestas.xlsx`.
+Tiene una pestaña por modelo y una fila por turno y repetición:
+- `pregunta`: el texto real enviado, con el equipo o jugador ya puesto;
+- `respuesta`: la respuesta EXACTA del modelo;
+- `se esperaba`: la conducta y los datos de la verdad SQL;
+- `automático`: bien, parcial, mal, mal grave, revisar o no evaluable, con su color;
+- `motivo automático` y `herramientas`;
+- `humano`: desplegable bien/parcial/mal;
+- `comentario`.
+
+Las filas «no evaluable» dejan la plantilla sin rellenar: el snapshot o la BD no tienen esa entidad y no se preguntó al modelo.
+
 ## Ejecutar una comparación
 
 Dos fuentes de datos:

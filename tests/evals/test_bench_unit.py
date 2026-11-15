@@ -295,3 +295,38 @@ def test_projection_assumptions_say_whether_prompt_cache_was_used() -> None:
     assert "sin caché de prompts" in model_stats(rows, plain, None)["cost"]["projection_assumptions"]
     with_cache = model_stats(turn_rows({"records": [rec("a", "correct")]}, cached, CASES), cached, None)["cost"]["projection_assumptions"]
     assert any(x.startswith("con caché de prompts") for x in with_cache) and "sin caché de prompts" not in with_cache
+
+
+def test_review_csv_round_trip_removals_and_new_questions(tmp_path: Path) -> None:
+    from futsal.evals.bench.suites import import_suite
+
+    (tmp_path / "evals").mkdir()
+    (tmp_path / "evals" / "datasets").symlink_to(ROOT / "evals" / "datasets")
+    original = json.loads((ROOT / "evals/bench/suites/bench-100.json").read_text(encoding="utf-8"))
+    review = (ROOT / "evals/bench/review/bench-100-revision.csv").read_text(encoding="utf-8-sig")
+    assert len(original["cases"]) == 100 and sum(c["turns"] > 1 for c in original["cases"]) >= 15
+    csv_path = tmp_path / "rev.csv"
+    csv_path.write_text(review, encoding="utf-8-sig")
+    same = import_suite(csv_path, "copia", "1.0", root=tmp_path)  # sin tocar: los mismos 100 casos y en el mismo orden
+    copy = json.loads(Path(same["path"]).read_text(encoding="utf-8"))
+    assert [c["id"] for c in copy["cases"]] == [c["id"] for c in original["cases"]] and same["new_questions"] == []
+    first_id = original["cases"][0]["id"]
+    edited = review.replace(f"si;{first_id};", f"no;{first_id};", 1)
+    edited += "si;;Clasificación;sencilla;1/1;¿Cuántos empates lleva {team.name}?;responde con los datos;;;;nueva del responsable\n"
+    csv_path.write_text(edited, encoding="utf-8-sig")
+    res = import_suite(csv_path, "copia", root=tmp_path)
+    assert res["cases"] == 99 and res["version"] == "1.1" and first_id not in Path(res["path"]).read_text(encoding="utf-8")
+    assert len(res["new_questions"]) == 1 and json.loads(Path(res["new_file"]).read_text(encoding="utf-8"))[0]["pregunta"].startswith("¿Cuántos empates")
+
+
+def test_bench127_is_the_reviewed_set_with_its_csv_in_sync() -> None:
+    from futsal.evals.bench.suites import read_review
+    from futsal.evals.datasets import load_cases
+
+    suite = json.loads((ROOT / "evals/bench/suites/bench-127.json").read_text(encoding="utf-8"))
+    ids = [c["id"] for c in suite["cases"]]
+    dev = {c.id: c for c in load_cases(ROOT, "dev")}
+    assert len(ids) == len(set(ids)) == 127 and sum(c["turns"] for c in suite["cases"]) == 152 and set(ids) <= set(dev)
+    assert all(dev[c["id"]].stratum == c["stratum"] and len(dev[c["id"]].turns) == c["turns"] for c in suite["cases"])
+    assert "s3_equipo_resultado_rival_puntos" not in ids and "s3_b127_equipo_rival_resultado" in ids  # el tercer turno se quitó
+    assert read_review(ROOT / "evals/bench/review/bench-127-revision.csv") == (ids, [])

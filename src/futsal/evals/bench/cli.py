@@ -73,10 +73,17 @@ def build_parser() -> argparse.ArgumentParser:
     r = sub.add_parser("report", help="regenera summary.json y report.md de una ejecución")
     r.add_argument("run_dir", type=Path)
     r.add_argument("--gap", type=float, default=0.05, help="diferencia de exactitud tolerada como «comparable» (0.05 = 5 puntos)")
+    im = sub.add_parser("import-suite", help="crea o actualiza una suite desde el CSV de revisión (columna incluir = si)")
+    im.add_argument("csv", type=Path)
+    im.add_argument("--name", default="bench-100", help="nombre de la suite (evals/bench/suites/<nombre>.json)")
+    im.add_argument("--version", default=None, help="versión nueva (por defecto, la anterior + 0.1)")
     rg = sub.add_parser("regrade", help="recalifica una ejecución con el calificador actual y la evidencia guardada (SIN llamar al LLM)")
     rg.add_argument("run_dir", type=Path)
     rg.add_argument("--db", default=None, help="BD del snapshot ya restaurada (si no, se usa DATABASE_URL para restaurarlo o leer la BD viva)")
     rg.add_argument("--output", type=Path, default=None, help="directorio nuevo (por defecto <run>-regraded)")
+    ex = sub.add_parser("export", help="Excel de revisión: pregunta, respuesta exacta, veredicto automático y columna «humano»")
+    ex.add_argument("run_dir", type=Path)
+    ex.add_argument("--output", type=Path, default=None, help="fichero .xlsx (por defecto <run>/respuestas.xlsx)")
     b = sub.add_parser("blind", help="prepara la evaluación ciega para Opus")
     b.add_argument("run_dir", type=Path)
     b.add_argument("--seed", type=int, default=7)
@@ -189,6 +196,16 @@ def cmd_report(a: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_import_suite(a: argparse.Namespace) -> int:
+    from futsal.evals.bench.suites import import_suite
+    res = import_suite(a.csv, a.name, a.version)
+    print(f"suite {res['name']} v{res['version']}: {res['cases']} casos ({res['turns']} turnos) en {res['path']} · por categoría {res['by_category']}")
+    if res["new_questions"]:
+        print(f"{len(res['new_questions'])} preguntas nuevas sin caso todavía (en {res['new_file']}): hay que definir su respuesta esperada "
+              "en evals/datasets/futsito-v1 antes de poder calificarlas")
+    return 0
+
+
 def cmd_regrade(a: argparse.Namespace) -> int:
     from futsal.evals.bench.regrade import regrade_run
     from futsal.evals.bench.report import build_report
@@ -201,6 +218,13 @@ def cmd_regrade(a: argparse.Namespace) -> int:
         print(f"  {mid}: {m['changed']} veredictos cambian · exactitud {acc_before}/{n} → {acc_after}/{n} · críticos "
               f"{m['critical'][0]} → {m['critical'][1]}" + (f" · {m['without_evidence']} turnos sin evidencia (sin recalificar)"
                                                            if m["without_evidence"] else ""))
+    return 0
+
+
+def cmd_export(a: argparse.Namespace) -> int:
+    from futsal.evals.bench.export import export_review
+    res = export_review(a.run_dir, a.output)
+    print(f"{res['path']}: " + ", ".join(f"{m} {n} filas" for m, n in res["rows"].items()) + " · rellena la columna «humano» (bien/parcial/mal)")
     return 0
 
 
@@ -238,7 +262,7 @@ def cmd_history(a: argparse.Namespace) -> int:
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
-    handlers = {"models": cmd_models, "plan": cmd_plan, "run": cmd_run, "report": cmd_report, "regrade": cmd_regrade, "blind": cmd_blind,
+    handlers = {"models": cmd_models, "plan": cmd_plan, "run": cmd_run, "report": cmd_report, "import-suite": cmd_import_suite, "regrade": cmd_regrade, "export": cmd_export, "blind": cmd_blind,
                 "reveal": cmd_reveal, "history": cmd_history}
     try:
         return handlers[args.cmd](args)

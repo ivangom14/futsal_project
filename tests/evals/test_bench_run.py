@@ -92,6 +92,20 @@ def test_full_comparison_report_and_blind_evaluation(root: Path, synthetic: Any,
         assert needle in report
     assert json.loads((run / "summary.json").read_text(encoding="utf-8"))["stats"]["bueno"]["model"]["model"] == "sim-bueno"
 
+    # Excel de revisión humana: una fila por turno con la respuesta exacta y la columna «humano» vacía con desplegable
+    openpyxl = pytest.importorskip("openpyxl")
+    assert cli.main(["export", str(run)]) == 0
+    wb = openpyxl.load_workbook(run / "respuestas.xlsx")
+    assert wb.sheetnames == meta["model_order"]
+    ws = wb["bueno"]
+    head = [c.value for c in ws[1]]
+    assert head[:6] == ["caso", "categoría", "turno", "rep", "pregunta", "respuesta"] and head[-2:] == ["humano", "comentario"]
+    recs = json.loads((run / "bueno" / "results.json").read_text(encoding="utf-8"))["records"]
+    assert ws.max_row - 1 == len(recs)
+    assert all("{" not in str(q.value) for q, v in zip(ws["E"][1:], ws["H"][1:]) if v.value != "no evaluable")  # pregunta ya resuelta
+    first = next(r for r in recs if r["case_id"] == ws["A2"].value and r["turn"] == 0)
+    assert ws["F2"].value == first["answer"] and ws["H2"].value and ws["K2"].value is None and ws.data_validations.dataValidation
+
     info = build_blind(run, seed=3)
     blind = run / "blind"
     items_md = (blind / "items.md").read_text(encoding="utf-8")
@@ -255,3 +269,10 @@ def test_regrade_without_llm_uses_stored_evidence_and_never_overwrites(root: Pat
     assert json.loads(res_path.read_text(encoding="utf-8"))["records"]  # el original sigue ahí, intacto
     with pytest.raises(ValueError, match="nunca sobrescribe"):
         regrade_run(tmp_path / "rg", synthetic.url, None, root=root)
+
+
+def test_bench_100_suite_runs_end_to_end(root: Path, synthetic: Any, tmp_path: Path) -> None:
+    meta = run_bench(cfg(root, synthetic, tmp_path, [model("bueno")], run_id="b100", suite="bench-100", dry_run=True, budget_usd=None))
+    assert len(meta["case_ids"]) == 100 and meta["models_status"]["bueno"]["status"] == "complete"
+    res = json.loads((tmp_path / "b100" / "bueno" / "results.json").read_text(encoding="utf-8"))
+    assert len({r["case_id"] for r in res["records"]}) == 100 and sum(meta["cases"][c]["turns"] > 1 for c in meta["case_ids"]) >= 15
