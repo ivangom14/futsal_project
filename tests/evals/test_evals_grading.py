@@ -295,3 +295,24 @@ def test_names_written_side_by_side_are_not_invented_but_real_inventions_still_a
     critical, _ = unknown_names(turn, invented, payloads, catalog_names=[])
     assert any("ATLETICO INVENTADO" in c for c in critical)  # nombre inexistente: sigue siendo crítico
     assert any("Pablo Inter" in c for c in critical)  # palabras sueltas de nombres distintos no componen un nombre válido
+
+
+def test_real_run_false_positives_are_not_graded_as_inventions() -> None:
+    """Falsos positivos vistos en la primera ejecución de bench-127: opciones reales del catálogo en una aclaración, «ningún partido» = 0,
+    una aclaración que se parece al ejemplo del prompt y «para un encuentro» (artículo, no una sanción)."""
+    from futsal.agent.criteria import invented_quantities
+    from futsal.evals.selector import ResolvedTurn
+
+    catalog = ["COPA SENIOR I - fase previa- FS", "PRIMERA AFICIONADO FS", "SENIOR I", "C.D.E. LAS MINAS - BAR REBUJITO 'B'"]
+    clarify = ResolvedTurn(user="¿Cuántos puntos lleva C.D.E. LAS MINAS - BAR REBUJITO 'B'?", behavior="clarify",
+                           clarify_mentions=["PRIMERA AFICIONADO FS"])
+    ans = ("«C.D.E. LAS MINAS - BAR REBUJITO 'B'» juega en varias competiciones. ¿A cuál de estas competiciones te refieres: "
+           "«COPA SENIOR I - fase previa- FS»; «PRIMERA AFICIONADO FS», o a otra?")
+    g = grade_turn(clarify, ans, [], [], 1, [], catalog)
+    assert g.verdict == "correct", g.reasons
+    zero = ResolvedTurn(user="¿Cuántos partidos ha ganado C.D. EUROPEO?", behavior="answer",
+                        facts=[{"kind": "number", "value": "0", "label": "partidos ganados"}], known_names=["C.D. EUROPEO"])
+    g = grade_turn(zero, "El C.D. EUROPEO no ha ganado ningún partido: los 4 que ha disputado son derrotas.", [], [], 2, [], ["C.D. EUROPEO"])
+    assert g.verdict == "correct", g.reasons
+    assert invented_quantities("El número mínimo de jugadores para un encuentro lo fijan las federaciones.") == []
+    assert invented_quantities("Le cayó un partido de sanción.") == ["un partido"]

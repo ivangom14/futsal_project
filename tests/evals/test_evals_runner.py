@@ -54,7 +54,8 @@ def test_end_to_end_produces_complete_report(synthetic: Any, dev_world: World, t
         assert needle in report
     # el oráculo responde con los hechos esperados: lo evaluable sale correcto (salvo las reglas que el KB sintético no contiene)
     graded = {(r["case_id"], r["turn"]): r for r in results["records"] if r["rep"] == 0 and r["verdict"] in ("correct", "partial", "fail", "critical")}
-    bad = {k: (v["verdict"], v["reason"][:100]) for k, v in graded.items() if v["verdict"] != "correct" and k[0] not in ("s9_regla_roja_mano", "s9_regla_sexta_falta")}
+    bad = {k: (v["verdict"], v["reason"][:100]) for k, v in graded.items() if v["verdict"] != "correct" and k[0] not in ("s9_regla_roja_mano", "s9_regla_sexta_falta")
+           and not k[0].startswith("s9_b127_")}  # preguntas de reglamento del bench-127: el KB sintético no tiene esas reglas
     assert not bad, bad
     assert graded[("s9_regla_duracion_mitad", 0)]["verdict"] == "correct"  # reglamento vía search_rules sobre el KB sintético
     assert graded[("s1_puntos", 0)]["tools_used"] == ["get_standings"] and graded[("s1_puntos", 0)]["metrics"]["llm_calls"] == 2

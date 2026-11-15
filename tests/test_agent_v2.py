@@ -283,6 +283,28 @@ def test_deterministic_context_second_scope_question_assumes_and_declares() -> N
     assert res.run is not None and res.run.context["status"] in ("assume", "act")
 
 
+@pytest.mark.parametrize(("q", "tool", "args"), [
+    ("¿Qué partidos hay el sábado 14 de noviembre?", "matches_by_date", {"date_from": "2026-11-14"}),
+    ("¿Qué partidos ha arbitrado Guillermo Redondo Juarez?", "find_official", {"name": "Guillermo Redondo Juarez"}),
+    ("¿Qué equipo senior tiene más victorias?", "teams_ranking", {"category": "senior", "metric": "wins"}),
+    ("¿Qué equipos tiene el CLUB PILARISTAS?", "club_overview", {"name": "PILARISTAS"}),
+])
+def test_queries_that_span_every_competition_never_ask_which_one(q: str, tool: str, args: dict[str, Any]) -> None:
+    """Personas, un día, una categoría entera o un club: sin «todos» explícito, tampoco se pregunta la competición (v2)."""
+    llm = Rec([LLMResponse(CLARIFY, []), call(tool, **args), LLMResponse("ok", [])])
+    res = ask(llm, q)
+    assert last_user(llm, 1) == BROAD_ACT_MESSAGE and res.answer == "ok" and res.tool_calls == 1
+
+
+def test_unknown_proper_name_is_searched_instead_of_asking_the_competition() -> None:
+    q = "¿Cuántos puntos tiene Real Sala Aranjuez Norte?"
+    llm = Rec([call("club_overview", name="Real Sala Aranjuez Norte"), LLMResponse("No consta ningún equipo con ese nombre.", [])])
+    res = ask(llm, q, [], context_mode="deterministic")
+    assert res.run is not None and res.run.context["status"] == "act" and res.tool_calls == 1
+    legacy = ask(Rec([LLMResponse(OFF_TOPIC_MESSAGE, [])]), q, [], arch="legacy", context_mode="deterministic")
+    assert legacy.run is not None and legacy.run.context["status"] == "ask"  # legacy sin cambios
+
+
 # --- 5. premisas y sugerencias -----------------------------------------------------------------------------------------------------
 def test_premise_note_forces_verification() -> None:
     llm = Rec([call("find_player", name="Pablo Quintanar"), LLMResponse("No consta.", [])])
@@ -338,6 +360,16 @@ def test_agent_and_mcp_never_touch_the_database() -> None:
     offenders = [str(f.relative_to(root)) for pkg in ("agent", "mcp_server") for f in (root / pkg).rglob("*.py")
                  if str(f.relative_to(root)) not in allowed and forbidden.search(f.read_text(encoding="utf-8"))]
     assert offenders == [], f"acceden a la BD sin pasar por la API: {offenders}"
+
+
+def test_empty_final_answer_after_tools_is_asked_once_for_a_short_answer() -> None:
+    from futsal.agent.agent import EMPTY_ANSWER_MESSAGE
+    llm = Rec([call("matches_by_date", date_from="2026-11-14"), LLMResponse("", []), LLMResponse("Hay 3 partidos.", [])])
+    res = ask(llm, "Dime todos los partidos del sábado 14 de noviembre")
+    assert llm.seen[-1][-1].text == EMPTY_ANSWER_MESSAGE and res.answer == "Hay 3 partidos." and res.tool_calls == 1
+    twice = ask(Rec([call("matches_by_date", date_from="2026-11-14"), LLMResponse("", []), LLMResponse("", [])]),
+                "Dime todos los partidos del sábado 14 de noviembre")
+    assert twice.answer == ""  # una sola vez: no hay bucle
 
 
 def test_insistent_clarification_is_counted_in_the_trace() -> None:

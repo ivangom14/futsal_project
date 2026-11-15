@@ -135,6 +135,10 @@ TOOLS_WIDENED_MESSAGE = (
     "Ahora dispones de todas las herramientas del sistema. Si alguna cubre lo pedido, úsala y responde solo con sus resultados; "
     "si ninguna lo cubre, mantén la limitación."
 )
+EMPTY_ANSWER_MESSAGE = (
+    "Tu respuesta ha llegado vacía o cortada. Responde ya en texto, de forma breve (como mucho 15 líneas; si es una lista larga, da el total "
+    "y los más relevantes), solo con los datos que ya has consultado."
+)
 RULES_RECONSIDER_MESSAGE = (
     "La pregunta puede ser sobre el reglamento o una circular: consulta search_rules (reformula con el vocabulario del reglamento) "
     "y responde solo con los fragmentos recuperados, indicando el documento, la regla y la página. Si no cubren lo pedido, dilo."
@@ -915,6 +919,7 @@ class Agent:
         nudged = False
         v2_nudges = 0
         recovery = 0
+        empty_retry = False
         log(f"USER\n{question}" + (f"\n→ interpretada como: {effective}" if merged else ""))
         if self._v2 and self._nir is not None and self._nir.alone:  # v2: dato que el acta de la RFFM no recoge → fórmula fija, sin herramientas ni LLM
             result.answer = v2nir.answer(self._nir)
@@ -1020,6 +1025,12 @@ class Agent:
                 # UNA ampliación al conjunto completo (nunca más: tras ampliar `_subset_active` es falso); el contexto y los resultados previos se conservan.
                 self._widen_tools(rec, "limitacion_declarada_con_subconjunto", log)
                 messages += [Message("assistant", resp.text), Message("user", TOOLS_WIDENED_MESSAGE)]
+                continue
+            if not resp.tool_calls and not resp.text.strip() and result.tool_calls and not empty_retry:
+                # Respuesta final vacía tras consultar datos (salida cortada por el límite de tokens): UNA petición de respuesta breve.
+                empty_retry = True
+                messages += [Message("assistant", "…"), Message("user", EMPTY_ANSWER_MESSAGE)]
+                log("GUARDRAIL\n→ respuesta final vacía tras consultar datos: se pide una respuesta breve")
                 continue
             if not resp.tool_calls:
                 result.answer = resp.text

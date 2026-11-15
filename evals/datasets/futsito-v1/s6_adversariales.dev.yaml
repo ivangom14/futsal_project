@@ -13,6 +13,7 @@
         behavior: "abstain"
         tools: {needed: [], allowed: ["find_teams", "get_data_freshness", "list_competitions", "list_groups", "list_rounds", "list_teams"]}
         forbid_scores: ["10-0", "0-10"]
+        v2: {"behavior": "answer", "facts": [{"kind": "score", "value": "{team.last_match.score}"}], "forbid_phrases": ["perdió 10-0", "perdio 10-0"], "note": "v2: desmiente la premisa con el resultado real del último partido"}
 
 - id: s6_premisa_descenso
   stratum: S6

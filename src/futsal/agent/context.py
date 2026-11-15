@@ -22,6 +22,7 @@ from futsal.agent.entities import GENERIC, TeamCatalog, _matches, normalize, sca
 from futsal.agent.intent import LABEL, classify
 from futsal.agent.interpreter import Interpretation
 from futsal.agent.memory import Turn, asks_for_input, resolve_pending
+from futsal.agent.v2.rules import multi_scope_kind, names_something
 from futsal.domain.competitions import Competition, fold
 from futsal.domain.resolver import Parsed, Resolver, SeasonScope
 
@@ -30,6 +31,15 @@ MAX_OPTIONS = 8
 TEAM_INTENTS = ("next_match", "last_result")
 NOTE_HEAD = "\n\n[Nota de la aplicación, no escrita por el usuario; verificada con el catálogo]"
 INFERRED = frozenset({"age", "kind", "sibling", "other", "ordinal", "interpreter", "team_context", "narrowed"})
+# Palabras corrientes de una pregunta: nunca se «corrigen» hacia un nombre de equipo («cuantos» no es una errata de «Cantos»).
+NOT_TYPOS = frozenset({
+    "cuantos", "cuantas", "cuanto", "cuanta", "cuando", "cuales", "quienes", "donde", "contra", "contrario", "partido", "partidos",
+    "puntos", "goleador", "goleadores", "jugador", "jugadores", "jugado", "jugando", "juegan", "juega", "equipo", "equipos", "arbitro",
+    "arbitros", "arbitrado", "pitado", "resultado", "resultados", "clasificacion", "posicion", "victorias", "derrotas", "empates",
+    "encajado", "marcado", "marcados", "semana", "proximo", "proxima", "ultimo", "ultima", "tienen", "tiene", "quedado", "quedo",
+    "puesto", "categoria", "juvenil", "senior", "femenino", "femenina", "competicion", "competiciones", "sabado", "domingo", "viernes",
+    "partidas", "minutos", "segundos", "reglamento",
+})
 ORDINAL_FILLER = frozenset({"la", "el", "lo", "las", "los", "de", "esa", "ese", "opcion", "opciones", "primera", "primero", "segunda", "segundo", "tercera", "tercero",
                             "cuarta", "cuarto", "ultima", "ultimo", "otra", "otro", "y", "quiero", "dame", "mejor", "pues", "ah"})
 
@@ -100,8 +110,9 @@ class ContextEngine:
         tokens = normalize(text).split()
         fixed = []
         for t in tokens:  # erratas evidentes en un nombre de equipo («Valdemoru»): solo hacia una palabra del catálogo y nunca sobre vocabulario de competición
-            near = difflib.get_close_matches(t, [w for w in self._team_tokens if len(w) >= 6 and w[0] == t[0]], 1, 0.88) if (
-                len(t) >= 6 and t not in self.teams.token_names and t not in self.resolver.words and t not in self.resolver.protected) else []
+            near = difflib.get_close_matches(t, [w for w in self._team_tokens if len(w) >= 6 and w[:2] == t[:2]], 1, 0.88) if (
+                len(t) >= 6 and t not in self.teams.token_names and t not in self.resolver.words and t not in self.resolver.protected
+                and t not in NOT_TYPOS) else []
             fixed.append(near[0] if near else t)
         chosen, _, generic = scan(fixed, self.teams)
         ambiguous = sorted({n for _, _, form, names in _matches(fixed, self.teams) if len(names) > 1 for n in names})
@@ -216,7 +227,12 @@ class ContextEngine:
     def understand(self, effective: str, raw: str, state: ConversationState, *, has_history: bool = False, interp: Interpretation | None = None,
                    v2: bool = False, broad_scope: bool = False) -> Understanding:
         u = self._understand(effective, raw, state, has_history=has_history, interp=interp)
-        return self._v2_policy(u, state, broad_scope) if v2 else u
+        if not v2:
+            return u
+        if u.status == "ask" and u.ask_about == "team" and multi_scope_kind(effective) in ("player", "referee"):
+            # «en qué equipo juega diego martin»: el nombre de una persona no es un equipo ambiguo («GREDOS SAN DIEGO»); se busca a la persona
+            u.ask_about, u.option_kind, u.options = "scope", None, []
+        return self._v2_policy(u, state, broad_scope or (u.ask_about == "scope" and names_something(raw or effective)))
 
     def _v2_policy(self, u: Understanding, state: ConversationState, broad_scope: bool) -> Understanding:
         """Solo con AGENT_ARCH=v2. Alcance amplio explícito («todos/todas…») o aclaración de ámbito repetida: `ask` pasa a `act`/`assume` (se consulta con las

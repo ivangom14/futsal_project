@@ -75,7 +75,7 @@
     - user: "¿Cuándo se pita córner?"
       expect:
         behavior: "answer"
-        facts: [{"kind": "text_any", "any": ["linea de meta"]}]
+        facts: [{"kind": "text_any", "any": ["linea de meta", "linea de fondo"]}]
         tools: {"needed": ["search_rules"], "allowed": ["search_rules"]}
         source: "rules"
         max_llm_calls: 4
@@ -354,18 +354,17 @@
 - id: s9_b127_hora_tercera
   stratum: S9
   holdout: false
-  requires: ["kb:fifa-futsal-laws-2025-26"]
+  requires: ["results"]
   capability: v1
   select: {}
   turns:
     - user: "¿A qué hora se juegan los partidos de Tercera División?"
       expect:
-        behavior: "abstain"
-        forbid_any_score: true
-        tools: {"needed": ["search_rules"], "allowed": ["search_rules"]}
-        source: "rules"
-        max_llm_calls: 4
-        note: "no hay horarios generales por división en los datos: no debe inventar"
+        behavior: "answer"
+        facts: [{"kind": "text_any", "any": ["a las", ":00", ":15", ":30", ":45"]}]
+        tools: {"needed": ["list_matches|matches_by_date"]}
+        max_llm_calls: 6
+        note: "revisión humana: horarios de los próximos partidos de TERCERA DIVISIÓN FS según el calendario (no hay un horario fijo por división)"
 
 - id: s9_b127_inscritos_acta_rffm
   stratum: S9
@@ -386,18 +385,15 @@
 - id: s9_b127_mundial
   stratum: S9
   holdout: false
-  requires: ["kb:fifa-futsal-laws-2025-26"]
+  requires: []
   capability: v1
   select: {}
   turns:
     - user: "¿Quién ganó el último Mundial de futsal?"
       expect:
-        behavior: "abstain"
-        forbid_any_score: true
-        tools: {"allowed": ["search_rules"]}
-        source: "rules"
+        behavior: "offtopic"
         max_llm_calls: 4
-        note: "fuera de los datos de Futsito: no debe responder de memoria"
+        note: "fuera de los datos de Futsito (RFFM y reglas de juego): el aviso de alcance es lo correcto; nunca responder de memoria"
 
 - id: s10_b127_arb_literal_martinez_montoro
   stratum: S10

@@ -123,3 +123,21 @@ def test_standings_exclusion_never_hits_a_question_that_needs_more_than_the_tabl
     assert flagged and all(set(c["needed_tools"]) <= table_tools for c in flagged)
     assert not [c for c in cases if c["intent"] != "standings" and set(c["needed_tools"]) - {"find_teams"} and standings_only(c["question"])
                      and not c["question"].startswith("¿Y ")]
+
+
+def test_common_question_words_are_never_corrected_into_a_team_name() -> None:
+    """«¿cuántos puntos tiene?» no es una errata de «UNION TRES CANTOS»; «Valdemoru» sí lo es de «Valdemoro»."""
+    from futsal.agent.context import ContextEngine
+    from futsal.agent.convstate import ConversationState
+    from futsal.config.competition_aliases import load_dimensions
+    from futsal.domain.competitions import Competition
+
+    comp = Competition(1, "PRIMERA AFICIONADO FS", ((10, "Grupo 1"),))
+    cat = TeamCatalog([TeamEntry(n, comp.name, "Grupo 1", "10") for n in
+                       ("UNION TRES CANTOS FUTBOL SALA", "UNION TRES CANTOS FUTBOL SALA 'B'", "C.D. VALDEMORO", "SALA NORTE")])
+    eng = ContextEngine([comp], load_aliases(), load_dimensions(), cat)
+    state = ConversationState()
+    for q in ("¿cuántos puntos tiene?", "¿Cuántos goles ha marcado Hugo Ferrándiz Olmedilla?", "¿y cuántos ha encajado?"):
+        hit = eng.team_hit(q, state)
+        assert not hit.names and not hit.ambiguous, (q, hit)
+    assert eng.team_hit("¿cómo va el valdemoru?", state).names == ["C.D. VALDEMORO"]

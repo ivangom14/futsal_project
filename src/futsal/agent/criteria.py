@@ -303,7 +303,13 @@ _QUANTITY_RE = re.compile(
 
 def invented_quantities(text: str) -> list[str]:
     """Importes o duraciones de sanción («dos partidos», «60 euros», «€») que un reglamento sin ese dato no puede respaldar."""
-    return sorted({m.group(0).strip() for m in _QUANTITY_RE.finditer(text)})
+    out = set()
+    for m in _QUANTITY_RE.finditer(text):
+        before = text[:m.start()].split()[-1:]  # «para un encuentro», «en un partido»: artículo, no una cantidad de sanción
+        if m.group(0).split()[0].lower() in ("un", "una") and before and before[0].lower() in ("para", "en", "cada", "por", "durante", "de"):
+            continue
+        out.add(m.group(0).strip())
+    return sorted(out)
 
 
 def leaks_prompt(text: str, prompt: str, allowed: str | tuple[str, ...] = "", window: int = 7) -> bool:

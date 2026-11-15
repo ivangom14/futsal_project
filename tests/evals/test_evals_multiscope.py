@@ -115,7 +115,7 @@ def world(synthetic: Any) -> World:
 
 
 # Casos con la frase literal del responsable: se resuelven contra su snapshot real, no contra el sintético (nombres inventados).
-REAL_ONLY = {"s10_jug_literal_silvosa", "s10_arb_literal_inexistente_parecido"}
+REAL_ONLY = {"s10_jug_literal_silvosa", "s10_arb_literal_inexistente_parecido", "s10_b127_arb_literal_martinez_montoro"}  # nombres reales
 
 
 def test_selector_resolves_every_new_case_on_the_synthetic_snapshot(world: World) -> None:

@@ -107,3 +107,15 @@ Durante la transición, la huella del prompt legacy (`prompt_legacy_golden.json`
 - Agente v2 frente a la referencia en Eval v1 (mismo modelo): precisión ≥ en cada estrato, 0 críticos nuevos, ≥ 40 % menos
   tokens de entrada por pregunta y ≥ 30 % menos llamadas al LLM [objetivos, a medir].
 - Prueba de concurrencia: 10 preguntas simultáneas con LLM simulado, sin mezcla de estado entre ellas.
+
+## Alcance amplio sin «todos» (2026-11-16)
+
+Con `AGENT_ARCH=v2`, el agente no pregunta la competición cuando la consulta abarca todas por naturaleza (`v2/rules.multi_scope_kind`). Son las consultas sobre:
+
+- un árbitro;
+- en qué equipo juega una persona;
+- los partidos de un día o de un pabellón;
+- el ranking de una categoría entera;
+- los equipos de un club.
+
+Tampoco la pregunta cuando se nombra algo propio que el catálogo no reconoce (`names_something`). En esos casos se consulta con las herramientas v2 y se declara lo asumido. La ambigüedad real de entidad (varios clubes o jugadores con el mismo nombre) se sigue preguntando.

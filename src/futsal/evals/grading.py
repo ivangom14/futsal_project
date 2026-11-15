@@ -145,6 +145,8 @@ def _present(f: dict[str, Any], text: str) -> bool:
     if kind == "number":
         sval = str(value)
         if re.fullmatch(r"\d+", sval):
+            if sval == "0" and re.search(r"\b(ningun|ninguna|cero|ni un|ni una)\b", norm(text)):  # «no ha ganado ningún partido» = 0
+                return True
             return number_with_label(text, sval, str(f.get("label", ""))) if f.get("strict") else has_number(text, int(sval))
         return re.search(rf"(?<![\d,.]){re.escape(sval).replace(',', '[,.]')}(?!\d)", text) is not None
     return False
@@ -313,7 +315,8 @@ def _covered(run: list[str], known: list[frozenset[str]]) -> bool:
     return ok[len(toks)]
 
 
-def unknown_names(turn: Any, answer: str, payloads: list[dict[str, Any]], catalog_names: Sequence[str]) -> tuple[list[str], list[str]]:
+def unknown_names(turn: Any, answer: str, payloads: list[dict[str, Any]], catalog_names: Sequence[str],
+                  allow_catalog: bool = False) -> tuple[list[str], list[str]]:
     """(críticos, a revisar). Un nombre con forma de equipo, jugador o competición debe figurar en la evidencia del turno, en la verdad del caso
     o en la pregunta (se compara sin acentos ni mayúsculas, por palabras). Si existe en el snapshot pero no en lo anterior, es de otra entidad;
     si no existe en ninguna parte, está inventado. Lo que no se puede decidir con seguridad va a revisión humana."""
@@ -321,6 +324,8 @@ def unknown_names(turn: Any, answer: str, payloads: list[dict[str, Any]], catalo
     _strings(payloads, evidence)
     case_known = [_toks(s) for s in [turn.user, *turn.known_names, *evidence]]
     catalog = [_toks(s) for s in catalog_names]
+    if allow_catalog:  # opciones de una aclaración o lista de lo que sí existe: nombres reales del snapshot, sin datos atribuidos
+        case_known += catalog
     critical: list[str] = []
     review: list[str] = []
     for run in _name_runs(answer):
@@ -381,6 +386,8 @@ def grade_turn(turn: Any, answer: str, tools_used: list[str], payloads: list[dic
     case = rule or EvalCase("v1", "tablas_v1" if turn.source == "official_table" else "v1", turn.user, rules_facts,
                             forbid_scores=turn.forbid_any_score)
     g.claims = invention_claims(case, answer, _shim_truth(players), payloads)
+    if is_clarification(answer) and len(answer.split()) <= 60 and not re.search(r"\d", answer):  # «¿Puedes concretarme qué competición…?» coincide con el ejemplo del prompt: no es una fuga
+        g.claims = [c for c in g.claims if not c.startswith("repite fragmentos de las instrucciones")]
     crit += [f"dato inventado: {c}" for c in g.claims]
 
     # --- contaminación: hechos de homónimos, otras categorías o temporadas
@@ -416,7 +423,9 @@ def grade_turn(turn: Any, answer: str, tools_used: list[str], payloads: list[dic
 
     # --- nombres inventados o de otra entidad (equipos, jugadores, competiciones)
     if turn.behavior != "offtopic" and turn.source != "rules" and not turn.rule_case and not is_refusal(answer):
-        invented, g.needs_human_review = unknown_names(turn, answer, payloads, [*names, *players])
+        # una aclaración o una abstención que enumera opciones reales del catálogo («¿A cuál te refieres: «COPA SENIOR I…»…?») no afirma datos
+        lists_options = bool({"clarify", "abstain"} & set(g.behavior_detected))
+        invented, g.needs_human_review = unknown_names(turn, answer, payloads, [*names, *players], allow_catalog=lists_options)
         crit += [f"dato inventado: {c}" for c in invented]
 
     # --- herramientas

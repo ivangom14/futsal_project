@@ -17,10 +17,25 @@ BROAD_ACT_MESSAGE = (
     "grupo y di en la respuesta qué has asumido."
 )
 BROAD_NOTE = (
-    NOTE_HEAD + " Alcance amplio pedido por el usuario («todos/todas/cualquier…»): no preguntes competición, grupo ni categoría; consulta con las "
+    NOTE_HEAD + " Alcance amplio (el usuario pide «todos/todas/cualquier…» o la consulta abarca todas las competiciones: personas, un día, una categoría, un club): no preguntes competición, grupo ni categoría; consulta con las "
     "herramientas v2 y di qué has asumido. Solo pregunta si hay varios clubes o jugadores distintos con el mismo nombre."
 )
 _BROAD = re.compile(r"\b(todos|todas|cualquier|cualquiera|toda la temporada)\b")
+# Consultas que por naturaleza abarcan todas las competiciones (las herramientas v2 las resuelven sin grupo): preguntar «¿qué competición?» no
+# tiene sentido. Personas (árbitros, en qué equipo juega alguien), partidos de un día o de un pabellón, rankings de toda una categoría y clubes.
+_MULTI_SCOPE = (
+    ("referee", re.compile(r"\barbitr\w*|\b(ha|han|hayan) pitado\b|\bpartidos ha pitado\b")),
+    ("player", re.compile(r"\ben que equipo juega\b|\bque jugadores\b|\bjugadores del\b")),
+    ("date", re.compile(r"\bpartidos\b.*\b(hay|se juegan|juegan|jugaran)\b.*\b(lunes|martes|miercoles|jueves|viernes|sabado|domingo|fin de semana|hoy|manana)\b"
+                        r"|\b(que|cuantos) partidos\b.*\b(\d{1,2} de [a-z]+|fin de semana)\b")),
+    ("category_ranking", re.compile(r"\b(maximo goleador|mas goles|menos goles|mas victorias|mas partidos|ha encajado menos|ha marcado mas)\b"
+                                    r".*\b(senior|juvenil|juveniles|femenin\w*|categoria)\b"
+                                    r"|\b(equipo|equipos) (senior|juvenil|femenino)\b.*\b(mas|menos)\b")),
+    ("club", re.compile(r"\bque equipos tiene\b|\bequipos del\b")),
+)
+# Un nombre propio de varias palabras con mayúscula («Real Sala Aranjuez Norte», «U.D. Pozuelo Dorado»): si el catálogo no lo reconoce, lo
+# correcto es buscarlo con las herramientas y decir que no consta, no preguntar la competición.
+_PROPER_NAME = re.compile(r"(?<![¿¡.]\s)(?<!^)\b(?:[A-ZÁÉÍÓÚÑ][\w.'’]*\.?\s+){1,}[A-ZÁÉÍÓÚÑ][\w.'’]+")
 _PREMISE = re.compile(r"\b(creo que|me han dicho que|me dijeron que|tengo entendido que|he oido que|he leido que|no es (?:verdad|cierto) que|es (?:verdad|cierto) que"
                       r"|dicen que|segun me han dicho)\b")
 
@@ -29,9 +44,20 @@ def _fold(text: str) -> str:
     return "".join(c for c in unicodedata.normalize("NFKD", text.lower()) if not unicodedata.combining(c))
 
 
+def multi_scope_kind(text: str) -> str | None:
+    """Tipo de consulta que abarca todas las competiciones por naturaleza (árbitro, jugador, día, ranking de categoría, club) o None."""
+    low = _fold(text)
+    return next((kind for kind, rx in _MULTI_SCOPE if rx.search(low)), None)
+
+
 def wants_broad_scope(text: str) -> bool:
-    """¿La pregunta (o la respuesta a una aclaración) trae un cuantificador de alcance?"""
-    return _BROAD.search(_fold(text)) is not None
+    """¿La pregunta (o la respuesta a una aclaración) trae un cuantificador de alcance o es de las que abarcan todas las competiciones?"""
+    return _BROAD.search(_fold(text)) is not None or multi_scope_kind(text) is not None
+
+
+def names_something(raw: str) -> bool:
+    """¿La pregunta nombra algo propio de varias palabras con mayúscula (fuera del inicio de la frase)?"""
+    return _PROPER_NAME.search(raw.strip().lstrip("¿¡")) is not None
 
 
 def premise_of(text: str) -> str | None:
