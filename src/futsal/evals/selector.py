@@ -577,7 +577,9 @@ def _scope_names(bindings: dict[str, Any]) -> tuple[list[str], list[str]]:
     primary = next((b for b in bindings.values() if isinstance(b, dict) and b.get("kind") in ("team", "group", "club", "match")), None)
     if not primary:
         return [], []
-    mine = {name_key(str(primary.get(k, ""))) for k in ("group", "competition") if primary.get(k)}
+    # lo pedido en el caso: las competiciones de TODAS sus entidades («¿y el juvenil?» pide la competición hermana, no es otro ámbito)
+    mine = {name_key(str(b.get(k, ""))) for b in bindings.values() if isinstance(b, dict) and b.get("kind") in ("team", "group", "club", "match")
+            for k in ("group", "competition") if b.get(k)}
     other: list[str] = []
     for d in primary.get("decoys", []):  # solo competiciones: sus nombres son largos y distintivos; «Grupo 2» aparece en cualquier texto
         val = str(d.get("competition", ""))

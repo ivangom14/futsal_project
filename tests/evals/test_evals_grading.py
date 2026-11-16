@@ -345,3 +345,14 @@ def test_second_real_run_false_positives() -> None:
     hits = [{"hits": [{"text": "Se deberá expulsar al jugador que evite una ocasión manifiesta de gol; se amonestará al que sujete.", "rule": 12}]}]
     assert unsupported_card_colors("expulsión (tarjeta roja); amonestación (tarjeta amarilla)", hits) == []
     assert unsupported_card_colors("tarjeta roja", [{"hits": [{"text": "nada de sanciones"}]}]) == ["roja"]
+
+
+def test_scope_of_every_case_entity_is_requested_not_other() -> None:
+    """«¿Quién va primero en PREFERENTE AFICIONADO?» → «¿y el juvenil?»: la competición hermana es lo pedido, no «ámbito equivocado»."""
+    from futsal.evals.selector import _scope_names
+
+    g1 = {"kind": "group", "competition": "PREFERENTE AFICIONADO FS", "group": "Grupo 2",
+          "decoys": [{"competition": "PREFERENTE JUVENIL FS"}, {"competition": "PRIMERA AFICIONADO FS"}]}
+    g2 = {"kind": "group", "competition": "PREFERENTE JUVENIL FS", "group": "Grupo 2"}
+    _, other = _scope_names({"g1": g1, "g2": g2})
+    assert other == ["PRIMERA AFICIONADO FS"]

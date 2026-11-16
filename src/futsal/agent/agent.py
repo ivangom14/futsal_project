@@ -1476,7 +1476,8 @@ class Agent:
             if isinstance(data, dict) and data.get("status") in ("ok", "incomplete"):
                 result.official.append(data)
         log(f"MCP\n→ {summarize(is_error, text)}")
-        sent = text if is_error else compact_result(localize_match_dates(text) if call.name in ("list_matches", "get_match") else text, self._max_rows)
+        rows = max(self._max_rows, v2rules.DAY_LIMIT) if call.name == "matches_by_date" else self._max_rows  # el día entero, sin paginar
+        sent = text if is_error else compact_result(localize_match_dates(text) if call.name in ("list_matches", "get_match") else text, rows)
         self._seen[key] = (is_error, sent)
         if not is_error:
             try:

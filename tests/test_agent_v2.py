@@ -134,8 +134,14 @@ def test_v2_tools_run_in_process_and_results_are_compacted() -> None:
     llm = Rec([call("matches_by_date", date_from="2026-11-07"), LLMResponse("ok", [])])
     res = ask(llm, "Partidos del 7/11", reg=reg, max_rows=40)
     sent = json.loads(next(m for m in llm.seen[1] if m.role == "tool").tool_results[0].content)
-    assert reg.calls_v2 and reg.calls_v2[0][0] == "matches_by_date" and len(sent["items"]) == 40 and sent["truncated"]["total"] == 60 and sent["count"] == 60
+    # un día entero llega sin recortar (hasta 100 filas): así el modelo no pagina con varias llamadas
+    assert reg.calls_v2 and reg.calls_v2[0][0] == "matches_by_date" and len(sent["items"]) == 60 and "truncated" not in sent and sent["count"] == 60
     assert res.tool_calls == 1 and res.answer == "ok"
+    clubs = Stub({"club_overview": {"items": rows, "count": 60, "shown": 60, "notes": [], "freshness": None}})
+    llm2 = Rec([call("club_overview", name="alamo"), LLMResponse("ok", [])])
+    ask(llm2, "Equipos del Álamo", reg=clubs, max_rows=40)
+    sent2 = json.loads(next(m for m in llm2.seen[1] if m.role == "tool").tool_results[0].content)
+    assert len(sent2["items"]) == 40 and sent2["truncated"]["total"] == 60  # el resto de herramientas sigue recortando
 
 
 def test_v1_id_validation_is_kept_for_v1_tools() -> None:
