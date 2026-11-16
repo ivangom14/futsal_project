@@ -164,8 +164,20 @@ def _group_flags(g: dict[str, Any]) -> set[str]:
     return flags
 
 
+CATEGORY_WORDS = frozenset({"aficionado", "juvenil", "senior", "femenino", "femenina"})
+
+
+def sibling_key(competition: str) -> frozenset[str]:
+    """Nombre de la competición sin la palabra de categoría: «PREFERENTE AFICIONADO FS» y «PREFERENTE JUVENIL FS» son hermanas."""
+    return frozenset(t for t in norm(competition).split() if t not in CATEGORY_WORDS)
+
+
 def _relations_ok(g: dict[str, Any], spec: dict[str, Any], bound: dict[str, Any]) -> bool:
-    """Relaciones con entidades ya elegidas: otro grupo, mismo grupo, otra competición."""
+    """Relaciones con entidades ya elegidas: otro grupo, mismo grupo, otra competición, competición hermana de otra categoría."""
+    if "sibling_of" in spec:
+        other = bound[spec["sibling_of"]].get("competition", "")
+        if other == g["competition"] or sibling_key(other) != sibling_key(g["competition"]):
+            return False
     if "other_group_than" in spec and bound[spec["other_group_than"]].get("group_id") == g["group_id"]:
         return False
     if "same_group_as" in spec and bound[spec["same_group_as"]].get("group_id") != g["group_id"]:
@@ -270,6 +282,10 @@ class _Picker:
             if spec.get("with") and not set(spec["with"]) <= _group_flags(g):
                 continue
             if "teams" in spec and not _cmp(g["teams"], spec["teams"]):
+                continue
+            if "with_sibling" in spec and not any(  # existe la misma competición en otra categoría, con clasificación
+                    x["category"] == spec["with_sibling"] and x["competition"] != g["competition"] and x["has_standings"]
+                    and sibling_key(x["competition"]) == sibling_key(g["competition"]) for x in cat.groups):
                 continue
             if "competition_groups" in spec and not _cmp(
                     sum(x["competition_id"] == g["competition_id"] for x in cat.groups), spec["competition_groups"]):

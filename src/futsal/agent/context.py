@@ -240,7 +240,7 @@ class ContextEngine:
         if u.status != "ask" or u.ask_about not in ("scope", "competition", "group"):
             return u
         kind = u.option_kind or "scope"
-        repeated = state.pending is not None and state.pending.get("kind") == kind
+        repeated = (state.pending is not None and state.pending.get("kind") == kind) or bool(state.broad_team and (u.team == state.broad_team or (u.team is None and u.ask_about == "scope")))
         if not (broad_scope or repeated):
             return u
         u.options, u.option_kind, u.ask_about, u.competitions, u.targets, u.group_names = [], None, None, [], [], []
@@ -484,11 +484,16 @@ class ContextEngine:
                 s.remember_team(u.team)
             s.intent = u.intent or s.intent
             s.offered, s.offered_kind, s.pending = [], None, None
+            s.broad_team = None
             if u.assumption:
                 s.declared = list(dict.fromkeys([*s.declared, *u.competitions]))[-12:]
         elif u.status in ("act", "assume") and u.provenance.get("scope") in ("broad", "repeat"):  # v2: consulta sin competición; la aclaración pendiente queda resuelta
             s.offered, s.offered_kind, s.pending = [], None, None
             s.intent = u.intent or s.intent
+            team = u.team or (s.teams[0] if s.teams else None)
+            if team:  # «¿cuántos puntos tiene?» después: mismo equipo, no se vuelve a preguntar su competición
+                s.broad_team = team
+                s.remember_team(team)
         elif u.status == "ask":
             s.offered, s.offered_kind = list(u.options), u.option_kind
             s.pending = {"question": question[:200], "kind": u.option_kind or "scope"}

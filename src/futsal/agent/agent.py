@@ -135,6 +135,10 @@ TOOLS_WIDENED_MESSAGE = (
     "Ahora dispones de todas las herramientas del sistema. Si alguna cubre lo pedido, úsala y responde solo con sus resultados; "
     "si ninguna lo cubre, mantén la limitación."
 )
+LIMIT_FINAL_MESSAGE = (
+    "Has llegado al límite de consultas de esta pregunta: no llames a más herramientas. Responde ya solo con los datos que has obtenido; si la "
+    "lista está incompleta, dilo y da el total que conozcas."
+)
 EMPTY_ANSWER_MESSAGE = (
     "Tu respuesta ha llegado vacía o cortada. Responde ya en texto, de forma breve (como mucho 15 líneas; si es una lista larga, da el total "
     "y los más relevantes), solo con los datos que ya has consultado."
@@ -652,12 +656,12 @@ class Agent:
             stored = ConversationState.from_dict(self._state_in)
             state = stored if stored is not None and is_current(stored, turns) else engine.rebuild(turns, focus)
             info["state"] = "stored" if state is stored else "rebuilt"
-            und = engine.understand(effective, question, state, has_history=bool(turns), **self._v2_ctx(effective))
+            und = engine.understand(effective, question, state, has_history=bool(turns), **self._v2_ctx(effective, turns))
             info["deterministic"] = und.to_dict()
             if self._ctx_mode == "llm" and und.trigger:
                 interp = await self._interpret(engine, effective, turns, state, und, rec, info, log)
                 if interp is not None:
-                    und = engine.understand(effective, question, state, has_history=bool(turns), interp=interp, **self._v2_ctx(effective))
+                    und = engine.understand(effective, question, state, has_history=bool(turns), interp=interp, **self._v2_ctx(effective, turns))
                     und.interpreter = interp.to_dict()
                     if not interp.on_topic and und.status == "none":
                         und.offtopic_confirmed = True
@@ -908,7 +912,7 @@ class Agent:
         else:
             note = self._resolve_scope(turns, effective, result) + focus_note(focus, self._other_groups(focus))
         if self._v2:
-            note += self._v2_notes(effective, result, rec, log)
+            note += self._v2_notes(effective, result, rec, log, turns)
         messages = [*history_messages(turns), Message("user", effective + note)]
         n_hist = len(messages) - 1
         self._shadow_route(rec, effective, turns, focus)
@@ -920,6 +924,7 @@ class Agent:
         v2_nudges = 0
         recovery = 0
         empty_retry = False
+        limit_final = False
         log(f"USER\n{question}" + (f"\n→ interpretada como: {effective}" if merged else ""))
         if self._v2 and self._nir is not None and self._nir.alone:  # v2: dato que el acta de la RFFM no recoge → fórmula fija, sin herramientas ni LLM
             result.answer = v2nir.answer(self._nir)
@@ -1048,6 +1053,12 @@ class Agent:
                 log("LLM\n→ final answer")
                 log(f"ASSISTANT\n{resp.text}")
                 return
+            if self._v2 and result.tool_calls and not limit_final and result.tool_calls + len(resp.tool_calls) > self._max:
+                # v2: ya hay datos (p. ej. un sábado con muchos partidos paginado): UNA última respuesta con lo obtenido en vez del aviso genérico
+                limit_final = True
+                messages += [Message("assistant", resp.text or "…"), Message("user", LIMIT_FINAL_MESSAGE)]
+                log("GUARDRAIL\n→ v2: límite de herramientas con datos ya obtenidos: se pide responder con ellos")
+                continue
             if result.tool_calls + len(resp.tool_calls) > self._max:
                 result.error = f"límite de {self._max} tool calls alcanzado"
                 # El texto del modelo que acompaña a las tools pendientes no está verificado: no se muestra.
@@ -1070,25 +1081,36 @@ class Agent:
         out: dict[str, Any] = rec.context.setdefault("v2", {})
         return out
 
-    def _v2_ctx(self, effective: str) -> dict[str, Any]:
-        return {"v2": True, "broad_scope": v2rules.wants_broad_scope(effective)} if self._v2 else {}
+    def _v2_ctx(self, effective: str, turns: Sequence[Turn] = ()) -> dict[str, Any]:
+        return {"v2": True, "broad_scope": self._v2_broad(effective, turns)} if self._v2 else {}
+
+    @staticmethod
+    def _v2_broad(effective: str, turns: Sequence[Turn]) -> bool:
+        """Alcance amplio de la pregunta o, en un seguimiento corto («¿y solo los de juvenil?»), de la pregunta anterior."""
+        prev = turns[-1].question if turns else ""
+        return v2rules.wants_broad_scope(effective) or v2rules.refines_multi_scope(effective, prev)
 
     def _repeated_clarification(self, turns: Sequence[Turn]) -> bool:
         """v2: el turno anterior del asistente ya fue una aclaración de ámbito (nunca dos seguidas sobre lo mismo)."""
         return bool(turns) and asks_scope_clarification(turns[-1].answer, self._catalog, self._question)
 
-    def _v2_notes(self, effective: str, result: AgentResult, rec: RunRecord, log: Callable[[str], None]) -> str:
+    def _v2_notes(self, effective: str, result: AgentResult, rec: RunRecord, log: Callable[[str], None], turns: Sequence[Turn] = ()) -> str:
         """Notas de la aplicación v2: alcance amplio, fechas y premisas del usuario."""
         info = self._v2_trace(rec)
         out = ""
-        self._broad = v2rules.wants_broad_scope(effective)
+        self._broad = self._v2_broad(effective, turns)
         self._date_hint = parse_date_hint(effective, self._clock)
+        if self._date_hint is None and turns and v2rules.refines_multi_scope(effective, turns[-1].question):
+            self._date_hint = parse_date_hint(turns[-1].question, self._clock)  # «¿y solo los de juvenil?»: el mismo día de antes
         if self._broad:
             info["broad_scope"] = True
             out += v2rules.BROAD_NOTE
         if self._date_hint is not None:
             info["date_hint"] = {"phrase": self._date_hint.phrase, "from": str(self._date_hint.date_from), "to": str(self._date_hint.date_to)}
             out += v2rules.date_note(self._date_hint)
+        if v2rules.multi_scope_kind(effective) == "category_ranking":
+            info["category_ranking"] = True
+            out += v2rules.RANKING_NOTE
         claim = v2rules.premise_of(effective)
         if claim:
             info["premise"] = claim

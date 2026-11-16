@@ -305,6 +305,16 @@ def test_unknown_proper_name_is_searched_instead_of_asking_the_competition() -> 
     assert legacy.run is not None and legacy.run.context["status"] == "ask"  # legacy sin cambios
 
 
+def test_category_ranking_gets_the_not_comparable_note() -> None:
+    from futsal.agent.v2.rules import RANKING_NOTE
+    llm = Rec([call("teams_ranking", category="senior", metric="goals_against"), LLMResponse("ok", [])])
+    ask(llm, "¿Qué equipo senior ha encajado menos goles?")
+    assert RANKING_NOTE in llm.seen[0][-1].text
+    plain = Rec([call("get_standings", group_id=101), LLMResponse("ok", [])])
+    ask(plain, "¿Quién va primero en la PRIMERA AFICIONADO FS Grupo 1?")
+    assert RANKING_NOTE not in plain.seen[0][-1].text
+
+
 # --- 5. premisas y sugerencias -----------------------------------------------------------------------------------------------------
 def test_premise_note_forces_verification() -> None:
     llm = Rec([call("find_player", name="Pablo Quintanar"), LLMResponse("No consta.", [])])
@@ -370,6 +380,24 @@ def test_empty_final_answer_after_tools_is_asked_once_for_a_short_answer() -> No
     twice = ask(Rec([call("matches_by_date", date_from="2026-11-14"), LLMResponse("", []), LLMResponse("", [])]),
                 "Dime todos los partidos del sábado 14 de noviembre")
     assert twice.answer == ""  # una sola vez: no hay bucle
+
+
+def test_v2_tool_limit_with_data_asks_for_a_final_answer_instead_of_the_generic_notice() -> None:
+    from futsal.agent.agent import LIMIT_FINAL_MESSAGE
+    page = [call("matches_by_date", date_from="2026-11-14", offset=i * 40) for i in range(8)]  # el agente de las pruebas admite 8
+    six = LLMResponse("", [ToolCall(f"x{i}", "matches_by_date", {"date_from": "2026-11-14", "offset": i}) for i in range(2)])
+    llm = Rec([*page, six, LLMResponse("Hay 120 partidos; estos son los primeros.", [])])
+    res = ask(llm, "¿Qué partidos hay el sábado 14 de noviembre?")
+    assert llm.seen[-1][-1].text == LIMIT_FINAL_MESSAGE and res.answer.startswith("Hay 120 partidos") and res.tool_calls == 8
+    insist = ask(Rec([*page, six, six]), "¿Qué partidos hay el sábado 14 de noviembre?")
+    assert insist.guardrail == "limite_herramientas"  # una sola vez
+
+
+def test_short_follow_up_of_a_date_question_keeps_the_broad_scope_and_the_day() -> None:
+    hist = [Turn("¿Qué partidos hay el sábado 14 de noviembre?", "Hay 30 partidos.")]
+    llm = Rec([LLMResponse(CLARIFY, []), call("matches_by_date", date_from="2026-11-14", category="juvenil"), LLMResponse("Hay 8.", [])])
+    res = ask(llm, "¿y solo los de juvenil?", hist)
+    assert "2026-11-14" in llm.seen[0][-1].text and last_user(llm, 1) == BROAD_ACT_MESSAGE and res.answer == "Hay 8."
 
 
 def test_insistent_clarification_is_counted_in_the_trace() -> None:

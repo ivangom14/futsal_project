@@ -20,6 +20,11 @@ BROAD_NOTE = (
     NOTE_HEAD + " Alcance amplio (el usuario pide «todos/todas/cualquier…» o la consulta abarca todas las competiciones: personas, un día, una categoría, un club): no preguntes competición, grupo ni categoría; consulta con las "
     "herramientas v2 y di qué has asumido. Solo pregunta si hay varios clubes o jugadores distintos con el mismo nombre."
 )
+RANKING_NOTE = (
+    NOTE_HEAD + " Ranking de toda una categoría: mezcla grupos y competiciones distintos (con distinto número de partidos), así que dilo "
+    "expresamente («son grupos distintos y no del todo comparables») e indica el grupo de cada equipo. Escribe los goles como «X a favor y Y en "
+    "contra», nunca como un marcador «X-Y»."
+)
 _BROAD = re.compile(r"\b(todos|todas|cualquier|cualquiera|toda la temporada)\b")
 # Consultas que por naturaleza abarcan todas las competiciones (las herramientas v2 las resuelven sin grupo): preguntar «¿qué competición?» no
 # tiene sentido. Personas (árbitros, en qué equipo juega alguien), partidos de un día o de un pabellón, rankings de toda una categoría y clubes.
@@ -53,6 +58,15 @@ def multi_scope_kind(text: str) -> str | None:
 def wants_broad_scope(text: str) -> bool:
     """¿La pregunta (o la respuesta a una aclaración) trae un cuantificador de alcance o es de las que abarcan todas las competiciones?"""
     return _BROAD.search(_fold(text)) is not None or multi_scope_kind(text) is not None
+
+
+_REFINE = re.compile(r"^\W*(y|e|pero|vale|ok|ahora|solo|y solo|y si|y de|y en|y los|y las|y el|y la)\b")
+
+
+def refines_multi_scope(text: str, previous: str) -> bool:
+    """¿Es un seguimiento corto («¿y solo los de juvenil?», «¿y por la tarde?») de una consulta que abarcaba todas las competiciones?"""
+    low = _fold(text).strip()
+    return bool(previous) and len(low.split()) <= 8 and _REFINE.search(low) is not None and multi_scope_kind(previous) is not None
 
 
 def names_something(raw: str) -> bool:

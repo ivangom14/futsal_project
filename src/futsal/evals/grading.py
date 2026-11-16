@@ -118,10 +118,14 @@ def _numbers_with_label(text: str, label: str) -> set[str]:
     return found
 
 
+_ORDINAL_WORDS = {1: "primer", 2: "segund", 3: "tercer", 4: "cuart", 5: "quint", 6: "sext", 7: "septim", 8: "octav", 9: "noven", 10: "decim"}
+
+
 def _claims_pos(text: str, n: int, team: str = "") -> bool:
     low = f" {norm(text)} "
     near = re.search(rf"(?:puesto|posicion|lugar|plaza)\D{{0,25}}(?<!\d){n}(?!\d)", low) is not None \
-        or re.search(rf"(?<!\d){n}(?: o\b|[oa]\b)", low) is not None or (n == 1 and " lider" in low)
+        or re.search(rf"(?<!\d){n}(?: o\b|[oa]\b| a (?:posicion|plaza|clasificad))", low) is not None or (n == 1 and " lider" in low) \
+        or (n in _ORDINAL_WORDS and re.search(rf"\b{_ORDINAL_WORDS[n]}[oa]?\b", low) is not None)
     return near and (not team or key(team) in low)
 
 
@@ -262,7 +266,17 @@ def _name_runs(text: str) -> list[list[str]]:
         cur, pending = [], []
 
     sentence_start = True
-    for raw in text.split():
+    for raw in text.replace("\n", " \n ").split(" "):
+        if raw == "\n":  # un salto de línea cierra el nombre («CDE Bayona Futsal» / «Pista: …») y empieza frase
+            flush()
+            sentence_start = True
+            continue
+        if not raw.strip():
+            continue
+        raw = raw.strip()
+        if raw.startswith(("(", "[")):  # «MARIO (CDE GOLOSO…)»: el paréntesis separa el jugador de su equipo
+            flush()
+            sentence_start = False
         w = _strip(raw)
         cap = bool(w) and bool(_CAP.match(w))
         if cap and sentence_start:
@@ -275,7 +289,7 @@ def _name_runs(text: str) -> list[list[str]]:
         else:
             flush()
         # una coma, un punto o el cierre de una negrita cierran el nombre («GARCIA, JAVIER; CASTRO, SERGIO», «**GARCIA, JAVIER** (EQUIPO)»)
-        brk = (raw[-1:] in ",;:.!?" and not _ABBR.match(w)) or raw.rstrip(",;:.!?)").endswith(("**", "__"))
+        brk = (raw[-1:] in ",;:.!?)]" and not _ABBR.match(w)) or raw.rstrip(",;:.!?)").endswith(("**", "__"))
         if brk:
             flush()
         sentence_start = brk and raw[-1:] in ".!?:;"
@@ -332,6 +346,9 @@ def unknown_names(turn: Any, answer: str, payloads: list[dict[str, Any]], catalo
         cand = _toks(" ".join(run))
         shown = " ".join(run)
         if not cand or any(cand <= k for k in case_known) or _covered(run, case_known):
+            continue
+        core = frozenset(t for t in cand if len(t) > 1)  # «C.F.S. El Álamo A»: la letra del equipo (A/B/C) no decide si el nombre existe
+        if core and core != cand and any(core <= k for k in case_known):
             continue
         if any(cand <= k for k in catalog):
             critical.append(f"nombra a «{shown}», que existe en el snapshot pero no figura en la evidencia ni en la verdad del caso (otra entidad)")

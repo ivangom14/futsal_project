@@ -396,7 +396,13 @@ def unsupported_card_claims(text: str, payloads: list[dict[str, Any]]) -> list[s
 
 def unsupported_card_colors(text: str, payloads: list[dict[str, Any]]) -> list[str]:
     """Reglamento: el color de tarjeta es legítimo (lo dice el texto de la regla), pero debe figurar en lo recuperado."""
-    support = set(norm(" ".join(str(h.get("text", "")) for h in _rule_hits(payloads))).split())
+    corpus = norm(" ".join(str(h.get("text", "")) for h in _rule_hits(payloads)))
+    support = set(corpus.split())
+    # las reglas dicen «amonestar»/«expulsar»: la tarjeta que corresponde a cada sanción está respaldada por ese verbo
+    if "amonest" in corpus:
+        support.add("amarilla")
+    if "expuls" in corpus:
+        support.add("roja")
     return sorted({c for c in norm(text).split() if c in CARD_COLORS and c not in support})
 
 

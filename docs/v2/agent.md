@@ -119,3 +119,9 @@ Con `AGENT_ARCH=v2`, el agente no pregunta la competición cuando la consulta ab
 - los equipos de un club.
 
 Tampoco la pregunta cuando se nombra algo propio que el catálogo no reconoce (`names_something`). En esos casos se consulta con las herramientas v2 y se declara lo asumido. La ambigüedad real de entidad (varios clubes o jugadores con el mismo nombre) se sigue preguntando.
+
+También cuenta como alcance amplio un seguimiento corto de una de esas consultas, como «¿y solo los de juvenil?» después de «¿qué partidos hay el sábado 12?». En ese caso se hereda la fecha de la pregunta anterior.
+
+Si el usuario ya resolvió el ámbito de un equipo como «todas» (`ConversationState.broad_team`), no se le vuelve a preguntar la competición de ese equipo.
+
+Al llegar al límite de herramientas con datos ya obtenidos, se pide una única respuesta con esos datos en lugar del aviso genérico.

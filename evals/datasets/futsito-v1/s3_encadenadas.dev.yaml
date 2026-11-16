@@ -194,8 +194,8 @@
   requires: ["standings"]
   capability: v1
   select:
-    g1: {kind: "group", with: ["standings"], category: "senior"}
-    g2: {kind: "group", with: ["standings"], category: "juvenil", other_competition_than: "g1"}
+    g1: {kind: "group", with: ["standings"], category: "senior", with_sibling: "juvenil"}
+    g2: {kind: "group", with: ["standings"], category: "juvenil", sibling_of: "g1"}  # «¿y el juvenil?» = la misma competición en juvenil
   turns:
     - user: "¿Quién va primero en {g1.competition} {g1.name}?"
       expect:

@@ -141,3 +141,25 @@ def test_common_question_words_are_never_corrected_into_a_team_name() -> None:
         hit = eng.team_hit(q, state)
         assert not hit.names and not hit.ambiguous, (q, hit)
     assert eng.team_hit("¿cómo va el valdemoru?", state).names == ["C.D. VALDEMORO"]
+
+
+def test_v2_does_not_ask_again_for_the_competition_of_a_team_whose_scope_was_already_resolved() -> None:
+    """«¿En qué posición está X?» → aclaración → «El juvenil» (aún dos juveniles: se asume «todas») → «¿cuántos puntos tiene?» no vuelve a preguntar."""
+    from futsal.agent.context import ContextEngine
+    from futsal.agent.convstate import ConversationState
+    from futsal.config.competition_aliases import load_dimensions
+    from futsal.domain.competitions import Competition
+
+    comps = [Competition(1, "PREFERENTE JUVENIL FS", ((11, "Grupo 1"),)), Competition(2, "COPA JUVENIL - fase final- FS", ((12, "Eliminatorias"),)),
+             Competition(3, "PRIMERA DIVISION AUTONOMICA AFICIONADO FS", ((13, "Grupo 1"),))]
+    team = "CDE ATHLETIC MOSTOLES 'B'"
+    cat = TeamCatalog([TeamEntry(team, c.name, c.groups[0][1], str(c.groups[0][0])) for c in comps])
+    eng = ContextEngine(comps, load_aliases(), load_dimensions(), cat)
+    state = ConversationState()
+    turns = [("¿En qué posición está CDE ATHLETIC MOSTOLES 'B'?", "ask"), ("El juvenil", None), ("¿cuántos puntos tiene?", None)]
+    statuses = []
+    for q, _ in turns:
+        u = eng.understand(q, q, state, has_history=state.turns > 0, v2=True)
+        statuses.append(u.status)
+        state = eng.next_state(state, u, q, "…")
+    assert statuses[0] == "ask" and statuses[1] in ("assume", "act") and statuses[2] != "ask", statuses

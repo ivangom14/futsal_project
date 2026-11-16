@@ -316,3 +316,32 @@ def test_real_run_false_positives_are_not_graded_as_inventions() -> None:
     assert g.verdict == "correct", g.reasons
     assert invented_quantities("El número mínimo de jugadores para un encuentro lo fijan las federaciones.") == []
     assert invented_quantities("Le cayó un partido de sanción.") == ["un partido"]
+
+
+def test_sibling_competitions_differ_only_in_the_category_word() -> None:
+    from futsal.evals.selector import sibling_key
+
+    assert sibling_key("PREFERENTE AFICIONADO FS") == sibling_key("PREFERENTE JUVENIL FS")
+    assert sibling_key("PRIMERA DIVISION AUTONOMICA AFICIONADO FS") == sibling_key("PRIMERA DIVISION AUTONOMICA JUVENIL FS")
+    assert sibling_key("PREFERENTE AFICIONADO FS") != sibling_key("PRIMERA JUVENIL FS")
+
+
+def test_second_real_run_false_positives() -> None:
+    """Segunda ejecución de bench-127: «4.ª posición», nombres separados por saltos de línea o paréntesis, la letra del equipo y las
+    tarjetas que la regla expresa como «amonestar»/«expulsar»."""
+    from futsal.agent.criteria import unsupported_card_colors
+    from futsal.evals.grading import _claims_pos, _name_runs, unknown_names
+    from futsal.evals.selector import ResolvedTurn
+
+    assert _claims_pos("PARQUE NORTE F.S. ocupa la 4.ª posición en el Grupo 1", 4) and _claims_pos("Es cuarto del grupo.", 4)
+    assert not _claims_pos("Lleva 4 a favor y 2 en contra.", 4)
+    runs = [" ".join(r) for r in _name_runs("C.D. Villa del Prado – CDE Bayona Futsal\n   Pista: P.M. Villa del Prado")]
+    assert "CDE Bayona Futsal Pista" not in runs and "CDE Bayona Futsal" in runs
+    runs = [" ".join(r) for r in _name_runs("- SANCHEZ LOPEZ, MARIO (CDE GOLOSO 108 - MIBOTICAE.COM)")]
+    assert not any(r.startswith("MARIO CDE") for r in runs)
+    turn = ResolvedTurn(user="¿Cómo van los equipos del Álamo?", behavior="answer")
+    ev = [{"items": [{"name": "CLUB C.F.S. EL ALAMO 'B'"}]}]
+    assert unknown_names(turn, "Todos los equipos del C.F.S. El Álamo A van bien.", ev, [])[0] == []
+    hits = [{"hits": [{"text": "Se deberá expulsar al jugador que evite una ocasión manifiesta de gol; se amonestará al que sujete.", "rule": 12}]}]
+    assert unsupported_card_colors("expulsión (tarjeta roja); amonestación (tarjeta amarilla)", hits) == []
+    assert unsupported_card_colors("tarjeta roja", [{"hits": [{"text": "nada de sanciones"}]}]) == ["roja"]
