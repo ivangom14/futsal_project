@@ -21,13 +21,21 @@ export function describe(c: Connection): { label: string; tone: string; title: s
   }
 }
 
+/**
+ * Estado del servicio en la cabecera: SOLO cuando hay un problema (sin conexión o degradado), como aviso compacto que permite
+ * reintentar. «Conectado» y «Comprobando…» no aportan nada al usuario y no se muestran (salvo con diagnóstico activado).
+ */
 export default function ConnectionBadge({ connection, onRefresh }: { connection: Connection; onRefresh: () => void }) {
   const d = describe(connection);
+  const problem = connection.state === "offline" || connection.state === "degraded";
+  const diagnostics = showDiagnostics();
+  if (!problem && !diagnostics) return <span className="sr-only" role="status">{connection.state === "ok" ? "Servicio disponible" : ""}</span>;
   return (
-    <button onClick={onRefresh} title={d.title} aria-label={`Estado: ${d.label}. ${d.title}`} className="flex min-h-10 items-center gap-1.5 rounded-full px-2 py-1 text-xs text-ink-2 hover:bg-surface-2">
-      <span className={`h-2 w-2 rounded-full ${d.tone}`} />
+    <button onClick={onRefresh} title={`${d.title} · Pulsa para comprobar de nuevo`} aria-label={`Estado: ${d.label}. ${d.title}`}
+      className={`flex min-h-9 shrink-0 items-center gap-1.5 rounded-full px-2.5 text-xs font-medium ${problem ? (connection.state === "offline" ? "bg-danger-soft text-danger" : "bg-warning-soft text-warning") : "text-ink-2 hover:bg-surface-2"}`}>
+      <span className={`h-2 w-2 shrink-0 rounded-full ${d.tone}`} aria-hidden="true" />
       {d.label}
-      {showDiagnostics() && (connection.state === "ok" || connection.state === "degraded") && connection.health.context_mode && (
+      {diagnostics && (connection.state === "ok" || connection.state === "degraded") && connection.health.context_mode && (
         <span data-testid="context-mode" className="text-xs text-ink-2">· {connection.health.context_mode}</span>
       )}
     </button>

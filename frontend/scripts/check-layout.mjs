@@ -1,6 +1,6 @@
 // Comprobación VISUAL de la tarjeta de partidos en un navegador real (Playwright; no es dependencia del proyecto: `npm i -D playwright` o uso global).
 // Levanta el frontend, simula /chat con nombres cortos, largos y los más largos del catálogo real, y mide a varios anchos:
-// sin scroll horizontal, nombres completos (sin recorte), VS/marcador centrado, altura por partido. Uso: node scripts/check-layout.mjs [carpeta-de-capturas]
+// sin scroll horizontal, nombres completos (sin recorte), cada gol alineado con su equipo, altura por partido. Uso: node scripts/check-layout.mjs [carpeta-de-capturas]
 import { spawn } from "node:child_process";
 import { mkdirSync, readFileSync } from "node:fs";
 import { createRequire } from "node:module";
@@ -27,7 +27,7 @@ for (let i = 0; i + 1 < pool.length; i += 2) rows.push({ round: 7, date: i % 4 =
 rows.push({ round: 7, date: "2026-11-08", home: ABSURD, away: "C.D. DOSA", score: null, status: "scheduled", past_due: false });
 const response = { ...base, answer: "Estos son los partidos:", visuals: [{ type: "matches", title: "Próximos partidos · PRIMERA DIVISION AUTONOMICA AFICIONADO FS · Grupo 2", subtitle: null, total: rows.length, partial: false, rows }], suggestions: [], sources: [] };
 
-const server = spawn("npx", ["vite", "--host", "127.0.0.1", "--port", String(PORT), "--strictPort"], { cwd: join(here, ".."), stdio: "ignore" });
+const server = spawn("npx", ["vite", "--host", "127.0.0.1", "--port", String(PORT), "--strictPort"], { cwd: join(here, ".."), stdio: "ignore", detached: true });
 const waitUp = async () => { for (let i = 0; i < 60; i++) { try { if ((await fetch(`http://127.0.0.1:${PORT}/`)).ok) return; } catch { /* aún no */ } await new Promise((r) => setTimeout(r, 500)); } throw new Error("vite no arranca"); };
 
 const viewports = [[320, 700], [360, 740], [390, 844], [430, 932], [768, 1024], [1280, 800]];
@@ -36,13 +36,13 @@ try {
   await waitUp();
   const browser = await chromium.launch();
   console.log(`equipos usados: ${pool.length + 2} (los ${longest.length} más largos del catálogo real: máx. ${longest[0].length} caracteres) + un nombre absurdo de ${ABSURD.length}`);
-  console.log("ancho | scroll-x página | desbordes en tarjeta | nombres recortados (>4 líneas) | máx. líneas | VS centrado (px de error máx.) | alto por partido (media) | modo");
+  console.log("ancho | scroll-x página | desbordes en tarjeta | nombres recortados (>4 líneas) | máx. líneas | gol alineado con su equipo (px de error máx.) | alto por partido (media) | modo");
   for (const [w, h] of viewports) {
     const page = await browser.newPage({ viewport: { width: w, height: h }, deviceScaleFactor: 2 });
     await page.route("**/chat/health", (r) => r.fulfill({ json: { status: "ok", agent: { ready: true, error: null }, llm: { provider: "fake", key_configured: true }, data_api: { reachable: true, detail: null } } }));
     await page.route("**/chat", (r) => r.request().method() === "POST" ? r.fulfill({ json: response }) : r.continue());
     await page.goto(`http://127.0.0.1:${PORT}/`);
-    await page.getByLabel("Pregunta").fill("¿Cuáles son los próximos partidos?");
+    await page.getByRole("textbox", { name: "Pregunta" }).fill("¿Cuáles son los próximos partidos?");
     await page.getByRole("button", { name: "Enviar" }).click();
     await page.getByTestId("visual").first().waitFor();
     const m = await page.evaluate(() => {
@@ -50,20 +50,21 @@ try {
       const doc = document.documentElement;
       const lh = (el) => parseFloat(getComputedStyle(el).lineHeight);
       let maxLines = 0, clipped = 0, worst = 0, narrow = false; const clippedNames = [];
-      const offenders = [...document.querySelectorAll('[data-testid="visual"] *')].filter((e) => e.scrollWidth > e.clientWidth + 1 && getComputedStyle(e).overflowX !== "visible" && !e.closest(".overflow-x-auto"));
+      const offenders = [...document.querySelectorAll('[data-testid="visual"] *')].filter((e) => e.scrollWidth > e.clientWidth + 1 && getComputedStyle(e).overflowX !== "visible" && !e.closest(".overflow-x-auto") && !e.closest(".sr-only"));
       const overflow = offenders.length; const offenderInfo = offenders.map((e) => `${e.tagName}.${String(e.className).slice(0, 50)} | ${e.textContent.slice(0, 40)} | sw=${e.scrollWidth} cw=${e.clientWidth}`);
       for (const r of rowsEl) {
-        const g = r.querySelector(".match-row"), home = g.querySelector(".match-home"), away = g.querySelector(".match-away"), mid = g.querySelector(".match-mid");
-        narrow = (getComputedStyle(g).gridTemplateAreas.match(/"[^"]*"/g) ?? []).length >= 2; // apilado = local y visitante en filas distintas (independiente de la columna del escudo)
-        for (const el of [home, away]) {
+        const names = [...r.querySelectorAll(".match-team")], goals = [...r.querySelectorAll(".match-goals")];
+        for (const el of names) {
           const lines = Math.round(el.getBoundingClientRect().height / lh(el));
           maxLines = Math.max(maxLines, lines);
           if (el.scrollHeight > el.clientHeight + 1) { clipped++; clippedNames.push(`${el.textContent.length} car.: ${el.textContent.slice(0, 40)} (col ${Math.round(el.getBoundingClientRect().width)}px)`); }
         }
-        const hb = home.getBoundingClientRect(), ab = away.getBoundingClientRect(), mb = mid.getBoundingClientRect(), gb = g.getBoundingClientRect();
-        const err = narrow ? Math.abs((mb.top + mb.bottom) / 2 - (Math.min(hb.top, ab.top) + Math.max(hb.bottom, ab.bottom)) / 2)
-                           : Math.abs((mb.left + mb.right) / 2 - (gb.left + gb.right) / 2);
-        worst = Math.max(worst, err);
+        goals.forEach((gEl, i) => { // en listas con marcador, cada cifra centrada en vertical con el nombre de su equipo
+          if (getComputedStyle(gEl).display === "none") return;
+          const nb = names[i].getBoundingClientRect(), gb = gEl.getBoundingClientRect();
+          worst = Math.max(worst, Math.abs((gb.top + gb.bottom) / 2 - (nb.top + nb.bottom) / 2));
+        });
+        narrow = true;
       }
       const avg = rowsEl.reduce((s, r) => s + r.getBoundingClientRect().height, 0) / rowsEl.length;
       return { clippedNames, offenderInfo, pageOverflow: doc.scrollWidth > window.innerWidth + 1, overflow, clipped, maxLines, worst: +worst.toFixed(2), avg: Math.round(avg), narrow, rows: rowsEl.length };
@@ -74,12 +75,12 @@ try {
     if (m.overflow) console.log(`   desbordes a ${w}px:`, m.offenderInfo.join(" || "));
     const bad = m.pageOverflow || m.overflow > 0 || m.worst > 1.5 || m.maxLines > 4;
     if (bad) failures++;
-    console.log(`${String(w).padStart(5)} | ${m.pageOverflow ? "SÍ ✗" : "no"}${" ".repeat(12)} | ${m.overflow}${" ".repeat(19)} | ${m.clipped} (solo el nombre absurdo se recorta)${" ".repeat(0)} | ${m.maxLines} | ${m.worst} | ${m.avg} px | ${m.narrow ? "apilado" : "3 columnas"} ${bad ? "✗" : "✓"}`);
+    console.log(`${String(w).padStart(5)} | ${m.pageOverflow ? "SÍ ✗" : "no"}${" ".repeat(12)} | ${m.overflow}${" ".repeat(19)} | ${m.clipped} (solo el nombre absurdo se recorta)${" ".repeat(0)} | ${m.maxLines} | ${m.worst} | ${m.avg} px | apilado ${bad ? "✗" : "✓"}`);
     await page.close();
   }
   await browser.close();
   console.log(`capturas en ${out}`);
 } finally {
-  server.kill();
+  try { process.kill(-server.pid); } catch { server.kill(); }
 }
 process.exit(failures ? 1 : 0);

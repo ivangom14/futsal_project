@@ -31,24 +31,24 @@ export default function FeedbackBar({ value, onSubmit }: { value?: Feedback; onS
   };
   if (value && !asking && !changing) {
     return (
-      <p className="mt-2 flex items-center gap-2 text-xs text-ink-2" role="status">
+      <p className="flex min-h-9 items-center gap-1.5 text-xs text-ink-2" role="status">
         {value.rating === "up" ? <ThumbsUp size={14} aria-hidden="true" className="shrink-0 text-success" /> : <ThumbsDown size={14} aria-hidden="true" className="shrink-0" />}
-        {value.rating === "up" ? "Gracias por tu valoración" : `Gracias, lo tendremos en cuenta${value.reason ? ` (${REASONS.find((r) => r.value === value.reason)?.label})` : ""}`}
+        <span className="sr-only sm:not-sr-only">{value.rating === "up" ? "Gracias por tu valoración" : `Gracias, lo tendremos en cuenta${value.reason ? ` (${REASONS.find((r) => r.value === value.reason)?.label})` : ""}`}</span>
         <button className="inline-flex min-h-6 items-center rounded underline" onClick={() => setChanging(true)}>Cambiar</button>
       </p>
     );
   }
   return (
-    <div className="mt-2 text-xs text-ink-2">
-      {error && !asking && <p role="alert" className="mb-1 text-danger">No se ha podido guardar la valoración. Inténtalo de nuevo.</p>}
+    <div className="contents text-xs text-ink-2">
+      {error && !asking && <p role="alert" className="basis-full text-danger">No se ha podido guardar la valoración. Inténtalo de nuevo.</p>}
       {!asking && (
-        <div className="flex items-center gap-1" role="group" aria-label="Valorar respuesta">
-          <button aria-label="Respuesta útil" title="Respuesta útil" className="grid h-10 w-10 place-items-center rounded-lg text-ink-2 hover:bg-surface-2 hover:text-ink" onClick={() => void send({ rating: "up" })}><ThumbsUp size={18} strokeWidth={1.75} aria-hidden="true" /></button>
-          <button aria-label="Respuesta mejorable" title="Respuesta mejorable" className="grid h-10 w-10 place-items-center rounded-lg text-ink-2 hover:bg-surface-2 hover:text-ink" onClick={() => setAsking(true)}><ThumbsDown size={18} strokeWidth={1.75} aria-hidden="true" /></button>
+        <div className="-mr-2 flex shrink-0 items-center" role="group" aria-label="Valorar respuesta">
+          <button aria-label="Respuesta útil" title="Respuesta útil" className="grid h-9 w-9 place-items-center rounded-md text-ink-2 hover:bg-surface-2 hover:text-ink [@media(pointer:coarse)]:h-10 [@media(pointer:coarse)]:w-10" onClick={() => void send({ rating: "up" })}><ThumbsUp size={16} strokeWidth={1.75} aria-hidden="true" /></button>
+          <button aria-label="Respuesta mejorable" title="Respuesta mejorable" className="grid h-9 w-9 place-items-center rounded-md text-ink-2 hover:bg-surface-2 hover:text-ink [@media(pointer:coarse)]:h-10 [@media(pointer:coarse)]:w-10" onClick={() => setAsking(true)}><ThumbsDown size={16} strokeWidth={1.75} aria-hidden="true" /></button>
         </div>
       )}
       {asking && (
-        <form className="mt-1 space-y-2 rounded-lg border border-line bg-surface-2 p-2" onSubmit={(e) => { e.preventDefault(); if (reason) void send({ rating: "down", reason, comment: comment.trim() || undefined }); }}>
+        <form className="mt-1 basis-full space-y-2 rounded-md border border-line bg-surface p-3 text-sm" onSubmit={(e) => { e.preventDefault(); if (reason) void send({ rating: "down", reason, comment: comment.trim() || undefined }); }}>
           <fieldset>
             <legend className="mb-1 font-medium text-ink">¿Qué ha fallado?</legend>
             <div className="flex flex-wrap gap-x-4 gap-y-1">

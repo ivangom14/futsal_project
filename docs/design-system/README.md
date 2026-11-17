@@ -16,6 +16,7 @@ Backend, MCP y agente no se han modificado.
 | 8 | [08-p0-implementacion.md](08-p0-implementacion.md) | Qué se implementó en P0, validación y medidas antes/después |
 | 9 | [09-p1-bloque1.md](09-p1-bloque1.md) | P1, primer bloque: chat a ancho completo, loader, caja de entrada, diagnóstico oculto y fuentes |
 | 10 | [10-p1-bloque2.md](10-p1-bloque2.md) | P1, segundo bloque: componentes base, escudos con monograma, clasificación, goleadores, aclaraciones, contexto y deshacer |
+| 11 | [11-rediseno-ux.md](11-rediseno-ux.md) | Rediseño UX/UI integral (Pista v2): auditoría priorizada, tokens v2, chat, listados, historial, validación y pendientes del agente |
 | — | [demo/futsito-design-demo.html](demo/futsito-design-demo.html) | Demo estática aislada (abrir en el navegador): tokens, claro/oscuro, componentes, loader |
 
 ## Decisiones en una línea

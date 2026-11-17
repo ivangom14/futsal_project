@@ -1,5 +1,6 @@
 import { render, screen, within } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import userEvent from "@testing-library/user-event";
+import { describe, expect, it, vi } from "vitest";
 import Matches from "./components/Matches";
 import TechnicalDetails from "./components/TechnicalDetails";
 import Visuals from "./components/Visuals";
@@ -12,30 +13,36 @@ const row = (home: string, away: string, over: Partial<MatchesVisual["rows"][num
 const visual = (rows: MatchesVisual["rows"]): MatchesVisual => ({ type: "matches", title: "Próximos partidos · Grupo 2", subtitle: null, total: rows.length, partial: false, rows });
 
 describe("tarjeta de partidos", () => {
-  it("muestra la hora de Madrid junto a la fecha («dom 08/11 · 11:00») y la jornada", () => {
-    render(<Matches v={visual([row("C.D. DOSA", "CLUB X")])} />);
-    expect(screen.getByTestId("match-when")).toHaveTextContent("Jornada 7 · dom 08/11 · 11:00");
+  it("una fila por partido: fecha y hora de Madrid a la izquierda; la jornada común se dice una vez en la cabecera", () => {
+    render(<Matches v={visual([row("C.D. DOSA", "CLUB X"), row("A", "B", { date: "2026-11-15T10:00:00+00:00" })])} />);
+    expect(screen.getAllByTestId("match-when")[0]).toHaveTextContent("dom 08/1111:00");
+    expect(screen.getByTestId("visual")).toHaveTextContent("Jornada 7 · Todos programados");
+    expect(screen.queryByTestId("match-status")).toBeNull(); // «Programado» no se repite en cada fila
   });
-  it("un listado de varias competiciones muestra la competición de cada partido y el rango de la página", () => {
-    const v = { ...visual([row("C.D. ALAMO A", "OTRO FS", { date: "2026-11-14T16:00", detail: "PREFERENTE AFICIONADO FS · Grupo 1" }), row("L", "V")]),
-                subtitle: "Mostrando 11–12 de 48", total: 48, partial: true };
+  it("varios partidos el mismo día: se agrupan bajo el día y, si hay varias competiciones, bajo cada competición (orden horario dentro)", () => {
+    const rows = [row("A", "B", { date: "2026-11-14T10:00", detail: "PREFERENTE" }), row("C", "D", { date: "2026-11-14T11:00", detail: "PRIMERA" }),
+      row("E", "F", { date: "2026-11-14T12:00", detail: "PREFERENTE" }), row("G", "H", { date: "2026-11-15T10:00", detail: "PRIMERA" })];
+    const v = { ...visual(rows), subtitle: "Mostrando 11–14 de 48", total: 48, partial: true };
     render(<Matches v={v} />);
-    expect(screen.getAllByTestId("match-when")[0].textContent).toContain("PREFERENTE AFICIONADO FS · Grupo 1");
-    expect(screen.getAllByTestId("match-when")[1].textContent).not.toContain("·  ·");
-    expect(screen.getByText("Mostrando 11–12 de 48")).toBeTruthy();
+    const days = screen.getAllByRole("heading", { level: 3 }).map((h) => h.textContent);
+    expect(days).toEqual(["Sábado, 14 de noviembre", "Domingo, 15 de noviembre"]);
+    const comps = screen.getAllByRole("heading", { level: 4 }).map((h) => h.textContent);
+    expect(comps).toEqual(["PREFERENTE", "PRIMERA", "PRIMERA"]);
+    const order = screen.getAllByTestId("match-row").map((r) => r.querySelector(".match-team")?.textContent);
+    expect(order).toEqual(["A", "E", "C", "G"]);
+    expect(screen.getByText(/Mostrando 11–14 de 48/)).toBeTruthy();
   });
-
-  it("sin hora en el dato solo muestra la fecha; sin fecha, «Sin fecha»", () => {
+  it("sin hora en el dato no inventa una («—» o solo la fecha); sin fecha, «Sin fecha»", () => {
     render(<Matches v={visual([row("A", "B", { date: "2026-11-08" }), row("C", "D", { date: null })])} />);
     const when = screen.getAllByTestId("match-when").map((e) => e.textContent);
-    expect(when).toEqual(["Jornada 7 · dom 08/11", "Jornada 7 · Sin fecha"]);
+    expect(when).toEqual(["dom 08/11", "Sin fecha"]);
   });
   it("los nombres se muestran completos (cortos y largos), con el texto íntegro también en `title`, y nunca como puntos suspensivos", () => {
     const rows = [row("C.D. DOSA", "CLUB X"), row(LONG, "COLEGIO CARDENAL SPINOLA CHAMARTIN 'B'"), row("SAN FELIPE NERI - ELIPA DRAGONS 017", "ESC. DEP. DE FUTBOL DE TORRES")];
     render(<Matches v={visual(rows)} />);
     for (const r of rows) {
       for (const name of [r.home, r.away]) {
-        const el = screen.getAllByText(name)[0];
+        const el = screen.getAllByText(name, { selector: ".match-team" })[0];
         expect(el).toHaveTextContent(name);
         expect(el).toHaveAttribute("title", name);
         expect(el.className).not.toMatch(/\btruncate\b|text-ellipsis/);
@@ -43,25 +50,46 @@ describe("tarjeta de partidos", () => {
       }
     }
   });
-  it("cada partido conserva el orden local · VS (o marcador) · visitante, que es también el orden de lectura", () => {
+  it("marcador por equipo con el ganador destacado; local arriba y visitante abajo; una frase completa para lectores de pantalla", () => {
     render(<Matches v={visual([row("LOCAL", "VISITANTE"), row("A", "B", { score: "7-1", status: "finished" })])} />);
     const [first, second] = screen.getAllByTestId("match-row");
-    const order = (el: HTMLElement) => Array.from(el.querySelectorAll(".match-row > span")).map((s) => s.textContent);
-    expect(order(first)).toEqual(["LOCAL", "vs", "VISITANTE"]);
-    expect(order(second)).toEqual(["A", "7-1", "B"]);
-    expect(first.querySelector(".match-home")).not.toBeNull();
-    expect(first.querySelector(".match-mid")).not.toBeNull();
-    expect(first.querySelector(".match-away")).not.toBeNull();
+    const teams = (el: HTMLElement) => Array.from(el.querySelectorAll(".match-team")).map((s) => s.textContent);
+    expect(teams(first)).toEqual(["LOCAL", "VISITANTE"]);
+    const goals = Array.from(second.querySelectorAll(".match-goals")).map((g) => g.textContent);
+    expect(goals).toEqual(["7", "1"]);
+    expect(second.querySelectorAll(".match-team")[0].className).toMatch(/font-semibold/);
+    expect(second.querySelector(".sr-only")).toHaveTextContent("A 7, B 1. Finalizado.");
+    expect(first.querySelector(".sr-only")).toHaveTextContent("LOCAL contra VISITANTE. Programado.");
+  });
+  it("un marcador con otro formato se muestra tal cual, sin reinterpretarlo", () => {
+    render(<Matches v={visual([row("A", "B", { score: "3-3 (p. 4-2)", status: "finished" }), row("C", "D")])} />);
+    expect(screen.getByTestId("match-score")).toHaveTextContent("3-3 (p. 4-2)");
   });
   it("usa el contenedor de consulta (el diseño depende del ancho de la tarjeta, no de la pantalla)", () => {
     const { container } = render(<Matches v={visual([row("A", "B")])} />);
     expect(container.querySelector("ul.match-list")).not.toBeNull();
   });
-  it("sigue avisando de fecha pasada, partidos parciales y estados distintos", () => {
-    render(<Matches v={{ ...visual([row("A", "B", { past_due: true }), row("C", "D", { status: "finished", score: "1-0" })]), partial: true, total: 30 }} />);
+  it("avisa de fecha pasada, de estados excepcionales por fila y de que hay más partidos", () => {
+    render(<Matches v={{ ...visual([row("A", "B", { past_due: true }), row("C", "D", { status: "postponed" }), row("E", "F", { status: "" })]), partial: true, total: 30 }} />);
     expect(screen.getByText(/ya pasó y sigue como programado/)).toBeInTheDocument();
-    expect(screen.getByText("Finalizado")).toBeInTheDocument();
-    expect(screen.getByText("Se muestran 2 de 30 partidos.")).toBeInTheDocument();
+    expect(screen.getByText("Aplazado")).toBeInTheDocument();
+    expect(screen.getByText("Sin confirmar")).toHaveAttribute("title", "Estado en la fuente: vacío");
+    expect(screen.getByText(/Se muestran 3 de 30 partidos/)).toBeInTheDocument();
+    expect(screen.getByTestId("matches-count")).toHaveTextContent("3 de 30");
+  });
+  it("más de 10 filas recibidas: muestra 10 y despliega el resto sin pedir nada al servidor", async () => {
+    const rows = Array.from({ length: 12 }, (_, i) => row(`L${i}`, `V${i}`, { date: `2026-11-${String(10 + i).padStart(2, "0")}T10:00:00+00:00` }));
+    render(<Matches v={visual(rows)} />);
+    expect(screen.getAllByTestId("match-row")).toHaveLength(10);
+    await userEvent.click(screen.getByTestId("matches-expand"));
+    expect(screen.getAllByTestId("match-row")).toHaveLength(12);
+  });
+  it("listado paginado del backend: «Ver más» pide la página siguiente (paginación conversacional sin LLM)", async () => {
+    const onMore = vi.fn();
+    render(<Matches v={{ ...visual([row("A", "B"), row("C", "D")]), subtitle: "Mostrando 1–2 de 48", total: 48, partial: true }} onMore={onMore} />);
+    await userEvent.click(screen.getByTestId("matches-more"));
+    expect(onMore).toHaveBeenCalledOnce();
+    expect(screen.getByTestId("matches-more")).toHaveTextContent("Ver 10 partidos más · quedan 46");
   });
 });
 

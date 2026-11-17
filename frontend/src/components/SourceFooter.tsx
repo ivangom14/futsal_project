@@ -31,16 +31,20 @@ export default function SourceFooter({ sources }: { sources: Source[] }) {
   if (items.length === 0) return null;
   const first = items[0];
   const Icon = first.kind === "document" ? FileText : Database;
+  // Fecha de actualización de los datos deportivos, visible sin desplegar (es lo que da confianza en un resultado).
+  const official = items.find((s) => s.kind === "official_data" && updated(s.updated_at));
+  const when = official ? updated(official.updated_at) : null;
   return (
-    <details className="group mt-3 text-[13px] leading-5 text-ink-2" data-testid="sources">
-      <summary className="flex min-h-8 cursor-pointer list-none items-center gap-1.5 rounded [&::-webkit-details-marker]:hidden">
+    <details className="group text-[13px] leading-5 text-ink-2" data-testid="sources">
+      <summary className="flex min-h-9 cursor-pointer list-none items-center gap-1.5 rounded-sm [&::-webkit-details-marker]:hidden">
         <Icon size={14} strokeWidth={1.75} aria-hidden="true" className="shrink-0" />
         <span className="min-w-0 truncate">
           Fuente: {first.title}{items.length > 1 ? ` y ${items.length - 1} más` : ""}
+          {when && <span data-testid="sources-updated"> · act. {when.slice(0, 5)}</span>}
         </span>
         <span aria-hidden="true" className="shrink-0 transition-transform group-open:rotate-90">›</span>
       </summary>
-      <ul className="mt-1 space-y-1 border-l-2 border-line pl-3">
+      <ul className="mb-1 mt-0.5 space-y-1 border-l-2 border-line pl-3">
         {items.map((s, i) => {
           const when = updated(s.updated_at);
           return (

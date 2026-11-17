@@ -1,5 +1,7 @@
 import { useState } from "react";
+import { ChevronDown } from "lucide-react";
 import TeamCrest from "../ui/TeamCrest";
+import Panel, { PanelAction, PanelNote } from "../ui/Panel";
 import Cards from "./Cards";
 import Lineup from "./Lineup";
 import Matches from "./Matches";
@@ -8,17 +10,38 @@ import Timeline from "./Timeline";
 import type { Visual } from "../types";
 
 const fmt = (v: unknown) => (v === null || v === undefined ? "–" : String(v));
+/** Filas de ranking visibles de entrada; el resto (ya recibido) se despliega. */
+export const INITIAL_RANK_ROWS = 10;
+const PARTIAL = "Datos incompletos en la fuente: puede faltar información.";
 
-function Frame({ title, subtitle, partial, children }: { title: string; subtitle?: string | null; partial?: boolean; children: React.ReactNode }) {
+const partialNote = (partial?: boolean) => (partial ? <p className="mt-0.5 text-xs text-warning">{PARTIAL}</p> : null);
+
+function TableVisual({ v }: { v: Extract<Visual, { type: "table" }> }) {
+  const keys = v.columns.map((c) => c.key);
+  if (keys.includes("position") && keys.includes("team")) return <StandingsTable v={v} />;
   return (
-    <figure className="mt-3 overflow-hidden rounded-xl border border-line bg-surface" data-testid="visual">
-      <figcaption className="border-b border-line bg-surface-2 px-3 py-2">
-        <p className="font-display text-sm font-bold text-ink">{title}</p>
-        {subtitle && <p className="text-xs text-ink-2">{subtitle}</p>}
-        {partial && <p className="text-xs text-warning">Datos incompletos en la fuente: puede faltar información.</p>}
-      </figcaption>
-      {children}
-    </figure>
+    <Panel title={v.title} subtitle={v.subtitle} note={partialNote(v.partial)}>
+      <div className="overflow-x-auto" tabIndex={0} role="region" aria-label={`${v.title} (tabla desplazable)`}>
+        <table className="data-table w-full text-sm">
+          <thead>
+            <tr>
+              {v.columns.map((c) => (
+                <th key={c.key} scope="col" className={c.align === "right" ? "text-right" : "text-left"}>{c.label}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {v.rows.map((r, i) => (
+              <tr key={i} className={r.highlight ? "is-highlight" : ""}>
+                {v.columns.map((c) => (
+                  <td key={c.key} className={c.align === "right" ? "text-right font-display stretch-table tabular-nums" : "text-left"}>{fmt(r[c.key])}</td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </Panel>
   );
 }
 
@@ -30,182 +53,179 @@ const STANDINGS_TITLES: Record<string, string> = {
 /** Columnas que se pliegan en tarjetas estrechas (siguen en el DOM y se ven con «Ver todas las columnas»). */
 const OPTIONAL: Record<string, string> = { won: "st-opt1", drawn: "st-opt1", lost: "st-opt1", goals_for: "st-opt2", goals_against: "st-opt2" };
 
-function TableVisual({ v }: { v: Extract<Visual, { type: "table" }> }) {
-  const keys = v.columns.map((c) => c.key);
-  if (keys.includes("position") && keys.includes("team")) return <StandingsTable v={v} />;
-  return (
-    <Frame title={v.title} subtitle={v.subtitle} partial={v.partial}>
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="text-xs text-ink-2">
-              {v.columns.map((c) => (
-                <th key={c.key} scope="col" className={`px-2 py-1 font-medium ${c.align === "right" ? "text-right" : "text-left"}`}>{c.label}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {v.rows.map((r, i) => (
-              <tr key={i} className={`border-t border-line ${r.highlight ? "bg-brand-soft font-semibold" : ""}`}>
-                {v.columns.map((c) => (
-                  <td key={c.key} className={`px-2 py-1 ${c.align === "right" ? "text-right font-display stretch-table tabular-nums" : "text-left"}`}>{fmt(r[c.key])}</td>
-                ))}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </Frame>
-  );
-}
-
 /**
- * Clasificación (guía §F.6): «Pos» y «Equipo» fijas al desplazar; en tarjetas estrechas se pliegan G/E/P (< 22 rem) y GF/GC
- * (< 34 rem) por consulta de contenedor, sin perder el dato: «Ver todas las columnas» las muestra con desplazamiento horizontal.
+ * Clasificación: «Pos» y «Equipo» fijas al desplazar; lo esencial (PJ, DG, Pts) siempre visible y G/E/P (< 22 rem) y GF/GC (< 34 rem)
+ * plegadas por consulta de contenedor, sin perder el dato: «Ver todas las columnas» las muestra con desplazamiento horizontal.
  */
 function StandingsTable({ v }: { v: Extract<Visual, { type: "table" }> }) {
   const [all, setAll] = useState(false);
-  const cell = (key: string, hl: boolean) => {
-    if (key === "position") return `sticky left-0 z-[1] w-10 min-w-10 text-center ${hl ? "bg-brand-soft shadow-[inset_3px_0_0_var(--fs-brand)]" : "bg-surface"}`;
-    if (key === "team") return `sticky left-10 z-[1] text-left shadow-[1px_0_0_var(--fs-line)] ${hl ? "bg-brand-soft" : "bg-surface"}`;
-    return `${OPTIONAL[key] ?? ""} text-right`;
+  const cell = (key: string) => {
+    if (key === "position") return "st-pos";
+    if (key === "team") return "st-team";
+    return `${OPTIONAL[key] ?? ""} st-num`;
   };
   return (
-    <Frame title={v.title} subtitle={v.subtitle} partial={v.partial}>
-      <div className="standings overflow-x-auto" data-all={all ? "" : undefined} data-testid="standings">
+    <Panel title={v.title} subtitle={v.subtitle} note={partialNote(v.partial)} aside={<span className="tabular-nums">{v.rows.length} equipos</span>}>
+      <div className="standings overflow-x-auto" data-all={all ? "" : undefined} data-testid="standings" tabIndex={0} role="region" aria-label="Clasificación (tabla desplazable)">
         <table className="w-full text-sm">
           <thead>
-            <tr className="text-xs text-ink-2">
+            <tr>
               {v.columns.map((c) => (
-                <th key={c.key} scope="col" className={`px-2 py-1.5 font-medium ${cell(c.key, false)}`}>
+                <th key={c.key} scope="col" className={cell(c.key)}>
                   {STANDINGS_TITLES[c.key] ? <abbr title={STANDINGS_TITLES[c.key]} className="no-underline">{c.label}</abbr> : c.label}
                 </th>
               ))}
             </tr>
           </thead>
           <tbody>
-            {v.rows.map((r, i) => {
-              const hl = Boolean(r.highlight);
-              return (
-                <tr key={i} className={`border-t border-line ${hl ? "bg-brand-soft font-semibold" : ""}`}>
-                  {v.columns.map((c) => (
-                    <td key={c.key} className={`px-2 py-1.5 ${cell(c.key, hl)} ${c.key === "team" ? "" : "font-display stretch-table tabular-nums"} ${c.key === "points" ? "font-extrabold" : ""}`}>
-                      {c.key === "team" ? (
-                        <span className="flex min-w-[7.5rem] items-center gap-2 leading-tight">
-                          <TeamCrest name={String(r.team ?? "")} size={20} />
-                          <span className="min-w-0 [overflow-wrap:anywhere]">{fmt(r.team)}</span>
-                        </span>
-                      ) : c.key === "goal_difference" && typeof r[c.key] === "number" && (r[c.key] as number) > 0 ? `+${r[c.key]}` : fmt(r[c.key])}
-                    </td>
-                  ))}
-                </tr>
-              );
-            })}
+            {v.rows.map((r, i) => (
+              <tr key={i} className={r.highlight ? "is-highlight" : ""} aria-current={r.highlight ? "true" : undefined}>
+                {v.columns.map((c) => (
+                  <td key={c.key} className={`${cell(c.key)} ${c.key === "points" ? "st-pts" : ""}`}>
+                    {c.key === "team" ? (
+                      <span className="flex min-w-[8rem] items-center gap-2 leading-tight">
+                        <TeamCrest name={String(r.team ?? "")} size={20} />
+                        <span className="min-w-0 [overflow-wrap:anywhere]">{fmt(r.team)}</span>
+                      </span>
+                    ) : c.key === "goal_difference" && typeof r[c.key] === "number" && (r[c.key] as number) > 0 ? `+${r[c.key]}` : fmt(r[c.key])}
+                  </td>
+                ))}
+              </tr>
+            ))}
           </tbody>
         </table>
         <button type="button" onClick={() => setAll((x) => !x)} aria-pressed={all}
-          className="st-toggle sticky left-0 m-1 inline-flex min-h-10 items-center rounded-lg px-2 text-xs font-medium text-accent hover:bg-surface-2">
+          className="st-toggle sticky left-0 flex min-h-touch w-full items-center justify-center border-t border-line text-sm font-semibold text-accent hover:bg-surface-2">
           {all ? "Ver menos columnas" : "Ver todas las columnas"}
         </button>
       </div>
-    </Frame>
+    </Panel>
   );
 }
 
-/** Ranking de goleadores (guía §F.7). Por contrato (`presentation.py`), `sublabel` es el equipo del jugador. */
-function BarsVisual({ v }: { v: Extract<Visual, { type: "bars" }> }) {
+/**
+ * Ranking (goleadores, equipos, árbitros): posición, nombre, equipo y la cifra principal, con barra fina de proporción. Los empates
+ * repiten posición (la del backend); los 10 primeros de entrada y el resto con un toque; si el backend pagina, «Ver más» pide la
+ * página siguiente sin LLM. Por contrato (`presentation.py`), `sublabel` es el equipo del jugador (o la competición).
+ */
+function BarsVisual({ v, onMore, moreDisabled }: { v: Extract<Visual, { type: "bars" }>; onMore?: () => void; moreDisabled?: boolean }) {
+  const [expanded, setExpanded] = useState(false);
   const max = Math.max(1, ...v.rows.map((r) => r.value));
+  const rows = expanded ? v.rows : v.rows.slice(0, INITIAL_RANK_ROWS);
+  const hidden = v.rows.length - rows.length;
+  const footer = hidden > 0 ? (
+    <PanelAction onClick={() => setExpanded(true)} testId="ranking-expand"><ChevronDown size={16} aria-hidden="true" /> Ver {hidden} más</PanelAction>
+  ) : v.partial && onMore ? (
+    <PanelAction onClick={onMore} disabled={moreDisabled} testId="ranking-more"><ChevronDown size={16} aria-hidden="true" /> Ver 10 más</PanelAction>
+  ) : v.partial && v.subtitle?.startsWith("Mostrando") ? (
+    <PanelNote>Pide «los siguientes» para ver más posiciones.</PanelNote>
+  ) : null;
   return (
-    <Frame title={v.title} subtitle={v.subtitle} partial={v.partial}>
-      <ol className="space-y-2.5 p-3">
-        {v.rows.map((r, i) => {
+    <Panel title={v.title} subtitle={v.subtitle} note={v.subtitle?.startsWith("Mostrando") ? null : partialNote(v.partial)} footer={footer}>
+      <ol className="divide-y divide-line">
+        {rows.map((r, i) => {
           const rank = r.rank ?? i + 1;
+          const tie = i > 0 && (rows[i - 1].rank ?? i) === rank;
           return (
-            <li key={i} className="grid grid-cols-[1.75rem_minmax(0,1fr)_auto] items-center gap-x-2.5 gap-y-1 text-sm">
-              <span className={`rounded py-0.5 text-center font-display text-[15px] font-extrabold stretch-score tabular-nums ${rank === 1 ? "bg-gold text-gold-text" : "bg-surface-2 text-ink"}`}>{rank}</span>
-              <span className="min-w-0 break-words leading-tight">
-                {r.label}
+            <li key={i} className="rank-row" data-testid="rank-row">
+              <span className={`rank-pos font-display stretch-score tabular-nums ${rank === 1 ? "bg-gold text-gold-text" : tie ? "text-ink-2" : "text-ink"}`}
+                aria-label={`Posición ${rank}${tie ? " (empatado)" : ""}`}>{rank}</span>
+              <span className="min-w-0">
+                <span className="block font-medium leading-tight [overflow-wrap:anywhere]">{r.label}</span>
                 {r.sublabel && (
-                  <span className="mt-0.5 flex items-center gap-1.5 text-[13px] text-ink-2"><TeamCrest name={r.sublabel} size={16} /><span className="min-w-0">{r.sublabel}</span></span>
+                  <span className="mt-0.5 flex items-center gap-1.5 text-[13px] leading-tight text-ink-2"><TeamCrest name={r.sublabel.split(" · ")[0]} size={14} /><span className="min-w-0 [overflow-wrap:anywhere]">{r.sublabel}</span></span>
                 )}
+                <span className="rank-bar" aria-hidden="true"><span style={{ width: `${(r.value / max) * 100}%` }} /></span>
               </span>
-              <span className="font-display text-lg font-extrabold stretch-score tabular-nums">{r.value}</span>
-              <div className="col-start-2 col-end-4 h-1.5 rounded bg-surface-2" role="img" aria-label={`${r.label}: ${r.value}`}>
-                <div className="h-1.5 rounded bg-chart-1" style={{ width: `${(r.value / max) * 100}%` }} />
-              </div>
+              <span className="font-display text-lg font-extrabold leading-none stretch-score tabular-nums" aria-label={`${r.value}`}>{r.value}</span>
             </li>
           );
         })}
       </ol>
-    </Frame>
+    </Panel>
   );
 }
 
 function ComparisonVisual({ v }: { v: Extract<Visual, { type: "comparison" }> }) {
   return (
-    <Frame title={v.title} subtitle={v.subtitle}>
+    <Panel title={v.title} subtitle={v.subtitle}>
       <div className="space-y-3 p-3">
-        <p className="flex gap-4 text-xs"><span className="text-brand-text">■ {v.series[0]}</span><span className="text-accent">■ {v.series[1]}</span></p>
+        <p className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-ink">
+          <span className="flex items-center gap-1.5"><span aria-hidden="true" className="h-2.5 w-2.5 rounded-sm bg-chart-1" />{v.series[0]}</span>
+          <span className="flex items-center gap-1.5"><span aria-hidden="true" className="h-2.5 w-2.5 rounded-sm bg-chart-2" />{v.series[1]}</span>
+        </p>
         {v.rows.map((r, i) => {
           const vals = r.values.map((x) => Math.max(0, x ?? 0));
           const max = Math.max(1, ...vals);
           return (
             <div key={i} className="text-sm">
-              <p className="text-xs text-ink-2">{r.label}</p>
+              <p className="mb-0.5 text-xs text-ink-2">{r.label}</p>
               {vals.map((x, j) => (
                 <div key={j} className="flex items-center gap-2">
-                  <div className="h-2.5 flex-1 rounded bg-surface-2"><div className={`h-2.5 rounded ${j === 0 ? "bg-chart-1" : "bg-chart-2"}`} style={{ width: `${(x / max) * 100}%` }} /></div>
-                  <span className="w-8 text-right tabular-nums">{fmt(r.values[j])}</span>
+                  <div className="h-2 flex-1 rounded-sm bg-surface-2"><div className={`h-2 rounded-sm ${j === 0 ? "bg-chart-1" : "bg-chart-2"}`} style={{ width: `${(x / max) * 100}%` }} /></div>
+                  <span className="w-8 text-right font-display font-bold tabular-nums" aria-label={`${v.series[j]}: ${fmt(r.values[j])}`}>{fmt(r.values[j])}</span>
                 </div>
               ))}
             </div>
           );
         })}
       </div>
-    </Frame>
+    </Panel>
   );
 }
 
-const RESULT_STYLE = { V: "bg-success-soft text-success", E: "bg-warning-soft text-warning", D: "bg-danger-soft text-danger" } as const;
+const RESULT = {
+  V: { label: "Victoria", cls: "bg-success text-surface" },
+  E: { label: "Empate", cls: "bg-ink-2 text-surface" },
+  D: { label: "Derrota", cls: "bg-danger text-surface" },
+} as const;
 
+/** Forma reciente: racha de un vistazo (V/E/D con letra, no solo color), puntos sumados y la lista del más reciente al más antiguo. */
 function FormVisual({ v }: { v: Extract<Visual, { type: "form" }> }) {
-  const w = 240, h = 60, max = Math.max(1, ...v.rows.map((r) => r.points));
-  const pts = v.rows.map((r, i) => `${(i / Math.max(1, v.rows.length - 1)) * (w - 10) + 5},${h - 6 - (r.points / max) * (h - 12)}`).join(" ");
+  const last = v.rows[v.rows.length - 1];
+  const newestFirst = [...v.rows].reverse();
   return (
-    <Frame title={v.title} subtitle={v.subtitle}>
+    <Panel title={v.title} subtitle={last ? `${last.points} puntos en ${v.rows.length} partidos` : v.subtitle}
+      aside={(
+        <span className="flex gap-1" role="img" aria-label={`Racha: ${v.rows.map((r) => RESULT[r.result].label).join(", ")}`} data-testid="form-streak">
+          {v.rows.map((r, i) => <span key={i} aria-hidden="true" className={`grid h-5 w-5 place-items-center rounded-sm text-[11px] font-bold ${RESULT[r.result].cls}`}>{r.result}</span>)}
+        </span>
+      )}>
       <ul className="divide-y divide-line text-sm">
-        {v.rows.map((r, i) => (
-          <li key={i} className="flex items-center gap-2 px-3 py-1.5">
-            <span className="w-8 text-xs text-ink-2">J{r.round ?? "?"}</span>
-            <span className="team-name flex-1" title={r.rival}>{r.home ? "vs" : "@"} {r.rival}</span>
-            <span className="tabular-nums">{r.score}</span>
-            <span className={`w-6 rounded text-center text-xs font-bold ${RESULT_STYLE[r.result]}`} aria-label={{ V: "Victoria", E: "Empate", D: "Derrota" }[r.result]}>{r.result}</span>
+        {newestFirst.map((r, i) => (
+          <li key={i} className="flex items-center gap-3 px-3 py-2">
+            <span className="w-8 shrink-0 text-xs text-ink-2">J{r.round ?? "?"}</span>
+            <span className="min-w-0 flex-1 leading-tight">
+              <span className="text-xs text-ink-2">{r.home ? "vs " : "en "}</span>
+              <span className="[overflow-wrap:anywhere]" title={r.rival}>{r.rival}</span>
+            </span>
+            <span className="font-display font-bold stretch-score tabular-nums">{r.score}</span>
+            <span className={`grid h-6 w-6 shrink-0 place-items-center rounded-sm text-xs font-bold ${RESULT[r.result].cls}`} aria-label={RESULT[r.result].label}>{r.result}</span>
           </li>
         ))}
       </ul>
-      <svg viewBox={`0 0 ${w} ${h}`} className="h-20 w-full border-t border-line p-2" preserveAspectRatio="xMidYMid meet" role="img" aria-label={`Puntos acumulados: ${v.rows.map((r) => r.points).join(", ")}`}>
-        <polyline points={pts} fill="none" className="stroke-chart-1" strokeWidth="2.5" strokeLinejoin="round" />
-        {v.rows.map((r, i) => <circle key={i} cx={(i / Math.max(1, v.rows.length - 1)) * (w - 10) + 5} cy={h - 6 - (r.points / max) * (h - 12)} r="3" className="fill-chart-1" />)}
-      </svg>
-    </Frame>
+    </Panel>
   );
 }
 
-/** Renderiza visuales ESTRUCTURADOS que llegan del backend (nunca se interpreta texto libre; todo se pinta como texto, sin HTML). */
-export default function Visuals({ visuals }: { visuals: Visual[] }) {
+/**
+ * Renderiza visuales ESTRUCTURADOS que llegan del backend (nunca se interpreta texto libre; todo se pinta como texto, sin HTML).
+ * `onMore` (solo la última respuesta) pide la página siguiente del listado paginado.
+ */
+export default function Visuals({ visuals, onMore, moreDisabled }: { visuals: Visual[]; onMore?: () => void; moreDisabled?: boolean }) {
   return (
     <>
       {visuals.map((v, i) => {
         switch (v.type) {
           case "table": return <TableVisual key={i} v={v} />;
-          case "bars": return <BarsVisual key={i} v={v} />;
+          case "bars": return <BarsVisual key={i} v={v} onMore={onMore} moreDisabled={moreDisabled} />;
           case "comparison": return <ComparisonVisual key={i} v={v} />;
           case "form": return <FormVisual key={i} v={v} />;
           case "lineup": return <Lineup key={i} v={v} />;
           case "cards": return <Cards key={i} v={v} />;
           case "officials": return <Officials key={i} v={v} />;
           case "timeline": return <Timeline key={i} v={v} />;
-          case "matches": return <Matches key={i} v={v} />;
+          case "matches": return <Matches key={i} v={v} onMore={onMore} moreDisabled={moreDisabled} />;
           default: return null; // tipo desconocido: se ignora, la respuesta de texto sigue siendo la alternativa
         }
       })}

@@ -5,6 +5,10 @@
 @tailwind utilities;
 
 html, body, #root { height: 100%; }
+/* Alto de la app: viewport dinámico (barras de Safari) y, con el teclado abierto, el alto VISUAL que mide src/viewport.ts (--app-h). */
+@supports (height: 100dvh) { #root { height: 100dvh; } }
+:root[style*="--app-h"] #root { height: var(--app-h); }
+body { overscroll-behavior: none; }
 
 @layer base {
   body { background-color: var(--fs-canvas); color: var(--fs-ink); }
@@ -12,6 +16,8 @@ html, body, #root { height: 100%; }
   :focus-visible { outline: 2px solid var(--fs-focus); outline-offset: 2px; }
   input[type="radio"], input[type="checkbox"] { accent-color: var(--fs-brand); }
   ::placeholder { color: var(--fs-ink-2); opacity: 1; }
+  body { -webkit-tap-highlight-color: transparent; text-rendering: optimizeLegibility; -webkit-font-smoothing: antialiased; }
+  .tabular { font-variant-numeric: tabular-nums; }
   /* Movimiento reducido: sin animaciones ni transiciones (el scroll suave se desactiva en App.tsx). */
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; scroll-behavior: auto !important; }
@@ -38,39 +44,35 @@ html, body { overflow-x: hidden; max-width: 100%; -webkit-text-size-adjust: 100%
     overflow: hidden;
   }
 
-  /* Tarjeta de partidos: móvil por defecto (equipos apilados, VS/marcador a la derecha centrado en vertical); en tarjetas anchas, tres columnas. */
+  /* Partidos: [hora | equipos apilados con escudo | goles]. Misma maqueta en todos los anchos (lectura vertical, como las apps deportivas). */
+  .match { padding: 0.5rem 0.75rem; }
+  .match-grid { display: grid; grid-template-columns: 3.25rem minmax(0, 1fr) auto; column-gap: 0.75rem; align-items: center; }
+  .match-when { font-size: 0.75rem; line-height: 1rem; color: var(--fs-ink-2); }
+  .match-teams { display: grid; grid-template-columns: minmax(0, 1fr) 1.75rem; row-gap: 0.3125rem; column-gap: 0.5rem; align-items: center; }
+  .match-team { @apply team-name; font-size: var(--fs-text-md); line-height: 1.25rem; }
+  .match-goals { text-align: right; font-size: 1.0625rem; line-height: 1.25rem; }
+  .match-detail { grid-column: 1 / -1; font-size: 0.75rem; line-height: 1rem; color: var(--fs-ink-2); overflow-wrap: anywhere; }
+  .match-raw { font-size: 0.875rem; }
+  .match-note { margin-top: 0.25rem; padding-left: 4rem; }
+  .match-day { position: sticky; top: 0; z-index: 1; padding: 0.375rem 0.75rem; font-size: 0.8125rem; font-weight: 600; color: var(--fs-ink);
+    background: var(--fs-surface-2); border-bottom: 1px solid var(--fs-line); }
+  .match-day:not(:first-child), section + section > .match-day { border-top: 1px solid var(--fs-line); }
+  .match-comp { padding: 0.5rem 0.75rem 0.125rem; font-size: 0.6875rem; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--fs-ink-2); overflow-wrap: anywhere; }
+  .match-comp + .match-list > li:first-child { padding-top: 0.25rem; }
   .match-list { container-type: inline-size; }
-  .match-list > li { padding: 0.5rem 0.75rem; }
-  .match-row {
-    display: grid;
-    grid-template-columns: auto minmax(0, 1fr) auto;
-    grid-template-areas: "hc home mid" "ac away mid";
-    column-gap: 0.625rem;
-    row-gap: 0.125rem;
-    align-items: center;
-  }
-  .match-team { @apply team-name font-medium; font-size: 0.84375rem; }
-  .match-home { grid-area: home; }
-  .match-away { grid-area: away; margin-top: 0.125rem; padding-top: 0.25rem; border-top: 1px solid var(--fs-line); }
-  /* Escudo (monograma hasta que haya URLs oficiales): columna propia para no alterar la medida del nombre. */
-  .match-crest { align-self: center; }
-  .match-crest-home { grid-area: hc; }
-  .match-crest-away { grid-area: ac; margin-top: 0.375rem; }
-  .match-mid { grid-area: mid; align-self: center; min-width: 2.5rem; padding: 0.125rem 0.5rem; font-size: 0.75rem; }
-  /* Tarjeta muy estrecha (≈320 px de pantalla): menos relleno lateral y un VS más compacto para que quepan nombres de hasta 60 caracteres sin recortar. */
-  @container (max-width: 15rem) {
-    .match-list > li { padding-inline: 0.5rem; }
-    .match-row { column-gap: 0.5rem; }
-    .match-mid { min-width: 2.25rem; padding-inline: 0.375rem; }
-  }
-  @container (min-width: 30rem) {
-    .match-row { grid-template-columns: minmax(0, 1fr) auto auto auto minmax(0, 1fr); grid-template-areas: "home hc mid ac away"; column-gap: 0.5rem; }
-    .match-crest { width: 1.5rem; height: 1.5rem; }
-    .match-crest-away { margin-top: 0; }
-    .match-home { text-align: right; justify-self: end; }
-    .match-away { margin-top: 0; padding-top: 0; border-top: 0; }
-    .match-team { font-size: 0.875rem; }
-    .match-mid { min-width: 3.5rem; font-size: 0.875rem; }
+  .match-list.with-date .match-grid { grid-template-columns: 4rem minmax(0, 1fr) auto; }
+  .match-list.with-date .match-when > span:first-child { white-space: nowrap; }
+  .match-list.with-date .match-note { padding-left: 4.75rem; }
+  .match-list.no-scores .match-teams { grid-template-columns: minmax(0, 1fr); }
+  .match-list.no-scores .match-goals { display: none; }
+  /* Tarjeta muy estrecha (pantallas de 320 px): menos relleno y sin escudo (decorativo: el nombre va al lado) para que los nombres
+     reales más largos del catálogo (60 caracteres) quepan completos. */
+  @container (max-width: 18.5rem) {
+    .match { padding-inline: 0.5rem; }
+    .match-grid, .match-list.with-date .match-grid { grid-template-columns: 2.75rem minmax(0, 1fr) auto; column-gap: 0.5rem; }
+    .match-list.with-date .match-grid { grid-template-columns: 3.5rem minmax(0, 1fr) auto; }
+    .match-teams .team-crest { display: none; }
+    .match-note, .match-list.with-date .match-note { padding-left: 3.25rem; }
   }
 }
 
@@ -94,10 +96,39 @@ html, body { overflow-x: hidden; max-width: 100%; -webkit-text-size-adjust: 100%
 @keyframes fl-kick { 0%, 100% { transform: rotate(-22deg); } 20%, 80% { transform: rotate(0); } }
 @keyframes fl-shadow { 0%, 100% { transform: scale(1); opacity: 0.9; } 50% { transform: scale(0.55); opacity: 0.4; } }
 
-/* Clasificación: columnas plegables por ancho de la TARJETA (guía §F.6). `data-all` las muestra todas (con desplazamiento). */
+/* Tablas deportivas (clasificación y genéricas): cabecera discreta, filas de 40 px, cifras tabulares, fila destacada con barra de marca. */
 @layer components {
   .standings { container-type: inline-size; }
+  .standings th, .data-table th { padding: 0.375rem 0.5rem; font-size: 0.6875rem; font-weight: 600; letter-spacing: 0.03em; text-transform: uppercase; color: var(--fs-ink-2); white-space: nowrap; }
+  .standings td, .data-table td { padding: 0.5rem; border-top: 1px solid var(--fs-line); }
+  .standings .st-pos { position: sticky; left: 0; z-index: 1; width: 2.25rem; min-width: 2.25rem; padding-left: 0.75rem; text-align: center; background: var(--fs-surface);
+    font-family: "Archivo Variable", system-ui, sans-serif; font-weight: 700; font-variant-numeric: tabular-nums; font-stretch: 87.5%; color: var(--fs-ink-2); }
+  .standings .st-team { position: sticky; left: 2.25rem; z-index: 1; text-align: left; background: var(--fs-surface); box-shadow: 1px 0 0 var(--fs-line); }
+  .standings .st-num { text-align: right; font-family: "Archivo Variable", system-ui, sans-serif; font-stretch: 87.5%; font-variant-numeric: tabular-nums; }
+  .standings td.st-num { color: var(--fs-ink); }
+  .standings .st-pts { font-weight: 800; padding-right: 0.75rem; }
+  .standings th:last-child { padding-right: 0.75rem; }
+  .standings tr.is-highlight td, .data-table tr.is-highlight td { background: var(--fs-brand-soft); font-weight: 600; }
+  .standings tr.is-highlight .st-pos { box-shadow: inset 3px 0 0 var(--fs-brand); color: var(--fs-ink); }
   @container (max-width: 34rem) { .standings:not([data-all]) .st-opt2 { display: none; } }
-  @container (max-width: 22rem) { .standings:not([data-all]) .st-opt1 { display: none; } }
+  @container (max-width: 26rem) { .standings:not([data-all]) .st-opt1 { display: none; } }
   @container (min-width: 34rem) { .standings .st-toggle { display: none; } }
+
+  /* Ranking: [posición | nombre, equipo y barra | cifra]. */
+  .rank-row { display: grid; grid-template-columns: 1.75rem minmax(0, 1fr) auto; column-gap: 0.75rem; align-items: center; padding: 0.5rem 0.75rem; font-size: 0.9375rem; }
+  .rank-pos { display: grid; place-items: center; height: 1.5rem; border-radius: var(--fs-radius-sm); font-size: 0.9375rem; font-weight: 800; }
+  .rank-bar { display: block; margin-top: 0.375rem; height: 3px; border-radius: 2px; background: var(--fs-surface-2); }
+  .rank-bar > span { display: block; height: 3px; border-radius: 2px; background: var(--fs-chart-1); }
+
+  /* Respuesta de texto: ritmo editorial compacto; tablas Markdown del agente con el mismo estilo que las deportivas. */
+  .answer > :first-child { margin-top: 0; }
+  .answer > :last-child { margin-bottom: 0; }
+  .answer p { margin: 0.5rem 0; }
+  .answer ul, .answer ol { margin: 0.5rem 0; }
+  .answer li { margin: 0.125rem 0; }
+  .answer h1, .answer h2, .answer h3 { font-size: 1rem; margin: 1rem 0 0.25rem; }
+  .md-table th { padding: 0.375rem 0.625rem; font-size: 0.6875rem; font-weight: 600; letter-spacing: 0.03em; text-transform: uppercase; color: var(--fs-ink-2); text-align: left; white-space: nowrap; }
+  .md-table th[align="right"], .md-table td[align="right"] { text-align: right; }
+  .md-table td { padding: 0.5rem 0.625rem; border-top: 1px solid var(--fs-line); font-variant-numeric: tabular-nums; }
+  .answer-clamp { max-height: 18rem; overflow: hidden; -webkit-mask-image: linear-gradient(to bottom, #000 75%, transparent); mask-image: linear-gradient(to bottom, #000 75%, transparent); }
 }

@@ -1,51 +1,76 @@
-import ReactMarkdown from "react-markdown";
-import { CircleSlash, TriangleAlert } from "lucide-react";
+import { memo, useState, type ReactNode } from "react";
+import ReactMarkdown, { type Components } from "react-markdown";
+import { CircleSlash, Lightbulb, MessageCircleQuestion, RotateCcw, TriangleAlert } from "lucide-react";
 import remarkGfm from "remark-gfm";
-import { LogoMark } from "./Logo";
 import FeedbackBar from "./FeedbackBar";
 import Suggestions from "./Suggestions";
 import TechnicalDetails from "./TechnicalDetails";
 import Visuals from "./Visuals";
 import SourceFooter from "./SourceFooter";
 import { showDiagnostics } from "../diagnostics";
-import type { ChatResponse, Feedback, Message } from "../types";
+import type { Feedback, Message, Visual } from "../types";
 import Button from "../ui/Button";
 import Notice from "../ui/Notice";
 import Chip from "../ui/Chip";
 
 interface Props {
   message: Message;
-  onRetry?: () => void;
-  /** Solo la última respuesta ofrece preguntas sugeridas. */
+  /** Solo en el último mensaje fallido. */
+  onRetry?: (failed: Message) => void;
+  /** Solo la última respuesta ofrece preguntas sugeridas y «ver más». */
   onSuggest?: (q: string) => void;
   suggestDisabled?: boolean;
   onFeedback: (messageId: string, runId: string | null, fb: Feedback) => Promise<void> | void;
 }
 
-const KIND_LABEL: Record<ChatResponse["answer_kind"], string | null> = {
-  official: "Datos oficiales RFFM", documental: "Normativa y documentos", mixed: "Datos oficiales y normativa", none: null,
+/** Sugerencia de paginación que genera el backend (`presentation._more_chip`): se resuelve SIN LLM con la página siguiente. */
+export const MORE_RE = /^Muéstrame los siguientes (\d+)$/;
+/** Respuestas más largas se pliegan (el texto completo sigue en el DOM para lectores de pantalla y búsqueda). */
+export const LONG_ANSWER = 1400;
+
+const isPaged = (v: Visual) => (v.type === "matches" || v.type === "bars") && Boolean(v.partial);
+
+/**
+ * Quita del texto SOLO las frases de paginación que la tarjeta ya muestra («Mostrando 1–10 de 48.», «¿Quieres que te muestre los
+ * siguientes 10?»). Es presentación determinista: no toca datos ni cifras del resto de la respuesta.
+ */
+export function tidyAnswer(text: string, paged: boolean): string {
+  if (!paged) return text;
+  return text
+    .replace(/\s*Mostrando \d+\s*[–-]\s*\d+ de \d+\.?/g, "")
+    .replace(/\s*¿Quieres que te muestre (?:los|las) siguientes \d+\?/g, "")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+/** Tablas Markdown del agente (comparaciones, listados sin visual): compactas y con desplazamiento propio, nunca de la página. */
+const MD: Components = {
+  table: ({ children }) => (
+    <div className="md-table not-prose my-3 overflow-x-auto rounded-md border border-line bg-surface" tabIndex={0} role="region" aria-label="Tabla (desplazable)">
+      <table className="w-full text-sm">{children}</table>
+    </div>
+  ),
 };
 
-function Badges({ r }: { r: ChatResponse }) {
-  const label = KIND_LABEL[r.answer_kind];
-  if (!label && !r.is_analysis) return null;
+function LongText({ long, children }: { long: boolean; children: ReactNode }) {
+  const [open, setOpen] = useState(false);
+  if (!long) return <>{children}</>;
   return (
-    <span className="flex flex-wrap gap-1.5 text-xs">
-      {label && <span className="rounded-full bg-brand-soft px-2 py-0.5 font-medium text-brand-text">{label}</span>}
-      {r.is_analysis && (
-        <span className="rounded-full bg-warning-soft px-2 py-0.5 font-medium text-warning" title="Interpretación elaborada por el asistente a partir de los datos">
-          Análisis o recomendación · no es información oficial
-        </span>
-      )}
-    </span>
+    <div>
+      <div className={open ? "" : "answer-clamp"} data-testid="answer-clamp">{children}</div>
+      <button type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open}
+        className="mt-1 inline-flex min-h-10 items-center rounded-md px-1 text-sm font-semibold text-accent hover:underline">
+        {open ? "Mostrar menos" : "Mostrar respuesta completa"}
+      </button>
+    </div>
   );
 }
 
-export default function MessageBubble({ message, onRetry, onSuggest, suggestDisabled = false, onFeedback }: Props) {
+function MessageBubble({ message, onRetry, onSuggest, suggestDisabled = false, onFeedback }: Props) {
   if (message.role === "user") {
     return (
-      <div className="flex justify-end" data-testid="msg-user">
-        <p className="min-w-0 max-w-[85%] whitespace-pre-wrap break-words [overflow-wrap:anywhere] rounded-2xl rounded-br-md bg-inverse px-4 py-2 text-inverse-on">{message.content}</p>
+      <div className="flex justify-end pl-10" data-testid="msg-user">
+        <p className="min-w-0 whitespace-pre-wrap break-words rounded-[18px] rounded-br-md bg-bubble px-3.5 py-2 text-base leading-6 text-ink [overflow-wrap:anywhere]">{message.content}</p>
       </div>
     );
   }
@@ -53,20 +78,20 @@ export default function MessageBubble({ message, onRetry, onSuggest, suggestDisa
     const cancelled = message.failureCode === "cancelled"; // la ha parado el usuario: no es un error del sistema
     return (
       <div role="alert" data-testid="msg-error"
-        className={`rounded-xl border px-4 py-3 text-sm ${cancelled ? "border-line bg-surface-2 text-ink" : "border-danger bg-danger-soft text-danger"}`}>
+        className={`rounded-md border px-3.5 py-3 text-sm ${cancelled ? "border-line bg-surface text-ink" : "border-danger bg-danger-soft text-danger"}`}>
         <p className="flex items-center gap-1.5 font-semibold">
           {cancelled ? <CircleSlash size={16} aria-hidden="true" className="shrink-0" /> : <TriangleAlert size={16} aria-hidden="true" className="shrink-0" />}
           {cancelled ? "Consulta cancelada" : "No he podido responder ahora mismo"}
         </p>
-        <p>{message.failure}</p>
+        <p className="mt-0.5">{message.failure}</p>
         {message.failureTechnical && (
-          <details className="mt-1 text-xs text-danger">
+          <details className="mt-1 text-xs">
             <summary className="cursor-pointer">Detalle técnico</summary>
             <p className="mt-1 break-words font-mono">{message.failureTechnical}</p>
           </details>
         )}
         {onRetry && (
-          <Button onClick={onRetry} className="mt-2">Reintentar</Button>
+          <Button onClick={() => onRetry(message)} className="mt-2"><RotateCcw size={15} aria-hidden="true" /> Reintentar</Button>
         )}
       </div>
     );
@@ -79,35 +104,57 @@ export default function MessageBubble({ message, onRetry, onSuggest, suggestDisa
   const asking = ctx?.status === "ask";
   // Supuesto: el backend lo antepone al texto (assumption_prepended); se separa como nota SOLO si el texto empieza exactamente por él.
   const assumption = ctx?.assumption_prepended && ctx.assumption && message.content.startsWith(ctx.assumption) ? ctx.assumption : null;
-  const body = assumption ? message.content.slice(assumption.length).trimStart() : message.content;
-  // Turno del agente SIN burbuja y a todo el ancho: las tarjetas deportivas ganan ~70 px en móvil (guía §F.1).
+  const visuals = r?.visuals ?? [];
+  const paged = visuals.some(isPaged);
+  const body = tidyAnswer(assumption ? message.content.slice(assumption.length).trimStart() : message.content, paged);
+  // «Ver más»: la sugerencia de paginación se convierte en la acción de la propia tarjeta (no en un chip suelto).
+  const suggestions = r?.suggestions ?? [];
+  const more = paged ? suggestions.find((s) => MORE_RE.test(s)) : undefined;
+  const chips = more ? suggestions.filter((s) => s !== more) : suggestions;
+  const onMore = more && onSuggest ? () => onSuggest(more) : undefined;
   return (
     <article className={`min-w-0 ${asking ? "border-l-[3px] border-accent pl-3" : ""}`} data-testid="msg-agent" aria-label={asking ? "Aclaración de Futsito" : "Respuesta de Futsito"}>
-      <header className="mb-1.5 flex flex-wrap items-center gap-x-2 gap-y-1">
-        <LogoMark className="h-7 w-7 shrink-0" />
-        <span className="font-display text-sm font-bold text-ink">Futsito</span>
-        {r && <Badges r={r} />}
-        {asking && <span className="rounded-full bg-accent-soft px-2 py-0.5 text-xs font-medium text-accent">Necesito un detalle</span>}
-      </header>
+      {asking && (
+        <p className="mb-1 flex items-center gap-1.5 text-[13px] font-semibold text-accent">
+          <MessageCircleQuestion size={15} aria-hidden="true" /> Necesito un detalle
+        </p>
+      )}
+      {r?.is_analysis && (
+        <p className="mb-1.5 flex items-center gap-1.5 text-[13px] font-medium text-warning" data-testid="analysis-label"
+          title="Interpretación elaborada por el asistente a partir de los datos">
+          <Lightbulb size={15} aria-hidden="true" /> Análisis de Futsito · no es información oficial
+        </p>
+      )}
       {assumption && <Notice tone="info" className="mb-2" testId="assumption">{assumption}</Notice>}
-      <div className="prose max-w-none break-words text-[15px] leading-relaxed [overflow-wrap:anywhere] sm:text-base prose-p:my-2 prose-table:text-sm">
-        <ReactMarkdown remarkPlugins={[remarkGfm]}>{body}</ReactMarkdown>
-      </div>
+      {body && (
+        <LongText long={body.length > LONG_ANSWER}>
+          <div className="answer prose max-w-none break-words text-base leading-relaxed [overflow-wrap:anywhere]">
+            <ReactMarkdown remarkPlugins={[remarkGfm]} components={MD}>{body}</ReactMarkdown>
+          </div>
+        </LongText>
+      )}
       {r?.error && (
         <Notice tone="warning" role="status" className="mt-2">
           No he podido completar del todo la consulta.{diagnostics ? " El detalle está en «Detalles técnicos»." : " Puede faltar parte de la información."}
         </Notice>
       )}
-      {r && <Visuals visuals={r.visuals ?? []} />}
-      {r && <SourceFooter sources={r.sources ?? []} />}
-      {r && <FeedbackBar value={message.feedback} onSubmit={(fb) => onFeedback(message.id, r.diagnostics.run_id, fb)} />}
+      {r && <Visuals visuals={visuals} onMore={onMore} moreDisabled={suggestDisabled} />}
+      {r && (
+        <div className="mt-2 flex flex-wrap items-start gap-x-2">
+          <div className="min-w-0 flex-1"><SourceFooter sources={r.sources ?? []} /></div>
+          <FeedbackBar value={message.feedback} onSubmit={(fb) => onFeedback(message.id, r.diagnostics.run_id, fb)} />
+        </div>
+      )}
       {r && onSuggest && options.length > 0 && (
-        <div className="mt-3 flex flex-wrap gap-2" role="group" aria-label="Opciones" data-testid="clarification-options">
+        <div className="mt-2 flex flex-wrap gap-2" role="group" aria-label="Opciones" data-testid="clarification-options">
           {options.map((o) => <Chip key={o} variant="option" disabled={suggestDisabled} onClick={() => onSuggest(o)}>{o}</Chip>)}
         </div>
       )}
-      {r && onSuggest && options.length === 0 && <Suggestions items={r.suggestions ?? []} onPick={onSuggest} disabled={suggestDisabled} />}
+      {r && onSuggest && options.length === 0 && <Suggestions items={chips} onPick={onSuggest} disabled={suggestDisabled} />}
       {r && diagnostics && <TechnicalDetails response={r} />}
     </article>
   );
 }
+
+/** Memorizado: una respuesta ya pintada no vuelve a analizar su Markdown cuando cambia otra parte de la app. */
+export default memo(MessageBubble);

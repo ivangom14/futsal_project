@@ -1,5 +1,5 @@
 /*
- * Design tokens «Pista» (docs/design-system/03-guia-estilos.md §B.3).
+ * Design tokens «Pista» v2 (docs/design-system/11-rediseno-ux.md; base: 03-guia-estilos.md §B.3).
  * Los componentes usan SOLO los colores semánticos de tailwind.config.js, que apuntan a estas variables:
  * el modo oscuro cambia los valores aquí y ningún componente necesita variantes `dark:`.
  * Tema: sistema por defecto (prefers-color-scheme); `data-theme="light|dark"` en <html> lo fuerza (src/theme.ts).
@@ -17,94 +17,114 @@
 
 :root {
   color-scheme: light;
-  --fs-canvas: #f8f4ee;
+  --fs-canvas: #f5f5f3;
   --fs-surface: #ffffff;
-  --fs-surface-2: #f1eae0;
-  --fs-line: #e2d6c6;
-  --fs-line-strong: #8c7a68;
-  --fs-ink: #221812;
-  --fs-ink-2: #6a5646;
-  --fs-inverse: #2a1e16;
+  --fs-surface-2: #efeeeb;
+  --fs-line: #e3e1dc;
+  --fs-line-strong: #8a8781;
+  --fs-ink: #17171a;
+  --fs-ink-2: #5c5a55;
+  --fs-inverse: #17171a;
   --fs-on-inverse: #ffffff;
   --fs-brand: #c0281e;
   --fs-brand-hover: #a21f17;
   --fs-brand-text: #a21f17;
-  --fs-brand-soft: #fcedea;
+  --fs-brand-soft: #fbeceb;
   --fs-on-brand: #ffffff;
-  --fs-accent: #1b5fa6;
-  --fs-accent-soft: #e8f0fa;
+  --fs-accent: #1f5fae;
+  --fs-accent-soft: #e9f0fa;
   --fs-gold: #f2b21b;
   --fs-gold-text: #5a3e00;
-  --fs-success: #1c7444;
-  --fs-success-soft: #e5f4ea;
-  --fs-warning: #94560a;
-  --fs-warning-soft: #fbf0dd;
+  --fs-success: #17703f;
+  --fs-success-soft: #e4f3ea;
+  --fs-warning: #8a5300;
+  --fs-warning-soft: #fbf1df;
   --fs-danger: #b3261e;
   --fs-danger-soft: #fbe9e7;
-  --fs-focus: #1b5fa6;
+  --fs-focus: #1f5fae;
   --fs-chart-1: #c0281e;
-  --fs-chart-2: #1b5fa6;
-  /* Fondo fijo (blanco también en oscuro) para ilustraciones con colores propios y, en el futuro, escudos. */
+  --fs-chart-2: #1f5fae;
+  /* Fondo fijo (blanco también en oscuro) para escudos e ilustraciones con colores propios. */
   --fs-tile: #ffffff;
-  --fs-scrim: rgb(20 16 13 / 0.5);
+  --fs-bubble: #e9e8e4; /* pregunta del usuario */
+  --fs-scrim: rgb(15 15 18 / 0.45);
+  --fs-shadow-pop: 0 8px 24px rgb(15 15 18 / 0.14), 0 1px 3px rgb(15 15 18 / 0.08);
+  /* Escala tipográfica (rem: respeta el tamaño de letra del usuario), espaciado base 4 px, radios contenidos y alturas táctiles. */
+  --fs-text-xs: 0.75rem;   /* 12: metadatos */
+  --fs-text-sm: 0.8125rem; /* 13: secundarios, tablas */
+  --fs-text-md: 0.9375rem; /* 15: equipos, filas */
+  --fs-text-base: 1rem;    /* 16: conversación (evita el zoom de iOS al enfocar) */
+  --fs-text-lg: 1.125rem;  /* 18: títulos de sección */
+  --fs-text-xl: 1.5rem;    /* 24: estado inicial */
+  --fs-radius-sm: 6px;
+  --fs-radius-md: 10px;
+  --fs-radius-lg: 14px;
+  --fs-touch: 44px;        /* objetivo táctil en puntero grueso (HIG / WCAG 2.5.5) */
+  --fs-header-h: 52px;
+  --fs-ease: cubic-bezier(0.2, 0, 0, 1);
+  --fs-dur: 160ms;
 }
 
 /* Oscuro: por preferencia del sistema salvo que el usuario haya elegido «claro», o forzado con data-theme="dark". */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     color-scheme: dark;
-    --fs-canvas: #14100d;
-    --fs-surface: #1e1813;
-    --fs-surface-2: #29211a;
-    --fs-line: #3b3027;
-    --fs-line-strong: #9c8a78;
-    --fs-ink: #f4ece3;
-    --fs-ink-2: #bcaa98;
-    --fs-inverse: #f4ece3;
-    --fs-on-inverse: #1e1813;
+    --fs-canvas: #0e0e10;
+    --fs-surface: #18181b;
+    --fs-surface-2: #222226;
+    --fs-line: #2e2e33;
+    --fs-line-strong: #8b8a92;
+    --fs-ink: #f2f1ee;
+    --fs-ink-2: #a9a8a3;
+    --fs-inverse: #f2f1ee;
+    --fs-on-inverse: #18181b;
     --fs-brand-hover: #d63a2f;
     --fs-brand-text: #ff8a7e;
-    --fs-brand-soft: #3a1a15;
-    --fs-accent: #7db3f0;
-    --fs-accent-soft: #16263a;
+    --fs-brand-soft: #3a1714;
+    --fs-accent: #86b6f0;
+    --fs-accent-soft: #162538;
     --fs-gold-text: #5a3e00; /* texto SOBRE relleno oro (que no cambia en oscuro): 5,25:1 */
     --fs-success: #5cc98a;
-    --fs-success-soft: #14301f;
+    --fs-success-soft: #13291c;
     --fs-warning: #f0b45a;
     --fs-warning-soft: #33240e;
     --fs-danger: #ff8a80;
     --fs-danger-soft: #3a1714;
-    --fs-focus: #7db3f0;
+    --fs-focus: #86b6f0;
     --fs-chart-1: #ff8a7e;
-    --fs-chart-2: #7db3f0;
+    --fs-chart-2: #86b6f0;
     --fs-scrim: rgb(0 0 0 / 0.6);
+  --fs-bubble: #2a2a2f;
+    --fs-shadow-pop: 0 8px 24px rgb(0 0 0 / 0.5), 0 0 0 1px var(--fs-line);
   }
 }
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --fs-canvas: #14100d;
-  --fs-surface: #1e1813;
-  --fs-surface-2: #29211a;
-  --fs-line: #3b3027;
-  --fs-line-strong: #9c8a78;
-  --fs-ink: #f4ece3;
-  --fs-ink-2: #bcaa98;
-  --fs-inverse: #f4ece3;
-  --fs-on-inverse: #1e1813;
+  --fs-canvas: #0e0e10;
+  --fs-surface: #18181b;
+  --fs-surface-2: #222226;
+  --fs-line: #2e2e33;
+  --fs-line-strong: #8b8a92;
+  --fs-ink: #f2f1ee;
+  --fs-ink-2: #a9a8a3;
+  --fs-inverse: #f2f1ee;
+  --fs-on-inverse: #18181b;
   --fs-brand-hover: #d63a2f;
   --fs-brand-text: #ff8a7e;
-  --fs-brand-soft: #3a1a15;
-  --fs-accent: #7db3f0;
-  --fs-accent-soft: #16263a;
+  --fs-brand-soft: #3a1714;
+  --fs-accent: #86b6f0;
+  --fs-accent-soft: #162538;
   --fs-gold-text: #5a3e00; /* texto SOBRE relleno oro (que no cambia en oscuro): 5,25:1 */
   --fs-success: #5cc98a;
-  --fs-success-soft: #14301f;
+  --fs-success-soft: #13291c;
   --fs-warning: #f0b45a;
   --fs-warning-soft: #33240e;
   --fs-danger: #ff8a80;
   --fs-danger-soft: #3a1714;
-  --fs-focus: #7db3f0;
+  --fs-focus: #86b6f0;
   --fs-chart-1: #ff8a7e;
-  --fs-chart-2: #7db3f0;
+  --fs-chart-2: #86b6f0;
   --fs-scrim: rgb(0 0 0 / 0.6);
+  --fs-bubble: #2a2a2f;
+  --fs-shadow-pop: 0 8px 24px rgb(0 0 0 / 0.5), 0 0 0 1px var(--fs-line);
 }

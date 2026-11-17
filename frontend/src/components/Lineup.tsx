@@ -1,4 +1,6 @@
-import { Hand } from "lucide-react";
+import { useState } from "react";
+import { Hand, LayoutGrid, List } from "lucide-react";
+import Panel from "../ui/Panel";
 import type { LineupPlayer, LineupVisual } from "../types";
 
 /** Colocación ORIENTATIVA de los 4 jugadores de campo (el acta no indica posiciones): portero a la izquierda y el resto repartido en la pista. */
@@ -43,48 +45,55 @@ function Court({ v }: { v: LineupVisual }) {
 
 function PlayerRow({ p }: { p: LineupPlayer }) {
   return (
-    <li className="flex items-center gap-2 py-1 text-sm">
-      <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full font-display text-xs font-bold tabular-nums ${p.goalkeeper ? "bg-inverse text-inverse-on" : "bg-brand text-brand-on"}`}>{p.shirt ?? "–"}</span>
-      <span className="min-w-0 flex-1 truncate">{p.name}</span>
-      {p.goalkeeper && <Hand size={14} strokeWidth={1.75} className="shrink-0 text-ink-2" role="img" aria-label="Portero"><title>Portero</title></Hand>}
-      {p.captain && <span className="rounded bg-gold px-1 text-xs font-bold text-gold-text" title="Capitán">C</span>}
+    <li className="flex min-h-9 items-center gap-2.5 py-1 text-[15px]">
+      <span className={`grid h-6 w-7 shrink-0 place-items-center rounded-sm font-display text-xs font-bold tabular-nums ${p.goalkeeper ? "bg-inverse text-inverse-on" : "bg-surface-2 text-ink"}`}
+        aria-label={p.shirt === null ? "Sin dorsal" : `Dorsal ${p.shirt}`}>{p.shirt ?? "–"}</span>
+      <span className="min-w-0 flex-1 leading-tight [overflow-wrap:anywhere]">{p.name}</span>
+      {p.goalkeeper && <span className="flex shrink-0 items-center gap-1 text-xs text-ink-2"><Hand size={13} strokeWidth={1.75} aria-hidden="true" />Portero</span>}
+      {p.captain && <span className="shrink-0 rounded-sm bg-gold px-1 text-xs font-bold text-gold-text" title="Capitán" aria-label="Capitán">C</span>}
     </li>
   );
 }
 
-/** Quinteto inicial sobre la pista y suplentes a la derecha (apilados en móvil). Solo pinta lo que llega del acta. */
-export default function Lineup({ v }: { v: LineupVisual }) {
+function Group({ label, players, empty }: { label: string; players: LineupPlayer[]; empty?: string }) {
   return (
-    <figure className="mt-3 overflow-hidden rounded-xl border border-line bg-surface" data-testid="visual">
-      <figcaption className="border-b border-line bg-surface-2 px-3 py-2">
-        <p className="font-display text-sm font-bold text-ink">{v.title}</p>
-        {v.subtitle && <p className="text-xs text-ink-2">{v.subtitle}</p>}
-      </figcaption>
-      <div className="grid gap-3 p-3 md:grid-cols-[minmax(0,1fr)_200px]">
-        <div>
-          {v.court ? (
-            <Court v={v} />
-          ) : (
-            <section aria-label="Titulares">
-              <p className="text-xs font-semibold uppercase tracking-wide text-ink-2">Titulares</p>
-              <ul>{v.starters.map((p, i) => <PlayerRow key={i} p={p} />)}</ul>
-              <p className="mt-1 text-xs text-warning">El acta no permite dibujar un quinteto completo (no hay 5 titulares con un portero).</p>
-            </section>
-          )}
+    <section aria-label={label}>
+      <h3 className="text-[11px] font-semibold uppercase tracking-wide text-ink-2">{label}</h3>
+      {players.length > 0 ? <ul className="divide-y divide-line">{players.map((p, i) => <PlayerRow key={i} p={p} />)}</ul>
+        : <p className="py-1 text-sm text-ink-2">{empty}</p>}
+    </section>
+  );
+}
+
+/**
+ * Alineación del acta. Por defecto, LISTA (titulares y suplentes con dorsal, portero y capitán): responde a la pregunta y es accesible.
+ * La pista es opcional («Ver en pista») porque el acta no indica posiciones y la colocación sería orientativa.
+ */
+export default function Lineup({ v }: { v: LineupVisual }) {
+  const [court, setCourt] = useState(false);
+  const toggle = v.court ? (
+    <button type="button" onClick={() => setCourt((c) => !c)} aria-pressed={court}
+      className="-my-1 -mr-1 inline-flex min-h-9 items-center gap-1.5 rounded-md px-2 text-xs font-semibold text-accent hover:bg-surface-2">
+      {court ? <List size={14} aria-hidden="true" /> : <LayoutGrid size={14} aria-hidden="true" />}{court ? "Ver lista" : "Ver en pista"}
+    </button>
+  ) : null;
+  return (
+    <Panel title={v.title} subtitle={v.subtitle} aside={toggle}>
+      <div className="grid gap-x-6 gap-y-3 p-3 sm:grid-cols-2">
+        {court && v.court ? (
+          <div className="sm:col-span-2"><Court v={v} /></div>
+        ) : (
+          <div>
+            <Group label="Titulares" players={v.starters} empty="El acta no indica titulares." />
+            {!v.court && v.starters.length > 0 && <p className="mt-1 text-xs text-warning">El acta no permite un quinteto completo (no hay 5 titulares con un portero).</p>}
+          </div>
+        )}
+        <div className={court ? "sm:col-span-2" : ""}>
+          <Group label="Suplentes" players={v.substitutes} empty="No constan suplentes en el acta." />
+          {v.unknown.length > 0 && <div className="mt-3"><Group label="Sin titularidad indicada" players={v.unknown} /></div>}
         </div>
-        <section aria-label="Suplentes">
-          <p className="text-xs font-semibold uppercase tracking-wide text-ink-2">Suplentes</p>
-          {v.substitutes.length > 0 ? <ul className="divide-y divide-line">{v.substitutes.map((p, i) => <PlayerRow key={i} p={p} />)}</ul>
-            : <p className="py-1 text-sm text-ink-2">No constan suplentes en el acta.</p>}
-          {v.unknown.length > 0 && (
-            <>
-              <p className="mt-2 text-xs font-semibold uppercase tracking-wide text-ink-2">Sin titularidad indicada</p>
-              <ul className="divide-y divide-line">{v.unknown.map((p, i) => <PlayerRow key={i} p={p} />)}</ul>
-            </>
-          )}
-        </section>
       </div>
-      <p className="border-t border-line px-3 py-1.5 text-xs text-ink-2">{v.note}</p>
-    </figure>
+      <p className="border-t border-line px-3 py-2 text-xs text-ink-2">{v.note}</p>
+    </Panel>
   );
 }

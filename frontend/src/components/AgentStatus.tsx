@@ -26,18 +26,18 @@ function Elapsed() {
  */
 export default function AgentStatus({ slow, onCancel }: { slow: boolean; onCancel: () => void }) {
   return (
-    <div className="flex items-start gap-3" data-testid="agent-status">
-      <FutsitoLoader className="h-14 w-14 text-ink" />
-      <div className="min-w-0 flex-1 pt-1">
+    <div className="flex items-start gap-2.5" data-testid="agent-status">
+      <FutsitoLoader className="h-10 w-10 shrink-0 text-ink" />
+      <div className="min-w-0 flex-1 pt-2">
         <p role="status" className="text-sm text-ink-2">
-          Futsito está consultando los datos oficiales…<Elapsed />
+          Consultando los datos oficiales…<Elapsed />
         </p>
         {slow && (
           <Notice tone="warning" className="mt-2" testId="slow-hint">
             Esto está tardando más de lo normal. Puede que el servicio de IA esté limitando las peticiones; puedes esperar o cancelar.
           </Notice>
         )}
-        <Button onClick={onCancel} className="mt-2">Cancelar</Button>
+        <Button variant="ghost" onClick={onCancel} className="-ml-3 mt-1">Cancelar</Button>
       </div>
     </div>
   );

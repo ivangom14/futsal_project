@@ -40,7 +40,7 @@ describe("App", () => {
     backend(() => reply(contract));
     render(<App />);
     expect(screen.getByTestId("welcome")).toBeInTheDocument();
-    expect(screen.getByText(/próximos partidos de Primera Autonómica/)).toBeInTheDocument();
+    expect(screen.getByText(/partidos de sénior hay este fin de semana/)).toBeInTheDocument();
     expect(await screen.findByText("Conectado")).toBeInTheDocument();
   });
 
@@ -64,7 +64,7 @@ describe("App", () => {
     const m = backend(async () => { await gate; return reply({ ...contract, answer: "Cada mitad dura **20 minutos**." }); });
     render(<App />);
     await userEvent.type(screen.getByLabelText("Pregunta"), "¿Cuánto dura cada mitad?{Enter}");
-    expect(await screen.findByRole("status")).toHaveTextContent(/Futsito está consultando/i);
+    expect(await screen.findByRole("status")).toHaveTextContent(/Consultando los datos oficiales/i);
     // P1: durante la consulta el botón de enviar pasa a «Detener» (no se puede enviar otra pregunta)
     expect(screen.getByRole("button", { name: "Detener" })).toBeEnabled();
     expect(screen.queryByRole("button", { name: "Enviar" })).not.toBeInTheDocument();
@@ -129,12 +129,12 @@ describe("App", () => {
     render(<App />);
     await userEvent.type(screen.getByLabelText("Pregunta"), "Primera pregunta{Enter}");
     await screen.findByTestId("msg-agent");
-    await userEvent.click(screen.getByRole("button", { name: "+ Nueva conversación" }));
+    await userEvent.click(screen.getByRole("button", { name: "Nueva conversación" }));
     expect(screen.getByTestId("welcome")).toBeInTheDocument();
     expect(screen.queryByTestId("msg-agent")).not.toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Primera pregunta" }));
     expect(screen.getByTestId("msg-agent")).toBeInTheDocument();
-    await userEvent.click(screen.getByRole("button", { name: /Borrar conversación Primera pregunta/ }));
+    await userEvent.click(screen.getByRole("button", { name: /Acciones de la conversación Primera pregunta/ })); await userEvent.click(screen.getByRole("menuitem", { name: /Borrar conversación Primera pregunta/ }));
     expect(screen.getByTestId("welcome")).toBeInTheDocument();
     expect(screen.queryByText("Primera pregunta")).not.toBeInTheDocument();
   });
@@ -163,7 +163,7 @@ describe("App", () => {
   });
 
   it("envía el contexto de la conversación y el mismo conversation_id en las preguntas encadenadas", async () => {
-    const m = backend(() => reply({ ...contract, answer: "El máximo goleador es Juan Pérez." }));
+    const m = backend(() => reply({ ...contract, answer: "El máximo goleador es Juan Pérez.", focus: { player: "Juan Pérez" } }));
     render(<App />);
     await ask("¿Quién es el máximo goleador?");
     await ask("¿En qué equipo juega?");
@@ -181,7 +181,7 @@ describe("App", () => {
     const m = backend(() => reply(contract));
     render(<App />);
     await ask("Pregunta sobre el equipo A");
-    await userEvent.click(screen.getByRole("button", { name: "+ Nueva conversación" }));
+    await userEvent.click(screen.getByRole("button", { name: "Nueva conversación" }));
     expect(screen.queryByTestId("context-hint")).not.toBeInTheDocument();
     await ask("¿Y su próximo partido?");
     await userEvent.click(screen.getByRole("button", { name: "Pregunta sobre el equipo A" }));
@@ -212,7 +212,7 @@ describe("App", () => {
     const m = backend(() => reply(contract));
     render(<App />);
     await ask("Para borrar");
-    await userEvent.click(screen.getByRole("button", { name: /Borrar conversación Para borrar/ }));
+    await userEvent.click(screen.getByRole("button", { name: /Acciones de la conversación Para borrar/ })); await userEvent.click(screen.getByRole("menuitem", { name: /Borrar conversación Para borrar/ }));
     await waitFor(() => expect(m.mock.calls.some(([u, i]) => String(u).includes("/chat/conversations/") && (i as RequestInit)?.method === "DELETE")).toBe(true));
   });
 

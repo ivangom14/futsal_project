@@ -41,7 +41,7 @@ describe("identidad Futsito", () => {
     render(<App />);
     expect(screen.getAllByAltText("Futsito").length).toBeGreaterThan(0);
     expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Futsito");
-    expect(screen.getByText(/Soy Futsito/)).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "¿Qué quieres saber?" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Estado: Conectado|Estado: Comprobando/ })).toBeInTheDocument();
   });
 });
@@ -55,10 +55,11 @@ describe("visuales estructurados (contrato real)", () => {
     expect(figures).toHaveLength(4);
     const table = within(figures[0]).getByRole("table");
     expect(within(table).getAllByRole("columnheader").map((h) => h.textContent)).toEqual(["Pos", "Equipo", "PJ", "G", "E", "P", "GF", "GC", "DG", "Pts"]);
-    expect(within(table).getByText("C.D. DOSA").closest("tr")).toHaveClass("font-semibold"); // equipo mencionado resaltado
+    expect(within(table).getByText("C.D. DOSA").closest("tr")).toHaveClass("is-highlight"); // equipo mencionado resaltado
     expect(within(figures[1]).getByText("Puntos")).toBeInTheDocument();
-    expect(within(figures[2]).getByRole("img", { name: "Juan Pérez: 9" })).toBeInTheDocument();
-    expect(within(figures[3]).getByRole("img", { name: /Puntos acumulados: 3, 4, 4/ })).toBeInTheDocument();
+    expect(within(figures[2]).getAllByTestId("rank-row")[0]).toHaveTextContent(/Juan Pérez.*9/);
+    expect(within(figures[3]).getByRole("img", { name: /^Racha: Victoria, Empate, Derrota/ })).toBeInTheDocument();
+    expect(within(figures[3]).getByText("4 puntos en 3 partidos")).toBeInTheDocument(); // puntos acumulados (último valor del contrato)
     expect(screen.getByText(/El DOSA lidera con 13 puntos/)).toBeInTheDocument(); // la respuesta de texto sigue estando
   });
 
@@ -84,8 +85,8 @@ describe("origen y análisis", () => {
     backend(() => reply({ ...visuals, is_analysis: true }));
     render(<App />);
     await ask("Analiza al DOSA");
-    expect(screen.getByText(/Análisis o recomendación · no es información oficial/)).toBeInTheDocument();
-    expect(screen.getByText("Datos oficiales RFFM", { selector: "span" })).toBeInTheDocument();
+    expect(screen.getByTestId("analysis-label")).toHaveTextContent("Análisis de Futsito · no es información oficial");
+    expect(screen.getAllByTestId("sources")[0]).toHaveTextContent(/Fuente:/); // el origen va en el pie de la respuesta
   });
 });
 
@@ -123,7 +124,7 @@ describe("foco de la conversación", () => {
     render(<App />);
     await ask("¿Cómo va el DOSA?");
     await ask("¿Y el siguiente?");
-    await userEvent.click(screen.getByRole("button", { name: "+ Nueva conversación" }));
+    await userEvent.click(screen.getByRole("button", { name: "Nueva conversación" }));
     await ask("¿Y el siguiente?");
     const chats = calls.filter((c) => c.url.endsWith("/chat"));
     expect(chats[0].body?.focus).toEqual({});
@@ -180,12 +181,17 @@ describe("valoración de respuestas", () => {
 describe("alineaciones", () => {
   const lineupContract = lineupJson as unknown as ChatResponse;
 
-  it("dibuja el quinteto en la pista y los suplentes a un lado, con el contrato real", async () => {
+  it("lista titulares y suplentes por defecto y, a petición, dibuja el quinteto en la pista, con el contrato real", async () => {
     backend(() => reply(lineupContract));
     render(<App />);
     await ask("¿Cuál fue la alineación del DOSA?");
     const [figure] = screen.getAllByTestId("visual"); // el acta completa trae además árbitros y goles
-    expect(within(figure).getByText("Alineación · C.D. DOSA")).toBeInTheDocument();
+    expect(within(figure).getByText("Alineación")).toBeInTheDocument();
+    expect(within(figure).getByText("C.D. DOSA")).toBeInTheDocument();
+    const starters = within(within(figure).getByRole("region", { name: "Titulares" })).getAllByRole("listitem");
+    expect(starters).toHaveLength(5);
+    expect(within(figure).queryByRole("img", { name: /^Quinteto inicial/ })).not.toBeInTheDocument();
+    await userEvent.click(within(figure).getByRole("button", { name: "Ver en pista" }));
     const court = within(figure).getByRole("img", { name: /^Quinteto inicial de C\.D\. DOSA: 1 Javier Aparicio Jimenez, 5 Pedro Gil Mora/ });
     expect(within(court as unknown as HTMLElement).getAllByText(/^[A-Z]\. /)).toHaveLength(5); // 5 titulares con su etiqueta
     expect(within(court as unknown as HTMLElement).getByText("Portero")).toBeInTheDocument();
@@ -207,7 +213,7 @@ describe("alineaciones", () => {
     const figure = screen.getByTestId("visual");
     expect(within(figure).queryByRole("img", { name: /Quinteto inicial/ })).not.toBeInTheDocument();
     expect(within(figure).getByRole("region", { name: "Titulares" })).toBeInTheDocument();
-    expect(within(figure).getByText(/no permite dibujar un quinteto completo/)).toBeInTheDocument();
+    expect(within(figure).getByText(/no permite un quinteto completo/)).toBeInTheDocument();
   });
 });
 
@@ -230,12 +236,12 @@ describe("consultas lentas", () => {
     slowBackend();
     render(<App />);
     await userEvent.type(screen.getByLabelText("Pregunta"), "¿Cómo va la clasificación?{Enter}");
-    expect(await screen.findByText(/Futsito está consultando/)).toBeInTheDocument();
+    expect(await screen.findByText(/Consultando los datos oficiales/)).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Cancelar" }));
     const err = await screen.findByTestId("msg-error");
     expect(err).toHaveTextContent("Has cancelado la consulta.");
     expect(within(err).getByRole("button", { name: "Reintentar" })).toBeInTheDocument();
-    expect(screen.queryByText(/Futsito está consultando/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Consultando los datos oficiales/)).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Enviar" })).toBeDisabled(); // campo vacío, pero ya no hay una consulta en curso
     await userEvent.type(screen.getByLabelText("Pregunta"), "otra");
     expect(screen.getByRole("button", { name: "Enviar" })).toBeEnabled();
@@ -248,7 +254,7 @@ describe("consultas lentas", () => {
       const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
       render(<App />);
       await user.type(screen.getByLabelText("Pregunta"), "hola{Enter}");
-      await screen.findByText(/Futsito está consultando/);
+      await screen.findByText(/Consultando los datos oficiales/);
       expect(screen.queryByTestId("slow-hint")).not.toBeInTheDocument();
       await vi.advanceTimersByTimeAsync(SLOW_MS + 100);
       expect(await screen.findByTestId("slow-hint")).toHaveTextContent(/tardando más de lo normal/);
@@ -285,20 +291,18 @@ describe("árbitros, goles y partidos (contrato real)", () => {
     render(<App />);
     await ask("¿Cuál fue la alineación del DOSA y quién arbitró?");
     const figures = screen.getAllByTestId("visual");
-    expect(figures.map((f) => within(f).getByText(/^(Alineación|Árbitros|Goles del partido|Tarjetas del partido)/).textContent)).toEqual(["Alineación · C.D. DOSA", "Árbitros", "Goles del partido", "Tarjetas del partido"]);
+    expect(figures.map((f) => within(f).getByText(/^(Alineación|Árbitros|Goles del partido|Tarjetas del partido)/).textContent)).toEqual(["Alineación", "Árbitros", "Goles del partido", "Tarjetas del partido"]);
     expect(screen.getByText("Ganó el DOSA 3-1.")).toBeInTheDocument(); // el texto queda en una frase: lo detallado va en los gráficos
   });
 
-  it("dibuja a cada árbitro con su monigote y su cargo del acta", async () => {
+  it("lista a cada árbitro con su cargo tal cual figura en el acta, sin ilustraciones", async () => {
     backend(() => reply(match));
     render(<App />);
     await ask("¿Quién arbitró?");
     const refs = screen.getAllByTestId("visual")[1];
-    const figs = within(refs).getAllByRole("img");
-    expect(figs.map((f) => f.getAttribute("aria-label"))).toEqual([
-      "Árbitro: Eduardo Hugo Iniesta del Amo", "Árbitro: Jaime Larrubia Pajares", "Árbitro asistente: Arantxa Ortiz Pinillos"]);
-    expect(within(refs).getByText("Árbitro asistente")).toBeInTheDocument();
-    expect(refs.querySelectorAll("svg")).toHaveLength(3);
+    expect(within(refs).getAllByTestId("official").map((li) => li.textContent)).toEqual([
+      "ÁrbitroEduardo Hugo Iniesta del Amo", "ÁrbitroJaime Larrubia Pajares", "Árbitro asistenteArantxa Ortiz Pinillos"]);
+    expect(refs.querySelectorAll("svg")).toHaveLength(0);
   });
 
   it("muestra los goles por minuto, el gol en propia puerta a favor del rival y ninguna tarjeta", async () => {
@@ -317,12 +321,13 @@ describe("árbitros, goles y partidos (contrato real)", () => {
     render(<App />);
     await ask("¿Cuáles son los próximos partidos?");
     const card = screen.getByTestId("visual");
-    expect(within(card).getByText("Próximos partidos · PRIMERA AFICIONADO FS · Grupo 2")).toBeInTheDocument();
-    expect(within(card).getAllByText("Programado")).toHaveLength(3);
-    expect(within(card).getAllByText("vs")).toHaveLength(3);
+    expect(within(card).getByText("Próximos partidos")).toBeInTheDocument();
+    expect(within(card).getByText("PRIMERA AFICIONADO FS · Grupo 2")).toBeInTheDocument();
+    expect(within(card).getByText(/Todos programados/)).toBeInTheDocument(); // el estado común se dice una vez
+    expect(within(card).queryByTestId("match-status")).not.toBeInTheDocument();
     expect(within(card).getByText(/El dato puede estar desactualizado|el dato puede estar desactualizado/)).toBeInTheDocument();
-    expect(within(card).getByText("Sin fecha", { exact: false })).toBeInTheDocument();
-    expect(within(card).getByText("Se muestran 3 de 30 partidos.")).toBeInTheDocument();
+    expect(within(card).getAllByText("Sin fecha", { exact: false }).length).toBeGreaterThan(0);
+    expect(within(card).getByText(/Se muestran 3 de 30 partidos/)).toBeInTheDocument();
   });
 });
 

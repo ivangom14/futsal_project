@@ -77,7 +77,8 @@ describe("clasificación", () => {
     expect(within(table).getByText("+12")).toBeInTheDocument();
     expect(within(table).getByText("-2")).toBeInTheDocument();
     const dosa = within(table).getByText("C.D. DOSA").closest("tr")!;
-    expect(dosa).toHaveClass("font-semibold");
+    expect(dosa).toHaveClass("is-highlight");
+    expect(dosa).toHaveAttribute("aria-current", "true");
     expect(within(dosa).getByTestId("team-crest")).toBeInTheDocument();
   });
 
@@ -98,13 +99,14 @@ describe("clasificación", () => {
 });
 
 describe("goleadores", () => {
-  it("rango en oro para el primero y escudo del equipo; la barra conserva su nombre accesible", () => {
+  it("rango en oro para el primero, escudo del equipo y la cifra junto al nombre (la barra es decorativa)", () => {
     render(<Visuals visuals={[{ type: "bars", title: "Goleadores", rows: [
       { label: "Juan Pérez", sublabel: "C.D. DOSA", value: 9, rank: 1 }, { label: "Leo Martín", sublabel: "FS ALCALA", value: 5, rank: 2 }] }]} />);
     expect(screen.getByText("1")).toHaveClass("bg-gold");
     expect(screen.getByText("2")).not.toHaveClass("bg-gold");
     expect(screen.getAllByTestId("team-crest")).toHaveLength(2);
-    expect(screen.getByRole("img", { name: "Juan Pérez: 9" })).toBeInTheDocument();
+    expect(screen.getAllByTestId("rank-row")[0]).toHaveTextContent(/Juan Pérez.*C\.D\. DOSA.*9/);
+    expect(screen.getByLabelText("Posición 1")).toBeInTheDocument();
   });
 });
 
@@ -148,7 +150,7 @@ describe("chip de contexto", () => {
     render(<App />);
     await ask("¿Cuándo juega el DOSA?");
     const hint = screen.getByTestId("context-hint");
-    expect(hint).toHaveTextContent("Hablando de C.D. DOSA");
+    expect(hint).toHaveTextContent("Sobre C.D. DOSA");
     await userEvent.click(within(hint).getByRole("button", { name: /Quitar el contexto/ }));
     expect(screen.queryByTestId("context-hint")).not.toBeInTheDocument();
     expect(screen.getByTestId("welcome")).toBeInTheDocument();
@@ -166,13 +168,13 @@ describe("deshacer al borrar", () => {
     const { fetchMock } = backend(base);
     render(<App />);
     await ask("Para recuperar");
-    await userEvent.click(screen.getByRole("button", { name: /Borrar conversación Para recuperar/ }));
+    await userEvent.click(screen.getByRole("button", { name: /Acciones de la conversación Para recuperar/ })); await userEvent.click(screen.getByRole("menuitem", { name: /Borrar conversación Para recuperar/ }));
     expect(screen.queryByRole("button", { name: "Para recuperar" })).not.toBeInTheDocument();
     expect(fetchMock.mock.calls.some(([u, i]) => String(u).includes("/chat/conversations/") && (i as RequestInit)?.method === "DELETE")).toBe(true);
     const toast = screen.getByTestId("undo-toast");
     expect(toast).toHaveTextContent("Conversación «Para recuperar» borrada");
     await userEvent.click(within(toast).getByRole("button", { name: "Deshacer" }));
-    expect(screen.getByRole("button", { name: "Para recuperar" })).toHaveAttribute("aria-current", "true");
+    expect(screen.getByRole("button", { name: "Para recuperar" })).toHaveAttribute("aria-current", "page");
     expect(screen.getByTestId("msg-agent")).toBeInTheDocument();
     expect(screen.queryByTestId("undo-toast")).not.toBeInTheDocument();
   });
@@ -184,7 +186,7 @@ describe("deshacer al borrar", () => {
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
     await user.type(screen.getByLabelText("Pregunta"), "Temporal{Enter}");
     await screen.findByTestId("msg-agent");
-    await user.click(screen.getByRole("button", { name: /Borrar conversación Temporal/ }));
+    await user.click(screen.getByRole("button", { name: /Acciones de la conversación Temporal/ })); await user.click(screen.getByRole("menuitem", { name: /Borrar conversación Temporal/ }));
     expect(screen.getByTestId("undo-toast")).toBeInTheDocument();
     await act(async () => { await vi.advanceTimersByTimeAsync(6_100); });
     expect(screen.queryByTestId("undo-toast")).not.toBeInTheDocument();

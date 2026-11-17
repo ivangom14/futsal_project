@@ -24,8 +24,15 @@ export default {
         focus: v("focus"),
         chart: { 1: v("chart-1"), 2: v("chart-2") },
         tile: v("tile"),
+        bubble: v("bubble"),
         scrim: v("scrim"),
       },
+      borderRadius: { sm: v("radius-sm"), md: v("radius-md"), lg: v("radius-md"), xl: v("radius-lg"), "2xl": v("radius-lg") },
+      boxShadow: { pop: v("shadow-pop") },
+      spacing: { touch: v("touch"), header: v("header-h") },
+      minHeight: { touch: v("touch") },
+      minWidth: { touch: v("touch") },
+      transitionTimingFunction: { fs: v("ease") },
       fontFamily: {
         // Marca, títulos y cifras (Archivo, 1 woff2 autoalojado); la conversación usa la pila del sistema (font-sans por defecto).
         display: ['"Archivo Variable"', "system-ui", "sans-serif"],

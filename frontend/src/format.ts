@@ -66,3 +66,37 @@ const MATCH_STATUS: Record<string, { label: string; tone: MatchTone }> = {
 export function matchStatus(status: string | null | undefined): { label: string; tone: MatchTone } {
   return MATCH_STATUS[(status ?? "").trim().toLowerCase()] ?? { label: "Sin confirmar", tone: "neutral" };
 }
+
+/** Día (instante y zona en la que leerlo) de un dato de fecha; misma interpretación que `formatKickoff`. */
+function kickoffDay(iso: string | null | undefined): { when: Date; tz: string } | null {
+  if (!iso) return null;
+  const text = iso.trim();
+  const m = /^(\d{4})-(\d{2})-(\d{2})(?:[T ](\d{2}):(\d{2})(?::\d{2}(?:\.\d+)?)?)?$/.exec(text);
+  if (m) {
+    const when = realDay(Number(m[1]), Number(m[2]), Number(m[3]));
+    return when && formatKickoff(text) ? { when, tz: "UTC" } : null;
+  }
+  const when = new Date(text);
+  return Number.isNaN(when.getTime()) ? null : { when, tz: MADRID };
+}
+
+const headingCache = new Map<string, Intl.DateTimeFormat>();
+const fmtHeading = (timeZone: string) => {
+  let f = headingCache.get(timeZone);
+  if (!f) headingCache.set(timeZone, (f = new Intl.DateTimeFormat("es-ES", { timeZone, weekday: "long", day: "numeric", month: "long" })));
+  return f;
+};
+
+/** Cabecera de un grupo de partidos: «Sábado, 21 de noviembre»; `null` si no hay fecha legible. */
+export function dayHeading(iso: string | null | undefined): string | null {
+  const d = kickoffDay(iso);
+  if (!d) return null;
+  const s = fmtHeading(d.tz).format(d.when);
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+/** «3-1» → [3, 1]; cualquier otro formato → null (se muestra tal cual, nunca se reinterpreta). */
+export function parseScore(score: string | null | undefined): [number, number] | null {
+  const m = /^\s*(\d{1,3})\s*[-–:]\s*(\d{1,3})\s*$/.exec(score ?? "");
+  return m ? [Number(m[1]), Number(m[2])] : null;
+}

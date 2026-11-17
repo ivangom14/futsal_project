@@ -35,17 +35,17 @@ afterEach(() => {
 });
 
 describe("turnos del chat", () => {
-  it("la respuesta va sin burbuja, con cabecera «Futsito» y procedencia; la pregunta en burbuja inversa", async () => {
+  it("la respuesta va sin burbuja ni cabecera repetida, con su procedencia en el pie; la pregunta en burbuja", async () => {
     immediateBackend();
     render(<App />);
     await userEvent.type(screen.getByLabelText("Pregunta"), "¿Cuánto dura cada mitad?{Enter}");
     const agent = await screen.findByTestId("msg-agent");
     expect(agent.tagName).toBe("ARTICLE");
     expect(agent).toHaveAccessibleName("Respuesta de Futsito");
-    expect(within(agent).getByText("Futsito")).toBeInTheDocument();
-    expect(within(agent).getByText("Normativa y documentos")).toBeInTheDocument();
+    expect(within(agent).queryByText("Futsito")).not.toBeInTheDocument(); // sin avatar ni nombre en cada respuesta
+    expect(within(agent).getByTestId("sources")).toHaveTextContent(/Fuente: Reglas de Juego/);
     expect(agent.className).not.toMatch(/\bborder\b|max-w-\[/); // a todo el ancho, sin marco
-    expect(within(screen.getByTestId("msg-user")).getByText("¿Cuánto dura cada mitad?").className).toMatch(/\bbg-inverse\b/);
+    expect(within(screen.getByTestId("msg-user")).getByText("¿Cuánto dura cada mitad?").className).toMatch(/\bbg-bubble\b/);
   });
 });
 
@@ -56,7 +56,7 @@ describe("carga y cancelación", () => {
     await userEvent.type(screen.getByLabelText("Pregunta"), "Clasificación{Enter}");
     const status = await screen.findByTestId("agent-status");
     expect(status.querySelector("svg.futsito-loader")).toHaveAttribute("aria-hidden", "true");
-    expect(within(status).getByRole("status")).toHaveTextContent("Futsito está consultando los datos oficiales…");
+    expect(within(status).getByRole("status")).toHaveTextContent("Consultando los datos oficiales…");
     expect(within(status).getByRole("button", { name: "Cancelar" })).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole("button", { name: "Detener" }));
@@ -88,7 +88,7 @@ describe("carga y cancelación", () => {
     render(<App />);
     await userEvent.type(screen.getByLabelText("Pregunta"), "Primera{Enter}");
     await screen.findByTestId("agent-status");
-    await userEvent.click(screen.getByRole("button", { name: "+ Nueva conversación" }));
+    await userEvent.click(screen.getByRole("button", { name: "Nueva conversación" }));
     expect(screen.queryByRole("button", { name: "Detener" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Enviar" })).toBeDisabled();
   });
@@ -111,7 +111,8 @@ describe("diagnóstico", () => {
     vi.stubEnv("VITE_SHOW_DIAGNOSTICS", "0");
     immediateBackend();
     render(<App />);
-    expect(await screen.findByText("Conectado")).toBeInTheDocument();
+    expect(await screen.findByText("Servicio disponible")).toBeInTheDocument(); // solo para lectores de pantalla: sin «Conectado» visible
+    expect(screen.queryByText("Conectado")).not.toBeInTheDocument();
     expect(screen.queryByTestId("context-mode")).not.toBeInTheDocument();
     await userEvent.type(screen.getByLabelText("Pregunta"), "¿Cuánto dura cada mitad?{Enter}");
     const agent = await screen.findByTestId("msg-agent");

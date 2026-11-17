@@ -49,13 +49,13 @@ describe("menú móvil accesible", () => {
     const dialog = screen.getByRole("dialog", { name: "Conversaciones" });
     expect(dialog).toHaveAttribute("aria-modal", "true");
     expect(opener).toHaveAttribute("aria-expanded", "true");
-    expect(screen.getByRole("button", { name: "+ Nueva conversación" })).toHaveFocus();
+    expect(screen.getByRole("button", { name: "Nueva conversación" })).toHaveFocus();
     expect(document.querySelector("main")).toHaveAttribute("inert");
 
     await userEvent.tab({ shift: true }); // desde el primero, vuelve al último del panel (no sale al chat)
     expect(dialog.contains(document.activeElement)).toBe(true);
     await userEvent.tab();
-    expect(screen.getByRole("button", { name: "+ Nueva conversación" })).toHaveFocus();
+    expect(screen.getByRole("button", { name: "Nueva conversación" })).toHaveFocus();
 
     await userEvent.keyboard("{Escape}");
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
@@ -108,7 +108,7 @@ describe("iconos", () => {
       expect(within(agent).getByRole("button", { name }).querySelector("svg")).not.toBeNull();
     }
     expect(screen.getByRole("button", { name: "Abrir conversaciones" }).querySelector("svg")).not.toBeNull();
-    expect(screen.getByRole("button", { name: /Borrar conversación/ }).querySelector("svg")).not.toBeNull();
+    expect(screen.getAllByRole("button", { name: /Acciones de la conversación/ })[0].querySelector("svg")).not.toBeNull();
     expect(document.body.textContent ?? "").not.toMatch(FUNCTIONAL_EMOJI);
   });
 });
