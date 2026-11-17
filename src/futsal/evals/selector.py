@@ -231,6 +231,8 @@ class _Picker:
             if spec.get("with") and not set(spec["with"]) <= cat.has_flags(t):
                 continue
             hom = cat.homonym_rows(t)
+            if spec.get("homonyms_with"):  # p. ej. ["standings"]: el homónimo también está en una liga (una copa sin tabla no es ambigua para «puntos»)
+                hom = [h for h in hom if set(spec["homonyms_with"]) <= cat.has_flags(h)]
             if "homonyms" in spec and not _cmp(len(hom), spec["homonyms"]):
                 continue
             if "homonym_groups" in spec and not _cmp(len(hom) + 1, spec["homonym_groups"]):

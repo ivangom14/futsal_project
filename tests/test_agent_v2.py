@@ -331,7 +331,7 @@ def test_single_mcp_server_publishes_v1_and_v2_and_v2_calls_go_through_the_api()
     payload = out[1] if isinstance(out, tuple) else out
     assert isinstance(payload, dict) and payload["items"][0]["rank"] == 1 and payload["metric"] == "goals_for"
     assert seen[0].url.path == "/v2/rankings/teams" and dict(seen[0].url.params) == {"metric": "goals_for", "min_played": "1", "limit": "10",
-                                                                                    "offset": "0", "compact": "true"}
+                                                                                    "offset": "0", "compact": "true", "competition_kind": "league"}
 
 
 def test_agent_and_mcp_never_touch_the_database() -> None:

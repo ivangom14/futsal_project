@@ -6,7 +6,7 @@
   requires: ["homonyms", "standings"]
   capability: v1
   select:
-    team: {kind: "team", with: ["standings"], homonym_groups: ">=2", same_category: true}
+    team: {kind: "team", with: ["standings"], homonyms_with: ["standings"], homonym_groups: ">=2", same_category: true}
   turns:
     - user: "¿Cuántos puntos lleva {team.name}?"
       expect:

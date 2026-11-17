@@ -143,7 +143,7 @@ def _present(f: dict[str, Any], text: str) -> bool:
         return has_date(text, date.fromisoformat(str(value)))
     if kind == "score":
         h, a = str(value).split("-")
-        return has_score(text, int(h), int(a))
+        return has_score(text, int(h), int(a)) or _away_view(text, int(h), int(a))
     if kind == "position":
         return _claims_pos(text, int(str(value)), str(f.get("team", "")))
     if kind == "number":
@@ -217,6 +217,23 @@ def _wrong_values(required: list[dict[str, Any]], text: str) -> list[str]:
 def _non_negated(text: str, needle: str) -> bool:
     n = norm(needle)
     return any(n in norm(s) and not _negated(s) for s in sentences(text))
+
+
+_AWAY = re.compile(r"\b(visitante|fuera de casa|a domicilio|en campo contrario)\b")
+_WON = re.compile(r"\b(victoria|gano|gana|vencio|vence|se impuso)\b")
+_LOST = re.compile(r"\b(derrota|perdio|pierde|cayo|cae)\b")
+
+
+def _away_view(text: str, home: int, away: int) -> bool:
+    """«Victoria por 7-0 como visitante» con el oficial 0-7: el marcador dado desde el equipo visitante (sus goles primero), con el
+    resultado coherente (ganó si marcó más). Sin «visitante» explícito no se puede saber el lado y no se acepta."""
+    if home == away:
+        return False
+    for sent in sentences(text):
+        low = norm(sent)
+        if has_score(sent, away, home) and _AWAY.search(low) and (_WON if away > home else _LOST).search(low):
+            return True
+    return False
 
 
 def _score_non_negated(text: str, score: str) -> bool:

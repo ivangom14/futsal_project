@@ -473,6 +473,10 @@ def test_team_rankings_deterministic(world: dict[str, Any]) -> None:
     assert top["shown"] == 3 and top["count"] > 4 and top["items"][0]["goals_for"] >= top["items"][2]["goals_for"]
     every = get(world, "/v2/rankings/teams", metric="wins", limit=100)
     assert any("categoría unknown" in n for n in every["notes"]) and all(i["competition"]["name"] != "TORNEO SIN CLASIFICAR FS" for i in every["items"])
+    # competition_kind=league (lo que pide el MCP): las copas, sin clasificación, no entran; sin él la API responde como siempre
+    leagues = get(world, "/v2/rankings/teams", metric="wins", competition_kind="league", limit=100)
+    assert leagues["count"] == every["count"] > 0  # en este mundo todas las competiciones con categoría son ligas
+    assert get(world, "/v2/rankings/teams", metric="wins", competition_kind="cup")["count"] == 0
 
 
 # ----------------------------------------------------------------------------- límites, 422 y nombres raros
@@ -481,7 +485,7 @@ def test_team_rankings_deterministic(world: dict[str, Any]) -> None:
     "/v2/players?name=ab&category=bogus", "/v2/players?name=ab&gender=bogus", "/v2/officials?name=%40%40", "/v2/officials?name=ab&include=x",
     "/v2/matches?date_from=2026-10-25&date_to=2026-10-24", "/v2/matches?time_from=18:00&time_to=10:00", "/v2/matches?status=bogus",
     "/v2/matches?order=sideways", "/v2/matches?date_from=nope", "/v2/matches?venue=%2F%2F", "/v2/clubs/search?name=%25%25",
-    "/v2/rankings/teams?metric=bogus", "/v2/rankings/teams?metric=wins&order=up", "/v2/rankings/scorers?competition_kind=bogus",
+    "/v2/rankings/teams?metric=bogus", "/v2/rankings/teams?metric=wins&order=up", "/v2/rankings/scorers?competition_kind=bogus", "/v2/rankings/teams?metric=wins&competition_kind=bogus",
     "/v2/rankings/scorers?category=bogus", "/v2/officials/ranking?role=%25%25", "/v2/players?name=ab&competition=%25%25",
 ])
 def test_invalid_parameters_are_422(world: dict[str, Any], url: str) -> None:

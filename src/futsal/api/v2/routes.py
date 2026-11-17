@@ -107,8 +107,13 @@ def v2_router(get_session: Callable[[], Iterator[Session]], today: Callable[[], 
     @router.get("/rankings/teams")
     def teams(db: Db, f: F, metric: Annotated[str, Query(max_length=20)], order: Annotated[str | None, Query(max_length=4)] = None,
               min_played: Annotated[int, Query(ge=1, le=100)] = 1, limit: Limit = q.DEFAULT_LIMIT, offset: Offset = 0,
-              compact: Compact = False) -> dict[str, Any]:
-        """Ranking de equipos desde partidos finalizados (goals_for, goals_against, wins, points_per_game)."""
-        return run(lambda: q.teams_ranking(db, q.build_scope(db, today(), f, drop_unknown_category=True), metric, order, min_played, limit, offset, compact))
+              compact: Compact = False, competition_kind: Annotated[str, Query(max_length=20)] = "all") -> dict[str, Any]:
+        """Ranking de equipos desde partidos finalizados (goals_for, goals_against, wins, points_per_game). `competition_kind=league`
+        deja fuera copas y eliminatorias (un equipo con un partido de copa no es «el que menos encaja»)."""
+        kind = None if competition_kind == "all" else competition_kind
+        if kind is not None and kind not in q.KINDS:
+            raise HTTPException(422, f"competition_kind inválido; valores: all, {', '.join(q.KINDS)}")
+        return run(lambda: q.teams_ranking(db, q.build_scope(db, today(), f, kind=kind, drop_unknown_category=True), metric, order, min_played,
+                                           limit, offset, compact))
 
     return router

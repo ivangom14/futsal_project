@@ -91,8 +91,8 @@ def register_v2_tools(mcp: FastMCP, get: Get) -> None:
         return get("/v2/rankings/scorers", "goleadores", competition_kind="league", category=category, gender=gender, limit=limit,
                    offset=offset, compact=True)
 
-    @mcp.tool(description="Ranking de equipos: goles a favor/en contra, victorias, puntos por partido (páginas de 10, count = total).")
+    @mcp.tool(description="Ranking de equipos en las ligas (sin copas): goles a favor/en contra, victorias, puntos por partido (páginas de 10, count = total).")
     def teams_ranking(metric: Metric, category: Category | None = None, gender: Gender | None = None,
                       limit: PageLimit = PAGE_SIZE, offset: Offset = 0) -> dict[str, Any]:
         return get("/v2/rankings/teams", "ranking", metric=metric, category=category, gender=gender, min_played=1, limit=limit,
-                   offset=offset, compact=True)
+                   offset=offset, compact=True, competition_kind="league")

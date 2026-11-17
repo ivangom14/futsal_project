@@ -108,12 +108,15 @@ DOC_REF_RANGE_RE = re.compile(
 
 
 # Rango de una página de resultados («mostrando 11-20 de 48», «del 1-10 de 87»): no es un marcador.
+# Goles a favor y en contra de un equipo en la temporada («goles 44-21», «GF-GC: 30-30»): un balance, no el marcador de un partido.
+GOAL_TOTALS_RE = re.compile(r"\b(?:goles|gf\s*[-–/]\s*gc|goles a favor y en contra)\s*:?\s*(\d{1,3}\s*[-–]\s*\d{1,3})", re.IGNORECASE)
 PAGE_RANGE_RE = re.compile(r"\d{1,3}\s*[-–]\s*\d{1,3}\s+de\s+\d+", re.IGNORECASE)
 
 
 def _score_matches(text: str) -> list[str]:
     """Textos «N-M» que SÍ son marcador: se descartan los que caen dentro de una referencia documental o del rango de una página."""
-    spans = [m.span() for m in DOC_REF_RANGE_RE.finditer(text)] + [m.span() for m in PAGE_RANGE_RE.finditer(text)]
+    spans = ([m.span() for m in DOC_REF_RANGE_RE.finditer(text)] + [m.span() for m in PAGE_RANGE_RE.finditer(text)]
+             + [m.span(1) for m in GOAL_TOTALS_RE.finditer(text)])
     return [m.group(0) for m in SCORE_RE.finditer(text) if not any(a <= m.start() < b for a, b in spans)]
 
 
@@ -316,16 +319,25 @@ def invented_quantities(text: str) -> list[str]:
     return sorted(out)
 
 
+_CLAUSE = re.compile(r"[.;:!?\n]+")
+
+
+def _grams(words: list[str], window: int) -> set[str]:
+    return {" ".join(words[i:i + window]) for i in range(max(len(words) - window + 1, 0))}
+
+
+def _clause_grams(text: str, window: int) -> set[str]:
+    """Secuencias de `window` palabras dentro de una misma oración o cláusula (no cruzan «.», «;», «:»)."""
+    return {g for part in _CLAUSE.split(text) for g in _grams(norm(part).split(), window)}
+
+
 def leaks_prompt(text: str, prompt: str, allowed: str | tuple[str, ...] = "", window: int = 7) -> bool:
-    """¿Copia la respuesta una secuencia de `window` palabras seguidas de las instrucciones del sistema?
-    `allowed` (el aviso de alcance, que sí se cita) se descuenta antes de comparar."""
-    body = norm(text)
-    for ok in ((allowed,) if isinstance(allowed, str) else allowed):
-        if ok:
-            body = body.replace(norm(ok), " ")
-    words, ref = body.split(), norm(prompt).split()
-    grams = {" ".join(ref[i:i + window]) for i in range(max(len(ref) - window + 1, 0))}
-    return any(" ".join(words[i:i + window]) in grams for i in range(max(len(words) - window + 1, 0)))
+    """¿Copia la respuesta una secuencia de `window` palabras seguidas (en la misma cláusula) de las instrucciones del sistema?
+    Las frases que el prompt ordena decir al usuario (`allowed`: aviso de alcance, «No puedo confirmar esa información…») no cuentan,
+    tampoco adaptadas («…para responder a esa limitación»): se descuentan sus secuencias, no solo la frase exacta."""
+    oks = [norm(ok).split() for ok in ((allowed,) if isinstance(allowed, str) else allowed) if ok]
+    grams = _clause_grams(prompt, window) - {g for ok in oks for g in _grams(ok, min(window, len(ok)))}
+    return bool(_clause_grams(text, window) & grams)
 
 
 DOMAIN_WORDS = frozenset({"jornada", "jornadas", "partido", "partidos", "equipo", "equipos", "gol", "goles", "goleador",

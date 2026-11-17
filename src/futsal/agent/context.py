@@ -140,6 +140,19 @@ class ContextEngine:
                 hit = TeamHit([options[0]])
         return hit
 
+    @staticmethod
+    def _club_mention(text: str, names: list[str]) -> bool:
+        """¿Escribe el usuario el nombre común (al menos dos palabras) de todos los equipos ambiguos? «CLUB ARGANDA FUTSAL» para
+        «CLUB ARGANDA FUTSAL 'A'», «… 'B'» y «… - ALBERO-MUDANZAS SEGOVIANA 'A'». «El Pinto» o «Aranjuez» sueltos no lo son."""
+        split = [normalize(n).split() for n in names]
+        common: list[str] = []
+        for words in zip(*split, strict=False):
+            if len(set(words)) != 1:
+                break
+            common.append(words[0])
+        return len(names) >= 2 and len([w for w in common if w not in GENERIC]) >= 1 and len(common) >= 2 and (
+            f" {' '.join(common)} " in f" {normalize(text)} ")
+
     def team_candidates(self, text: str, state: ConversationState, limit: int = 30) -> list[str]:
         """Nombres de equipo que el intérprete LLM puede devolver: los del contexto y los que comparten alguna palabra distintiva con la pregunta."""
         if self.teams is None:
@@ -306,6 +319,12 @@ class ContextEngine:
                 u.status, u.reason = "none", "varios equipos nombrados"
                 return u
             hit = TeamHit([])
+        if hit.ambiguous and team is None and not hit.names and self._club_mention(effective, hit.ambiguous):
+            # «¿Cómo le ha ido al CLUB ARGANDA FUTSAL en juvenil?»: el nombre común de varios equipos de un club es una consulta de club
+            # (club_overview), no «¿a qué equipo te refieres?»
+            u.status, u.reason = "act", "consulta de club (varios equipos)"
+            u.provenance["scope"] = "broad"
+            return u
         if hit.ambiguous and team is None and not hit.names:
             u.status, u.options, u.option_kind, u.ask_about = "ask", hit.ambiguous[:MAX_OPTIONS], "team", "team"
             u.reason, u.trigger = "varios equipos posibles", ("team_ambiguous" if has_history else None)

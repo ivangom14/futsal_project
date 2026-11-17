@@ -1036,7 +1036,8 @@ class Agent:
         """Notas de la aplicación v2: alcance amplio, fechas y premisas del usuario."""
         info = self._v2_trace(rec)
         out = ""
-        self._broad = self._v2_broad(effective, turns)
+        self._broad = self._v2_broad(effective, turns) or bool(
+            self._und is not None and self._und.provenance.get("scope") == "broad")  # p. ej. el nombre común de un club con varios equipos
         self._date_hint = parse_date_hint(effective, self._clock)
         if self._date_hint is None and turns and v2rules.refines_multi_scope(effective, turns[-1].question):
             self._date_hint = parse_date_hint(turns[-1].question, self._clock)  # «¿y solo los de juvenil?»: el mismo día de antes

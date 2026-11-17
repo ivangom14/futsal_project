@@ -206,3 +206,22 @@ def test_rules_concepts_without_the_word_rule_are_rules_questions() -> None:
               "¿Cuándo está en fuera de juego un jugador?"):
         assert classify(q).intent == "rules" and mentions_rules(q), q
     assert classify("¿Cuántos puntos tiene el Club Arganda?").intent == "standings"
+
+
+def test_the_common_name_of_a_club_is_a_club_query_not_a_which_team_question() -> None:
+    """«¿Cómo le ha ido al CLUB ARGANDA FUTSAL en juvenil?» (bench-127 v5): consulta de club; «el Pinto» suelto sigue preguntando."""
+    from futsal.agent.context import ContextEngine
+    from futsal.agent.convstate import ConversationState
+    from futsal.config.competition_aliases import load_dimensions
+    from futsal.domain.competitions import Competition
+
+    comps = [Competition(1, "PRIMERA JUVENIL FS", ((11, "Grupo 1"),)), Competition(2, "PRIMERA AFICIONADO FS", ((21, "Grupo 1"),))]
+    teams = ["CLUB ARGANDA FUTSAL 'A'", "CLUB ARGANDA FUTSAL 'B'", "CLUB ARGANDA FUTSAL - ALBERO-MUDANZAS SEGOVIANA 'A'", "FUTSAL PINTO", "C.F.S. PINTO"]
+    cat = TeamCatalog([TeamEntry(t, comps[i % 2].name, "Grupo 1", str(11 + 10 * (i % 2))) for i, t in enumerate(teams)])
+    eng = ContextEngine(comps, load_aliases(), load_dimensions(), cat)
+    q = "¿Cómo le ha ido al CLUB ARGANDA FUTSAL en juvenil?"
+    u = eng.understand(q, q, ConversationState())
+    assert u.status == "act" and u.provenance.get("scope") == "broad" and not u.options, u.to_dict()
+    q = "¿Cómo va el Pinto?"
+    u = eng.understand(q, q, ConversationState())
+    assert u.status == "ask" and u.ask_about == "team", u.to_dict()
