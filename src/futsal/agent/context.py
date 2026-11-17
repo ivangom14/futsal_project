@@ -31,6 +31,7 @@ MAX_OPTIONS = 8
 TEAM_INTENTS = ("next_match", "last_result")
 NOTE_HEAD = "\n\n[Nota de la aplicación, no escrita por el usuario; verificada con el catálogo]"
 TABLE_INTENTS = ("standings", "stats")
+PLAYER_PREMISE_RE = re.compile(r"\b(creo|pensaba|me parece|juraria|seguro|igual)\b.{0,20}\b(juega|jugaba|esta|estaba|ficho)\s+(en|con)\b")
 CUP_RE = re.compile(r"\b(copa|trofeo)\b")
 # palabras que solo tienen sentido en una liga («¿cómo va?» no: también vale para una copa)
 TABLE_WORDS = re.compile(r"\b(posicion|puesto|puntos?|clasific\w*|lider\w*|colista|ganad\w*|perdid\w*|victorias|derrotas|empat\w*)\b")
@@ -243,6 +244,11 @@ class ContextEngine:
     def understand(self, effective: str, raw: str, state: ConversationState, *, has_history: bool = False,
                    broad_scope: bool = False) -> Understanding:
         u = self._understand(effective, raw, state, has_history=has_history)
+        if u.status == "ask" and u.ask_about in ("competition", "scope") and PLAYER_PREMISE_RE.search(normalize(raw or effective)):
+            # «Creo que juega en el AGRUPACION…» tras preguntar por un jugador: es una premisa sobre su equipo, no una consulta del equipo;
+            # no se pregunta la competición, el modelo la contrasta con los datos del jugador
+            u.status, u.ask_about, u.option_kind, u.options, u.reason = "none", None, None, [], "premisa sobre el equipo de un jugador"
+            return u
         if u.status == "ask" and u.ask_about == "team" and multi_scope_kind(effective) in ("player", "referee"):
             # «en qué equipo juega diego martin»: el nombre de una persona no es un equipo ambiguo («GREDOS SAN DIEGO»); se busca a la persona
             u.ask_about, u.option_kind, u.options = "scope", None, []

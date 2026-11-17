@@ -225,3 +225,20 @@ def test_the_common_name_of_a_club_is_a_club_query_not_a_which_team_question() -
     q = "¿Cómo va el Pinto?"
     u = eng.understand(q, q, ConversationState())
     assert u.status == "ask" and u.ask_about == "team", u.to_dict()
+
+
+def test_a_premise_about_a_players_team_is_not_a_competition_question() -> None:
+    """«Creo que juega en el AGRUPACION AUTO-ESCUELA SIMANCAS» (bench-127 v6): premisa sobre un jugador, no «¿qué competición?»."""
+    from futsal.agent.context import ContextEngine
+    from futsal.agent.convstate import ConversationState
+    from futsal.config.competition_aliases import load_dimensions
+    from futsal.domain.competitions import Competition
+
+    comps = [Competition(1, "COPA JUVENIL - fase final- FS", ((11, "Eliminatorias"),)), Competition(2, "PRIMERA JUVENIL FS", ((21, "Grupo 1"),))]
+    team = "AGRUPACION AUTO-ESCUELA SIMANCAS 'C'"
+    eng = ContextEngine(comps, load_aliases(), load_dimensions(), TeamCatalog([TeamEntry(team, c.name, c.groups[0][1], str(c.groups[0][0])) for c in comps]))
+    q = "Creo que juega en el AGRUPACION AUTO-ESCUELA SIMANCAS"
+    u = eng.understand(q, q, ConversationState())
+    assert u.status == "none" and not u.options, u.to_dict()
+    q = "¿Cuándo juega AGRUPACION AUTO-ESCUELA SIMANCAS?"
+    assert eng.understand(q, q, ConversationState()).reason != "premisa sobre el equipo de un jugador"  # sin premisa, el flujo de siempre

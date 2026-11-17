@@ -45,3 +45,22 @@ def test_wins_counted_from_the_matches_are_correct_when_they_match_the_official_
     assert ok.verdict == "correct" and ok.tools_missing == []
     wrong = grade_turn(turn, "RACING LA PALOMA 'B' ha ganado 2 partidos.", ["list_teams", "list_matches"], [], 2, [])
     assert wrong.verdict != "correct" and wrong.tools_missing == ["get_standings"]
+
+
+def test_v6_wording_spelled_numbers_away_side_last_place_and_typos() -> None:
+    """bench-127 v6: «hay dos partidos», «victoria por 7-0… es de visitante», «es último», «YouFirst Smart Finance» (fuente «FINACE»)."""
+    two = ResolvedTurn("¿Qué partidos hay el sábado por la tarde?", "answer", facts=[{"kind": "number", "value": 2, "label": "partidos"}])
+    assert grade_turn(two, "El sábado hay dos partidos por la tarde.", ["matches_by_date"], [], 2, []).verdict == "correct"
+    away = ResolvedTurn("¿Último resultado de COLEGIO CLARET?", "answer", facts=[{"kind": "score", "value": "0-7"}])
+    ok = "Fue una victoria por 7-0 frente a CDE AMET. Fue en la jornada 4 y el partido es de visitante."
+    match = [{"matches": [{"home": "CDE AMET - AGUIRRE", "away": "COLEGIO CLARET (FS)", "score": "0-7"}]}]
+    assert grade_turn(away, ok, ["list_matches"], match, 2, []).verdict == "correct"
+    assert grade_turn(away, "Fue una derrota por 7-0 frente a CDE AMET, como visitante.", ["list_matches"], match, 2, []).verdict != "correct"
+    team = "C.D. EUROPEO 'B'"
+    last = ResolvedTurn(f"¿Cómo va {team}?", "answer", facts=[{"kind": "position", "value": 13, "team": team, "label": "posición"}])
+    table = [{"rows": [{"position": p, "team": f"EQUIPO {p}"} for p in range(1, 14)]}]
+    assert grade_turn(last, f"{team} es último del grupo, con 0 puntos.", ["get_standings"], table, 2, []).verdict == "correct"
+    assert grade_turn(last, f"{team} es último del grupo.", ["get_standings"], table[:1] and [{"rows": table[0]["rows"] + [{"position": 14}]}], 2,
+                      []).verdict != "correct"  # si hay un puesto 14, «último» no es el 13
+    rows = [{"items": [{"home": "CD RIVAS FUTSAL - YOUFIRST SMART FINACE", "away": "CLUB DEPORCOSLADA F.S. 'B'"}]}]
+    assert crit("Juegan CD Rivas Futsal - YouFirst Smart Finance y Club Deportcoslada F.S.", rows) == []

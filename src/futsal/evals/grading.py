@@ -7,6 +7,7 @@ revés, intención mal entendida, herramientas necesarias no usadas) y `presenta
 ausente, respuesta confusa o incompleta). Reutiliza los detectores de `agent.criteria` y `agent.evaluate`.
 """
 
+import difflib
 import re
 import unicodedata
 from collections.abc import Sequence
@@ -103,10 +104,16 @@ def _low(text: str) -> str:
     return "".join(c for c in unicodedata.normalize("NFKD", text.lower()) if not unicodedata.combining(c))
 
 
+NUMBER_WORDS = ("cero", "un|uno|una", "dos", "tres", "cuatro", "cinco", "seis", "siete", "ocho", "nueve", "diez", "once", "doce", "trece",
+                "catorce", "quince", "dieciseis", "diecisiete", "dieciocho", "diecinueve", "veinte")
+
+
 def number_with_label(text: str, n: str, label: str) -> bool:
-    """¿Aparece la cifra `n` pegada a su etiqueta («12 puntos», «puntos: 12»)?"""
+    """¿Aparece la cifra `n` pegada a su etiqueta («12 puntos», «puntos: 12»)? Hasta 20 vale también con letra («dos partidos»)."""
     low, lab = _low(text), _label_pattern(label)
     num = re.escape(n).replace(",", "[,.]").replace(r"\.", "[,.]")
+    if n.isdigit() and int(n) < len(NUMBER_WORDS):
+        num = rf"(?:{num}|\b(?:{NUMBER_WORDS[int(n)]})\b)"
     return bool(re.search(rf"(?<![\d,.]){num}(?![\d,]|\.\d)\s*(?:\w+\s+){{0,1}}(?:{lab})", low)
                 or re.search(rf"(?:{lab})(?:\s+\w+){{0,2}}\s*[:=]?\s*(?<![\d,.]){num}(?![\d,]|\.\d)", low))
 
@@ -121,11 +128,32 @@ def _numbers_with_label(text: str, label: str) -> set[str]:
 _ORDINAL_WORDS = {1: "primer", 2: "segund", 3: "tercer", 4: "cuart", 5: "quint", 6: "sext", 7: "septim", 8: "octav", 9: "noven", 10: "decim"}
 
 
-def _claims_pos(text: str, n: int, team: str = "") -> bool:
+def _positions(o: Any, out: list[int]) -> None:
+    if isinstance(o, dict):
+        if isinstance(o.get("position"), int):
+            out.append(o["position"])
+        for v in o.values():
+            _positions(v, out)
+    elif isinstance(o, list):
+        for v in o:
+            _positions(v, out)
+
+
+def _with_last(f: dict[str, Any], payloads: list[dict[str, Any]]) -> dict[str, Any]:
+    """Un hecho de posición que es la última de la clasificación devuelta admite «último» o «colista»."""
+    if f["kind"] != "position":
+        return f
+    seen: list[int] = []
+    _positions(payloads, seen)
+    return {**f, "last": True} if seen and int(str(f["value"])) == max(seen) else f
+
+
+def _claims_pos(text: str, n: int, team: str = "", last: bool = False) -> bool:
     low = f" {norm(text)} "
     near = re.search(rf"(?:puesto|posicion|lugar|plaza)\D{{0,25}}(?<!\d){n}(?!\d)", low) is not None \
         or re.search(rf"(?<!\d){n}(?: o\b|[oa]\b| a (?:posicion|plaza|clasificad))", low) is not None or (n == 1 and " lider" in low) \
-        or (n in _ORDINAL_WORDS and re.search(rf"\b{_ORDINAL_WORDS[n]}[oa]?\b", low) is not None)
+        or (n in _ORDINAL_WORDS and re.search(rf"\b{_ORDINAL_WORDS[n]}[oa]?\b", low) is not None) \
+        or (last and re.search(r"\b(ultimo|ultima|colista|farolillo rojo)\b", low) is not None)
     return near and (not team or key(team) in low)
 
 
@@ -145,13 +173,17 @@ def _present(f: dict[str, Any], text: str) -> bool:
         h, a = str(value).split("-")
         return has_score(text, int(h), int(a)) or _away_view(text, int(h), int(a))
     if kind == "position":
-        return _claims_pos(text, int(str(value)), str(f.get("team", "")))
+        return _claims_pos(text, int(str(value)), str(f.get("team", "")), bool(f.get("last")))
     if kind == "number":
         sval = str(value)
         if re.fullmatch(r"\d+", sval):
             if sval == "0" and re.search(r"\b(ningun|ninguna|cero|ni un|ni una)\b", norm(text)):  # «no ha ganado ningún partido» = 0
                 return True
-            return number_with_label(text, sval, str(f.get("label", ""))) if f.get("strict") else has_number(text, int(sval))
+            if f.get("strict"):
+                return number_with_label(text, sval, str(f.get("label", "")))
+            # «hay dos partidos»: hasta 20, con letra y pegada a su etiqueta
+            return has_number(text, int(sval)) or (bool(f.get("label")) and int(sval) < len(NUMBER_WORDS)
+                                                    and number_with_label(text, sval, str(f["label"])))
         return re.search(rf"(?<![\d,.]){re.escape(sval).replace(',', '[,.]')}(?!\d)", text) is not None
     return False
 
@@ -233,7 +265,10 @@ def _away_view(text: str, home: int, away: int) -> bool:
         low = norm(sent)
         if has_score(sent, away, home) and _AWAY.search(low) and (_WON if away > home else _LOST).search(low):
             return True
-    return False
+    # una sola cifra en toda la respuesta y el lado dicho en otra frase («…victoria por 7-0… El partido es de visitante.»)
+    low = norm(text)
+    return (len(set(_score_matches(text))) == 1 and has_score(text, away, home) and bool(_AWAY.search(low))
+            and bool((_WON if away > home else _LOST).search(low)))
 
 
 def _score_non_negated(text: str, score: str) -> bool:
@@ -350,6 +385,8 @@ def _abbr_toks(run: list[str], universe: set[str]) -> frozenset[str]:
                 out.add(t)
             elif 3 <= len(t) <= 4 and len(full := {u for u in universe if u.startswith(t)}) == 1:
                 out |= full
+            elif len(t) >= 6 and (near := difflib.get_close_matches(t, [u for u in universe if u[:2] == t[:2]], 1, 0.85)):
+                out.add(near[0])  # errata de una letra en un nombre largo («Finance» con la fuente «FINACE», «Deportcoslada»)
             else:
                 out.add(t)
     return frozenset(out)
@@ -461,6 +498,7 @@ def grade_turn(turn: Any, answer: str, tools_used: list[str], payloads: list[dic
     else:
         g.facts_required = len(required)
         masked = _mask_longer_decoys(answer, required, turn.decoy_facts)
+        required = [_with_last(f, payloads) for f in required]
         for f in required:
             (g.facts_present if _present(f, masked if f["kind"] in ("name", "names") else answer) else g.facts_missing).append(_label(f))
 
