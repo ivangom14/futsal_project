@@ -29,7 +29,8 @@ _FEATURES: dict[str, tuple[tuple[str, float], ...]] = {
     "scorers": ((r"\bgoleador\w*", 3), (r"\bpichichi\w*", 3), (r"\banotador\w*", 3), (r"\bgoles\b", 2), (r"\b(lleva|llevan|ha marcado|han marcado|marca|marcan)\b", 1), (r"\bmaximo\w* (anotador|goleador)\b", 1)),
     "teams_list": ((r"\bque equipos\b", 3), (r"\bequipos (hay|participan|forman|juegan|componen|tiene)\b", 3), (r"\blista de equipos\b", 3), (r"\bcuantos equipos\b", 3),
                     (r"\b(los )?equipos (de|del|en|que (hay|juegan|participan))\b", 3)),
-    "rules": ((r"\b(dura|duran|duracion|mitad|mitades|minutos|cronometro|sustitucion\w*|dimensiones|porteria|infraccion\w*|penalti|saque|reglamento|reglas?)\b", 3.0),),
+    "rules": ((r"\b(dura|duran|duracion|mitad|mitades|minutos|cronometro|sustitucion\w*|dimensiones|porteria|infraccion\w*|penalti|saque|reglamento|reglas?)\b", 3.0),
+              (r"\b(tiempos? muertos?|fuera de juego|prorrogas?|barrera|(puede|pueden|se puede|se pueden) inscribir)\b", 3.0)),
     "stats": ((r"\bmas (partidos )?(ganados|ganado|perdidos|empatados|victorias|derrotas|empates)\b", 4), (r"\b(ha|han) (ganado|perdido|empatado) mas\b", 4),
               (r"\b(mejor|peor) (ataque|defensa)\b", 4), (r"\bmenos goles (encajados|recibidos)\b", 4), (r"\bmas goles (encajados|recibidos|marcados|a favor|en contra)\b", 3)),
 }

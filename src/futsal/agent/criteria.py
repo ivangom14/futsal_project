@@ -346,10 +346,15 @@ REFEREE_WORDS = frozenset({"arbitro", "arbitros", "arbitraje", "colegiado", "col
 PAY_WORDS = frozenset({"cobra", "cobran", "cobrar", "sueldo", "salario", "salarios", "honorarios", "tarifa", "tarifas", "retribucion"})
 
 
+# Conceptos de reglamento sin la palabra «regla» («¿cuántos tiempos muertos tiene cada equipo?», «¿cuántos puede inscribir un club?»)
+RULES_PHRASES = re.compile(r"\b(tiempos? muertos?|fuera de juego|saques? de (banda|esquina|meta)|prorrogas?|barrera|"
+                           r"(puede|pueden|se puede|se pueden) inscribir)\b")
+
+
 def mentions_rules(question: str) -> bool:
     """¿Parece una pregunta sobre reglamento, circulares o sanciones? (la responde `search_rules`, no los datos de competición)"""
     words = set(norm(question).split())
-    return bool(words & RULES_WORDS) or bool(words & REFEREE_WORDS and words & PAY_WORDS)
+    return bool(words & RULES_WORDS) or bool(words & REFEREE_WORDS and words & PAY_WORDS) or bool(RULES_PHRASES.search(norm(question)))
 
 
 def mentions_competition(question: str) -> bool:
@@ -362,10 +367,15 @@ def mentions_domain(question: str) -> bool:
     return any(w in DOMAIN_WORDS for w in norm(question).split())
 
 
+def _color_words(sentence: str) -> set[str]:
+    """Colores de tarjeta de la frase. Con mayúscula inicial dentro de la frase son un apellido («Marcos Rojas Sánchez»), no un color."""
+    words = re.findall(r"[\wÁÉÍÓÚÑÜáéíóúñü]+", sentence)
+    return {norm(w) for i, w in enumerate(words) if norm(w) in CARD_COLORS and not (i > 0 and w[:1].isupper() and not w.isupper())}
+
+
 def card_color_claims(text: str) -> list[str]:
     """Frases que afirman un color de tarjeta sin negarlo (el significado de los códigos no está verificado)."""
-    return [s.strip() for s in sentences(text)
-            if any(c in norm(s).split() for c in CARD_COLORS) and not _negated(s)]
+    return [s.strip() for s in sentences(text) if _color_words(s) and not _negated(s)]
 
 
 def card_kinds_in(payloads: list[dict[str, Any]]) -> set[str]:
@@ -391,7 +401,7 @@ def unsupported_card_claims(text: str, payloads: list[dict[str, Any]]) -> list[s
     kinds = card_kinds_in(payloads)
     out = []
     for sentence in card_color_claims(text):
-        words = set(norm(sentence).split())
+        words = _color_words(sentence)
         yellow, red = bool(words & {"amarilla", "amarillas"}), bool(words & {"roja", "rojas"})
         if (yellow and not kinds & {"yellow", "second_yellow"}) or (red and "red" not in kinds):
             out.append(sentence)

@@ -24,7 +24,8 @@ from futsal.domain.competitions import Hints, row_matches
 
 LEGAL_FORMS = frozenset({"cde", "cd", "cdb", "cf", "cfs", "ad", "ud", "efs", "fs", "sd", "ef", "club"})  # forma jurídica inicial, no distintiva
 GENERIC = frozenset(DOMAIN_WORDS) | frozenset({"equipo", "equipos", "liga", "copa", "senior", "juvenil", "sala", "futsal", "futbol", "norte", "sur", "este", "oeste",
-                                               "deportivo", "deportiva", "colegio", "escuela", "union", "ciudad", "villa", "atletico", "sporting", "real"})
+                                               "deportivo", "deportiva", "colegio", "escuela", "union", "ciudad", "villa", "atletico", "sporting", "real",
+                                               "club", "clubs", "clubes"})
 STANDINGS_WORDS = frozenset({"clasificacion", "posicion", "puesto", "puntos", "tabla", "lider", "clasificado", "clasificada"})
 # Cualquiera de estas palabras indica que la pregunta puede necesitar partidos, actas, goleadores o fechas: entonces NO se omite el prefetch.
 NOT_STANDINGS_WORDS = frozenset({

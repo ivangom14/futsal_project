@@ -554,10 +554,15 @@ def rule_answer_issue(f: Fact, text: str) -> str | None:
     return None
 
 
+LIST_ROW_RE = re.compile(r"(?m)^\s*(?:[-*•]|\d+[.)]|\|)\s")
+
+
 def presentation_ok(text: str) -> bool:
-    """Calidad de presentación, separada de la exactitud: sin JSON/IDs técnicos y de longitud razonable."""
+    """Calidad de presentación, separada de la exactitud: sin JSON/IDs técnicos y de longitud razonable. Un listado (página de 10 partidos,
+    ranking) necesita sitio para sus filas: 1.500 caracteres más 100 por fila a partir de la tercera, con un máximo de 2.600."""
     bad = ['{"', "team_id", "round_id", "group_id", "player_id", "match_id", "home_team", "null"]
-    return 0 < len(text.strip()) <= 1500 and not any(b in text for b in bad)
+    rows = len(LIST_ROW_RE.findall(text))
+    return 0 < len(text.strip()) <= min(1500 + 100 * max(rows - 3, 0), 2600) and not any(b in text for b in bad)
 
 
 # ----------------------------------------------------------------------------- casos

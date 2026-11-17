@@ -308,15 +308,67 @@ def _strings(o: Any, out: list[str]) -> None:
         out.append(o)
 
 
+_INITIALS = re.compile(r"\b(?:[A-Za-zÁÉÍÓÚÑÜáéíóúñü]\.){2,}")
+
+
+def _words(text: str) -> list[str]:
+    """Palabras normalizadas sin conectores; las siglas con puntos cuentan como una palabra («A.D.» = «AD», «C.D.E.» = «CDE»)."""
+    text = _INITIALS.sub(lambda m: m.group(0).replace(".", "") + " ", text)
+    return [t for t in norm(text).split() if t not in CONNECTORS]
+
+
 def _toks(text: str) -> frozenset[str]:
-    return frozenset(t for t in norm(text).split() if t not in CONNECTORS)
+    return frozenset(_words(text))
+
+
+def _abbr_toks(run: list[str], universe: set[str]) -> frozenset[str]:
+    """Tokens del tramo con las abreviaturas del modelo resueltas: una palabra corta truncada («Div», «Est») se expande si una sola palabra
+    conocida empieza así; unas siglas («AD», «CDE», escritas en mayúsculas) se quitan: el resto del nombre decide."""
+    out: set[str] = set()
+    for w in run:
+        for t in _toks(w):
+            if w.isupper() and 2 <= len(t) <= 4:
+                continue  # siglas: «AD Navalafuente» = «AGRUPACION DEPORTIVA NAVALAFUENTE»
+            if t in universe:
+                out.add(t)
+            elif 3 <= len(t) <= 4 and len(full := {u for u in universe if u.startswith(t)}) == 1:
+                out |= full
+            else:
+                out.add(t)
+    return frozenset(out)
+
+
+def _known_run(run: list[str], known: list[frozenset[str]], universe: set[str]) -> bool:
+    """¿El tramo figura en lo conocido? Entero, como concatenación de nombres conocidos, sin la letra del equipo, con abreviaturas
+    expandidas o, si une dos nombres con «y» («Raúl Boulbars y Ayman Ben»), cada uno por separado."""
+    cand = _toks(" ".join(run))
+    if not cand or any(cand <= k for k in known) or _covered(run, known):
+        return True
+    core = frozenset(t for t in cand if len(t) > 1)  # «C.F.S. El Álamo A»: la letra del equipo (A/B/C) no decide si el nombre existe
+    if core and core != cand and any(core <= k for k in known):
+        return True
+    full = _abbr_toks(run, universe)
+    if full != cand and any(len(t) >= 5 for t in full) and any(full <= k for k in known):
+        return True
+    if "y" in run:
+        parts: list[list[str]] = []
+        cur: list[str] = []
+        for w in run:
+            if w == "y":
+                parts.append(cur)
+                cur = []
+            else:
+                cur.append(w)
+        parts.append(cur)
+        return all(p and _known_run(p, known, universe) for p in parts)
+    return False
 
 
 def _covered(run: list[str], known: list[frozenset[str]]) -> bool:
     """¿El tramo es una concatenación de nombres conocidos? El modelo escribe seguidos equipo y competición («PARQUE NORTE F.S. PRIMERA
     JUVENIL FS») o competición y «Grupo»: cada trozo contiguo debe estar dentro de UN nombre conocido. Un trozo de una sola palabra solo
     vale si es genérica o es, ella sola, un nombre conocido (así no se aceptan nombres compuestos con palabras sueltas de otros)."""
-    toks = [t for t in norm(" ".join(run)).split() if t not in CONNECTORS]
+    toks = _words(" ".join(run))
     singles = {next(iter(k)) for k in known if len(k) == 1}
     ok = [True] + [False] * len(toks)
     for i in range(len(toks)):
@@ -342,13 +394,11 @@ def unknown_names(turn: Any, answer: str, payloads: list[dict[str, Any]], catalo
         case_known += catalog
     critical: list[str] = []
     review: list[str] = []
+    universe = {t for k in case_known for t in k}
     for run in _name_runs(answer):
         cand = _toks(" ".join(run))
         shown = " ".join(run)
-        if not cand or any(cand <= k for k in case_known) or _covered(run, case_known):
-            continue
-        core = frozenset(t for t in cand if len(t) > 1)  # «C.F.S. El Álamo A»: la letra del equipo (A/B/C) no decide si el nombre existe
-        if core and core != cand and any(core <= k for k in case_known):
+        if _known_run(run, case_known, universe):
             continue
         if any(cand <= k for k in catalog):
             critical.append(f"nombra a «{shown}», que existe en el snapshot pero no figura en la evidencia ni en la verdad del caso (otra entidad)")
@@ -447,6 +497,10 @@ def grade_turn(turn: Any, answer: str, tools_used: list[str], payloads: list[dic
 
     # --- herramientas
     g.tools_missing = [t for t in turn.tools_needed if not any(alt in tools_used for alt in t.split("|"))]
+    if (g.tools_missing == ["get_standings"] and "list_matches" in tools_used and turn.behavior == "answer" and turn.facts
+            and not g.facts_missing and all(f["kind"] == "number" for f in turn.facts)):
+        # victorias/derrotas contadas con los partidos de la jornada: si coinciden con la clasificación oficial, el dato es correcto
+        g.tools_missing = []
     if turn.tools_allowed is not None:
         g.tools_unexpected = sorted(set(tools_used) - set(turn.tools_allowed))
     if g.tools_missing:

@@ -30,7 +30,18 @@ FANOUT_MAX_GROUPS = 3
 MAX_OPTIONS = 8
 TEAM_INTENTS = ("next_match", "last_result")
 NOTE_HEAD = "\n\n[Nota de la aplicación, no escrita por el usuario; verificada con el catálogo]"
-PAIR_RE = re.compile(r"\b(entre|contra|vs|versus)\b|\s-\s")
+TABLE_INTENTS = ("standings", "stats")
+CUP_RE = re.compile(r"\b(copa|trofeo)\b")
+# palabras que solo tienen sentido en una liga («¿cómo va?» no: también vale para una copa)
+TABLE_WORDS = re.compile(r"\b(posicion|puesto|puntos?|clasific\w*|lider\w*|colista|ganad\w*|perdid\w*|victorias|derrotas|empat\w*)\b")
+
+
+def is_cup(competition: str, group: str = "") -> bool:
+    """Competición por eliminatorias (copas y trofeos): sin clasificación de liga."""
+    return bool(CUP_RE.search(normalize(competition))) or "eliminatoria" in normalize(group)
+
+
+PAIR_RE = re.compile(r"\b(entre|contra|vs|versus)\b|\s[-–]\s")
 INFERRED = frozenset({"age", "kind", "sibling", "other", "ordinal", "team_context", "narrowed"})
 # Palabras corrientes de una pregunta: nunca se «corrigen» hacia un nombre de equipo («cuantos» no es una errata de «Cantos»).
 NOT_TYPOS = frozenset({
@@ -272,7 +283,7 @@ class ContextEngine:
         comps, how = self._scope(p, state, prev, ordinal, follow_up)
         team = hit.names[0] if len(hit.names) == 1 else None
         rival = None
-        if len(hit.names) == 2 and PAIR_RE.search(normalize(raw or effective)):
+        if len(hit.names) == 2 and PAIR_RE.search((raw or effective).lower()):
             # «el partido entre A y B», «A contra B»: dos equipos nombrados no son una ambigüedad; el ámbito es el que comparten
             shared = set(self.team_entries(hit.names[0])) & set(self.team_entries(hit.names[1]))
             if shared:
@@ -288,8 +299,15 @@ class ContextEngine:
             if len(left) == 1:
                 hit = TeamHit(left)
                 team = left[0]
-        if len(hit.names) > 1 or (hit.ambiguous and team is None):
-            u.status, u.options, u.option_kind, u.ask_about = "ask", (hit.names or hit.ambiguous)[:MAX_OPTIONS], "team", "team"
+        if len(hit.names) > 1 and team is None:
+            # el usuario nombró varios equipos distintos («compara A con B», «el partido A - B»): no hay que preguntar cuál; con un ámbito
+            # dicho se actúa sobre él y, si no, decide el modelo con las herramientas
+            if not (p.scoped and comps):
+                u.status, u.reason = "none", "varios equipos nombrados"
+                return u
+            hit = TeamHit([])
+        if hit.ambiguous and team is None and not hit.names:
+            u.status, u.options, u.option_kind, u.ask_about = "ask", hit.ambiguous[:MAX_OPTIONS], "team", "team"
             u.reason, u.trigger = "varios equipos posibles", ("team_ambiguous" if has_history else None)
             return u
         explicit_scope = p.scoped
@@ -311,6 +329,12 @@ class ContextEngine:
                 inter = [(c, g) for c, g in entries if c in state.competitions]
                 if inter and len({c for c, _ in inter}) < len({c for c, _ in entries}):
                     entries, how = inter, "team_context"
+            asked = " ".join([effective, str((state.pending or {}).get("question") or "")])
+            if u.intent in TABLE_INTENTS and TABLE_WORDS.search(normalize(asked)):
+                # posición, puntos o victorias: una copa por eliminatorias no tiene clasificación; si el equipo juega también una liga, es esa
+                league = [(c, g) for c, g in entries if not is_cup(c, g)]
+                if league and len(league) < len(entries):
+                    entries = league
             names = sorted({c for c, _ in entries})
             fam = r.families([self.by_name[n] for n in names if n in self.by_name])
             if len(fam) > 1:
@@ -338,6 +362,11 @@ class ContextEngine:
             else:
                 u.trigger = "no_signal"
             return u
+        if state.pending is not None and state.offered_kind == "competition" and state.offered:
+            # respuesta a «¿a cuál te refieres?»: se elige entre lo que se ofreció («el juvenil» entre las ligas del equipo, no la copa)
+            picked = [c for c in comps if c.name in state.offered]
+            if picked:
+                comps = picked
         fam = r.families(comps)
         if len(fam) > 1:
             u.status, u.options, u.option_kind, u.ask_about = "ask", [c.name for c in comps][:MAX_OPTIONS], "competition", "competition"

@@ -157,13 +157,52 @@ def test_v2_does_not_ask_again_for_the_competition_of_a_team_whose_scope_was_alr
     team = "CDE ATHLETIC MOSTOLES 'B'"
     cat = TeamCatalog([TeamEntry(team, c.name, c.groups[0][1], str(c.groups[0][0])) for c in comps])
     eng = ContextEngine(comps, load_aliases(), load_dimensions(), cat)
-    state = ConversationState()
-    turns = ["¿En qué posición está CDE ATHLETIC MOSTOLES 'B'?", "El juvenil", "no sé, cualquiera", "¿cuántos puntos tiene?"]
-    seen = []
-    for q in turns:
-        u = eng.understand(q, q, state, has_history=state.turns > 0, broad_scope=wants_broad_scope(q))  # como el agente
-        seen.append((u.status, list(u.options)))
-        state = eng.next_state(state, u, q, "…")
+
+    def talk(turns: list[str]) -> list[tuple[str, list[str], list[str]]]:
+        state, seen = ConversationState(), []
+        for q in turns:
+            u = eng.understand(q, q, state, has_history=state.turns > 0, broad_scope=wants_broad_scope(q))  # como el agente
+            seen.append((u.status, list(u.options), list(u.competitions)))
+            state = eng.next_state(state, u, q, "…")
+        return seen
+
+    # posición: la copa (eliminatorias) no tiene clasificación, no se ofrece; «el juvenil» deja solo la liga juvenil
+    seen = talk(["¿En qué posición está CDE ATHLETIC MOSTOLES 'B'?", "El juvenil", "¿cuántos puntos tiene?"])
+    assert seen[0][0] == "ask" and set(seen[0][1]) == {"PREFERENTE JUVENIL FS", "PRIMERA DIVISION AUTONOMICA AFICIONADO FS"}
+    assert seen[1][0] in ("act", "assume") and seen[1][2] == ["PREFERENTE JUVENIL FS"] and seen[2][0] != "ask", seen
+    # «¿cuándo juega?» vale también para la copa: «el juvenil» acota a dos, «cualquiera» se resuelve como «todas» y no se vuelve a preguntar
+    seen = talk(["¿Cuándo juega CDE ATHLETIC MOSTOLES 'B'?", "El juvenil", "no sé, cualquiera", "¿y el siguiente?"])
     assert seen[0][0] == "ask" and len(seen[0][1]) == 3
-    assert seen[1][0] == "ask" and set(seen[1][1]) == {"COPA JUVENIL - fase final- FS", "PREFERENTE JUVENIL FS"}  # «el juvenil» acota: se pregunta entre las que quedan
-    assert seen[2][0] in ("assume", "act") and seen[3][0] != "ask", seen  # resuelto como «todas»: no se vuelve a preguntar
+    assert seen[1][0] == "ask" and set(seen[1][1]) == {"COPA JUVENIL - fase final- FS", "PREFERENTE JUVENIL FS"}
+    assert seen[2][0] in ("assume", "act") and seen[3][0] != "ask", seen
+
+
+def test_naming_two_teams_is_never_a_which_team_question() -> None:
+    """«Compara A (grupo) con B (grupo)» y «el partido A - B»: dos equipos nombrados no son una ambigüedad (bench-127 v4: s7, s5)."""
+    from futsal.agent.context import ContextEngine
+    from futsal.agent.convstate import ConversationState
+    from futsal.config.competition_aliases import load_dimensions
+    from futsal.domain.competitions import Competition
+
+    comps = [Competition(1, "PREFERENTE JUVENIL FS", ((11, "Grupo 2"),)), Competition(2, "PRIMERA DIVISION AUTONOMICA AFICIONADO FS", ((21, "Grupo 2"),))]
+    cat = TeamCatalog([TeamEntry("TORREJON SALA FIVE PLAY", comps[0].name, "Grupo 2", "11"),
+                       TeamEntry("A. D. OBISPO PERELLO 'B'", comps[1].name, "Grupo 2", "21"),
+                       TeamEntry("CLUB CORAZONISTAS", comps[1].name, "Grupo 2", "21")])
+    eng = ContextEngine(comps, load_aliases(), load_dimensions(), cat)
+    q = ("Compara a TORREJON SALA FIVE PLAY (PREFERENTE JUVENIL FS Grupo 2) con A. D. OBISPO PERELLO 'B' "
+         "(PRIMERA DIVISION AUTONOMICA AFICIONADO FS Grupo 2): ¿cuántos puntos tiene cada uno?")
+    u = eng.understand(q, q, ConversationState())
+    assert not (u.status == "ask" and u.ask_about == "team"), u.to_dict()
+    q = "¿Quién marcó en el partido CLUB CORAZONISTAS - A. D. OBISPO PERELLO 'B' de la jornada 5?"
+    u = eng.understand(q, q, ConversationState())
+    assert u.status in ("act", "assume") and u.competitions == [comps[1].name], u.to_dict()
+
+
+def test_rules_concepts_without_the_word_rule_are_rules_questions() -> None:
+    from futsal.agent.criteria import mentions_rules
+    from futsal.agent.intent import classify
+
+    for q in ("¿Cuántos tiempos muertos tiene cada equipo?", "¿Cuántos jugadores puede inscribir un club en el acta de la RFFM?",
+              "¿Cuándo está en fuera de juego un jugador?"):
+        assert classify(q).intent == "rules" and mentions_rules(q), q
+    assert classify("¿Cuántos puntos tiene el Club Arganda?").intent == "standings"
