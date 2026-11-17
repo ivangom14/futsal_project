@@ -2,6 +2,8 @@
 
 `parse_date_hint(texto, clock)` devuelve la interpretación de «hoy», «mañana», «ayer», «el sábado», «este fin de semana», «sábado 7 de noviembre», «7/11»,
 «7-11-2026»… más la franja («por la mañana» 08:00-14:59, «por la tarde» 15:00-23:59, «por la noche» 20:00-23:59), o None si no hay ningún día.
+Las franjas son una convención configurable (`configure_bands`, p. ej. `AGENT_TIME_BANDS="tarde=16:00-23:59"`) y el usuario puede precisarla
+con horas explícitas («a partir de las 18», «desde las 17:30», «antes de las 12», «entre las 16 y las 20»), que mandan sobre la franja.
 «A mediodía» no se interpreta. Sin año («7/11», «sábado 7 de noviembre») se toma el año cuya fecha queda más cerca de hoy (y, si se dijo el día de la
 semana, el que coincide con él).
 """
@@ -34,6 +36,48 @@ _WEEKEND = re.compile(r"\b(?:(?:este|el|del)\s+)?(?:(proximo|pasado|ultimo)\s+)?
 _WEEKDAY = re.compile(rf"\b(?:(?:el|este|del)\s+)?(?:(proximo|pasado|ultimo)\s+)?({_WD})(?:\s+(que\s+viene|pasado|proximo))?\b")
 _RELATIVE = re.compile(r"\b(pasado\s+manana|anteayer|antes\s+de\s+ayer|ayer|hoy|manana)\b")
 _OFFSETS = {"pasado manana": 2, "anteayer": -2, "antes de ayer": -2, "ayer": -1, "hoy": 0, "manana": 1}
+_HH = r"(\d{1,2})(?:[:.h](\d{2}))?"
+_BETWEEN = re.compile(rf"\bentre\s+las?\s+{_HH}\s+y\s+las?\s+{_HH}")
+_FROM = re.compile(rf"\b(?:a\s+partir\s+de|desde)\s+las?\s+{_HH}")
+_UNTIL = re.compile(rf"\b(?:antes\s+de|hasta)\s+las?\s+{_HH}")
+
+
+def _hhmm(h: str, m: str | None) -> time | None:
+    hour, minute = int(h), int(m or 0)
+    return time(hour, minute) if 0 <= hour <= 23 and 0 <= minute <= 59 else None
+
+
+def parse_hours(text: str) -> tuple[time | None, time | None]:
+    """Horas explícitas del usuario («a partir de las 18», «antes de las 12», «entre las 16 y las 20»); (None, None) si no hay."""
+    low = _fold(text)
+    if m := _BETWEEN.search(low):
+        return _hhmm(m[1], m[2]), _hhmm(m[3], m[4])
+    start = _hhmm(m[1], m[2]) if (m := _FROM.search(low)) else None
+    end = _hhmm(m[1], m[2]) if (m := _UNTIL.search(low)) else None
+    if end is not None:
+        end = time(end.hour, end.minute) if end.minute else (time(end.hour - 1, 59) if end.hour else end)  # «antes de las 12» = hasta 11:59
+    return start, end
+
+
+def parse_bands(spec: str) -> dict[str, tuple[time, time]]:
+    """«tarde=16:00-23:59;manana=08:00-14:59» → franjas; entradas mal formadas se ignoran (se conserva la convención por defecto)."""
+    out: dict[str, tuple[time, time]] = {}
+    for part in spec.replace(",", ";").split(";"):
+        name, _, rng = part.partition("=")
+        m = re.fullmatch(r"\s*(\d{1,2}):(\d{2})\s*-\s*(\d{1,2}):(\d{2})\s*", rng)
+        key = _fold(name.strip())
+        if key in ("manana", "tarde", "noche") and m:
+            a, b = _hhmm(m[1], m[2]), _hhmm(m[3], m[4])
+            if a and b and a <= b:
+                out[key] = (a, b)
+    return out
+
+
+def configure_bands(spec: str | None) -> dict[str, tuple[time, time]]:
+    """Ajusta la convención de franjas («por la tarde»…) desde configuración; devuelve las vigentes."""
+    if spec:
+        BANDS.update(parse_bands(spec))
+    return dict(BANDS)
 
 
 @dataclass(frozen=True)
@@ -154,6 +198,9 @@ def parse_date_hint(text: str, clock: Callable[[], datetime] = madrid_now) -> Da
         return None
     time_from = min((b[0] for b in bands), default=None)
     time_to = max((b[1] for b in bands), default=None)
+    exact_from, exact_to = parse_hours(text)  # la hora que dice el usuario manda sobre la franja convencional
+    if exact_from or exact_to:
+        time_from, time_to = exact_from or time_from or time(0, 0), exact_to or time_to or time(23, 59)
     phrase = " ".join(text[a:b].strip() for a, b in sorted(spans))
     return DateHint(min(days), max(days), time_from, time_to, phrase)
 

@@ -62,10 +62,7 @@ def build_parser() -> argparse.ArgumentParser:
             p.add_argument("--run-id", default=None)
             p.add_argument("--resume", action="store_true", help="completa lo pendiente de --run-id sin repetir lo hecho")
             p.add_argument("--seed", type=int, default=DEFAULT_SEED)
-            p.add_argument("--agent", choices=("v2", "legacy"), default="v2", help="arquitectura del agente (por defecto v2, la del frontal)")
-            p.add_argument("--context", choices=("legacy", "deterministic", "llm"), default=None,
-                           help="comprensión conversacional; por defecto, AGENT_CONTEXT del entorno (el mismo .env que el frontal)")
-            p.add_argument("--arm", default="legacy", help="banderas del agente (agent/arms.py); las mismas para todos los modelos")
+            p.add_argument("--arm", default="base", help="banderas del agente (agent/arms.py); las mismas para todos los modelos")
             p.add_argument("--output-root", type=Path, default=DEFAULT_ROOT)
             g = p.add_mutually_exclusive_group(required=True)
             g.add_argument("--dry-run", action="store_true", help="modelo simulado: sin red ni gasto")
@@ -171,7 +168,7 @@ def cmd_run(a: argparse.Namespace) -> int:
         print("error: --as-of solo se usa con --live (el snapshot ya fija su fecha)", file=sys.stderr)
         return 1
     cfg = BenchConfig(models=specs, snapshot=LIVE if a.live else a.snapshot, as_of=a.as_of, suite=a.suite, reps=a.reps, limit=a.limit, budget_usd=a.budget_usd,
-                      output_root=a.output_root, run_id=a.run_id, resume=a.resume, seed=a.seed, arm=a.arm, agent_arch=a.agent, context_mode=a.context, db_url=a.db,
+                      output_root=a.output_root, run_id=a.run_id, resume=a.resume, seed=a.seed, arm=a.arm, db_url=a.db,
                       admin_url=a.admin_db or (None if a.db else database_url()), dry_run=a.dry_run, progress=lambda m: print(m, flush=True))
     try:
         meta = run_bench(cfg)

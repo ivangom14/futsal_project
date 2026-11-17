@@ -8,10 +8,11 @@ Un mensaje + el estado conversacional → una `Understanding`: intención, compe
 - El contexto solo DESEMPATA entre candidatas que el usuario ya dijo; nunca filtra una competición o un equipo nuevo.
 - Varios grupos: ≤3 → se consultan todos; >3 → se pregunta, salvo que el contexto o el equipo lo determinen.
 
-Módulo puro (sin E/S): el agente le da el catálogo, los equipos y, si procede, la interpretación del LLM (`interpreter.Interpretation`) ya validada.
+Módulo puro (sin E/S): el agente le da el catálogo y los equipos.
 """
 
 import difflib
+import re
 from collections.abc import Sequence
 from copy import deepcopy
 from dataclasses import dataclass, field
@@ -20,7 +21,6 @@ from typing import Any
 from futsal.agent.convstate import ConversationState, turn_hash
 from futsal.agent.entities import GENERIC, TeamCatalog, _matches, normalize, scan
 from futsal.agent.intent import LABEL, classify
-from futsal.agent.interpreter import Interpretation
 from futsal.agent.memory import Turn, asks_for_input, resolve_pending
 from futsal.agent.v2.rules import multi_scope_kind, names_something
 from futsal.domain.competitions import Competition, fold
@@ -30,7 +30,8 @@ FANOUT_MAX_GROUPS = 3
 MAX_OPTIONS = 8
 TEAM_INTENTS = ("next_match", "last_result")
 NOTE_HEAD = "\n\n[Nota de la aplicación, no escrita por el usuario; verificada con el catálogo]"
-INFERRED = frozenset({"age", "kind", "sibling", "other", "ordinal", "interpreter", "team_context", "narrowed"})
+PAIR_RE = re.compile(r"\b(entre|contra|vs|versus)\b|\s-\s")
+INFERRED = frozenset({"age", "kind", "sibling", "other", "ordinal", "team_context", "narrowed"})
 # Palabras corrientes de una pregunta: nunca se «corrigen» hacia un nombre de equipo («cuantos» no es una errata de «Cantos»).
 NOT_TYPOS = frozenset({
     "cuantos", "cuantas", "cuanto", "cuanta", "cuando", "cuales", "quienes", "donde", "contra", "contrario", "partido", "partidos",
@@ -72,7 +73,6 @@ class Understanding:
     provenance: dict[str, str] = field(default_factory=dict)
     reason: str = ""
     trigger: str | None = None  # por qué convendría el intérprete LLM
-    interpreter: dict[str, Any] | None = None
     resolved_question: str = ""
     offtopic_confirmed: bool = False
     stated_age: str | None = None
@@ -82,7 +82,7 @@ class Understanding:
         return {"status": self.status, "intent": self.intent, "intent_confidence": self.intent_confidence, "intent_inherited": self.intent_inherited,
                 "competitions": self.competitions, "groups": [t.group_id for t in self.targets], "team": self.team, "options": self.options,
                 "option_kind": self.option_kind, "missing": self.missing, "season": self.season.requested, "assumption": self.assumption,
-                "provenance": self.provenance, "reason": self.reason, "trigger": self.trigger, "interpreter": self.interpreter}
+                "provenance": self.provenance, "reason": self.reason, "trigger": self.trigger}
 
 
 @dataclass
@@ -172,7 +172,7 @@ class ContextEngine:
             return (state.offered_kind or "competition", rest[0]) if len(rest) == 1 else None
         return None
 
-    def _scope(self, p: Parsed, state: ConversationState, prev: list[Competition], interp: Interpretation | None, ordinal: tuple[str, str] | None,
+    def _scope(self, p: Parsed, state: ConversationState, prev: list[Competition], ordinal: tuple[str, str] | None,
                follow_up: bool) -> tuple[list[Competition], str]:
         r = self.resolver
         if ordinal and ordinal[0] == "competition" and ordinal[1] in self.by_name:
@@ -199,21 +199,13 @@ class ContextEngine:
                 how = how2 if how2 != "explicit" else how
         elif prev and follow_up:  # sin ámbito propio: continúa el de la conversación, pero solo si el mensaje parece un seguimiento (no «cuéntame un chiste»)
             comps, how = prev, "context"
-        if interp and interp.competitions and (not comps or len(r.families(comps)) > 1 and how in ("explicit", "narrowed", "other")):
-            named = [self.by_name[n] for n in interp.competitions if n in self.by_name]
-            # El LLM solo puede ELEGIR entre las candidatas que el usuario ya dijo; si no había ninguna, se acepta lo que exista en el catálogo.
-            if named and (len(r.families(named)) == 1 or not comps) and (not comps or all(c in comps for c in named)):
-                return named, "interpreter"
         return comps, how
 
-    def _targets(self, comps: list[Competition], p: Parsed, state: ConversationState, how: str, interp: Interpretation | None
-                 ) -> tuple[list[Target], list[str], str | None]:
+    def _targets(self, comps: list[Competition], p: Parsed, state: ConversationState, how: str) -> tuple[list[Target], list[str], str | None]:
         """(grupos a consultar, nombres de grupo elegidos, motivo de pregunta de grupo). ≤3 grupos → todos; >3 → pregunta salvo que el contexto lo determine."""
         wanted: list[str] = []
         if p.group:
             wanted = [g for c in comps for _, g in c.groups if fold(g) == p.group]
-        elif interp and interp.groups:
-            wanted = [g for c in comps for _, g in c.groups if g in interp.groups]
         elif how == "context" and state.groups and {c.name for c in comps} == set(state.competitions):
             wanted = [g for c in comps for _, g in c.groups if g in state.groups]
         elif p.other and len(comps) == 1 and state.groups and {c.name for c in comps} == set(state.competitions):
@@ -224,23 +216,26 @@ class ContextEngine:
         return [Target(c.name, gid, g) for c, gid, g in pairs], list(dict.fromkeys(wanted)), None
 
     # ---------------------------------------------------------------------------------------------------------- comprensión
-    def understand(self, effective: str, raw: str, state: ConversationState, *, has_history: bool = False, interp: Interpretation | None = None,
-                   v2: bool = False, broad_scope: bool = False) -> Understanding:
-        u = self._understand(effective, raw, state, has_history=has_history, interp=interp)
-        if not v2:
-            return u
+    def understand(self, effective: str, raw: str, state: ConversationState, *, has_history: bool = False,
+                   broad_scope: bool = False) -> Understanding:
+        u = self._understand(effective, raw, state, has_history=has_history)
         if u.status == "ask" and u.ask_about == "team" and multi_scope_kind(effective) in ("player", "referee"):
             # «en qué equipo juega diego martin»: el nombre de una persona no es un equipo ambiguo («GREDOS SAN DIEGO»); se busca a la persona
             u.ask_about, u.option_kind, u.options = "scope", None, []
         return self._v2_policy(u, state, broad_scope or (u.ask_about == "scope" and names_something(raw or effective)))
 
     def _v2_policy(self, u: Understanding, state: ConversationState, broad_scope: bool) -> Understanding:
-        """Solo con AGENT_ARCH=v2. Alcance amplio explícito («todos/todas…») o aclaración de ámbito repetida: `ask` pasa a `act`/`assume` (se consulta con las
+        """Alcance amplio explícito («todos/todas…») o aclaración de ámbito repetida: `ask` pasa a `act`/`assume` (se consulta con las
         herramientas v2 sin competición). La ambigüedad de ENTIDAD (varios equipos o clubes con el mismo nombre) se sigue preguntando."""
+        if u.status == "none" and broad_scope and state.pending is not None and state.pending.get("kind") in ("scope", "competition", "group"):
+            # «no sé, cualquiera» como respuesta a la aclaración de ámbito: se consulta en todas, igual que si se repitiera la pregunta
+            u.status, u.ask_about, u.option_kind = "ask", "scope", state.pending.get("kind")
         if u.status != "ask" or u.ask_about not in ("scope", "competition", "group"):
             return u
         kind = u.option_kind or "scope"
-        repeated = (state.pending is not None and state.pending.get("kind") == kind) or bool(state.broad_team and (u.team == state.broad_team or (u.team is None and u.ask_about == "scope")))
+        narrowed = bool(u.options and state.offered and set(u.options) < set(state.offered))  # «la copa» acota las opciones ofrecidas: se pregunta entre las que quedan
+        repeated = (state.pending is not None and state.pending.get("kind") == kind and not narrowed) or bool(
+            state.broad_team and (u.team == state.broad_team or (u.team is None and u.ask_about == "scope")))
         if not (broad_scope or repeated):
             return u
         u.options, u.option_kind, u.ask_about, u.competitions, u.targets, u.group_names = [], None, None, [], [], []
@@ -252,7 +247,7 @@ class ContextEngine:
             u.assumption = "Entiendo que quieres consultarlo en todas las competiciones de la temporada."
         return u
 
-    def _understand(self, effective: str, raw: str, state: ConversationState, *, has_history: bool = False, interp: Interpretation | None = None) -> Understanding:
+    def _understand(self, effective: str, raw: str, state: ConversationState, *, has_history: bool = False) -> Understanding:
         r = self.resolver
         u = Understanding()
         p = r.parse(effective)
@@ -260,12 +255,11 @@ class ContextEngine:
         prev = self._prev(state)
         guess = classify(effective, state.intent)
         u.intent, u.intent_confidence, u.intent_inherited, u.intent_sub = guess.intent, guess.confidence, guess.inherited, guess.sub
-        if interp and interp.intent and (guess.intent is None or guess.confidence == "low" or guess.inherited):
-            u.intent, u.intent_confidence, u.intent_inherited = interp.intent, "medium", False
-        if interp:
-            u.resolved_question = interp.resolved_question
         hit = self.team_hit(effective, state, raw)
-        if (p.season or (interp and interp.season)) and (p.scoped or u.intent or hit.names or hit.ambiguous):
+        if u.intent == "rules":  # reglamento y circulares: ni temporada («Circular 9 de 17 de agosto de 2026») ni ámbito de competición
+            u.status, u.reason = "none", "reglamento"
+            return u
+        if p.season and (p.scoped or u.intent or hit.names or hit.ambiguous):
             u.season = SeasonScope("previous")
             u.status, u.reason = "nodata", "otra temporada: solo existe la actual"
             u.competitions = [c.name for c in r.match(p)] if p.scoped else []
@@ -274,19 +268,20 @@ class ContextEngine:
         if p.absent and not ordinal:
             u.status, u.missing, u.reason = "missing", list(p.absent), "término de competición/categoría que no existe en el catálogo"
             return u
-        if u.intent == "rules":
-            u.status, u.reason = "none", "reglamento"
-            return u
         follow_up = u.intent is not None or p.pronoun or p.possessive or p.other or ordinal is not None
-        comps, how = self._scope(p, state, prev, interp, ordinal, follow_up)
+        comps, how = self._scope(p, state, prev, ordinal, follow_up)
         team = hit.names[0] if len(hit.names) == 1 else None
+        rival = None
+        if len(hit.names) == 2 and PAIR_RE.search(normalize(raw or effective)):
+            # «el partido entre A y B», «A contra B»: dos equipos nombrados no son una ambigüedad; el ámbito es el que comparten
+            shared = set(self.team_entries(hit.names[0])) & set(self.team_entries(hit.names[1]))
+            if shared:
+                team, rival, hit = hit.names[0], hit.names[1], TeamHit([hit.names[0]])
         if ordinal and ordinal[0] == "team" and ordinal[1] in (self.teams.by_name if self.teams is not None else {}):
             team, hit = ordinal[1], TeamHit([ordinal[1]])
             u.provenance["team"] = "ordinal"
         if ordinal and ordinal[0] == "group":
             p = Parsed(**{**p.__dict__, "group": fold(ordinal[1])})
-        if interp and interp.team and team is None and self.teams is not None and interp.team in self.teams.by_name:
-            team, hit = interp.team, TeamHit([interp.team])
         if hit.ambiguous and not hit.names and comps and p.scoped:  # «el Pinto en primera»: el ámbito dicho puede dejar un solo equipo
             allowed = {c.name for c in comps}
             left = [n for n in hit.ambiguous if any(c in allowed for c, _ in self.team_entries(n))]
@@ -302,7 +297,7 @@ class ContextEngine:
             team = state.teams[0]
             u.provenance["team"] = "context"
         if team:
-            entries = [(c, g) for c, g in self.team_entries(team)]
+            entries = [(c, g) for c, g in self.team_entries(team) if rival is None or (c, g) in self.team_entries(rival)]
             scope_comps = r.match(p) if (p.scoped and how in ("age", "kind", "narrowed", "explicit", "none")) else comps  # con un equipo nombrado el contexto no desempata por categoría/tipo: se ofrecen todas sus competiciones
             if explicit_scope and scope_comps:
                 ok = [(c, g) for c, g in entries if c in {x.name for x in scope_comps}]
@@ -350,7 +345,7 @@ class ContextEngine:
             u.trigger = "ambiguous_scope" if (has_history or state.competitions) else None
             u.competitions = []
             return u
-        targets, group_names, ask_group = self._targets(comps, p, state, how, interp)
+        targets, group_names, ask_group = self._targets(comps, p, state, how)
         u.competitions = [c.name for c in comps]
         if ask_group:
             u.status, u.options, u.option_kind, u.ask_about = "ask", [g for _, g in comps[0].groups], "group", "group"
@@ -410,7 +405,8 @@ class ContextEngine:
                     "y ofrece consultar la temporada actual.")
         if u.status == "ask":
             what = "las opciones reales" if u.options else "la competición, el grupo o el equipo"
-            return (NOTE_HEAD + f" Aclaración necesaria: hay varias interpretaciones razonables; opciones: {'; '.join(f'«{o}»' for o in u.options) or 'ninguna identificada'}. "
+            of = f" de «{u.competitions[0]}»" if u.option_kind == "group" and len(u.competitions) == 1 else ""  # el grupo, de qué competición
+            return (NOTE_HEAD + f" Aclaración necesaria: hay varias interpretaciones razonables; opciones{of}: {'; '.join(f'«{o}»' for o in u.options) or 'ninguna identificada'}. "
                     f"Pregunta al usuario cuál (solo {what}) y no consultes datos hasta que responda.")
         if u.provenance.get("scope") in ("broad", "repeat"):
             return (NOTE_HEAD + " Alcance amplio o aclaración ya hecha: no preguntes competición, grupo ni categoría; consulta con las herramientas v2 sin filtro de grupo."
@@ -422,7 +418,8 @@ class ContextEngine:
             c = self.by_name[name]
             lines.append(f" Competición identificada: «{c.name}» (competition_id={c.id}).")
         if u.team:
-            lines.append(f" Equipo identificado: «{u.team}» (juega en: {'; '.join(f'{c} · {g}' for c, g in u.team_entries)}).")
+            where = f" (juega en: {'; '.join(f'{c} · {g}' for c, g in u.team_entries)})" if u.team_entries else ""
+            lines.append(f" Equipo identificado: «{u.team}»{where}.")
         if u.targets:
             lines.append("\nConsulta estos grupos" + (" y presenta los resultados separados por grupo" if len(u.targets) > 1 else "") + ": "
                          + ", ".join(f"group_id={t.group_id} («{t.group}» de {t.competition})" for t in u.targets) + ".\n")
@@ -521,7 +518,15 @@ class ContextEngine:
                     s.offered, s.offered_kind = [n for _, n in found], "competition"
         if turns:
             s.last_turn = turn_hash(turns[-1].question, turns[-1].answer)
+        return self.with_focus(s, focus)
+
+    def with_focus(self, state: ConversationState, focus: dict[str, Any] | None) -> ConversationState:
+        """El foco verificado de la conversación (equipo, competición y grupo que ya consultaron las herramientas) completa el estado
+        si este no lo tenía: «¿Y el siguiente?» tras «¿Cómo va el DOSA?» sigue con ese equipo."""
         focus = focus or {}
+        if not focus:
+            return state
+        s = deepcopy(state)
         if not s.competitions and focus.get("competition") in self.by_name:
             s.competitions = [str(focus["competition"])]
             s.groups = [str(focus["group"])] if focus.get("group") else []

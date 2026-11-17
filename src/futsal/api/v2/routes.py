@@ -14,6 +14,8 @@ from futsal.repositories import v2_queries as q
 
 Limit = Annotated[int, Query(ge=1, le=q.MAX_LIMIT)]
 Name = Annotated[str, Query(min_length=2, max_length=80)]
+Offset = Annotated[int, Query(ge=0, le=q.MAX_OFFSET)]  # página real en la BD: `count` es el total exacto y `next_offset` la siguiente
+Compact = Annotated[bool, Query()]  # filas mínimas para listados (lo que usa el agente): sin refs ni datos de acta
 
 
 class V2Route(APIRoute):
@@ -56,9 +58,15 @@ def v2_router(get_session: Callable[[], Iterator[Session]], today: Callable[[], 
 
     @router.get("/officials/ranking")
     def officials_ranking(db: Db, f: F, role: Annotated[str, Query(min_length=2, max_length=40)] = "ARBITRO",
-                          limit: Limit = q.DEFAULT_LIMIT) -> dict[str, Any]:
+                          limit: Limit = q.DEFAULT_LIMIT, offset: Offset = 0) -> dict[str, Any]:
         """Árbitros con más partidos en las actas almacenadas."""
-        return run(lambda: q.officials_ranking(db, q.build_scope(db, today(), f), role, limit))
+        return run(lambda: q.officials_ranking(db, q.build_scope(db, today(), f), role, limit, offset))
+
+    @router.get("/officials/matches")
+    def official_matches(db: Db, f: F, name: Name, order: Annotated[str, Query(max_length=4)] = "asc",
+                         limit: Limit = q.DEFAULT_LIMIT, offset: Offset = 0) -> dict[str, Any]:
+        """Partidos de un árbitro, paginados en la BD y en orden cronológico; si el nombre es ambiguo, las personas (`people`)."""
+        return run(lambda: q.official_matches(db, q.build_scope(db, today(), f), name, order, limit, offset))
 
     @router.get("/officials")
     def officials(db: Db, f: F, name: Name, include: Annotated[str | None, Query(max_length=20)] = None,
@@ -72,10 +80,10 @@ def v2_router(get_session: Callable[[], Iterator[Session]], today: Callable[[], 
     def matches(db: Db, f: F, date_from: date | None = None, date_to: date | None = None, time_from: time | None = None,
                 time_to: time | None = None, venue: Annotated[str | None, Query(min_length=2, max_length=80)] = None,
                 status: Annotated[str | None, Query(max_length=20)] = None, order: Annotated[str, Query(max_length=4)] = "asc",
-                limit: Limit = q.DEFAULT_LIMIT) -> dict[str, Any]:
+                limit: Limit = q.DEFAULT_LIMIT, offset: Offset = 0, compact: Compact = False) -> dict[str, Any]:
         """Partidos de todos los grupos en un rango de fechas/horas de Europe/Madrid."""
         return run(lambda: q.matches(db, q.build_scope(db, today(), f), date_from=date_from, date_to=date_to, time_from=time_from,
-                                     time_to=time_to, venue=venue, status=status, order=order, limit=limit))
+                                     time_to=time_to, venue=venue, status=status, order=order, limit=limit, offset=offset, compact=compact))
 
     @router.get("/clubs/search")
     def clubs_search(db: Db, f: F, name: Name, limit: Limit = q.DEFAULT_LIMIT) -> dict[str, Any]:
@@ -89,17 +97,18 @@ def v2_router(get_session: Callable[[], Iterator[Session]], today: Callable[[], 
 
     @router.get("/rankings/scorers")
     def scorers(db: Db, f: F, competition_kind: Annotated[str, Query(max_length=20)] = "league",
-                limit: Limit = q.DEFAULT_LIMIT) -> dict[str, Any]:
+                limit: Limit = q.DEFAULT_LIMIT, offset: Offset = 0, compact: Compact = False) -> dict[str, Any]:
         """Goleadores de las últimas tablas oficiales `ok` de todos los grupos del filtro (`competition_kind=all` quita el tipo)."""
         kind = None if competition_kind == "all" else competition_kind
         if kind is not None and kind not in q.KINDS:
             raise HTTPException(422, f"competition_kind inválido; valores: all, {', '.join(q.KINDS)}")
-        return run(lambda: q.scorers_ranking(db, q.build_scope(db, today(), f, kind=kind, drop_unknown_category=True), limit))
+        return run(lambda: q.scorers_ranking(db, q.build_scope(db, today(), f, kind=kind, drop_unknown_category=True), limit, offset, compact))
 
     @router.get("/rankings/teams")
     def teams(db: Db, f: F, metric: Annotated[str, Query(max_length=20)], order: Annotated[str | None, Query(max_length=4)] = None,
-              min_played: Annotated[int, Query(ge=1, le=100)] = 1, limit: Limit = q.DEFAULT_LIMIT) -> dict[str, Any]:
+              min_played: Annotated[int, Query(ge=1, le=100)] = 1, limit: Limit = q.DEFAULT_LIMIT, offset: Offset = 0,
+              compact: Compact = False) -> dict[str, Any]:
         """Ranking de equipos desde partidos finalizados (goals_for, goals_against, wins, points_per_game)."""
-        return run(lambda: q.teams_ranking(db, q.build_scope(db, today(), f, drop_unknown_category=True), metric, order, min_played, limit))
+        return run(lambda: q.teams_ranking(db, q.build_scope(db, today(), f, drop_unknown_category=True), metric, order, min_played, limit, offset, compact))
 
     return router

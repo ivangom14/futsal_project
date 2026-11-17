@@ -9,7 +9,6 @@ from mcp.server.fastmcp import FastMCP
 from pydantic import Field
 
 from futsal.config.settings import api_base_url
-from futsal.mcp_server.descriptions import overrides, tools_mode
 from futsal.mcp_server.v2_tools import register_v2_tools
 
 TIMEOUT_SECONDS = 10.0
@@ -59,19 +58,17 @@ def _listing(key: str, data: dict[str, Any]) -> dict[str, Any]:
     return out
 
 
-def create_server(client: httpx.Client | None = None, descriptions: str | None = None) -> FastMCP:
-    """Crea el servidor; `client` permite inyectar un cliente HTTP (tests). `descriptions`: `legacy` (predeterminado, los textos de
-    siempre) o `compact` (Fase 1: mismas herramientas y parámetros, descripciones más cortas); sin él, `AGENT_PROMPT_MODE`."""
+def create_server(client: httpx.Client | None = None) -> FastMCP:
+    """Crea el servidor; `client` permite inyectar un cliente HTTP (tests)."""
     http = client or httpx.Client(base_url=api_base_url(), timeout=TIMEOUT_SECONDS)
     mcp = FastMCP("futsal")
-    ov = overrides(tools_mode(descriptions))  # vacío en `legacy`: se usan los docstrings y Field(description=…) de abajo
 
-    def desc(key: str, legacy: str) -> str:
-        return ov.get(key, legacy)
+    def desc(key: str, text: str) -> str:
+        return text
 
     def tool(name: str) -> Any:
-        """@mcp.tool() con la descripción compacta si la hay (si no, el docstring de la función)."""
-        return mcp.tool(description=ov.get(name))
+        """@mcp.tool() con el docstring de la función como descripción."""
+        return mcp.tool()
 
     @tool("list_competitions")
     def list_competitions(
@@ -242,7 +239,7 @@ def create_server(client: httpx.Client | None = None, descriptions: str | None =
         no esté en ellos. Sin resultados útiles: dilo."""
         return _get(http, "/knowledge/search", "reglamento", q=query, limit=limit, rule=rule)
 
-    # Herramientas v2 (consultas sin grupo) sobre la API /v2: mismo servidor y mismo cliente HTTP. El agente legacy no las ofrece al LLM.
+    # Herramientas v2 (consultas sin grupo) sobre la API /v2: mismo servidor y mismo cliente HTTP. 
     register_v2_tools(mcp, lambda path, resource, **params: _get(http, path, resource, **params))
     return mcp
 

@@ -4,24 +4,21 @@ Qué mide: no si el agente «contesta algo», sino QUÉ consultó. Cada turno de
 competiciones, grupos, equipo, acción) y se compara con las herramientas MCP realmente ejecutadas y sus argumentos. Consultar una competición
 distinta de la esperada es un fallo CRÍTICO, aunque la respuesta parezca correcta.
 
-Piezas simuladas (todas deterministas e idénticas para los tres modos `legacy` / `deterministic` / `llm`):
+Piezas simuladas (deterministas; arquitectura única con comprensión determinista):
 - `World`: catálogo real de 14 competiciones (temporada 22) con equipos, clasificaciones, goleadores y partidos de prueba, servido por un MCP falso.
 - `SimLLM`: «modelo obediente»: sigue las notas verificadas de la aplicación y, sin ellas, solo usa palabras clave evidentes (como el rechazo real de
   «¿Cómo va la liga preferente?»). Con `refuse_first` rechaza su primera respuesta (rechazo incorrecto) para probar la recuperación. Su comportamiento
   real con Gemini NO se conoce hasta la validación en vivo; esto mide la aplicación (resolución, notas, guardarraíles), no el modelo.
-- `SimInterpreter`: sustituto del intérprete LLM, más tolerante que el resolutor (erratas, ordinales sobre opciones ofrecidas, correferencias).
 Tokens: estimados (caracteres/4). Latencia: no medible aquí; se informa el número de llamadas.
 
-CLI: `python -m futsal.agent.understanding_eval --modes legacy,deterministic,llm --out results.json`
+CLI: `python -m futsal.agent.understanding_eval --out results.json`
 """
 
 import argparse
 import asyncio
-import difflib
 import hashlib
 import inspect
 import json
-import os
 import re
 import sys
 from collections import defaultdict
@@ -36,8 +33,7 @@ from futsal.agent.llm import LLMResponse, Message, ToolCall, Usage
 from futsal.agent.memory import Turn, select_turns
 from futsal.agent.presentation import compute_focus, merge_focus
 
-MODES = ("legacy", "deterministic", "llm")
-INTERPRETER_PREFIX = "INTERPRETE_RFFM"  # primera palabra del prompt de sistema del intérprete (la comparte `interpreter.py`)
+MODES = ("deterministic",)
 MEMORY_GUARDRAILS = (None, "aclaracion_ambito")  # igual que `web.MEMORY_GUARDRAILS`
 
 # --------------------------------------------------------------------------------------------------------------------
@@ -187,10 +183,9 @@ class SimLLM:
 
     provider, model = "sim", "sim"
 
-    def __init__(self, refuse_first: bool = False, interpreter: "SimInterpreter | None" = None, capable: bool = False) -> None:
+    def __init__(self, refuse_first: bool = False, capable: bool = False) -> None:
         self.refuse_first = refuse_first
         self.capable = capable
-        self.interp = interpreter or SimInterpreter()
         self.agent_calls = 0
         self.interp_calls = 0
         self.input_chars = 0
@@ -200,10 +195,6 @@ class SimLLM:
     def complete(self, system: str, messages: list[Message], tools: list[dict[str, Any]]) -> LLMResponse:
         chars = len(system) + sum(len(m.text) + sum(len(r.content) for r in m.tool_results) for m in messages)
         self.input_chars += chars
-        if system.startswith(INTERPRETER_PREFIX):
-            self.interp_calls += 1
-            text = self.interp.answer(messages[-1].text)
-            return LLMResponse(text, [], Usage(_est(system) + _est(messages[-1].text), _est(text), estimated=True))
         self.agent_calls += 1
         if self.q is None:
             self.q, self.q_index = messages[-1].text, len(messages) - 1
@@ -332,70 +323,6 @@ class SimLLM:
         return "\n".join(parts) or "No he encontrado ese dato."
 
 
-class SimInterpreter:
-    """Sustituto del intérprete LLM: más tolerante que el resolutor determinista (erratas, ordinales, correferencias) y totalmente independiente de él."""
-
-    OFF = ("chiste", "mundial", "champions", "tiempo hace", "2+2", "ignora", "poema", "capital de")
-
-    def answer(self, payload_text: str) -> str:
-        try:
-            p = json.loads(payload_text)
-        except ValueError:
-            return "{}"
-        q = norm(p.get("question", ""))
-        cat = p.get("catalog", [])
-        names = [c["competition"] for c in cat]
-        state = p.get("state", {})
-        hist = p.get("history", [])
-        out: dict[str, Any] = {"on_topic": True, "intent": None, "competitions": [], "groups": [], "team": None, "season": None, "resolved_question": p.get("question", ""),
-                               "clarification": None, "confidence": "low", "reasoning": "simulado"}
-        vocab = {t for n in names for t in norm(n).split()}
-        words = q.split()
-        fixed = [w if w in vocab or len(w) < 5 else (difflib.get_close_matches(w, list(vocab), 1, 0.82) or [w])[0] for w in words]
-        if any(o in q for o in self.OFF) and not (set(fixed) & vocab):
-            out["on_topic"] = False
-            out["confidence"] = "high"
-            return _j(out)
-        intent = None
-        for key, ws in (("next_match", ("vuelve a jugar", "proximo", "cuando juega", "siguiente partido")), ("last_result", ("quedo", "otro dia", "ayer", "ultimo partido")),
-                        ("scorers", ("goles", "goleador", "pichichi", "marcado")), ("matches", ("fin de semana", "partidos", "jornada")),
-                        ("standings", ("clasificacion", "como va", "anda", "marcha", "manda", "arriba", "lider", "puntos", "puesto", "posicion", "ultimo"))):
-            if any(w in q for w in ws):
-                intent = key
-                break
-        out["intent"] = intent or state.get("intent")
-        last_assistant = hist[-1]["assistant"] if hist else ""
-        offered = [n for n in sorted(names, key=lambda n: last_assistant.upper().find(n.upper()) if n.upper() in last_assistant.upper() else 10**6)
-                   if n.upper() in last_assistant.upper()]
-        ordinals = {"primer": 0, "primera": 0, "primero": 0, "segund": 1, "tercer": 2, "ultim": -1}
-        pick = next((offered[i] for w, i in ordinals.items() if offered and len(words) <= 4 and any(x.startswith(w) for x in words) and abs(i) < len(offered)), None)
-        if pick is None and offered and len(offered) == 2 and any(x in ("otra", "otro") for x in words):
-            last_comp = (state.get("competitions") or [None])[0]
-            pick = next((o for o in offered if o != last_comp), None)
-        age = "juvenil" if "juvenil" in fixed else "senior" if ("senior" in fixed or "aficionado" in fixed) else None
-        if age is None:
-            blob = norm(" ".join(h["user"] for h in hist))
-            age = "juvenil" if "juvenil" in blob else None
-        cands = [pick] if pick else [n for n in names if (set(fixed) & vocab) and all(w in norm(n).split() for w in fixed if w in vocab and w not in ("liga", "copa", "senior", "juvenil"))
-                                     and (age != "juvenil" or "JUVENIL" in n) and (age != "senior" or "JUVENIL" not in n)]
-        if pick or (0 < len(cands) <= 2 and len({c.split(" - ")[0] for c in cands}) == 1):
-            out["competitions"], out["confidence"] = cands, "high" if len(cands) == 1 else "medium"
-        elif cands:
-            out["clarification"] = {"question": "¿A cuál te refieres?", "options": cands[:6]}
-            out["confidence"] = "medium"
-        elif state.get("competitions") and intent:
-            out["competitions"], out["confidence"] = list(state["competitions"]), "medium"
-        for t in p.get("teams", []):
-            if norm(t) in q or any(w in q.split() for w in norm(t).split() if len(w) >= 5):
-                out["team"] = t
-                break
-        if out["team"] is None and any(w in words for w in ("ese", "su", "sus", "el", "le")) and state.get("teams") and ("equipo" in words or "su" in words or "sus" in words):
-            out["team"] = state["teams"][0]
-        if re.search(r"\b(ano pasado|temporada pasada|anterior|20\d\d)\b", q):
-            out["season"] = "previous"
-        return _j(out)
-
-
 # --------------------------------------------------------------------------------------------------------------------
 # Ejecución y juicio
 # --------------------------------------------------------------------------------------------------------------------
@@ -488,15 +415,7 @@ def _supports_state(agent: Agent) -> bool:
 
 async def _run_turn(mode: str, question: str, history: list[Turn], focus: dict[str, Any], state: Any, refuse_first: bool,
                     capable: bool = False) -> tuple[Any, TurnRun, SimLLM]:
-    previous = os.environ.get("AGENT_CONTEXT")  # por entorno (y no por parámetro) para poder medir también código anterior a `AGENT_CONTEXT`; se restaura siempre
-    os.environ["AGENT_CONTEXT"] = mode
-    try:
-        return await _run_turn_env(mode, question, history, focus, state, refuse_first, capable)
-    finally:
-        if previous is None:
-            os.environ.pop("AGENT_CONTEXT", None)
-        else:
-            os.environ["AGENT_CONTEXT"] = previous
+    return await _run_turn_env(mode, question, history, focus, state, refuse_first, capable)
 
 
 async def _run_turn_env(mode: str, question: str, history: list[Turn], focus: dict[str, Any], state: Any, refuse_first: bool,
@@ -512,7 +431,7 @@ async def _run_turn_env(mode: str, question: str, history: list[Turn], focus: di
 
     llm.complete = spy  # type: ignore[method-assign]
     mcp = FakeMcp()
-    agent = Agent(llm, mcp, 8, router_shadow=False)
+    agent = Agent(llm, mcp, 8)
     kwargs: dict[str, Any] = {"focus": focus, "conversation_id": "eval"}
     if _supports_state(agent):
         kwargs["state"] = state

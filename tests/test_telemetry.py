@@ -68,8 +68,8 @@ def test_on_records_exactly_the_documented_fields_and_nothing_sensitive(monkeypa
     assert set(row) == {"schema", "ts", "run_id", "conversation", "question", "pii_flag", "history_turns", "tools_used", "tools_refused", "prefetch", "llm_calls",
                         "mcp_calls", "tokens", "latency_ms", "prompt_mode", "flags", "router", "guardrail", "error_kind"}
     assert row["run_id"] == rec.run_id and row["history_turns"] == 1 and row["tools_used"] == {"get_standings": 1} and row["tokens"]["input"] == 250
-    assert row["tokens"]["source"] == "provider" and row["flags"]["AGENT_PREFETCH"] == "off" and row["prompt_mode"] == "legacy" and row["error_kind"] == "none"
-    assert set(row["router"]) == {"intent", "tier", "confidence", "reason", "tier0_eligible"}  # sin las entidades detectadas
+    assert row["tokens"]["source"] == "provider" and row["flags"]["AGENT_TELEMETRY"] in ("on", "off") and row["prompt_mode"] == "standard" and row["error_kind"] == "none"
+    assert row["router"] is None  # el router en sombra se retiró (arquitectura única); el campo se conserva para las filas antiguas
     blob = json.dumps(row, ensure_ascii=False)
     for secret in ("SECRETA-H", "SECRETA-R", "Lidera el C.D. DOSA", "conv-secreta-1", "group_id"):  # historial, respuesta, id de conversación y argumentos
         assert secret not in blob

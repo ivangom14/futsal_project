@@ -54,8 +54,12 @@ def test_end_to_end_produces_complete_report(synthetic: Any, dev_world: World, t
         assert needle in report
     # el oráculo responde con los hechos esperados: lo evaluable sale correcto (salvo las reglas que el KB sintético no contiene)
     graded = {(r["case_id"], r["turn"]): r for r in results["records"] if r["rep"] == 0 and r["verdict"] in ("correct", "partial", "fail", "critical")}
+    # el oráculo consulta por grupo: no reproduce los argumentos de las herramientas sin grupo (fecha, ranking, árbitro), así que los turnos
+    # cuya respuesta esperada sale de ellas (`expect.v2` con respuesta) no se exigen aquí; los califican las pruebas del agente v2 y el benchmark
+    v2_answers = {(cid, i) for cid, rc in dev_world.resolved.items() for i, t in enumerate(rc.turns) if t.v2 and t.v2.get("behavior") == "answer"}
     bad = {k: (v["verdict"], v["reason"][:100]) for k, v in graded.items() if v["verdict"] != "correct" and k[0] not in ("s9_regla_roja_mano", "s9_regla_sexta_falta")
-           and not k[0].startswith("s9_b127_")}  # preguntas de reglamento del bench-127: el KB sintético no tiene esas reglas
+           and not k[0].startswith("s9_b127_") and k not in v2_answers}  # preguntas de reglamento del bench-127: el KB sintético no tiene esas reglas
+    assert len(v2_answers) < len(graded) // 4  # la exclusión es acotada: el resto se exige correcto
     assert not bad, bad
     assert graded[("s9_regla_duracion_mitad", 0)]["verdict"] == "correct"  # reglamento vía search_rules sobre el KB sintético
     assert graded[("s1_puntos", 0)]["tools_used"] == ["get_standings"] and graded[("s1_puntos", 0)]["metrics"]["llm_calls"] == 2
@@ -117,8 +121,8 @@ def test_hard_request_cap_and_clean_stop_then_fill_missing(synthetic: Any, dev_w
     quota = run_eval(cfg(synthetic, tmp_path / "quota"), lambda: quota_llm)
     assert quota["meta"]["stopped"] == "cuota del proveedor agotada" and quota_llm.calls == 20
     assert sum(r["verdict"] == "not_run" for r in quota["records"]) > 0
-    with pytest.raises(ValueError, match="no se mezclan ejecuciones"):  # otro brazo: no se mezclan resultados
-        run_eval(cfg(synthetic, tmp_path / "quota", fill_missing=True, arm="compact"), lambda: ScriptedLLM(script))
+    with pytest.raises(ValueError, match="no se mezclan ejecuciones"):  # otra suite: no se mezclan resultados
+        run_eval(cfg(synthetic, tmp_path / "quota", fill_missing=True, suite="futsito-v1"), lambda: ScriptedLLM(script))
     # 3) --fill-missing completa lo pendiente y el resultado coincide con la ejecución completa
     resumed = ScriptedLLM(script)
     done = run_eval(cfg(synthetic, tmp_path / "quota", fill_missing=True), lambda: resumed)

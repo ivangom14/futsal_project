@@ -8,11 +8,11 @@ import asyncio
 import logging
 import threading
 import time
-from datetime import UTC, datetime
-from pathlib import Path as FilePath
 from collections.abc import AsyncIterator, Callable, Sequence
 from contextlib import AbstractAsyncContextManager, asynccontextmanager
-from typing import Any, Literal
+from datetime import UTC, datetime
+from pathlib import Path as FilePath
+from typing import Annotated, Any, Literal
 
 import httpx
 from fastapi import FastAPI, HTTPException, Path, Request
@@ -22,14 +22,18 @@ from fastapi.responses import FileResponse, JSONResponse
 from mcp import ClientSession
 from mcp.client.stdio import stdio_client
 from pydantic import BaseModel, Field, StringConstraints
-from typing import Annotated
 
-from futsal.agent.agent import DEFAULT_MAX_ROWS, DEFAULT_MAX_TOOL_CALLS, OFF_TOPIC_MESSAGE, Agent, AgentResult, resolve_arch, resolve_context_mode
 from futsal.agent import presentation as pres
-from futsal.agent.reconcile import Reconciliation, reconcile_answer
+from futsal.agent.agent import (
+    DEFAULT_MAX_ROWS,
+    DEFAULT_MAX_TOOL_CALLS,
+    OFF_TOPIC_MESSAGE,
+    Agent,
+    AgentResult,
+)
 from futsal.agent.feedback import FeedbackRequest, RunSummaries, record
 from futsal.agent.llm import create_llm
-from futsal.agent.messages import TIMEOUT, FriendlyError, classify_error
+from futsal.agent.mcp_client import SessionMcpClient, stdio_params
 from futsal.agent.memory import (
     CONVERSATION_ID,
     DEFAULT_MAX_CHARS,
@@ -40,9 +44,10 @@ from futsal.agent.memory import (
     select_turns,
     turns_from_client,
 )
-from futsal.agent.mcp_client import SessionMcpClient, stdio_params
+from futsal.agent.messages import TIMEOUT, FriendlyError, classify_error
 from futsal.agent.presentation import compute_focus, merge_focus, sanitize_focus
 from futsal.agent.question_log import QuestionLog
+from futsal.agent.reconcile import Reconciliation, reconcile_answer
 from futsal.agent.trace import RunRecord, redact
 from futsal.config.settings import env_value
 from futsal.importer.crest_index import FILE_RE, crests_dir
@@ -104,7 +109,7 @@ class Diagnostics(BaseModel):
     tools_ms: float = 0.0  # tiempo en herramientas MCP / API de datos
     context_ms: float = 0.0  # preparación del contexto (catálogo) en la primera pregunta tras arrancar
     postprocess_ms: float = 0.0  # fuentes, frescura, visuales y sugeridas
-    context: dict[str, Any] | None = None  # comprensión de contexto (solo AGENT_CONTEXT=deterministic|llm): modo, estado, interpretación, intérprete y recuperación; null en legacy
+    context: dict[str, Any] | None = None  # comprensión de contexto: modo, estado, interpretación, recuperación y paginación
     reconciliation: dict[str, Any] | None = None  # qué texto repetía los visuales y se omitió (cuántos, por qué; fragmentos cortos, nunca la respuesta completa)
     input_tokens_peak: int = 0  # entrada máxima de una llamada (peso de prompt + contexto + historial)
     resolved_question: str | None = None  # cómo se interpretó el mensaje al unirlo a una aclaración pendiente
@@ -144,10 +149,8 @@ def context_view(ctx: dict[str, Any] | None) -> dict[str, Any] | None:
     if not ctx:
         return None
     keys = ("mode", "state", "status", "reason", "intent", "intent_confidence", "competitions", "team", "options", "assumption", "provenance", "recovery",
-            "interpreter_trigger", "interpreter_error", "error", "assumption_prepended")
+            "error", "assumption_prepended", "pagination")
     view = {k: ctx[k] for k in keys if ctx.get(k) not in (None, [], {}, "")}
-    if ctx.get("interpreter"):
-        view["interpreter"] = {k: ctx["interpreter"].get(k) for k in ("intent", "competitions", "team", "confidence", "discarded")}
     return view or None
 
 
@@ -449,7 +452,7 @@ def create_chat_app(runner: AgentRunner | None = None,
         running = agent_runner.running_since
         queue = {"busy": running is not None, "running_for_s": None if running is None else round(time.monotonic() - running, 1),
                  "waiting": max(agent_runner.waiting - (1 if running is not None else 0), 0)}
-        return {"status": "ok" if ok else "degraded", "agent": agent, "llm": llm, "data_api": data, "queue": queue, "context_mode": resolve_context_mode(), "arch": resolve_arch()}
+        return {"status": "ok" if ok else "degraded", "agent": agent, "llm": llm, "data_api": data, "queue": queue, "context_mode": "deterministic", "arch": "v2"}
 
     @app.post("/chat", response_model=ChatResponse)
     async def chat(body: ChatRequest) -> ChatResponse | JSONResponse:

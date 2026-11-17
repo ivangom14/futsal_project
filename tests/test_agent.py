@@ -31,6 +31,7 @@ from futsal.agent.llm import (
 )
 from futsal.agent.mcp_client import SessionMcpClient
 from futsal.mcp_server.server import create_server
+from futsal.mcp_server.v2_tools import V2_TOOL_NAMES
 
 TOOLS = {"list_competitions", "list_groups", "list_rounds", "list_teams", "list_matches",
          "get_match", "get_match_report", "list_match_events", "top_scorers", "find_players", "find_teams",
@@ -83,7 +84,7 @@ def test_discovers_mcp_tools_and_gives_them_to_llm() -> None:
     llm = ScriptedLLM([LLMResponse("hola", [])])
     _run(llm, "¿Qué puedes hacer?")
     tools = llm.calls[0][0]
-    assert {t["name"] for t in tools} == TOOLS
+    assert {t["name"] for t in tools} == TOOLS | set(V2_TOOL_NAMES)  # arquitectura única: herramientas por grupo y sin grupo
     assert all(t["description"] and t["input_schema"] for t in tools)
 
 
@@ -114,7 +115,7 @@ def test_max_tool_calls_stops_infinite_loop() -> None:
     res = _run(llm, "bucle", max_calls=3)
     assert res.tool_calls == 3 and res.error and "límite" in res.error
     assert res.answer == LIMIT_REACHED_MESSAGE and res.guardrail == "limite_herramientas"  # nunca una cadena vacía
-    assert len(llm.calls) == 4
+    assert len(llm.calls) == 5  # 3 con herramientas + la petición de responder con lo obtenido + el modelo que insiste → aviso de límite
 
 
 def test_mcp_error_is_returned_to_llm() -> None:
@@ -349,10 +350,10 @@ def test_context_failure_is_tolerated() -> None:
 
 # --- Fase 8: uso de tokens por llamada, latencias y traza JSONL ---
 
-from pathlib import Path  # noqa: E402
+from pathlib import Path
 
-from futsal.agent.llm import Usage  # noqa: E402
-from futsal.agent.trace import redact  # noqa: E402
+from futsal.agent.llm import Usage
+from futsal.agent.trace import redact
 
 
 def _with_usage(resp: LLMResponse, i: int, o: int, think: int = 0) -> LLMResponse:
@@ -492,8 +493,8 @@ def test_offline_token_estimate_uses_the_provider_wire_format_not_raw_mcp_schema
 
 
 def test_tool_limit_statement_without_tools_is_kept() -> None:
-    text = "Mis herramientas no incluyen el resultado por periodos, solo el marcador final."
-    res = _run(ScriptedLLM([LLMResponse(text, [])]), "¿Resultado por periodos del partido 2?")
+    text = "Mis herramientas no incluyen la asistencia de público, solo el resultado."
+    res = _run(ScriptedLLM([LLMResponse(text, [])]), "¿Cuántos espectadores hubo en el partido 2?")
     assert res.answer == text and res.guardrail == "limitacion_sin_tools"
 
 
@@ -596,7 +597,7 @@ def test_unverified_not_found_answer_gets_one_reconsideration_instead_of_the_sco
     res2 = _run(stubborn, "¿Qué partidos hay en la jornada 99?")
     assert len(stubborn.calls) == 2 and res2.answer == OFF_TOPIC_MESSAGE and res2.guardrail == "sin_datos_de_tools"
     limit = ScriptedLLM([LLMResponse("No dispongo de esa información.", [])])
-    res3 = _run(limit, "¿Resultado por periodos del partido de la jornada 3?")
+    res3 = _run(limit, "¿Cuántos espectadores hubo en el partido de la jornada 3?")
     assert len(limit.calls) == 1 and res3.guardrail == "limitacion_sin_tools"
 
 
@@ -606,7 +607,7 @@ def test_raw_text_is_kept_when_the_guardrail_replaces_it_and_wider_limit_phrases
     assert res.guardrail == "sin_datos_de_tools" and res.run is not None
     assert res.run.raw_answer == "Quedó 3-1. || Seguro que fue 2-0."
     for text in ("No tengo esa información.", "No dispongo de los minutos de los cambios.", "No cuento con ese dato."):
-        kept = _run(ScriptedLLM([LLMResponse(text, [])]), "¿En qué minuto entraron los suplentes?")
+        kept = _run(ScriptedLLM([LLMResponse(text, [])]), "¿Cuántos espectadores hubo en el último partido?")
         assert kept.answer == text and kept.guardrail == "limitacion_sin_tools", text
 
 

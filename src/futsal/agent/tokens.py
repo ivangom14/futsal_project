@@ -20,7 +20,7 @@ from futsal.agent.llm import Message
 
 CHARS_PER_TOKEN = 3.5  # mismo criterio que el evaluador offline (aproximación, no un tokenizador real)
 SOURCE_PROVIDER = "provider"
-SOURCE_MEASURED_ZERO = "measured_zero"  # ejecución sin ninguna llamada al LLM (Tier 0): 0 tokens MEDIDOS (no estimados ni «no informados»)
+SOURCE_MEASURED_ZERO = "measured_zero"  # ejecución sin ninguna llamada al LLM (paginación o respuesta determinista): 0 tokens MEDIDOS (no estimados ni «no informados»)
 SOURCE_ESTIMATED = "estimated"
 SOURCE_CHARS = "chars"
 BASIS = f"estimated_chars/{CHARS_PER_TOKEN}"

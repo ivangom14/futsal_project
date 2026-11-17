@@ -192,7 +192,7 @@ def test_cli_requires_explicit_live_confirmation_and_lists_without_secrets(root:
     assert "SIN llamadas" in capsys.readouterr().out
 
 
-def test_v2_agent_is_the_default_and_its_tools_query_the_snapshot_not_database_url(root: Path, synthetic: Any, script: dict[Any, Any],
+def test_single_architecture_tools_query_the_snapshot_not_database_url(root: Path, synthetic: Any, script: dict[Any, Any],
                                                                                    tmp_path: Path, keys: None,
                                                                                    monkeypatch: pytest.MonkeyPatch) -> None:
     world = build_world(synthetic, "dev")
@@ -200,11 +200,10 @@ def test_v2_agent_is_the_default_and_its_tools_query_the_snapshot_not_database_u
     v2_script = dict(script)
     v2_script[(q, q)] = ([("matches_by_date", {"date_from": "2026-10-24", "date_to": "2026-10-25"})], "Hay partidos el fin de semana.")
     monkeypatch.setenv("DATABASE_URL", "postgresql+psycopg://nadie:x@127.0.0.1:1/no_existe")  # la BD habitual no debe tocarse
-    meta = run_bench(cfg(root, synthetic, tmp_path, [model("bueno")], run_id="v2", context_mode="legacy"),
-                     lambda spec: ScriptedLLM(v2_script))
-    assert meta["agent"] == {"arch": "v2", "context_mode": "legacy"} and meta["models_status"]["bueno"]["status"] == "complete"
+    meta = run_bench(cfg(root, synthetic, tmp_path, [model("bueno")], run_id="v2"), lambda spec: ScriptedLLM(v2_script))
+    assert meta["agent"] == {"arch": "v2", "context_mode": "deterministic"} and meta["models_status"]["bueno"]["status"] == "complete"
     res = json.loads((tmp_path / "v2" / "bueno" / "results.json").read_text(encoding="utf-8"))
-    assert res["meta"]["agent"] == {"arch": "v2", "context_mode": "legacy"}
+    assert res["meta"]["agent"] == {"arch": "v2", "context_mode": "deterministic"}
     rec = next(r for r in res["records"] if r["case_id"] == "s10_fecha_fin_de_semana")
     assert "matches_by_date" in rec["tools_used"] and rec["metrics"]["errors"] == 0  # consultó el snapshot sin error
     exp = res["cases"]["s10_fecha_fin_de_semana"]["expected"][0]
@@ -212,9 +211,6 @@ def test_v2_agent_is_the_default_and_its_tools_query_the_snapshot_not_database_u
         assert exp["behavior"] == exp["v2"]["behavior"]  # calificado (y mostrado al juez) con la expectativa v2
     report = build_report(tmp_path / "v2")
     assert report["meta"]["agent"]["arch"] == "v2" and "agente **v2**" in (tmp_path / "v2" / "report.md").read_text(encoding="utf-8")
-    with pytest.raises(BenchError, match="agente"):
-        run_bench(cfg(root, synthetic, tmp_path, [model("bueno")], run_id="v2", agent_arch="legacy", resume=True),
-                  lambda spec: ScriptedLLM(v2_script))
 
 
 def test_live_mode_without_snapshot_reads_the_current_db_and_warns_if_data_change(root: Path, synthetic: Any, script: dict[Any, Any],

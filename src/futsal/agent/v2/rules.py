@@ -1,4 +1,4 @@
-"""Reglas deterministas de AGENT_ARCH=v2 (código, no prompt): alcance amplio, premisas, fechas y sugerencias. Puro: sin E/S."""
+"""Reglas deterministas del agente (código, no prompt): alcance amplio, premisas, fechas y sugerencias. Puro: sin E/S."""
 
 import json
 import re
@@ -88,15 +88,15 @@ def premise_note(claim: str) -> str:
             "lo confirma o no lo confirma (o si no consta).")
 
 
-DAY_LIMIT = 100  # un día entero de partidos en una sola llamada (tope de la API /v2)
+DAY_LIMIT = 100  # tope de filas de una página de partidos que se pasa al modelo sin recortar (la API pagina; ver PAGE_NOTE)
 
 
 def date_note(hint: DateHint) -> str:
     return (NOTE_HEAD + f" Fecha interpretada: {describe(hint)}. Para matches_by_date usa exactamente estos valores"
             + f" (date_from={hint.date_from}, date_to={hint.date_to}"
             + (f", time_from={hint.time_from:%H:%M}, time_to={hint.time_to:%H:%M}" if hint.time_from and hint.time_to else "") + ")"
-            + f" y limit={DAY_LIMIT} en UNA sola llamada (cubre el día entero); no la repitas por categoría ni competición salvo que el usuario lo pida."
-            + " Si count supera lo mostrado, da el total y resume.")
+            + " en UNA sola llamada: devuelve los primeros en orden cronológico y count = total exacto; no la repitas por categoría, "
+            "competición ni offset para completar la lista (la aplicación pagina cuando el usuario pide «los siguientes»).")
 
 
 def _norm_time(value: Any) -> time | None:

@@ -4,10 +4,11 @@ import json
 from dataclasses import dataclass
 from typing import Any
 
-from futsal.agent.agent import OFF_TOPIC_MESSAGE, PROMPT_SETS
+from futsal.agent.agent import OFF_TOPIC_MESSAGE, PROMPTS
 from futsal.agent.llm import LLMResponse, Message, ToolCall, Usage
 from futsal.evals.catalog import Catalog
 from futsal.evals.datasets import load_cases
+from futsal.evals.runner import expected_for
 from futsal.evals.selector import ResolvedCase, ResolvedTurn, resolve_case
 from futsal.evals.snapshot import parse_as_of
 
@@ -53,7 +54,7 @@ def rule_payload(rule: int, pages: str, text: str) -> dict[str, Any]:
 
 
 def system_prompt_leak() -> str:
-    return " ".join(PROMPT_SETS["legacy"].system.split()[:40])
+    return " ".join(PROMPTS.system.split()[:40])
 
 
 # ----------------------------------------------------------------------------- LLM simulado de guion fijo
@@ -127,7 +128,7 @@ def oracle_script(resolved: dict[str, ResolvedCase]) -> dict[tuple[str, str], tu
             continue
         gid = _group_id(rc)
         reported = next((b["reported_match"]["match_id"] for b in rc.bindings.values() if isinstance(b, dict) and b.get("reported_match")), None)
-        for t in rc.turns:
+        for t in (expected_for(x) for x in rc.turns):  # el agente se califica con la expectativa de la arquitectura única
             steps: list[tuple[str, dict[str, Any]]] = []
             for need in t.tools_needed:
                 name = need.split("|")[0]

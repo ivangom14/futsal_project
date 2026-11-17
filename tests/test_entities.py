@@ -144,9 +144,11 @@ def test_common_question_words_are_never_corrected_into_a_team_name() -> None:
 
 
 def test_v2_does_not_ask_again_for_the_competition_of_a_team_whose_scope_was_already_resolved() -> None:
-    """«¿En qué posición está X?» → aclaración → «El juvenil» (aún dos juveniles: se asume «todas») → «¿cuántos puntos tiene?» no vuelve a preguntar."""
+    """«¿En qué posición está X?» → aclaración → «El juvenil» (acota a dos: se pregunta entre ellas) → «cualquiera» (se asume «todas»)
+    → «¿cuántos puntos tiene?» no vuelve a preguntar."""
     from futsal.agent.context import ContextEngine
     from futsal.agent.convstate import ConversationState
+    from futsal.agent.v2.rules import wants_broad_scope
     from futsal.config.competition_aliases import load_dimensions
     from futsal.domain.competitions import Competition
 
@@ -156,10 +158,12 @@ def test_v2_does_not_ask_again_for_the_competition_of_a_team_whose_scope_was_alr
     cat = TeamCatalog([TeamEntry(team, c.name, c.groups[0][1], str(c.groups[0][0])) for c in comps])
     eng = ContextEngine(comps, load_aliases(), load_dimensions(), cat)
     state = ConversationState()
-    turns = [("¿En qué posición está CDE ATHLETIC MOSTOLES 'B'?", "ask"), ("El juvenil", None), ("¿cuántos puntos tiene?", None)]
-    statuses = []
-    for q, _ in turns:
-        u = eng.understand(q, q, state, has_history=state.turns > 0, v2=True)
-        statuses.append(u.status)
+    turns = ["¿En qué posición está CDE ATHLETIC MOSTOLES 'B'?", "El juvenil", "no sé, cualquiera", "¿cuántos puntos tiene?"]
+    seen = []
+    for q in turns:
+        u = eng.understand(q, q, state, has_history=state.turns > 0, broad_scope=wants_broad_scope(q))  # como el agente
+        seen.append((u.status, list(u.options)))
         state = eng.next_state(state, u, q, "…")
-    assert statuses[0] == "ask" and statuses[1] in ("assume", "act") and statuses[2] != "ask", statuses
+    assert seen[0][0] == "ask" and len(seen[0][1]) == 3
+    assert seen[1][0] == "ask" and set(seen[1][1]) == {"COPA JUVENIL - fase final- FS", "PREFERENTE JUVENIL FS"}  # «el juvenil» acota: se pregunta entre las que quedan
+    assert seen[2][0] in ("assume", "act") and seen[3][0] != "ask", seen  # resuelto como «todas»: no se vuelve a preguntar

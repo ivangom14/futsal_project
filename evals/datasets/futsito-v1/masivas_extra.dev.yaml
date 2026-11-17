@@ -1,0 +1,172 @@
+# Futsito-Eval v1 · consultas masivas y paginación conversacional (dev). Formato: docs/v2/evaluation.md §3. Fase docs/phase-mass-queries.md.
+# Listados por fecha y fin de semana, paginación encadenada («los siguientes», «el resto»), cambios de filtro y de día, rankings,
+# partidos de un árbitro, cifras globales (count, nunca las filas) y días sin datos. v1 no tiene herramientas sin grupo: se abstiene.
+
+- id: m_dia_primera_pagina
+  stratum: S10
+  holdout: false
+  requires: ["results"]
+  capability: v2
+  select:
+    day: {"kind": "day", "future": true, "where": {"count": ">=11"}}
+  turns:
+    - user: "¿Qué partidos hay el {day.date_es}?"
+      expect:
+        behavior: "abstain"
+        max_llm_calls: 6
+        v2: {"behavior": "answer", "facts": [{"kind": "number", "value": "{day.count}", "label": "partidos"}, {"kind": "text_any", "any": ["1–10", "1-10", "1 a 10", "primeros 10", "primeros diez"]}], "note": "primera página de 10 con el total exacto (count) y la invitación a seguir"}
+
+- id: m_dia_paginacion_encadenada
+  stratum: S10
+  holdout: false
+  requires: ["results"]
+  capability: v2
+  select:
+    day: {"kind": "day", "future": true, "where": {"count": ">=21"}}
+  turns:
+    - user: "¿Qué partidos hay el {day.date_es}?"
+      expect:
+        behavior: "abstain"
+        max_llm_calls: 6
+        v2: {"behavior": "answer", "facts": [{"kind": "number", "value": "{day.count}", "label": "partidos"}]}
+    - user: "Dime los siguientes"
+      expect:
+        behavior: "abstain"
+        max_llm_calls: 6
+        v2: {"behavior": "answer", "facts": [{"kind": "text_any", "any": ["11–20", "11-20", "11 a 20"]}, {"kind": "number", "value": "{day.count}", "label": "de"}], "note": "segunda página sin LLM: mismo filtro, registros 11-20"}
+    - user: "¿Y el resto?"
+      expect:
+        behavior: "abstain"
+        max_llm_calls: 6
+        v2: {"behavior": "answer", "facts": [{"kind": "text_any", "any": ["21–", "21-", "21 a"]}], "note": "el resto desde el 21 (hasta 50 filas)"}
+
+- id: m_fin_de_semana_listado
+  stratum: S10
+  holdout: false
+  requires: ["results"]
+  capability: v2
+  select:
+    day: {"kind": "day", "weekend": true, "where": {"count": ">=1"}}
+  turns:
+    - user: "¿Qué partidos hay este fin de semana?"
+      expect:
+        behavior: "abstain"
+        max_llm_calls: 6
+        v2: {"behavior": "answer", "facts": [{"kind": "number", "value": "{day.count}", "label": "partidos"}], "note": "sábado y domingo en una sola consulta ordenada; total exacto"}
+
+- id: m_filtro_categoria_encadenado
+  stratum: S10
+  holdout: false
+  requires: ["results"]
+  capability: v2
+  select:
+    day: {"kind": "day", "with_category": "juvenil", "where": {"count": ">=2"}}
+    jv: {"kind": "day", "same_day_as": "day", "category": "juvenil"}
+  turns:
+    - user: "¿Qué partidos hay el {day.date_es}?"
+      expect:
+        behavior: "abstain"
+        max_llm_calls: 6
+        v2: {"behavior": "answer", "facts": [{"kind": "number", "value": "{day.count}", "label": "partidos"}]}
+    - user: "Solo los juveniles"
+      expect:
+        behavior: "abstain"
+        max_llm_calls: 6
+        v2: {"behavior": "answer", "facts": [{"kind": "number", "value": "{jv.count}", "label": "resultado"}], "note": "mismo día, filtro de categoría, primera página de la consulta nueva"}
+
+- id: m_cambio_de_dia_encadenado
+  stratum: S10
+  holdout: false
+  requires: ["results"]
+  capability: v2
+  select:
+    day: {"kind": "day", "future": true, "where": {"count": ">=2"}}
+    other: {"kind": "day", "future": true, "where": {"count": ">=1"}, "other_day_than": "day"}
+  turns:
+    - user: "¿Qué partidos hay el {day.date_es}?"
+      expect:
+        behavior: "abstain"
+        max_llm_calls: 6
+        v2: {"behavior": "answer", "facts": [{"kind": "number", "value": "{day.count}", "label": "partidos"}]}
+    - user: "¿Y el {other.date_es}?"
+      expect:
+        behavior: "abstain"
+        max_llm_calls: 6
+        v2: {"behavior": "answer", "facts": [{"kind": "number", "value": "{other.count}", "label": "resultado"}], "note": "conserva los filtros y cambia el día"}
+
+- id: m_goleadores_pagina
+  stratum: S10
+  holdout: false
+  requires: ["scorers"]
+  capability: v2
+  select:
+    r: {"kind": "scorer_ranking", "category": "senior"}
+  turns:
+    - user: "¿Cuáles son los máximos goleadores senior de todas las ligas?"
+      expect:
+        behavior: "abstain"
+        max_llm_calls: 6
+        v2: {"behavior": "answer", "facts": [{"kind": "names", "value": "{r.top_names}"}, {"kind": "number", "value": "{r.top.goals}", "label": "goles"}], "note": "ranking de tablas oficiales sin sumar entre grupos; primera página"}
+    - user: "Muéstrame 10 más"
+      expect:
+        behavior: "abstain"
+        max_llm_calls: 6
+        v2: {"behavior": "answer", "facts": [{"kind": "text_any", "any": ["11–20", "11-20", "11–", "11-"]}]}
+
+- id: m_arbitro_todos_sus_partidos
+  stratum: S10
+  holdout: false
+  requires: ["officials"]
+  capability: v2
+  select:
+    ref: {"kind": "referee", "where": {"matches_n": ">=2"}}
+  turns:
+    - user: "Dime todos los partidos arbitrados por {ref.natural}"
+      expect:
+        behavior: "abstain"
+        max_llm_calls: 6
+        forbid_any_score: true
+        v2: {"behavior": "answer", "facts": [{"kind": "number", "value": "{ref.matches_n}", "label": "partidos"}, {"kind": "names", "value": "{ref.sample_home}"}], "note": "partidos del árbitro paginados en la BD, en orden cronológico"}
+
+- id: m_equipos_mas_goles
+  stratum: S10
+  holdout: false
+  requires: ["results"]
+  capability: v2
+  select:
+    r: {"kind": "team_ranking", "category": "senior", "metric": "goals_for"}
+  turns:
+    - user: "¿Qué equipos senior llevan más goles esta temporada?"
+      expect:
+        behavior: "abstain"
+        max_llm_calls: 6
+        v2: {"behavior": "answer", "facts": [{"kind": "name", "value": "{r.top.name}"}, {"kind": "number", "value": "{r.top.value}", "label": "goles"}]}
+
+- id: m_cuantos_partidos_dia
+  stratum: S10
+  holdout: false
+  requires: ["results"]
+  capability: v2
+  select:
+    day: {"kind": "day", "future": true, "where": {"count": ">=11"}}
+  turns:
+    - user: "¿Cuántos partidos se juegan en total el {day.date_es}?"
+      expect:
+        behavior: "abstain"
+        max_llm_calls: 6
+        v2: {"behavior": "answer", "facts": [{"kind": "number", "value": "{day.count}", "label": "partidos"}], "note": "cifra global con count (total exacto), nunca contando las 10 filas mostradas"}
+
+- id: m_dia_sin_partidos
+  stratum: S10
+  holdout: false
+  requires: ["results"]
+  capability: v2
+  select:
+    day: {"kind": "day_absent"}
+  turns:
+    - user: "Dime todos los partidos del {day.date_es}"
+      expect:
+        behavior: "abstain"
+        max_llm_calls: 6
+        forbid_any_score: true
+        v2: {"behavior": "abstain", "note": "no hay partidos ese día en los datos: decirlo sin inventar"}

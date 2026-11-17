@@ -8,10 +8,17 @@ import json
 from pathlib import Path
 from typing import Any
 
-from futsal.agent.agent import HISTORY_RULE, SYSTEM_PROMPT, Agent
+from futsal.agent.agent import HISTORY_RULE, PROMPTS, Agent
 from futsal.agent.llm import LLMResponse, Message, ToolCall, ToolResult, Usage
 from futsal.agent.memory import Turn
-from futsal.agent.tokens import CHARS_PER_TOKEN, PRICES, Price, est_tokens, estimate_cost, input_breakdown
+from futsal.agent.tokens import (
+    CHARS_PER_TOKEN,
+    PRICES,
+    Price,
+    est_tokens,
+    estimate_cost,
+    input_breakdown,
+)
 from futsal.agent.trace import read_jsonl, write_jsonl
 
 FIXTURES = Path(__file__).parent / "fixtures"
@@ -114,7 +121,7 @@ def test_each_llm_call_records_its_breakdown_with_real_and_estimated_kept_apart(
     first, second = (c.input_breakdown for c in calls)
     assert first["provider_input"] == 3000 and second["provider_input"] == 3400  # lo informado por el proveedor
     assert first["est_total"] != 3000 and first["basis"].startswith("estimated")  # lo estimado se etiqueta como tal
-    assert first["est_tokens"]["system_prompt"] == est_tokens(len(SYSTEM_PROMPT))
+    assert first["est_tokens"]["system_prompt"] == est_tokens(len(PROMPTS.system))
     assert first["chars"]["tool_results"] == 0 and second["chars"]["tool_results"] > 0  # los resultados solo viajan en la 2.ª llamada
     assert second["chars"]["assistant_turns"] > 0
     tb = res.run.totals()["token_breakdown"]
@@ -138,23 +145,11 @@ def test_history_and_history_rule_have_their_own_origins() -> None:
     assert first["chars"]["history_rule"] == len(HISTORY_RULE) and first["chars"]["question"] == len("¿Y su posición?")
 
 
-def test_instrumentation_does_not_change_what_is_sent_to_the_llm() -> None:
-    """Misma ejecución con el router en sombra activado y desactivado: mismos mensajes, system, herramientas y llamadas MCP."""
-    runs = []
-    for shadow in (True, False):
-        llm, agent_mcp = Script(_two_steps()), FakeMcp()
-        agent = Agent(llm, agent_mcp, 5, router_shadow=shadow)
-        res = asyncio.run(agent.run("¿Quién lidera la clasificación de Tercera División FS grupo 3?"))
-        runs.append((llm.seen, agent_mcp.calls, res.answer, res.tool_calls, res.guardrail, res.error, len(res.run.llm_calls)))
-    assert runs[0] == runs[1]
-
-
 def test_trace_has_architecture_fields_and_counts_mcp_calls_by_origin(tmp_path: Path) -> None:
     path = tmp_path / "t.jsonl"
     res = _run(Script(_two_steps()), trace_path=path, conversation_id="conv-1")
     row = read_jsonl(path)[0]
-    assert row["arch"] == "legacy" and row["exec_tier"] == "tier2" and row["conversation_id"] == "conv-1"
-    assert row["router_tier"] in ("tier0", "tier1", "tier2") and row["router_intent"] and row["router"]["tier0_eligible"] in (True, False)
+    assert row["arch"] == "v2" and row["exec_tier"] == "tier2" and row["conversation_id"] == "conv-1"
     mcp = row["totals"]["mcp_calls"]
     assert mcp["requested_by_llm"] == 1 and mcp["context_preload"] >= 1 and mcp["refused"] == 0 and mcp["reused"] == 0
     assert row["totals"]["token_breakdown"]["calls"] == 2 and res.run.router_ms >= 0

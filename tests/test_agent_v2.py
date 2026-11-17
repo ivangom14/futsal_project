@@ -12,7 +12,7 @@ import httpx
 import pytest
 from mcp.shared.memory import create_connected_server_and_client_session as connect
 
-from futsal.agent.agent import OFF_TOPIC_MESSAGE, Agent, resolve_arch
+from futsal.agent.agent import OFF_TOPIC_MESSAGE, Agent
 from futsal.agent.criteria import figures_without_table
 from futsal.agent.llm import LLMResponse, Message, ToolCall
 from futsal.agent.mcp_client import SessionMcpClient, strip_titles
@@ -79,8 +79,8 @@ def call(tool: str, **args: Any) -> LLMResponse:
     return LLMResponse("", [ToolCall("c", tool, args)])
 
 
-def ask(llm: Rec, question: str, history: list[Turn] | None = None, reg: Stub | None = None, arch: str | None = "v2", **kw: Any) -> Any:
-    agent = Agent(llm, reg or Stub(), 8, router_shadow=False, arch=arch, **kw)
+def ask(llm: Rec, question: str, history: list[Turn] | None = None, reg: Stub | None = None, **kw: Any) -> Any:
+    agent = Agent(llm, reg or Stub(), 8, **kw)
     agent._clock = lambda: NOW
     return asyncio.run(agent.run(question, history or []))
 
@@ -90,31 +90,6 @@ def last_user(llm: Rec, turn: int = 0) -> str:
 
 
 # --- 1. AGENT_ARCH y legacy idéntico ----------------------------------------------------------------------------------------------
-def test_arch_values(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.delenv("AGENT_ARCH", raising=False)
-    assert resolve_arch() == "legacy" and resolve_arch("V2") == "v2" and resolve_arch("v3") == "legacy" and resolve_arch("") == "legacy"
-    monkeypatch.setenv("AGENT_ARCH", "v2")
-    assert resolve_arch() == "v2"
-    monkeypatch.setenv("AGENT_ARCH", "otra")
-    assert resolve_arch() == "legacy"
-
-
-def test_legacy_is_byte_identical_default_explicit_and_unknown(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.delenv("AGENT_ARCH", raising=False)
-    runs = []
-    for arch in (None, "legacy", "bogus"):
-        llm = Rec([call("get_standings", group_id=1101), LLMResponse("Líder X.", [])])
-        agent = Agent(llm, FakeMcp(), 8, router_shadow=False, arch=arch)
-        res = asyncio.run(agent.run("Clasificación de la preferente juvenil todos los equipos creo que sí"))
-        runs.append((llm.systems, llm.tools, [[(m.role, m.text) for m in ms] for ms in llm.seen], res.answer, res.run.arch if res.run else None,
-                     res.run.context if res.run else None))
-        assert not {t["name"] for t in llm.tools[0]} & V2_TOOLS and "Herramientas v2" not in llm.systems[0]
-        assert llm.systems[0].startswith(GOLDEN["system_prompt"]) and "[Nota de la aplicación" in last_user(llm) and "Alcance amplio" not in last_user(llm)
-        assert [t["name"] for t in llm.tools[0]] == ["list_competitions", "find_teams", "list_teams", "list_rounds", "list_matches", "get_standings",
-                                                      "get_scorer_table", "search_rules"]
-    assert runs[0] == runs[1] == runs[2] and runs[0][4] == "legacy" and runs[0][5] is None
-
-
 def test_v2_exposes_v1_plus_seven_tools_a_short_prompt_and_traces_arch() -> None:
     llm = Rec([LLMResponse(OFF_TOPIC_MESSAGE, [])])
     res = ask(llm, "Cuéntame un chiste")
@@ -196,7 +171,7 @@ def test_invalid_v2_arguments_return_a_validation_error_without_crashing() -> No
 
     async def go() -> Any:
         async with connect(create_server(api_stub(seen))._mcp_server) as session:
-            agent = Agent(llm, SessionMcpClient(session), 8, router_shadow=False, arch="v2")
+            agent = Agent(llm, SessionMcpClient(session), 8)
             agent._clock = lambda: NOW
             return await agent.run("Ranking de equipos")
 
@@ -252,10 +227,8 @@ def test_second_clarification_in_a_row_is_never_asked_again() -> None:
     history = [Turn("¿Quién es el máximo goleador del grupo?", CLARIFY)]
     llm = Rec([LLMResponse(CLARIFY, []), call("scorers_ranking", category="senior"), LLMResponse("Asumo todas las ligas: X.", [])])
     res = ask(llm, "pues no sé", history)
-    assert last_user(llm, 1) == BROAD_ACT_MESSAGE and res.tool_calls == 1 and res.answer == "Asumo todas las ligas: X."
-    legacy = Rec([LLMResponse(CLARIFY, [])])
-    kept = ask(legacy, "pues no sé", history, arch="legacy")
-    assert kept.answer == CLARIFY and kept.guardrail == "aclaracion_ambito"  # legacy: sigue como siempre
+    assert last_user(llm, 1) == BROAD_ACT_MESSAGE and res.tool_calls == 1 and res.answer.endswith("Asumo todas las ligas: X.")
+    assert res.answer.startswith("Entiendo que quieres consultarlo en todas las competiciones")  # la suposición se declara una vez
 
 
 def test_real_entity_ambiguity_is_still_asked_even_with_broad_scope() -> None:
@@ -269,21 +242,18 @@ def test_real_entity_ambiguity_is_still_asked_even_with_broad_scope() -> None:
 
 def test_deterministic_context_turns_ask_into_act_only_with_v2_and_broad_scope() -> None:
     q = "¿Cómo va el DOSA en todas las competiciones?"
-    base = Rec([LLMResponse(OFF_TOPIC_MESSAGE, [])])
-    legacy = ask(base, q, [Turn("¿Cómo va la tercera división?", "…")], arch="legacy", context_mode="deterministic")
-    assert legacy.run is not None and legacy.run.context["status"] == "ask"
     llm = Rec([call("club_overview", name="DOSA", results=True), LLMResponse("ok", [])])
-    res = ask(llm, q, [Turn("¿Cómo va la tercera división?", "…")], context_mode="deterministic")
+    res = ask(llm, q, [Turn("¿Cómo va la tercera división?", "…")])
     assert res.run is not None and res.run.context["status"] == "act" and res.run.context["reason"] == "alcance amplio explícito"
     assert "Alcance amplio" in last_user(llm) and res.tool_calls == 1 and res.answer == "ok"
 
 
 def test_deterministic_context_second_scope_question_assumes_and_declares() -> None:
     q = "¿Cómo va el DOSA?"
-    first = ask(Rec([LLMResponse(OFF_TOPIC_MESSAGE, [])]), q, [Turn("¿Cómo va la tercera división?", "…")], context_mode="deterministic")
+    first = ask(Rec([LLMResponse(OFF_TOPIC_MESSAGE, [])]), q, [Turn("¿Cómo va la tercera división?", "…")])
     assert first.run is not None and first.run.context["status"] == "ask" and first.state is not None
     llm = Rec([call("club_overview", name="DOSA", results=True), LLMResponse("Va bien.", [])])
-    agent = Agent(llm, Stub(), 8, router_shadow=False, arch="v2", context_mode="deterministic")
+    agent = Agent(llm, Stub(), 8)
     hist = [Turn("¿Cómo va la tercera división?", "…"), Turn(q, first.answer or "¿A cuál de estas competiciones te refieres?")]
     res = asyncio.run(agent.run("el dosa, no sé", hist, state=first.state))
     assert res.run is not None and res.run.context["status"] in ("assume", "act")
@@ -305,10 +275,8 @@ def test_queries_that_span_every_competition_never_ask_which_one(q: str, tool: s
 def test_unknown_proper_name_is_searched_instead_of_asking_the_competition() -> None:
     q = "¿Cuántos puntos tiene Real Sala Aranjuez Norte?"
     llm = Rec([call("club_overview", name="Real Sala Aranjuez Norte"), LLMResponse("No consta ningún equipo con ese nombre.", [])])
-    res = ask(llm, q, [], context_mode="deterministic")
+    res = ask(llm, q, [])
     assert res.run is not None and res.run.context["status"] == "act" and res.tool_calls == 1
-    legacy = ask(Rec([LLMResponse(OFF_TOPIC_MESSAGE, [])]), q, [], arch="legacy", context_mode="deterministic")
-    assert legacy.run is not None and legacy.run.context["status"] == "ask"  # legacy sin cambios
 
 
 def test_category_ranking_gets_the_not_comparable_note() -> None:
@@ -362,7 +330,8 @@ def test_single_mcp_server_publishes_v1_and_v2_and_v2_calls_go_through_the_api()
     out = asyncio.run(server.call_tool("teams_ranking", {"metric": "goals_for"}))
     payload = out[1] if isinstance(out, tuple) else out
     assert isinstance(payload, dict) and payload["items"][0]["rank"] == 1 and payload["metric"] == "goals_for"
-    assert seen[0].url.path == "/v2/rankings/teams" and dict(seen[0].url.params) == {"metric": "goals_for", "min_played": "1", "limit": "20"}
+    assert seen[0].url.path == "/v2/rankings/teams" and dict(seen[0].url.params) == {"metric": "goals_for", "min_played": "1", "limit": "10",
+                                                                                    "offset": "0", "compact": "true"}
 
 
 def test_agent_and_mcp_never_touch_the_database() -> None:
@@ -428,16 +397,16 @@ def _match(i: int) -> dict[str, Any]:
             "group": {"ref": "group:1", "name": "Grupo 1"}}
 
 
-def _fallback_run(question: str, replies: dict[str, dict[str, Any]], history: list[Turn] | None = None, arch: str | None = "v2") -> tuple[Any, Stub, Rec]:
+def _fallback_run(question: str, replies: dict[str, dict[str, Any]], history: list[Turn] | None = None) -> tuple[Any, Stub, Rec]:
     reg, llm = Stub(replies), Rec([LLMResponse(CLARIFY, [])] * 6)
-    return ask(llm, question, history, reg=reg, arch=arch), reg, llm
+    return ask(llm, question, history, reg=reg), reg, llm
 
 
 def test_fallback_matches_by_date_composes_total_list_and_all_notes() -> None:
     body = {"items": [_match(i) for i in range(30)], "count": 48, "shown": 30, "notes": ["filtro horario: solo partidos con hora conocida", "otra nota"], "freshness": None}
     res, reg, llm = _fallback_run(DAY_Q, {"matches_by_date": body})
     assert len(llm.seen) == 3 and res.tool_calls == 1  # 2 empujones y la tercera vuelta insistente; sin más llamadas al LLM
-    assert reg.calls_v2 == [("matches_by_date", {"date_from": "2026-11-07", "date_to": "2026-11-07", "time_from": "15:00", "time_to": "23:59", "limit": 100})]
+    assert reg.calls_v2 == [("matches_by_date", {"date_from": "2026-11-07", "date_to": "2026-11-07", "time_from": "15:00", "time_to": "23:59"})]  # primera página (10 por defecto) y count = total
     lines = res.answer.splitlines()
     assert lines[0] == "48 partidos el sábado 7 de noviembre de 2026 entre las 15:00 y las 23:59:"
     assert sum(x.startswith("- 2026-") for x in lines) == 20 and "- y 28 más" in lines
@@ -470,8 +439,8 @@ def test_fallback_club_unique_and_ambiguous() -> None:
     assert res.answer.startswith("1 equipo de C.D. ALAMO:") and "3 jugados, 2 ganados" in res.answer and "agrupado por nombre" in res.answer
     amb = {"items": [_club("PINTO", True), _club("ATLETICO PINTO", True)], "count": 2, "shown": 2, "notes": ["varios clubes"], "freshness": None}
     res2, _, _ = _fallback_run("Resultados de todos los equipos del pinto", {"club_overview": amb})
-    assert res2.answer.startswith(CLARIFY) and "PINTO; ATLETICO PINTO" in res2.answer
-    assert res2.run is not None and res2.run.context["v2"]["fallback_skipped"] == "ambiguous" and "fallback" not in res2.run.context["v2"]
+    # dos clubes con ese nombre: se pregunta cuál (la comprensión ya lo detecta con el catálogo), sin dar datos de ninguno
+    assert "PINTO" in res2.answer and "ATL" in res2.answer and "?" in res2.answer and res2.guardrail == "aclaracion_ambito"
 
 
 def test_fallback_official_matches_and_not_found_with_suggestions() -> None:
@@ -495,11 +464,6 @@ def test_fallback_is_skipped_without_plan_or_with_empty_result_and_keeps_the_cla
     assert res2.run.context["v2"]["fallback_skipped"] == "count_0" and "fallback" not in res2.run.context["v2"]
     res3, _, _ = _fallback_run("Dime todos los partidos del sábado 7 de noviembre y los máximos goleadores senior", {"matches_by_date": EMPTY})
     assert res3.answer == CLARIFY  # sin plan inequívoco: pista de fechas y otra pregunta a la vez no se resuelve
-
-
-def test_fallback_legacy_is_unchanged() -> None:
-    res, reg, _ = _fallback_run(DAY_Q, {"matches_by_date": {"items": [_match(1)], "count": 1, "shown": 1, "notes": [], "freshness": None}}, arch="legacy")
-    assert reg.calls_v2 == [] and res.tool_calls == 0 and res.run is not None and res.run.context is None and res.answer != ""
 
 
 # --- 8. «no consta en el acta» -------------------------------------------------------------------------------------------------------
@@ -528,9 +492,3 @@ def test_not_in_report_mixed_question_adds_a_note_and_goes_to_the_llm() -> None:
     res = ask(llm, "¿Quién marcó en el partido X - Y y en qué minuto hubo cambios?")
     assert llm.seen and "no recoge" in last_user(llm) and "Nota de la aplicación" in last_user(llm) and res.run is not None
     assert res.run.context["v2"]["not_in_report"] == "substitutions"
-
-
-def test_not_in_report_legacy_is_unchanged() -> None:
-    llm = Rec([LLMResponse(OFF_TOPIC_MESSAGE, [])] * 3)
-    res = ask(llm, "¿En qué minuto entraron los suplentes del partido X - Y?", arch="legacy")
-    assert llm.seen and "no recoge" not in last_user(llm) and "no recoge" not in res.answer

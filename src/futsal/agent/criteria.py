@@ -107,9 +107,13 @@ DOC_REF_RANGE_RE = re.compile(
     r"\s*(?:n\.?\s*[º°o]\.?\s*)?\d{1,3}(?:\s*(?:-|–|,|y|e)\s*\d{1,3})*", re.IGNORECASE)
 
 
+# Rango de una página de resultados («mostrando 11-20 de 48», «del 1-10 de 87»): no es un marcador.
+PAGE_RANGE_RE = re.compile(r"\d{1,3}\s*[-–]\s*\d{1,3}\s+de\s+\d+", re.IGNORECASE)
+
+
 def _score_matches(text: str) -> list[str]:
-    """Textos «N-M» que SÍ son marcador: se descartan los que caen dentro de una referencia documental."""
-    spans = [m.span() for m in DOC_REF_RANGE_RE.finditer(text)]
+    """Textos «N-M» que SÍ son marcador: se descartan los que caen dentro de una referencia documental o del rango de una página."""
+    spans = [m.span() for m in DOC_REF_RANGE_RE.finditer(text)] + [m.span() for m in PAGE_RANGE_RE.finditer(text)]
     return [m.group(0) for m in SCORE_RE.finditer(text) if not any(a <= m.start() < b for a, b in spans)]
 
 

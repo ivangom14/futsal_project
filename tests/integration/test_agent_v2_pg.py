@@ -84,7 +84,7 @@ def v2_call(w: dict[str, Any], name: str, args: dict[str, Any]) -> tuple[bool, s
 
 def converse(w: dict[str, Any], llm: Rec, question: str, history: list[Turn] | None = None, **kw: Any) -> Any:
     async def run(mcp: HybridMcp) -> Any:
-        agent = Agent(llm, mcp, 8, router_shadow=False, arch="v2", **kw)
+        agent = Agent(llm, mcp, 8, **kw)
         agent._clock = lambda: NOW
         return await agent.run(question, history or [])
     return with_mcp(w, run)
@@ -133,7 +133,7 @@ def test_q5_top_scorer_of_all_senior_leagues(seeded: dict[str, Any]) -> None:
     llm = Rec([call("scorers_ranking", category="senior"), LLMResponse("PRIMERO, GOLEADOR con 9 goles.", [])])
     res = converse(seeded, llm, "Cuál es el máximo goleador de todas las ligas senior?")
     body = tool_json(llm)[0]
-    assert body["items"][0]["player"]["name"] == "PRIMERO, GOLEADOR" and body["items"][0]["goals"] == 9
+    assert body["items"][0]["player"] == "PRIMERO, GOLEADOR" and body["items"][0]["goals"] == 9  # fila compacta
     assert any("compara grupos distintos" in n for n in body["notes"]) and res.tool_calls == 1
 
 
@@ -166,7 +166,7 @@ def test_invalid_arguments_and_unknown_player_do_not_break(seeded: dict[str, Any
 
 def test_all_matches_of_a_saturday_with_48_games_uses_a_bigger_limit(seeded: dict[str, Any]) -> None:
     default = json.loads(v2_call(seeded, "matches_by_date", {"date_from": "2026-11-14"})[1])
-    assert default["count"] == 48 and default["shown"] == 20  # por defecto 20: el LLM ve que faltan
+    assert default["count"] == 48 and default["shown"] == 10 and default["next_offset"] == 10  # primera página de 10 y total exacto
     llm = Rec([call("matches_by_date", date_from="2026-11-14", limit=60), LLMResponse("Hay 48 partidos el sábado.", [])])
     res = converse(seeded, llm, "Dime todos los partidos del sábado 14 de noviembre", max_rows=100)
     body = tool_json(llm)[0]

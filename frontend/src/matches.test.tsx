@@ -16,6 +16,15 @@ describe("tarjeta de partidos", () => {
     render(<Matches v={visual([row("C.D. DOSA", "CLUB X")])} />);
     expect(screen.getByTestId("match-when")).toHaveTextContent("Jornada 7 · dom 08/11 · 11:00");
   });
+  it("un listado de varias competiciones muestra la competición de cada partido y el rango de la página", () => {
+    const v = { ...visual([row("C.D. ALAMO A", "OTRO FS", { date: "2026-11-14T16:00", detail: "PREFERENTE AFICIONADO FS · Grupo 1" }), row("L", "V")]),
+                subtitle: "Mostrando 11–12 de 48", total: 48, partial: true };
+    render(<Matches v={v} />);
+    expect(screen.getAllByTestId("match-when")[0].textContent).toContain("PREFERENTE AFICIONADO FS · Grupo 1");
+    expect(screen.getAllByTestId("match-when")[1].textContent).not.toContain("·  ·");
+    expect(screen.getByText("Mostrando 11–12 de 48")).toBeTruthy();
+  });
+
   it("sin hora en el dato solo muestra la fecha; sin fecha, «Sin fecha»", () => {
     render(<Matches v={visual([row("A", "B", { date: "2026-11-08" }), row("C", "D", { date: null })])} />);
     const when = screen.getAllByTestId("match-when").map((e) => e.textContent);
@@ -86,8 +95,8 @@ describe("comprensión de contexto en «Detalles técnicos»", () => {
     expect(box).toHaveTextContent("Opciones ofrecidas: A; B");
     expect(box).toHaveTextContent("Recuperación: revision");
   });
-  it("sin comprensión de contexto (legacy: null) no aparece el bloque", () => {
-    render(<TechnicalDetails response={base} />);
+  it("sin comprensión de contexto (context: null) no aparece el bloque", () => {
+    render(<TechnicalDetails response={{ ...base, diagnostics: { ...base.diagnostics, context: null } }} />);
     expect(screen.queryByTestId("context-info")).toBeNull();
   });
 });

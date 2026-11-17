@@ -19,7 +19,7 @@ export default function Matches({ v }: { v: MatchesVisual }) {
         {v.rows.map((m, i) => (
           <li key={i} className="text-sm" data-testid="match-row">
             <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-0.5 text-xs text-ink-2">
-              <span data-testid="match-when">{m.round ? `Jornada ${m.round} · ` : ""}{kickoffLabel(m.date)}</span>
+              <span data-testid="match-when">{m.round ? `Jornada ${m.round} · ` : ""}{kickoffLabel(m.date)}{m.detail ? ` · ${m.detail}` : ""}</span>
               <StatusChip status={m.status} />
             </div>
             <div className="match-row mt-1">

@@ -16,12 +16,15 @@ from futsal.domain.names import norm_name, tokens_of
 V2_TOOL_NAMES = ("find_player", "find_official", "officials_ranking", "matches_by_date", "club_overview", "scorers_ranking", "teams_ranking")
 API_MAX_LIMIT = 100  # tope de `limit` de la API /v2 (repositories.v2_queries.MAX_LIMIT; la API lo valida con 422)
 API_DEFAULT_LIMIT = 20
+PAGE_SIZE = 10  # listados (partidos, rankings, partidos de un árbitro): primera página de 10; `count` trae el total exacto
 
 Name = Annotated[str, Field(min_length=2, max_length=80, description="Nombre o parte del nombre")]
 Category = Literal["senior", "juvenil", "cadete", "infantil", "alevin", "benjamin", "prebenjamin", "veteranos", "universitario"]
 Gender = Literal["male", "female", "mixed"]
 Metric = Literal["goals_for", "goals_against", "wins", "points_per_game"]
 Limit = Annotated[int, Field(ge=1, le=API_MAX_LIMIT, description="Máximo de filas (1-100, def. 20)")]
+PageLimit = Annotated[int, Field(ge=1, le=API_MAX_LIMIT, description="Filas de la página (def. 10; count = total exacto)")]
+Offset = Annotated[int, Field(ge=0, le=10_000, description="Desde qué fila (paginación; next_offset = la siguiente)")]
 Get = Callable[..., dict[str, Any]]  # (ruta, recurso, **parámetros) -> JSON de la API; lanza ToolError con el prefijo de error
 
 
@@ -51,17 +54,20 @@ def register_v2_tools(mcp: FastMCP, get: Get) -> None:
         body = only_team(body, team)
         return {**body, "items": body["items"][:limit], "shown": min(body["shown"], limit)}
 
-    @mcp.tool(description="Árbitro por nombre en todas las competiciones; con include_matches, sus partidos.")
+    @mcp.tool(description="Árbitro por nombre en todas las competiciones; con include_matches, sus partidos (paginados, orden cronológico).")
     def find_official(name: Name, include_matches: Annotated[bool, Field(description="Incluir la lista de partidos pitados")] = False,
-                      limit: Limit = API_DEFAULT_LIMIT) -> dict[str, Any]:
-        return get("/v2/officials", "árbitros", name=name, include="matches" if include_matches else None, limit=limit)
+                      limit: Limit = API_DEFAULT_LIMIT, offset: Offset = 0) -> dict[str, Any]:
+        if include_matches:  # página real en la BD; varios árbitros con ese nombre → `people`, sin mezclar sus partidos
+            return get("/v2/officials/matches", "árbitros", name=name, limit=min(limit, PAGE_SIZE) if limit == API_DEFAULT_LIMIT else limit,
+                       offset=offset)
+        return get("/v2/officials", "árbitros", name=name, limit=limit)
 
     @mcp.tool(description="Árbitros con más partidos pitados.")
     def officials_ranking(role: Annotated[str, Field(min_length=2, max_length=40, description="Rol, p. ej. ARBITRO")] = "ARBITRO",
-                          category: Category | None = None, limit: Limit = API_DEFAULT_LIMIT) -> dict[str, Any]:
-        return get("/v2/officials/ranking", "árbitros", role=role, category=category, limit=limit)
+                          category: Category | None = None, limit: PageLimit = PAGE_SIZE, offset: Offset = 0) -> dict[str, Any]:
+        return get("/v2/officials/ranking", "árbitros", role=role, category=category, limit=limit, offset=offset)
 
-    @mcp.tool(description="Partidos de un día o rango y franja horaria en todos los grupos.")
+    @mcp.tool(description="Partidos de un día o rango y franja horaria en todos los grupos (orden cronológico; páginas de 10, count = total).")
     def matches_by_date(
             date_from: Annotated[str, Field(description="AAAA-MM-DD")],
             date_to: Annotated[str | None, Field(description="AAAA-MM-DD; por defecto date_from")] = None,
@@ -69,22 +75,24 @@ def register_v2_tools(mcp: FastMCP, get: Get) -> None:
             category: Category | None = None, gender: Gender | None = None,
             competition: Annotated[str | None, Field(max_length=80, description="Parte del nombre de la competición")] = None,
             venue: Annotated[str | None, Field(min_length=2, max_length=80, description="Parte del nombre de la pista")] = None,
-            limit: Limit = API_DEFAULT_LIMIT) -> dict[str, Any]:
+            limit: PageLimit = PAGE_SIZE, offset: Offset = 0) -> dict[str, Any]:
         return get("/v2/matches", "partidos", date_from=date_from.strip(), date_to=(date_to or date_from).strip(),
                    time_from=(time_from or None) and time_from.strip(), time_to=(time_to or None) and time_to.strip(),
-                   category=category, gender=gender, competition=competition, venue=venue, order="asc", limit=limit)
+                   category=category, gender=gender, competition=competition, venue=venue, order="asc", limit=limit, offset=offset, compact=True)
 
     @mcp.tool(description="Todos los equipos de un club (A/B, categorías) y, con results, sus resultados.")
     def club_overview(name: Name, results: Annotated[bool, Field(description="Incluir resultados de cada equipo")] = False,
                       category: Category | None = None, limit: Limit = API_DEFAULT_LIMIT) -> dict[str, Any]:
         return get("/v2/clubs/results" if results else "/v2/clubs/search", "clubes", name=name, category=category, limit=limit)
 
-    @mcp.tool(description="Máximos goleadores de las ligas (tablas oficiales), filtrables por categoría.")
+    @mcp.tool(description="Máximos goleadores de las ligas (tablas oficiales), filtrables por categoría (páginas de 10, count = total).")
     def scorers_ranking(category: Category | None = None, gender: Gender | None = None,
-                        limit: Limit = API_DEFAULT_LIMIT) -> dict[str, Any]:
-        return get("/v2/rankings/scorers", "goleadores", competition_kind="league", category=category, gender=gender, limit=limit)
+                        limit: PageLimit = PAGE_SIZE, offset: Offset = 0) -> dict[str, Any]:
+        return get("/v2/rankings/scorers", "goleadores", competition_kind="league", category=category, gender=gender, limit=limit,
+                   offset=offset, compact=True)
 
-    @mcp.tool(description="Ranking de equipos: goles a favor/en contra, victorias, puntos por partido.")
+    @mcp.tool(description="Ranking de equipos: goles a favor/en contra, victorias, puntos por partido (páginas de 10, count = total).")
     def teams_ranking(metric: Metric, category: Category | None = None, gender: Gender | None = None,
-                      limit: Limit = API_DEFAULT_LIMIT) -> dict[str, Any]:
-        return get("/v2/rankings/teams", "ranking", metric=metric, category=category, gender=gender, min_played=1, limit=limit)
+                      limit: PageLimit = PAGE_SIZE, offset: Offset = 0) -> dict[str, Any]:
+        return get("/v2/rankings/teams", "ranking", metric=metric, category=category, gender=gender, min_played=1, limit=limit,
+                   offset=offset, compact=True)

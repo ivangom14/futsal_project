@@ -212,18 +212,17 @@ def test_small_equal_difference_is_reported_as_a_tie() -> None:
 
 
 # ----------------------------------------------------------------------------- expectativa por arquitectura
-def test_v2_cases_are_graded_with_their_v2_expectation_and_legacy_is_unchanged() -> None:
+def test_v2_cases_are_graded_with_their_v2_expectation() -> None:
     from futsal.evals.runner import expected_for
     from futsal.evals.selector import ResolvedTurn
 
     turn = ResolvedTurn("¿Qué partidos hay el sábado?", "abstain", facts=[], forbid_any_score=True, tools_allowed=["list_matches"],
                         v2={"behavior": "answer", "facts": [{"kind": "number", "value": "7", "label": "partidos"}]})
-    assert expected_for(turn, "legacy", frozenset({"matches_by_date"})) is turn
-    v2 = expected_for(turn, "v2", frozenset({"matches_by_date"}))
+    v2 = expected_for(turn, frozenset({"matches_by_date"}))
     assert v2.behavior == "answer" and v2.facts[0]["value"] == "7" and v2.forbid_any_score is False and v2.tools_needed == []
     assert v2.tools_allowed == ["list_matches", "matches_by_date"]  # las herramientas v2 no cuentan como inesperadas
     plain = ResolvedTurn("¿Cuántos puntos tiene X?", "answer", facts=[{"kind": "number", "value": "9"}], tools_allowed=None)
-    same = expected_for(plain, "v2", frozenset({"matches_by_date"}))
+    same = expected_for(plain, frozenset({"matches_by_date"}))
     assert same.behavior == "answer" and same.facts == plain.facts  # sin expectativa v2: la de siempre
 
 

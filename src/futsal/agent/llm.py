@@ -579,7 +579,7 @@ def estimate_cost(provider: str, model: str, usage: Usage | None) -> float | Non
 
 # --- fábrica ----------------------------------------------------------------------------------------
 LLM_PROVIDERS = ("anthropic", "gemini", "openai")
-LLM_TASKS = ("router", "interpreter", "simple", "complex", "judge")
+LLM_TASKS = ("router", "simple", "complex", "judge")
 
 
 def _build(provider: str, model: str | None = None) -> LLMClient:
@@ -594,7 +594,7 @@ def _build(provider: str, model: str | None = None) -> LLMClient:
 
 def create_llm(task: str | None = None) -> LLMClient:
     """Adaptador según `LLM_PROVIDER` (`anthropic` por defecto, `gemini` u `openai`).
-    Con `task` (router|interpreter|simple|complex|judge), `LLM_MODEL_<TAREA>=proveedor:modelo` tiene prioridad; si no existe, conducta sin tarea."""
+    Con `task` (router|simple|complex|judge), `LLM_MODEL_<TAREA>=proveedor:modelo` tiene prioridad; si no existe, conducta sin tarea."""
     if task is not None:
         if task not in LLM_TASKS:
             raise LLMError(f"tarea LLM desconocida: {task!r} ({'|'.join(LLM_TASKS)})")

@@ -39,6 +39,7 @@ class ConversationState:
     pending: dict[str, Any] | None = None  # {"question": pregunta que espera aclaración, "kind": ...}
     mentioned: list[dict[str, Any]] = field(default_factory=list)  # [{"type": "competition"|"team", "name": …, "turn": n}]
     declared: list[str] = field(default_factory=list)  # competiciones cuya suposición ya se comunicó (no se repite)
+    listing: dict[str, Any] | None = None  # v2: consulta del último listado (herramienta, filtros, posición, total); nunca sus filas
     broad_team: str | None = None  # v2: equipo para el que el usuario ya resolvió el ámbito como «todas»: no se le vuelve a preguntar
     turns: int = 0
 

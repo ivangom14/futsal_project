@@ -46,6 +46,7 @@ from futsal.repositories.report_queries import latest
 MADRID = ZoneInfo("Europe/Madrid")
 DEFAULT_LIMIT = 20
 MAX_LIMIT = 100
+MAX_OFFSET = 10_000
 CATEGORIES = ("senior", "juvenil", "cadete", "infantil", "alevin", "benjamin", "prebenjamin", "veteranos", "universitario")
 GENDERS = ("male", "female", "mixed")
 GENDER_ALIASES = {"masculino": "male", "femenino": "female", "mixto": "mixed"}
@@ -103,9 +104,12 @@ def ref_obj(kind: str, ident: int | None, name: str | None) -> dict[str, Any]:
 
 
 def envelope(items: list[dict[str, Any]], count: int, notes: list[str], freshness: datetime | None, scope: Scope | None = None,
-             **extra: Any) -> dict[str, Any]:
+             offset: int | None = None, **extra: Any) -> dict[str, Any]:
     body: dict[str, Any] = {"items": items, "count": count, "shown": len(items), "notes": notes,
                             "freshness": freshness.isoformat() if freshness else None}
+    if offset is not None:  # página: `count` es el total exacto del filtro; `next_offset` = None si no hay más
+        end = offset + len(items)
+        body["offset"], body["next_offset"] = offset, (end if end < count else None)
     if scope is not None:
         body["season"] = ({"ref": ref("season", scope.season.id), "label": season_label(scope.season)} if scope.season else None)
     body.update(extra)
@@ -130,6 +134,31 @@ def words_match(norm_col: Any, tokens: Sequence[str]) -> ColumnElement[bool]:
     """Todas las palabras (completas, en cualquier orden) están en la columna ya normalizada."""
     padded = func.concat(" ", norm_col, " ")
     return and_(*[padded.like(f"% {t} %") for t in tokens])
+
+
+def parse_offset(offset: int) -> int:
+    if not 0 <= offset <= MAX_OFFSET:
+        raise InvalidParam(f"offset debe estar entre 0 y {MAX_OFFSET}")
+    return offset
+
+
+def page_rows(db: Session, stmt: Any, offset: int, limit: int) -> tuple[list[Any], int]:
+    """Página real en la BD (OFFSET/LIMIT sobre un orden total) y el total exacto del filtro: la columna `total` (COUNT() OVER, que se
+    calcula antes de paginar) o, si la página sale vacía, un COUNT aparte (pasada la última página no hay filas que lo traigan)."""
+    rows = list(db.execute(stmt.offset(offset).limit(limit)).all())
+    if rows:
+        return rows, int(rows[0].total)
+    if not offset:
+        return rows, 0
+    return rows, int(db.scalar(select(func.count()).select_from(stmt.order_by(None).subquery())) or 0)
+
+
+def compact_comp(comp: str | None, group: str | None) -> str:
+    return " · ".join(x for x in (comp, group) if x)
+
+
+def compact_score(home: int | None, away: int | None) -> str | None:
+    return f"{home}-{away}" if home is not None and away is not None else None
 
 
 def parse_limit(limit: int) -> int:
@@ -481,7 +510,7 @@ def _official_match(r: Any) -> dict[str, Any]:
             "role": r.role, "competition": ref_obj("comp", r.comp_id, r.comp_name), "group": ref_obj("group", r.group_id, r.group_name)}
 
 
-def officials_ranking(db: Session, scope: Scope, role: str, limit: int) -> dict[str, Any]:
+def officials_ranking(db: Session, scope: Scope, role: str, limit: int, offset: int = 0) -> dict[str, Any]:
     if not norm_name(role):
         raise InvalidParam("role debe contener letras")
     if not scope.comps:
@@ -492,18 +521,64 @@ def officials_ranking(db: Session, scope: Scope, role: str, limit: int) -> dict[
     stmt = (select(func.max(sub.c.display_name).label("name"), matches.label("matches"), func.array_agg(func.distinct(sub.c.role)).label("roles"),
                    func.count(func.distinct(sub.c.comp_id)).label("competitions"), func.max(sub.c.observed_at).label("fresh"),
                    func.count().over().label("total"))
-            .group_by(sub.c.n).order_by(matches.desc(), func.max(sub.c.display_name)).limit(limit))
-    rows = db.execute(stmt).all()
+            .group_by(sub.c.n).order_by(matches.desc(), func.max(sub.c.display_name), sub.c.n))
+    rows, total = page_rows(db, stmt, parse_offset(offset), limit)
     items = [{"rank": i, "name": r.name, "matches": r.matches, "roles": sorted(r.roles), "competitions": r.competitions}
-             for i, r in enumerate(rows, 1)]
+             for i, r in enumerate(rows, offset + 1)]
     notes = [*scope.notes, report_coverage_note(db, scope.ids),
              f"ranking por partidos con ese rol («{role}») en actas almacenadas, no por designaciones oficiales"]
-    return envelope(items, int(rows[0].total) if rows else 0, notes, _max(*[r.fresh for r in rows]), scope)
+    return envelope(items, total, notes, _max(*[r.fresh for r in rows]), scope, offset=offset)
+
+
+def official_matches(db: Session, scope: Scope, name: str, order: str, limit: int, offset: int = 0) -> dict[str, Any]:
+    """Partidos de UN árbitro, paginados en la BD (orden cronológico; desempate por partido). Varios árbitros con ese nombre: se
+    devuelven las personas (sin mezclar sus partidos) para que se pregunte cuál; ninguno: lo mismo que `/officials` (sugerencias)."""
+    if order not in ("asc", "desc"):
+        raise InvalidParam("order debe ser asc o desc")
+    tokens = _needed_tokens(name)
+    if not scope.comps:
+        return _empty(scope, suggestions=[], people=[])
+    base, n = _official_base(scope)
+    sub = base.where(words_match(n, tokens)).subquery()
+    people = db.execute(select(sub.c.n, func.max(sub.c.display_name).label("name"), func.count(func.distinct(sub.c.match_id)).label("matches"))
+                        .group_by(sub.c.n).order_by(func.count(func.distinct(sub.c.match_id)).desc(), sub.c.n)).all()
+    if not people:
+        return {**officials(db, scope, name, False, 1), "people": []}
+    notes = [*scope.notes, report_coverage_note(db, scope.ids)]
+    if len(people) > 1:
+        notes.append(f"varios árbitros coinciden con «{name}»: pregunta cuál antes de dar sus partidos (no se mezclan)")
+        return envelope([], 0, notes, None, scope, offset=offset, people=[{"name": p.name, "matches": p.matches} for p in people[:MAX_SUGGESTIONS]],
+                        suggestions=[])
+    local = func.timezone("Europe/Madrid", sub.c.scheduled_at)
+    local_date = func.coalesce(cast(local, Date), sub.c.scheduled_date)
+    grouped = (select(sub.c.match_id, func.min(sub.c.scheduled_at).label("scheduled_at"), func.min(sub.c.scheduled_date).label("scheduled_date"),
+                      func.min(sub.c.home).label("home"), func.min(sub.c.away).label("away"), func.min(sub.c.home_score).label("home_score"),
+                      func.min(sub.c.away_score).label("away_score"), func.min(sub.c.status).label("status"),
+                      func.min(sub.c.comp_name).label("comp_name"), func.min(sub.c.group_name).label("group_name"),
+                      func.string_agg(func.distinct(sub.c.role), ", ").label("role"), func.max(sub.c.observed_at).label("fresh"),
+                      func.min(local_date).label("day"), func.count().over().label("total"))
+               .where(sub.c.n == people[0].n).group_by(sub.c.match_id))
+    asc = order == "asc"
+    day_col, at_col = func.min(local_date), func.min(sub.c.scheduled_at)
+    grouped = grouped.order_by(day_col.asc() if asc else day_col.desc(), at_col.asc().nulls_last() if asc else at_col.desc().nulls_last(),
+                               sub.c.match_id)
+    rows, total = page_rows(db, grouped, parse_offset(offset), limit)
+    items = []
+    for r in rows:
+        day, hour, _ = _local_parts(r.scheduled_at, r.scheduled_date)
+        row: dict[str, Any] = {"id": r.match_id, "date": day, "time": hour, "comp": compact_comp(r.comp_name, r.group_name), "home": r.home,
+                               "away": r.away, "role": r.role}
+        if r.home_score is not None:
+            row["score"] = compact_score(r.home_score, r.away_score)
+        if r.status != "scheduled" or r.home_score is not None:
+            row["status"] = r.status
+        items.append(row)
+    return envelope(items, total, notes, _max(*[r.fresh for r in rows]), scope, offset=offset, official=people[0].name, suggestions=[])
 
 
 # ----------------------------------------------------------------------------- 3. partidos de todos los grupos
 def matches(db: Session, scope: Scope, *, date_from: date | None, date_to: date | None, time_from: time | None, time_to: time | None,
-            venue: str | None, status: str | None, order: str, limit: int) -> dict[str, Any]:
+            venue: str | None, status: str | None, order: str, limit: int, offset: int = 0, compact: bool = False) -> dict[str, Any]:
     if date_from and date_to and date_from > date_to:
         raise InvalidParam("date_from no puede ser posterior a date_to")
     if time_from and time_to and time_from > time_to:
@@ -548,10 +623,21 @@ def matches(db: Session, scope: Scope, *, date_from: date | None, date_to: date 
     asc = order == "asc"
     stmt = stmt.order_by(local_date.asc() if asc else local_date.desc(), Match.scheduled_at.asc().nulls_last() if asc else Match.scheduled_at.desc().nulls_last(),
                          Match.id)
-    rows = db.execute(stmt.limit(limit)).all()
+    rows, total = page_rows(db, stmt, parse_offset(offset), limit)
     items = []
     for r in rows:
         day, hour, iso = _local_parts(r.scheduled_at, r.scheduled_date)
+        if compact:  # lo que necesita un listado: fecha, hora, competición, equipos, marcador y estado (sin refs ni actas)
+            row: dict[str, Any] = {"id": r.id, "date": day, "time": hour, "comp": compact_comp(r.comp_name, r.group_name), "home": r.home,
+                                   "away": r.away}
+            if r.home_score is not None:
+                row["score"] = compact_score(r.home_score, r.away_score)
+            if r.status != "scheduled" or r.home_score is not None:
+                row["status"] = r.status
+            if venue:
+                row["venue"] = r.venue
+            items.append(row)
+            continue
         items.append({
             "ref": ref("match", r.id), "date": day, "time": hour, "local_datetime": iso, "round": r.visible_number,
             "competition": ref_obj("comp", r.comp_id, r.comp_name), "group": ref_obj("group", r.group_id, r.group_name),
@@ -559,7 +645,9 @@ def matches(db: Session, scope: Scope, *, date_from: date | None, date_to: date 
             "score": {"home": r.home_score, "away": r.away_score} if r.home_score is not None else None,
             "status": r.status, "has_report": bool(r.has_report), "venue": r.venue})
     fresh = matches_freshness(db, match_ids=[r.id for r in rows], group_ids=list({r.group_id for r in rows}))
-    return envelope(items, int(rows[0].total) if rows else 0, notes, fresh, scope)
+    if compact:
+        notes.append("filas compactas: sin hora = fecha sin hora confirmada; sin status = programado")
+    return envelope(items, total, notes, fresh, scope, offset=offset)
 
 
 # ----------------------------------------------------------------------------- 4. clubes por nombre
@@ -721,7 +809,7 @@ def clubs_results(db: Session, scope: Scope, name: str, limit: int) -> dict[str,
 
 
 # ----------------------------------------------------------------------------- 6. ranking de goleadores
-def scorers_ranking(db: Session, scope: Scope, limit: int) -> dict[str, Any]:
+def scorers_ranking(db: Session, scope: Scope, limit: int, offset: int = 0, compact: bool = False) -> dict[str, Any]:
     notes = [*scope.notes, DIFFERENT_ROUNDS_NOTE, "goles de la tabla OFICIAL de goleadores (última captura válida de cada grupo)"]
     if not scope.comps:
         return envelope([], 0, notes, None, scope)
@@ -730,7 +818,7 @@ def scorers_ranking(db: Session, scope: Scope, limit: int) -> dict[str, Any]:
     notes.append(f"{len(snaps)} de {total_groups} grupos del ámbito tienen tabla oficial de goleadores válida; el resto no cuenta")
     if not snaps:
         return envelope([], 0, notes, None, scope)
-    rows = db.execute(
+    stmt = (
         select(ScorerRow.player_id, ScorerRow.player_name, ScorerRow.team_id, ScorerRow.team_name, ScorerRow.goals, ScorerRow.matches_played,
                CompetitionGroup.id.label("group_id"), CompetitionGroup.name.label("group_name"), Competition.id.label("comp_id"),
                Competition.name.label("comp_name"), func.count().over().label("total"))
@@ -738,15 +826,22 @@ def scorers_ranking(db: Session, scope: Scope, limit: int) -> dict[str, Any]:
         .join(CompetitionGroup, CompetitionGroup.id == ScorerSnapshot.group_id)
         .join(Competition, Competition.id == CompetitionGroup.competition_id)
         .where(ScorerRow.snapshot_id.in_([s for s, _ in snaps.values()]))
-        .order_by(ScorerRow.goals.desc(), sql_norm(ScorerRow.player_name), ScorerRow.team_name, ScorerRow.id).limit(limit)).all()
-    items = [{"rank": i, "player": {"ref": ref("player", r.player_id), "name": r.player_name}, "team": ref_obj("team", r.team_id, r.team_name),
-              "competition": ref_obj("comp", r.comp_id, r.comp_name), "group": ref_obj("group", r.group_id, r.group_name),
-              "goals": r.goals, "matches": r.matches_played} for i, r in enumerate(rows, 1)]
-    return envelope(items, int(rows[0].total) if rows else 0, notes, _max(*[at for _, at in snaps.values()]), scope)
+        .order_by(ScorerRow.goals.desc(), sql_norm(ScorerRow.player_name), ScorerRow.team_name, ScorerRow.id))
+    rows, total = page_rows(db, stmt, parse_offset(offset), limit)
+    if compact:
+        items = [{"rank": i, "player": r.player_name, "team": r.team_name, "comp": compact_comp(r.comp_name, r.group_name), "goals": r.goals,
+                  "matches": r.matches_played} for i, r in enumerate(rows, offset + 1)]
+    else:
+        items = [{"rank": i, "player": {"ref": ref("player", r.player_id), "name": r.player_name}, "team": ref_obj("team", r.team_id, r.team_name),
+                  "competition": ref_obj("comp", r.comp_id, r.comp_name), "group": ref_obj("group", r.group_id, r.group_name),
+                  "goals": r.goals, "matches": r.matches_played} for i, r in enumerate(rows, offset + 1)]
+    notes.append("cada fila es un jugador en un equipo y grupo: los goles NO se suman entre grupos (un nombre repetido puede ser otra persona)")
+    return envelope(items, total, notes, _max(*[at for _, at in snaps.values()]), scope, offset=offset)
 
 
 # ----------------------------------------------------------------------------- 7. ranking de equipos
-def teams_ranking(db: Session, scope: Scope, metric: str, order: str | None, min_played: int, limit: int) -> dict[str, Any]:
+def teams_ranking(db: Session, scope: Scope, metric: str, order: str | None, min_played: int, limit: int, offset: int = 0,
+                  compact: bool = False) -> dict[str, Any]:
     if metric not in TEAM_METRICS:
         raise InvalidParam(f"metric inválida; valores: {', '.join(TEAM_METRICS)}")
     if order not in (None, "asc", "desc"):
@@ -776,17 +871,21 @@ def teams_ranking(db: Session, scope: Scope, metric: str, order: str | None, min
            .group_by(sides.c.team_id, sides.c.group_id).having(played >= min_played).subquery())
     ppg = (3 * agg.c.w + agg.c.d) * 1.0 / cast(agg.c.pj, Numeric)
     value = {"goals_for": agg.c.gf, "goals_against": agg.c.ga, "wins": agg.c.w, "points_per_game": ppg}[metric]
-    rows = db.execute(
+    stmt = (
         select(agg, Team.name.label("team_name"), CompetitionGroup.name.label("group_name"), Competition.id.label("comp_id"),
                Competition.name.label("comp_name"), func.count().over().label("total"))
         .select_from(agg).join(Team, Team.id == agg.c.team_id).join(CompetitionGroup, CompetitionGroup.id == agg.c.group_id)
         .join(Competition, Competition.id == CompetitionGroup.competition_id)
-        .order_by(value.asc() if direction == "asc" else value.desc(), agg.c.pj.desc(), Team.name, Team.id).limit(limit)).all()
+        .order_by(value.asc() if direction == "asc" else value.desc(), agg.c.pj.desc(), Team.name, Team.id, agg.c.group_id))
+    rows, total = page_rows(db, stmt, parse_offset(offset), limit)
     items = []
-    for i, r in enumerate(rows, 1):
-        items.append({"rank": i, "team": ref_obj("team", r.team_id, r.team_name), "competition": ref_obj("comp", r.comp_id, r.comp_name),
-                      "group": ref_obj("group", r.group_id, r.group_name), "played": r.pj, "won": int(r.w), "drawn": int(r.d),
-                      "lost": r.pj - int(r.w) - int(r.d), "goals_for": int(r.gf), "goals_against": int(r.ga),
-                      "points_per_game": round((3 * int(r.w) + int(r.d)) / r.pj, 2)})
+    for i, r in enumerate(rows, offset + 1):
+        stats = {"played": r.pj, "won": int(r.w), "drawn": int(r.d), "lost": r.pj - int(r.w) - int(r.d), "goals_for": int(r.gf),
+                 "goals_against": int(r.ga), "points_per_game": round((3 * int(r.w) + int(r.d)) / r.pj, 2)}
+        if compact:
+            items.append({"rank": i, "team": r.team_name, "comp": compact_comp(r.comp_name, r.group_name), **stats})
+        else:
+            items.append({"rank": i, "team": ref_obj("team", r.team_id, r.team_name), "competition": ref_obj("comp", r.comp_id, r.comp_name),
+                          "group": ref_obj("group", r.group_id, r.group_name), **stats})
     fresh = matches_freshness(db, group_ids=list({r.group_id for r in rows})) if rows else None
-    return envelope(items, int(rows[0].total) if rows else 0, notes, fresh, scope, metric=metric, order=direction)
+    return envelope(items, total, notes, fresh, scope, offset=offset, metric=metric, order=direction)

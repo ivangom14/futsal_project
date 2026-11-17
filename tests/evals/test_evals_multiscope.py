@@ -51,7 +51,7 @@ def test_s10_size_split_and_literal_questions() -> None:
     assert counts(s10)["S10"] == {"cases": len(s10), "turns": sum(len(c.turns) for c in s10), "holdout": 18}
     convs = [c for c in s10 if c.conversation]
     assert len(convs) >= 8  # los seguimientos son conversaciones multi-turno
-    extras = [c for c in load_cases(ROOT, "all") if "_extra" in c.source_file and not c.source_file.startswith("bench127")]
+    extras = [c for c in load_cases(ROOT, "all") if "_extra" in c.source_file and not c.source_file.startswith(("bench127", "masivas"))]
     assert 35 <= len(extras) <= 45 and not any(c.holdout for c in extras)  # solo dev: los holdout sellados no se tocan
 
 
@@ -115,7 +115,8 @@ def world(synthetic: Any) -> World:
 
 
 # Casos con la frase literal del responsable: se resuelven contra su snapshot real, no contra el sintético (nombres inventados).
-REAL_ONLY = {"s10_jug_literal_silvosa", "s10_arb_literal_inexistente_parecido", "s10_b127_arb_literal_martinez_montoro"}  # nombres reales
+REAL_ONLY = {"s10_jug_literal_silvosa", "s10_arb_literal_inexistente_parecido", "s10_b127_arb_literal_martinez_montoro",  # nombres reales
+             "m_dia_primera_pagina", "m_dia_paginacion_encadenada", "m_cuantos_partidos_dia"}  # días con más de 10 o 20 partidos (datos reales)
 
 
 def test_selector_resolves_every_new_case_on_the_synthetic_snapshot(world: World) -> None:
@@ -158,10 +159,10 @@ def test_person_fragment_selectors_with_invented_names(world: World) -> None:
 
 def test_plan_counts_the_new_stratum(synthetic: Any) -> None:
     plan = build_plan("futsito-v1", "all", 1, synthetic.root)
-    assert plan["by_stratum"]["S10"] == {"cases": 62, "turns": plan["by_stratum"]["S10"]["turns"], "holdout": 18}  # 60 + 2 del bench-127
+    assert plan["by_stratum"]["S10"] == {"cases": 72, "turns": plan["by_stratum"]["S10"]["turns"], "holdout": 18}  # 60 + 2 del bench-127 + 10 de consultas masivas
     assert plan["by_stratum"]["S10"]["turns"] > 60 and set(plan["by_stratum"]) >= {f"S{i}" for i in range(1, 11)}
     dev = build_plan("futsito-v1", "dev", 1, synthetic.root)
-    assert dev["by_stratum"]["S10"]["cases"] == 44 and dev["by_stratum"]["S10"]["holdout"] == 0
+    assert dev["by_stratum"]["S10"]["cases"] == 54 and dev["by_stratum"]["S10"]["holdout"] == 0
 
 
 # ----------------------------------------------------------------------------- verdad SQL

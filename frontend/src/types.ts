@@ -47,7 +47,7 @@ export interface TimelineVisual {
 }
 export interface MatchesVisual {
   type: "matches"; title: string; subtitle?: string | null; total: number; partial: boolean;
-  rows: { round: number | null; date: string | null; home: string; away: string; score: string | null; status: string; past_due: boolean }[];
+  rows: { round: number | null; date: string | null; home: string; away: string; score: string | null; status: string; past_due: boolean; detail?: string | null }[];
 }
 
 export type CardKind = "yellow" | "second_yellow" | "red" | "unknown";
@@ -139,7 +139,7 @@ export interface Health {
   llm: { provider: string; key_configured: boolean };
   data_api: { reachable: boolean; detail: string | null };
   queue?: { busy: boolean; running_for_s: number | null; waiting: number };
-  /** AGENT_CONTEXT con el que arrancó el backend (legacy | deterministic | llm). */
+  /** Modo de comprensión del backend (hoy siempre «deterministic»). */
   context_mode?: string;
 }
 
@@ -173,7 +173,7 @@ export interface Conversation {
   messages: Message[];
 }
 
-/** Comprensión de contexto (solo con AGENT_CONTEXT=deterministic|llm). */
+/** Comprensión de contexto (determinista). */
 export interface ContextInfo {
   mode?: string;
   state?: string;

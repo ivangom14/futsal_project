@@ -271,12 +271,13 @@ def test_live_ambiguity_cards_and_unsupported_player(engine: Engine, tmp_path: P
     assert unbacked.status == "fail" and unbacked.invention_ok is False
     honest = _live_case(engine, "acta_tarjetas_codigo", "Hubo 1 tarjeta (código 100); no consta de qué color.")
     assert honest.status == "pass"
+    # el agente responde de forma determinista que el acta no recoge los cambios: el texto inventado del modelo nunca llega al usuario
     invented = _live_case(engine, "acta_sustituciones_minuto",
                           "El acta no recoge los minutos, pero Pablo Gómez Rodríguez entró en el minuto 12.")
-    assert invented.status == "fail" and invented.invention_ok is False
+    assert invented.status == "pass" and "minuto 12" not in invented.answer and "no consta" in invented.answer
 
 
-def test_guardrail_replacement_is_a_failure_for_data_questions(engine: Engine) -> None:
+def test_answering_without_data_is_a_failure_for_data_questions(engine: Engine) -> None:
     assert run_import(engine, FIXTURE).status == "success"
     truth = load_truth(engine)
     assert truth is not None
@@ -288,7 +289,8 @@ def test_guardrail_replacement_is_a_failure_for_data_questions(engine: Engine) -
                                   only={"partido_futuro_resultado"})
 
     r = asyncio.run(go())[0]
-    assert r.status == "fail" and r.tools_ok is False and any("guardarraíl" in i for i in r.tool_issues)
+    # la recuperación del contexto ejecuta ella misma las consultas; si el modelo insiste en un marcador que no consta, es invención grave
+    assert r.status == "fail" and r.invention_ok is False and any("marcador" in c for c in r.claims)
 
 
 # --- Fase 10: --plan sin LLM, presupuesto de peticiones e informe sin secretos --------------------------------------
@@ -328,7 +330,9 @@ def test_request_budget_stops_the_run_and_marks_remaining_cases(engine: Engine) 
 
     async def go() -> list[CaseResult]:
         async with connect(server._mcp_server) as session:
-            from futsal.agent.evaluate import PolicyLLM  # LLM guionizado: 2 peticiones por caso con tool
+            from futsal.agent.evaluate import (
+                PolicyLLM,  # LLM guionizado: 2 peticiones por caso con tool
+            )
 
             class Live(PolicyLLM):
                 pass

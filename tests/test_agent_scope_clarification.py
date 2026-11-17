@@ -81,7 +81,9 @@ def test_invented_figures_are_not_accepted_just_because_they_come_with_a_questio
     for text in ("El máximo goleador tiene 12 goles. ¿De qué grupo hablas?", "Va 3-1. ¿Puedes indicarme el grupo?",
                  "Quedó primero con 9 puntos, ¿qué competición?"):
         res = _run(Script([LLMResponse(text, []), LLMResponse(text, [])]), "¿Quién es el máximo goleador del grupo?")
-        assert res.guardrail == "sin_datos_de_tools" and res.answer == OFF_TOPIC_MESSAGE, text
+        # la respuesta con cifras sin herramientas nunca llega al usuario: se sustituye por la aclaración determinista (sin datos)
+        assert res.guardrail == "aclaracion_ambito" and res.answer != text and not any(ch.isdigit() for ch in res.answer), text
+        assert res.tool_calls == 0
 
 
 def test_a_bare_question_or_unrelated_request_is_not_a_scope_clarification() -> None:
@@ -100,7 +102,8 @@ def test_clarification_after_tools_follows_the_previous_flow_and_tool_errors_sta
 def test_legitimate_data_limitations_are_still_accepted() -> None:
     res = _run(Script([LLMResponse("No dispongo de los minutos de los cambios en mis herramientas.", [])]),
                "¿En qué minuto entraron los suplentes del partido de la jornada 3 en LIGA UNO FS (Grupo 1)?")
-    assert res.guardrail == "limitacion_sin_tools"
+    # dato que el acta de la RFFM no recoge: respuesta determinista honesta (sin LLM ni herramientas), nunca el aviso de alcance
+    assert "no consta en el acta" in res.answer and res.answer != OFF_TOPIC_MESSAGE and res.tool_calls == 0
 
 
 def test_clarification_that_repeats_the_round_number_of_the_question_is_kept() -> None:
@@ -109,4 +112,4 @@ def test_clarification_that_repeats_the_round_number_of_the_question_is_kept() -
     assert res.answer == text and res.guardrail == "aclaracion_ambito"
     invented = "En la jornada 2 ganó el Club A por 3 goles. ¿A qué grupo te refieres?"
     res2 = _run(Script([LLMResponse(invented, []), LLMResponse(invented, [])]), "¿Cómo quedaron los partidos de la jornada 2?")
-    assert res2.guardrail == "sin_datos_de_tools" and res2.answer == OFF_TOPIC_MESSAGE
+    assert res2.guardrail == "aclaracion_ambito" and res2.answer != invented and "3 goles" not in res2.answer  # lo inventado no se muestra

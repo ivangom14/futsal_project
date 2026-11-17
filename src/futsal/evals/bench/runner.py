@@ -18,7 +18,6 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from futsal.agent.agent import ARCHS, CONTEXT_MODES, resolve_context_mode
 from futsal.agent.llm import (
     BUDGET_EXHAUSTED,
     LLMClient,
@@ -160,9 +159,7 @@ class BenchConfig:
     run_id: str | None = None
     resume: bool = False
     seed: int = DEFAULT_SEED
-    arm: str = "legacy"
-    agent_arch: str = "v2"  # arquitectura del agente: la del frontal con AGENT_ARCH=v2
-    context_mode: str | None = None  # None = AGENT_CONTEXT del entorno (el mismo .env que el frontal); se registra el valor usado
+    arm: str = "base"
     root: Path = Path(".")
     db_url: str | None = None
     admin_url: str | None = None
@@ -188,10 +185,6 @@ def _validate(cfg: BenchConfig) -> None:
         raise BenchError("--reps debe ser ≥ 1")
     if cfg.budget_usd is not None and cfg.budget_usd <= 0:
         raise BenchError("--budget-usd debe ser > 0")
-    if cfg.agent_arch not in ARCHS:
-        raise BenchError(f"--agent debe ser uno de {ARCHS}, no {cfg.agent_arch!r}")
-    if cfg.context_mode is not None and cfg.context_mode not in CONTEXT_MODES:
-        raise BenchError(f"--context debe ser uno de {CONTEXT_MODES}, no {cfg.context_mode!r}")
     if cfg.dry_run:
         return
     if cfg.budget_usd is None:
@@ -221,8 +214,7 @@ def run_bench(cfg: BenchConfig, llm_factory: Callable[[ModelSpec], LLMClient] = 
     case_ids = suite_case_ids(suite, cfg.limit)
     run_id, out = run_directory(cfg)
     previous: dict[str, Any] | None = json.loads((out / BENCH_FILE).read_text(encoding="utf-8")) if cfg.resume else None
-    context = resolve_context_mode(cfg.context_mode)
-    agent = {"arch": cfg.agent_arch, "context_mode": context}
+    agent = {"arch": "v2", "context_mode": "deterministic"}  # arquitectura única
     if previous and ((previous["suite"]["name"], previous["case_ids"], previous["reps"]) != (cfg.suite, case_ids, cfg.reps)
                      or previous.get("agent", agent) != agent):
         raise BenchError("--resume: la suite, los casos, las repeticiones o el agente no coinciden con la ejecución original")
@@ -254,8 +246,8 @@ def run_bench(cfg: BenchConfig, llm_factory: Callable[[ModelSpec], LLMClient] = 
                      **({"data_fingerprint_start": manifest["data_fingerprint"]["sha256"]} if live_m else {})},
         "models": {m.id: m.as_dict() for m in cfg.models}, "commit": commit_id(cfg.root),
         "started_at": (previous or {}).get("started_at") or datetime.now(MADRID).isoformat(timespec="seconds"),
-        "fairness": ["mismo snapshot, reloj y herramientas MCP para todos", f"mismo agente para todos ({cfg.agent_arch}, contexto {context}, banderas {cfg.arm})",
-                     "herramientas v2 contra el snapshot con «hoy» = día del as_of" if cfg.agent_arch == "v2" else "agente legacy",
+        "fairness": ["mismo snapshot, reloj y herramientas MCP para todos", f"mismo agente para todos (banderas {cfg.arm})",
+                     "herramientas v2 contra el snapshot con «hoy» = día del as_of",
                      "caché de prompts de Anthropic desactivada", "orden de modelos barajado con semilla", "casos en orden rotado por repetición",
                      "sin concurrencia; separación mínima entre peticiones por modelo"]}
     for mid in order:
@@ -266,7 +258,7 @@ def run_bench(cfg: BenchConfig, llm_factory: Callable[[ModelSpec], LLMClient] = 
             llm = DryRunLLM(spec) if cfg.dry_run else CostLimitedLLM(llm_factory(spec), spec, guard)
             rc = RunConfig(suite=cfg.suite, snapshot=cfg.snapshot, output=out / mid, reps=cfg.reps, max_requests=spec.max_requests,
                            min_interval=0.0 if cfg.dry_run else spec.min_interval_s, fill_missing=cfg.resume, arm=cfg.arm, root=cfg.root,
-                           agent_arch=cfg.agent_arch, context_mode=context, live_manifest=live_m,
+                           live_manifest=live_m,
                            db_url=url, progress=_prefixed(say, mid), case_ids=case_ids,
                            extra_meta={"bench": {"run_id": run_id, "model_id": mid, "spec": spec.as_dict(), "dry_run": cfg.dry_run}})
             results = run_eval(rc, _constant(llm))

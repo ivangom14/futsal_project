@@ -9,9 +9,9 @@ from typing import Any
 
 import pytest
 
+from fake_teams import FakeMcp, Script, final
 from futsal.agent.agent import Agent
 from futsal.agent.llm import LLMResponse, ToolCall
-from test_prefetch import FakeMcp, Script, final
 
 Q = "En TERCERA DIVISIÓN FS (Grupo 3), ¿cuál fue el último resultado del C.D. DOSA?"
 

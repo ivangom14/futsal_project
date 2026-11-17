@@ -1,0 +1,229 @@
+{
+ "name": "bench-masivas",
+ "version": "1.0",
+ "created_at": "2026-11-16",
+ "source_dataset": "evals/datasets/futsito-v1 (dev)",
+ "note": "Consultas masivas, paginación conversacional y cambios de filtro (docs/phase-mass-queries.md); 16 casos con referencia real en bench127-haiku-v3 y 3 sencillas de control.",
+ "categories": [
+  "listados_fecha",
+  "paginacion_encadenada",
+  "cambios_de_filtro",
+  "rankings",
+  "arbitros",
+  "cifras_globales",
+  "sin_datos",
+  "sencillas_control"
+ ],
+ "cases": [
+  {
+   "id": "m_dia_primera_pagina",
+   "category": "listados_fecha",
+   "complexity": "complex",
+   "stratum": "S10",
+   "turns": 1
+  },
+  {
+   "id": "m_dia_paginacion_encadenada",
+   "category": "paginacion_encadenada",
+   "complexity": "complex",
+   "stratum": "S10",
+   "turns": 3
+  },
+  {
+   "id": "m_filtro_categoria_encadenado",
+   "category": "cambios_de_filtro",
+   "complexity": "complex",
+   "stratum": "S10",
+   "turns": 2
+  },
+  {
+   "id": "s10_rank_literal_goleador_senior",
+   "category": "rankings",
+   "complexity": "complex",
+   "stratum": "S10",
+   "turns": 1
+  },
+  {
+   "id": "m_arbitro_todos_sus_partidos",
+   "category": "arbitros",
+   "complexity": "complex",
+   "stratum": "S10",
+   "turns": 1
+  },
+  {
+   "id": "m_cuantos_partidos_dia",
+   "category": "cifras_globales",
+   "complexity": "complex",
+   "stratum": "S10",
+   "turns": 1
+  },
+  {
+   "id": "m_dia_sin_partidos",
+   "category": "sin_datos",
+   "complexity": "complex",
+   "stratum": "S10",
+   "turns": 1
+  },
+  {
+   "id": "s1_puntos",
+   "category": "sencillas_control",
+   "complexity": "simple",
+   "stratum": "S1",
+   "turns": 1
+  },
+  {
+   "id": "m_fin_de_semana_listado",
+   "category": "listados_fecha",
+   "complexity": "complex",
+   "stratum": "S10",
+   "turns": 1
+  },
+  {
+   "id": "m_goleadores_pagina",
+   "category": "paginacion_encadenada",
+   "complexity": "complex",
+   "stratum": "S10",
+   "turns": 2
+  },
+  {
+   "id": "m_cambio_de_dia_encadenado",
+   "category": "cambios_de_filtro",
+   "complexity": "complex",
+   "stratum": "S10",
+   "turns": 2
+  },
+  {
+   "id": "s10_rank_goleador_juvenil",
+   "category": "rankings",
+   "complexity": "complex",
+   "stratum": "S10",
+   "turns": 1
+  },
+  {
+   "id": "s10_arb_existente",
+   "category": "arbitros",
+   "complexity": "complex",
+   "stratum": "S10",
+   "turns": 1
+  },
+  {
+   "id": "s10_todos_responder_total_categorias",
+   "category": "cifras_globales",
+   "complexity": "complex",
+   "stratum": "S10",
+   "turns": 1
+  },
+  {
+   "id": "s10_fecha_sin_partidos",
+   "category": "sin_datos",
+   "complexity": "complex",
+   "stratum": "S10",
+   "turns": 1
+  },
+  {
+   "id": "s1_lider_puntos",
+   "category": "sencillas_control",
+   "complexity": "simple",
+   "stratum": "S1",
+   "turns": 1
+  },
+  {
+   "id": "s10_fecha_un_dia",
+   "category": "listados_fecha",
+   "complexity": "complex",
+   "stratum": "S10",
+   "turns": 1
+  },
+  {
+   "id": "s10_fecha_conv_categoria",
+   "category": "cambios_de_filtro",
+   "complexity": "complex",
+   "stratum": "S10",
+   "turns": 2
+  },
+  {
+   "id": "s10_rank_equipo_goleador",
+   "category": "rankings",
+   "complexity": "complex",
+   "stratum": "S10",
+   "turns": 1
+  },
+  {
+   "id": "s10_arb_varias_competiciones",
+   "category": "arbitros",
+   "complexity": "complex",
+   "stratum": "S10",
+   "turns": 1
+  },
+  {
+   "id": "s1_proximo_fecha",
+   "category": "sencillas_control",
+   "complexity": "simple",
+   "stratum": "S1",
+   "turns": 1
+  },
+  {
+   "id": "s10_fecha_fin_de_semana",
+   "category": "listados_fecha",
+   "complexity": "complex",
+   "stratum": "S10",
+   "turns": 1
+  },
+  {
+   "id": "s10_rank_mas_victorias",
+   "category": "rankings",
+   "complexity": "complex",
+   "stratum": "S10",
+   "turns": 1
+  },
+  {
+   "id": "s10_arb_mas_partidos",
+   "category": "arbitros",
+   "complexity": "complex",
+   "stratum": "S10",
+   "turns": 1
+  },
+  {
+   "id": "s10_fecha_literal_sabado_tarde",
+   "category": "listados_fecha",
+   "complexity": "complex",
+   "stratum": "S10",
+   "turns": 2
+  },
+  {
+   "id": "s10_rank_menos_goles_contra",
+   "category": "rankings",
+   "complexity": "complex",
+   "stratum": "S10",
+   "turns": 1
+  },
+  {
+   "id": "s10_fecha_categoria_senior",
+   "category": "listados_fecha",
+   "complexity": "complex",
+   "stratum": "S10",
+   "turns": 1
+  },
+  {
+   "id": "m_equipos_mas_goles",
+   "category": "rankings",
+   "complexity": "complex",
+   "stratum": "S10",
+   "turns": 1
+  },
+  {
+   "id": "s10_fecha_pabellon",
+   "category": "listados_fecha",
+   "complexity": "complex",
+   "stratum": "S10",
+   "turns": 1
+  },
+  {
+   "id": "s10_fecha_tarde",
+   "category": "listados_fecha",
+   "complexity": "complex",
+   "stratum": "S10",
+   "turns": 1
+  }
+ ]
+}

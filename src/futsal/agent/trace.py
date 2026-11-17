@@ -95,7 +95,7 @@ class RunRecord:
     raw_answer: str | None = None  # texto del modelo antes de que el guardarraíl lo sustituya (recortado)
     error: str | None = None
     # --- Fase 0 (instrumentación y router en sombra). Todos opcionales: las trazas anteriores no los tienen ---
-    prompt_mode: str = "legacy"  # Fase 1: `legacy` (textos de siempre) o `compact` (prompt y descripciones reducidos)
+    prompt_mode: str = "legacy"  # prompt usado; hoy siempre `standard` (se conserva para leer trazas antiguas)
     arch: str = "legacy"  # arquitectura que ejecutó la pregunta (hoy siempre `legacy`)
     exec_tier: str = "tier2"  # nivel de ejecución REAL (hoy siempre `tier2` = flujo completo actual)
     conversation_id: str | None = None  # para agrupar el coste por conversación
@@ -106,10 +106,10 @@ class RunRecord:
     router_ms: float = 0.0
     router: dict[str, Any] | None = None  # decisión completa del router (entidades, ámbito, aptitud Tier 0…)
     history_turns: int = 0  # nº de turnos de historial enviados (solo el número, nunca el contenido)
-    tier0: dict[str, Any] | None = None  # Fase G: intento de respuesta sin LLM (None = AGENT_TIER0=off)
+    tier0: dict[str, Any] | None = None  # retirado (Tier 0); se conserva para leer trazas antiguas
     tool_select: dict[str, Any] | None = None  # Fase E: selección dinámica de herramientas (None = AGENT_TOOLS=full)
     prefetch: dict[str, Any] | None = None  # Fase 3A: resultado del prefetch de entidades (None = desactivado o sin intentar)
-    context: dict[str, Any] | None = None  # comprensión de contexto (AGENT_CONTEXT=deterministic|llm): interpretación, intérprete, recuperación (None = legacy)
+    context: dict[str, Any] | None = None  # comprensión de contexto determinista: interpretación, recuperación y paginación
 
     def totals(self) -> dict[str, Any]:
         """Totales de la ejecución sumando cada llamada UNA vez (el historial reenviado ya va en su input)."""
@@ -128,7 +128,7 @@ class RunRecord:
             "peak_input_tokens": max((c.input_tokens or 0 for c in reported), default=0),
             "calls_without_usage": len(self.llm_calls) - len(reported),
             "tokens_estimated": any(c.tokens_estimated for c in reported),
-            "token_source": "measured_zero" if self.exec_tier == "tier0" and not self.llm_calls else _overall_source(self.llm_calls),
+            "token_source": "measured_zero" if not self.llm_calls else _overall_source(self.llm_calls),
             "llm_retries": sum(c.retries for c in self.llm_calls),
             "retry_wait_ms": round(sum(c.retry_wait_ms for c in self.llm_calls), 1),
             "llm_ms": round(sum(c.latency_ms for c in self.llm_calls), 1),

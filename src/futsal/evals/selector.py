@@ -430,6 +430,8 @@ class _Picker:
             if today and spec.get("past"):
                 alld = [d for d in alld if d <= today]
             cands = [(d, [d], date_es(date.fromisoformat(d))) for d in alld]
+        if spec.get("other_day_than"):  # «¿y el domingo?»: otro día distinto del ya elegido
+            cands = [c for c in cands if c[0] != bound[spec["other_day_than"]].get("date")]
         out = []
         for dkey, days, label in cands:
             venues: list[str | None] = [None]

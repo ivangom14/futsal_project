@@ -28,9 +28,10 @@ from futsal.agent.agent import (
     DEFAULT_MAX_ROWS,
     DEFAULT_MAX_TOOL_CALLS,
     OFF_TOPIC_MESSAGE,
-    PROMPT_SETS,
+    PROMPTS,
     Agent,
 )
+from futsal.agent.arms import QUOTA_EXIT_CODE
 from futsal.agent.audit import OFFICIAL_PREFIXES, critical_reasons, expectation
 from futsal.agent.criteria import (
     RULE_REF_RE,
@@ -43,9 +44,9 @@ from futsal.agent.criteria import (
     invented_quantities,
     leaks_prompt,
     mentioned_players,
-    page_numbers,
     missing_warnings,
     needs_warning,
+    page_numbers,
     says_coverage_partial,
     says_not_played,
     substitution_minute_claims,
@@ -57,11 +58,10 @@ from futsal.agent.criteria import (
     unsupported_rule_citations,
     unsupported_scores,
 )
-from futsal.agent.messages import LIMITATION_REPLIES
-from futsal.agent.arms import QUOTA_EXIT_CODE
 from futsal.agent.llm import QUOTA_MARKER, LLMClient, LLMResponse, Message, ToolCall, Usage
 from futsal.agent.llm import _gemini_tools as gemini_tools
 from futsal.agent.mcp_client import McpClient
+from futsal.agent.messages import LIMITATION_REPLIES
 
 CHARS_PER_TOKEN = 3.5
 MONTHS = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre",
@@ -1046,7 +1046,7 @@ class CaseResult:
     answer: str = ""
     expect: str = ""  # situación comprobada (Fase 17): complete | partial | no_data | not_ingested | query_error | unverifiable
     critical: list[str] = field(default_factory=list)  # fallos que ninguna media compensa (invención, fuente oficial sustituida)
-    repaired_calls: int = 0  # llamadas cuyo group_id completó la aplicación (AGENT_GROUP_ID_REPAIR); 0 con la bandera apagada
+    repaired_calls: int = 0  # llamadas cuyo group_id completó la aplicación (reparación retirada: siempre 0; se conserva el campo)
     exec_tier: str = ""  # tier2 (LLM con herramientas) | tier0 (respuesta determinista sin LLM)
 
 
@@ -1137,7 +1137,7 @@ def invention_claims(case: EvalCase, answer: str, truth: Truth, payloads: list[d
                for sc in unsupported_scores(answer, payloads, case.question)]
     names = catalog_names(truth, answer)
     claims += [f"cifra de cobertura que no cuadra con coverage: «{c}»" for c in unsupported_coverage_counts(answer, payloads, names)]
-    if any(leaks_prompt(answer, prompts.system, (OFF_TOPIC_MESSAGE, *LIMITATION_REPLIES)) for prompts in PROMPT_SETS.values()):  # ambos modos
+    if leaks_prompt(answer, PROMPTS.system, (OFF_TOPIC_MESSAGE, *LIMITATION_REPLIES)):
         claims.append("repite fragmentos de las instrucciones del sistema")
     if any(f.kind in ("rule_cited", "no_evidence_rules") for f in case.facts or []):
         # en reglamento el color de la tarjeta es contenido de la regla: se exige que figure en los fragmentos recuperados
@@ -1394,13 +1394,11 @@ async def _main(args: argparse.Namespace) -> int:
 
     from futsal.agent.llm import LLMError, RetryPolicy, create_llm
     from futsal.agent.mcp_client import SessionMcpClient, stdio_params
-    from futsal.agent.preflight import verify_same_database
+    from futsal.agent.preflight import quiet_logs, verify_same_database
     from futsal.agent.report import build_meta, render_plan, write_report
     from futsal.agent.trace import sanitize_trace_file
     from futsal.config.settings import api_base_url
     from futsal.db.session import make_engine
-
-    from futsal.agent.preflight import quiet_logs
 
     quiet_logs()
     live = args.mode == "live"

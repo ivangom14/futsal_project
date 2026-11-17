@@ -23,7 +23,7 @@ Dependencias permitidas: `domain` no depende de nadie; `rules` solo de `domain`;
 
 **Camino obligatorio de los datos del chat: agente → MCP → API → BD**, para todas las herramientas. Un único servidor MCP
 (`mcp_server/server.py`) publica las herramientas v1 (por grupo) y las v2 (sin grupo, `mcp_server/v2_tools.py`, sobre la API
-`/v2`); el agente legacy solo ofrece al LLM las v1 y el v2 todas. Lo vigila
+`/v2`), y el agente ofrece todas al LLM. Lo vigila
 `tests/test_agent_v2.py::test_agent_and_mcp_never_touch_the_database` (`agent/evaluate.py` y `agent/preflight.py` son herramientas de
 evaluación que leen la verdad de la BD; no forman parte del camino del chat). El registro v2 «en el mismo proceso» que consultaba la
 BD directamente se retiró el 2026-11-14 por incumplir esta regla.
@@ -102,25 +102,28 @@ Frontal (React) → servidor del chat → agente → MCP → API → PostgreSQL 
 | PostgreSQL | Docker Compose | Almacenamiento |
 | Ingesta | `ingestion/` + `scripts/update_rffm.sh` | Descarga de la RFFM y guardado en la BD |
 
-### Agente: una sola clase con interruptores
+### Agente: una única arquitectura
 
-| Interruptor | Valores (predeterminado en negrita) | Efecto |
-|---|---|---|
-| `AGENT_ARCH` | **legacy** / v2 | legacy ofrece 15 herramientas (v1); v2 ofrece 22 (v1 + v2) y añade reglas propias: fechas, alcance amplio, premisas falsas y respuesta de respaldo sin LLM ante aclaraciones insistentes |
-| `AGENT_CONTEXT` | **legacy** / deterministic / llm | Comprensión de preguntas encadenadas; `llm` hace una llamada extra al modelo |
-| `AGENT_PROMPT_MODE` | **legacy** / compact | Textos del prompt y de las herramientas más cortos |
-| `AGENT_PREFETCH` | **off** / on | Consulta datos antes de llamar al LLM |
-| `AGENT_TOOLS` | **full** / dynamic | Ofrecer todas las herramientas o solo las relevantes |
-| `AGENT_TIER0` | **off** / on | Respuestas por plantilla sin LLM |
-| `AGENT_GROUP_ID_REPAIR` | **off** / on | Completa el grupo si el modelo lo omite |
-| `AGENT_ROUTER` | **shadow** / off | Router que solo anota lo que decidiría (no actúa) |
-| `AGENT_TELEMETRY` | off / on | Registro de uso |
+Desde el 2026-11-17 no hay modos ni interruptores de arquitectura: se retiraron el agente legacy, el contexto `legacy`/`llm` (intérprete
+LLM), el modo de prompt compacto, el prefetch, el Tier 0, las herramientas dinámicas, la reparación de `group_id` y el router en sombra.
+Cada pregunta sigue siempre el mismo camino:
 
-Pendiente de consolidación: retirar legacy y los interruptores que no ganen en el benchmark (`docs/bench.md`).
+1. **Comprensión determinista** (`agent/context.py`, sin LLM): resolutor de competición, grupo y equipo sobre el catálogo, estado de la
+   conversación (`agent/convstate.py`) y política de aclaración. Decide si actuar, asumir (y decirlo), preguntar con opciones reales o
+   explicar que el dato no existe.
+2. **Seguimientos de listados sin LLM** (`agent/v2/paging.py`): «los siguientes», «solo los juveniles», «¿y el domingo?» repiten la
+   consulta guardada con otro `offset` o filtro (una llamada MCP).
+3. **LLM con las 22 herramientas** (v1 + v2) y reglas deterministas propias (`agent/v2/rules.py`): fechas, alcance amplio, premisas
+   falsas, «no consta en el acta» y respuesta de respaldo sin LLM ante aclaraciones insistentes.
+4. **Guardarraíles y recuperación**: una respuesta con datos debe apoyarse en herramientas; si el modelo no consulta, la aplicación le
+   entrega la interpretación verificada o ejecuta ella misma las consultas.
+
+Única variable de comportamiento que queda: `AGENT_TELEMETRY` (off/on, registro de uso). `AGENT_TIME_BANDS` ajusta las franjas
+horarias (no es un modo). Las mejoras se hacen sobre este camino y se miden con el benchmark (`docs/bench.md`).
 
 ### Herramientas del MCP (un único servidor)
 
-**v1 (por grupo): legacy y v2**
+**v1 (por grupo)**
 
 | Herramienta | Endpoint |
 |---|---|
@@ -140,7 +143,7 @@ Pendiente de consolidación: retirar legacy y los interruptores que no ganen en 
 | `find_players` | `GET /groups/{id}/players` |
 | `search_rules` (reglamento) | `GET /knowledge/search` |
 
-**v2 (sin grupo, en todas las competiciones): solo v2**
+**v2 (sin grupo, en todas las competiciones)**
 
 | Herramienta | Endpoint |
 |---|---|

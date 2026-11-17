@@ -8,7 +8,6 @@ from typing import Any
 from futsal.evals.bench.runner import load_run
 from futsal.evals.runner import expected_for
 from futsal.evals.selector import ResolvedTurn
-from futsal.mcp_server.v2_tools import V2_TOOL_NAMES
 
 AUTO = {"correct": "bien", "partial": "parcial (falta un dato)", "fail": "mal", "critical": "mal grave (inventa o contradice)",
         "review": "revisar", "not_evaluable": "no evaluable", "not_run": "no ejecutado"}
@@ -20,9 +19,9 @@ COLUMNS = [("caso", 26), ("categoría", 18), ("turno", 7), ("rep", 5), ("pregunt
            ("automático", 16), ("motivo automático", 40), ("herramientas", 24), ("humano", 10), ("comentario", 40)]
 
 
-def _expected(exp: dict[str, Any], arch: str) -> str:
+def _expected(exp: dict[str, Any]) -> str:
     try:
-        turn = expected_for(ResolvedTurn(**exp), arch, frozenset(V2_TOOL_NAMES))
+        turn = expected_for(ResolvedTurn(**exp))
     except TypeError:  # resultado sin la expectativa completa (caso no evaluable)
         return ""
     parts = [BEHAVIOR.get(turn.behavior, turn.behavior)]
@@ -36,7 +35,6 @@ def _expected(exp: dict[str, Any], arch: str) -> str:
 
 
 def review_rows(meta: dict[str, Any], results: dict[str, Any]) -> list[list[Any]]:
-    arch = (meta.get("agent") or {}).get("arch") or (results.get("meta", {}).get("agent") or {}).get("arch") or "v2"
     order = {cid: i for i, cid in enumerate(meta.get("case_ids") or [])}
     cats = meta.get("cases") or {}
     rows = []
@@ -45,7 +43,7 @@ def review_rows(meta: dict[str, Any], results: dict[str, Any]) -> list[list[Any]
         exp = exps[r["turn"]] if r["turn"] < len(exps) else {}
         n = len(exps) or 1
         rows.append([r["case_id"], (cats.get(r["case_id"]) or {}).get("category", ""), f"{r['turn'] + 1}/{n}", r["rep"] + 1,
-                     r["question"], r.get("answer") or "", _expected(exp, arch), AUTO.get(r["verdict"], r["verdict"]),
+                     r["question"], r.get("answer") or "", _expected(exp), AUTO.get(r["verdict"], r["verdict"]),
                      r.get("reason") or "", ", ".join(r.get("tools_used") or []), "", ""])
     return rows
 

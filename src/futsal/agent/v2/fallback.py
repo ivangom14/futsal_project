@@ -42,7 +42,7 @@ def choose_plan(question: str, hint: DateHint | None) -> Plan | None:
         args: dict[str, Any] = {"date_from": hint.date_from.isoformat(), "date_to": hint.date_to.isoformat()}
         if hint.time_from and hint.time_to:
             args.update(time_from=f"{hint.time_from:%H:%M}", time_to=f"{hint.time_to:%H:%M}")
-        plans.append(Plan("matches_by_date", "matches_by_date", {**args, "limit": 100}))
+        plans.append(Plan("matches_by_date", "matches_by_date", args))  # primera página (10) y count = total exacto
     cats = set(_CATEGORY.findall(low))
     if _SCORER.search(low) and len(cats) == 1:
         plans.append(Plan("scorers_ranking", "scorers_ranking", {"category": next(iter(cats))}))
@@ -68,7 +68,16 @@ def _lines(lines: list[str], count: int) -> list[str]:
 
 
 def _score(s: Any) -> str:
+    if isinstance(s, str) and s:  # fila compacta: «3-1»
+        return f" ({s})"
     return f" ({s['home']}-{s['away']})" if isinstance(s, dict) and s.get("home") is not None else ""
+
+
+def _where(it: dict[str, Any]) -> str:
+    """Competición y grupo: `comp` en las filas compactas («PREFERENTE · Grupo 2»); `competition`/`group` en las completas."""
+    if it.get("comp"):
+        return str(it["comp"])
+    return ", ".join(_name(it[k]) for k in ("competition", "group") if it.get(k))
 
 
 def _name(v: Any) -> str:
@@ -103,6 +112,9 @@ def club_options(data: dict[str, Any]) -> list[str] | None:
 def compose(plan: Plan, data: dict[str, Any], hint: DateHint | None) -> tuple[str | None, str]:
     """(respuesta, motivo si no hay): la respuesta usa solo `items`, `count`, `shown` y TODAS las `notes` del resultado."""
     items, count, notes = data["items"], int(data.get("count") or 0), list(data.get("notes") or [])
+    if plan.plan == "official_matches" and data.get("people"):  # varios árbitros con ese nombre: se pregunta cuál, sin mezclar partidos
+        lines = [f"{x['name']}: {x['matches']} partidos" for x in data["people"]]
+        return _finish(f"Varios árbitros coinciden con «{plan.args['name']}»:", lines, notes), ""
     if plan.plan == "official_matches" and count == 0:
         sugg = [str(s["name"]) for s in data.get("suggestions") or [] if isinstance(s, dict) and s.get("name")]
         head = f"«{plan.args['name']}» no figura como árbitro en las actas almacenadas."
@@ -114,10 +126,10 @@ def compose(plan: Plan, data: dict[str, Any], hint: DateHint | None) -> tuple[st
     if plan.plan == "matches_by_date" and hint is not None:
         band = f" entre las {hint.time_from:%H:%M} y las {hint.time_to:%H:%M}" if hint.time_from and hint.time_to else ""
         lines = [f"{it.get('date')} {it.get('time') or 'hora sin confirmar'} · {_name(it['home'])} - {_name(it['away'])}{_score(it.get('score'))}"
-                 f" ({_name(it['competition'])}, {_name(it['group'])})" for it in items]
+                 f" ({_where(it)})" for it in items]
         return _finish(f"{count} {'partido' if count == 1 else 'partidos'} {_day(hint)}{band}:", _lines(lines, count), notes), ""
     if plan.plan == "scorers_ranking":
-        lines = [f"{it['rank']}. {_name(it['player'])} ({_name(it['team'])}, {_name(it['competition'])}, {_name(it['group'])}): {it['goals']} goles" for it in items]
+        lines = [f"{it['rank']}. {_name(it['player'])} ({_name(it['team'])}, {_where(it)}): {it['goals']} goles" for it in items]
         return _finish(f"Goleadores {plan.args['category']} según las tablas oficiales ({count} en total):", _lines(lines, count), notes), ""
     if plan.plan == "club_overview":
         if club_options(data) is not None:
@@ -128,6 +140,10 @@ def compose(plan: Plan, data: dict[str, Any], hint: DateHint | None) -> tuple[st
             lines.append(f"{_name(it['team'])} ({_name(it['competition'])}, {_name(it['group'])}): {s['played']} jugados, {s['won']} ganados, {s['drawn']} empatados, "
                          f"{s['lost']} perdidos, {s['goals_for']} goles a favor y {s['goals_against']} en contra")
         return _finish(f"{count} {'equipo' if count == 1 else 'equipos'} de {items[0]['club']['name']}:", _lines(lines, count), notes), ""
+    if plan.plan == "official_matches" and data.get("official"):  # /v2/officials/matches: página de partidos de UNA persona
+        listed = [f"{m.get('date')} {m.get('time') or 'hora sin confirmar'} · {m['home']} - {m['away']}{_score(m.get('score'))} ({_where(m)})"
+                  for m in items]
+        return _finish(f"{data['official']} figura en {count} {'partido' if count == 1 else 'partidos'}:", _lines(listed, count), notes), ""
     if plan.plan == "official_matches":  # una sola persona con su lista de partidos; varias, solo sus nombres
         if len(items) > 1:
             lines = [f"{it['name']}: {it['matches']} partidos" for it in items]

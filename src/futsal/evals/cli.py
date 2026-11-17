@@ -51,7 +51,7 @@ def build_parser() -> argparse.ArgumentParser:
     rp.add_argument("--min-interval", type=float, default=4.0)
     rp.add_argument("--output", type=Path, required=True)
     rp.add_argument("--fill-missing", action="store_true", help="completa solo lo que quedó not_run en --output")
-    rp.add_argument("--arm", choices=sorted(ARMS), default="legacy")
+    rp.add_argument("--arm", choices=sorted(ARMS), default="base")
     rp.add_argument("--confirm-live", action="store_true", help="imprescindible: la ejecución llama al LLM real (de pago)")
 
     pr = sub.add_parser("report", help="regenera report.md de un results.json")

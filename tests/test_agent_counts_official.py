@@ -138,7 +138,8 @@ def test_official_question_queries_the_official_source_and_keeps_its_answer() ->
 
 def test_when_the_limit_is_hit_the_official_data_already_retrieved_is_kept_without_mixing_in_actas() -> None:
     llm = Script([_call("get_scorer_table", group_id=1), _call("list_rounds", group_id=1), _call("top_scorers", group_id=1, round_id=2),
-                  _call("top_scorers", group_id=1, round_id=1), _call("top_scorers", group_id=1), _call("top_scorers", group_id=1, min_goals=2)])
+                  _call("top_scorers", group_id=1, round_id=1), _call("top_scorers", group_id=1), _call("top_scorers", group_id=1, min_goals=2),
+                  _call("top_scorers", group_id=1, min_goals=3)])  # tras el límite, el modelo insiste en más herramientas → aviso de límite
     res = _run(llm, "¿Quién era el máximo goleador tras la jornada 2?")
     assert res.guardrail == "limite_herramientas" and res.error == "límite de 5 tool calls alcanzado"   # el fallo sigue visible
     assert res.answer.startswith(LIMIT_REACHED_MESSAGE)

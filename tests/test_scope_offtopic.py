@@ -17,10 +17,17 @@ def run(question: str, steps: list[LLMResponse], mcp: Mcp | None = None) -> tupl
     return llm, asyncio.run(Agent(llm, mcp or Mcp(), 5).run(question, []))
 
 
-@pytest.mark.parametrize("q", ["¿Cómo va la liga preferente?", "¿Cómo va la liga juvenil?", "¿Cómo va la tercera división?"])
-def test_recognized_competition_without_teams_is_reconsulted_instead_of_refused(q: str) -> None:
-    llm, res = run(q, [LLMResponse(OFF_TOPIC_MESSAGE, []), LLMResponse("", [ToolCall("c1", "list_matches", {})]), LLMResponse("Clasificación.", [])])
+def test_recognized_competition_without_teams_is_reconsulted_instead_of_refused() -> None:
+    llm, res = run("¿Cómo va la tercera división?", [LLMResponse(OFF_TOPIC_MESSAGE, []), LLMResponse("", [ToolCall("c1", "list_matches", {})]),
+                                                     LLMResponse("Clasificación.", [])])
     assert len(llm.seen) == 3 and res.tool_calls == 1 and res.answer == "Clasificación."
+
+
+@pytest.mark.parametrize("q", ["¿Cómo va la liga preferente?", "¿Cómo va la liga juvenil?"])
+def test_a_competition_word_shared_by_several_competitions_asks_which_one_instead_of_refusing(q: str) -> None:
+    """Hay varias «preferente»/«juvenil» en el catálogo: se pregunta con las opciones reales, sin consultar datos ni rechazar."""
+    llm, res = run(q, [LLMResponse(OFF_TOPIC_MESSAGE, [])])
+    assert res.answer != OFF_TOPIC_MESSAGE and res.guardrail == "aclaracion_ambito" and res.tool_calls == 0 and "?" in res.answer
 
 
 def test_really_off_topic_question_is_still_refused_in_one_call() -> None:

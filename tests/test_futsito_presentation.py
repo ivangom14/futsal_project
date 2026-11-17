@@ -54,7 +54,9 @@ def _pl(team: str, name: str, shirt: int, lineup: str, gk: bool = False, captain
 
 
 def _card(team: str, name: str, minute: int, code: str, second: str) -> dict[str, Any]:
-    from futsal.domain.cards import card_kind  # el significado lo calcula la API; aquí se reproduce su salida
+    from futsal.domain.cards import (
+        card_kind,  # el significado lo calcula la API; aquí se reproduce su salida
+    )
 
     return {"type": "card", "team": team, "player_id": minute, "player": name, "minute": minute, "source_code": code, "second_yellow": second,
             "card_kind": card_kind(code, second)}
@@ -139,8 +141,9 @@ def test_focus_reaches_the_llm_as_names_and_others_groups_for_el_otro_grupo() ->
     focus = {"team": "C.D. DOSA", "competition": "PRIMERA AFICIONADO FS", "group": "Grupo 2"}
     _, llm = run("¿Y el siguiente partido?", [LLMResponse("ok", [])] * 4, focus=focus)
     note = llm.seen[0][-1].text
-    assert "equipo «C.D. DOSA»" in note and "grupo «Grupo 2»" in note and "Otros grupos de esa competición: «Grupo 1»" in note
-    assert "team_id" not in note.split("Foco")[1].split("Los datos")[0]  # nombres, nunca IDs
+    # el foco llega como equipo, competición y grupo identificados (verificados con el catálogo)
+    assert "Equipo identificado: «C.D. DOSA»" in note and "«Grupo 2» de PRIMERA AFICIONADO FS" in note and "(juega en: )" not in note
+    assert "team_id" not in note  # nombres de equipo, nunca IDs de equipo
 
 
 def test_focus_ids_are_not_trusted_the_tool_validation_still_applies() -> None:
@@ -182,7 +185,7 @@ def test_focus_is_kept_per_conversation_isolated_and_seeded_only_for_unknown_ids
                                        "focus": {"team": "FS ALCALA", "x": "y"}})
         forged = c.post("/chat", json={"question": "¿Y el siguiente?", "conversation_id": "a", "focus": {"team": "FALSO"}})
     notes = [m[-1].text for m in llm.seen if "Foco" in m[-1].text or m[-1].text.startswith("¿Y el")]
-    assert any("equipo «C.D. DOSA»" in n for n in notes)
+    assert any("equipo «C.D. DOSA»" in n or "Equipo identificado: «C.D. DOSA»" in n for n in notes)
     assert "FS ALCALA" in [m[-1].text for m in llm.seen][-2] and seeded.status_code == 200 and forged.status_code == 200
     assert not any("FALSO" in m[-1].text for m in llm.seen)  # conversación conocida: manda el servidor
 
@@ -261,7 +264,7 @@ def test_no_visuals_without_enough_data_or_after_incomplete_runs() -> None:
     empty = {**STANDINGS, "status": "empty", "standings": []}
     rec = run("q", [LLMResponse("hola", [])])[0].run
     assert rec is not None and pres.build_visuals("q", rec, [empty], {"teams": {}, "players": {}, "rounds": {}}) == []
-    limit = present("¿Cómo va?", [call("get_standings", group_id=12)] * 6)  # se agota el límite de herramientas
+    limit = present("¿Cómo va?", [call("get_standings", group_id=12)] * 7)  # se agota el límite de herramientas
     assert limit.visuals == [] and limit.error
 
 
@@ -283,7 +286,7 @@ def test_no_suggestions_for_errors_limits_or_answers_without_tools() -> None:
     assert present("Hola", [LLMResponse("Solo puedo responder preguntas sobre la competición.", [])]).suggestions == []
     assert present("¿Cómo va?", [call("get_standings", group_id=12), LLMResponse("No he encontrado ese dato en las fuentes que tengo disponibles.", [])]
                    ).suggestions == []
-    assert present("¿Cómo va?", [call("get_standings", group_id=12)] * 6).suggestions == []
+    assert present("¿Cómo va?", [call("get_standings", group_id=12)] * 7).suggestions == []
 
 
 def test_rules_answers_suggest_only_what_the_rag_can_answer() -> None:

@@ -218,7 +218,8 @@ def test_identical_call_reuses_the_previous_result_but_still_counts() -> None:
 # --- 6. límite: lo verificado se conserva ------------------------------------------------------------------------------------------
 def test_limit_keeps_official_data_already_obtained_and_does_not_invent_the_rest() -> None:
     llm = Script([_call("get_standings", group_id=1), _call("list_matches", group_id=1, team_id=98),
-                  _call("list_matches", group_id=1, team_id=99), _call("list_matches", group_id=1, team_id=97)])
+                  _call("list_matches", group_id=1, team_id=99), _call("list_matches", group_id=1, team_id=97),
+                  _call("list_matches", group_id=1, team_id=96)])  # tras el límite, el modelo insiste en más herramientas → aviso de límite
     res = _run(llm, "¿Quién lidera el grupo y cuál fue su último partido?", max_calls=3)
     assert res.guardrail == "limite_herramientas" and res.error and res.answer.startswith(LIMIT_REACHED_MESSAGE)
     assert "CD DOSA con 12 puntos" in res.answer and "jornada 5" in res.answer              # copiado de la tool

@@ -25,6 +25,7 @@ MAX_MATCHES = 12
 MAX_EVENTS = 20
 PARTICLES = frozenset({"de", "del", "la", "las", "los", "y", "da", "do"})
 MAX_BARS = 10
+V2_LIST_TOOLS = frozenset({"matches_by_date", "scorers_ranking", "teams_ranking", "officials_ranking", "find_official"})
 
 
 def _json(text: str | None) -> Any:
@@ -375,6 +376,39 @@ def lineup_visuals(question: str, rec: RunRecord, focus: dict[str, str]) -> list
     return out
 
 
+def _page_label(body: dict[str, Any]) -> str | None:
+    n, count, offset = len(body.get("items") or []), int(body.get("count") or 0), int(body.get("offset") or 0)
+    if not n or (count <= n and not offset):
+        return None
+    return f"Mostrando {offset + 1}–{offset + n} de {count}" if n > 1 else f"Mostrando {offset + 1} de {count}"
+
+
+def v2_list_visual(tool: str, args: dict[str, Any], body: Any) -> dict[str, Any] | None:
+    """Listados v2 paginados (partidos de un día o de un árbitro, goleadores, ranking de equipos o de árbitros) con los componentes que ya
+    existen («matches» y «bars»): la página que se mostró, su rango y el total exacto. Sin filas, sin visual."""
+    from futsal.agent.v2.paging import describe
+
+    if not isinstance(body, dict) or not isinstance(body.get("items"), list) or "offset" not in body or not body["items"]:
+        return None
+    items = [i for i in body["items"] if isinstance(i, dict)]
+    count = int(body.get("count") or len(items))
+    title, page = describe(tool, args), _page_label(body)
+    if tool in ("matches_by_date", "find_official"):
+        if len(items) < 2 and not body.get("offset"):
+            return None
+        rows = [{"round": None, "date": f"{m['date']}T{m['time']}" if m.get("date") and m.get("time") else m.get("date"),
+                 "home": str(m.get("home")), "away": str(m.get("away")), "score": m.get("score") if isinstance(m.get("score"), str) else None,
+                 "status": str(m.get("status") or "scheduled"), "past_due": False, "detail": m.get("comp")} for m in items]
+        return {"type": "matches", "title": title, "subtitle": page, "rows": rows, "total": count, "partial": count > len(rows)}
+    value_key = {"scorers_ranking": "goals", "officials_ranking": "matches"}.get(tool) or str(args.get("metric") or "goals_for")
+    rows = [{"label": str(i.get("player") or i.get("team") or i.get("name")), "sublabel": " · ".join(x for x in (
+                str(i["team"]) if tool == "scorers_ranking" and i.get("team") else None, i.get("comp")) if x) or None,
+             "value": i.get(value_key), "rank": i.get("rank")} for i in items if isinstance(i.get(value_key), (int, float))]
+    if len(rows) < 2:
+        return None
+    return {"type": "bars", "title": title, "subtitle": page, "partial": count > len(rows), "rows": rows}
+
+
 def build_visuals(question: str, rec: RunRecord, official: list[dict[str, Any]], names: dict[str, dict[int, str]],
                   focus: dict[str, str] | None = None, groups_used: dict[int, dict[str, str]] | None = None) -> list[dict[str, Any]]:
     visuals: list[dict[str, Any]] = lineup_visuals(question, rec, focus or {})
@@ -407,6 +441,12 @@ def build_visuals(question: str, rec: RunRecord, official: list[dict[str, Any]],
                             "subtitle": f"Tabla actual · captura {str(src.get('captured_at'))[:10]}" if src.get("captured_at") else None,
                             "rows": [{"label": str(r.get("player")), "sublabel": r.get("team"), "value": r["goals"],
                                       "rank": r.get("rank")} for r in scorers[:MAX_BARS]]})
+    for call in reversed(executed(rec)):  # v2: el último listado paginado (la página que se acaba de mostrar)
+        if call.name in V2_LIST_TOOLS:
+            visual = v2_list_visual(call.name, {k: v for k, v in call.arguments.items() if k not in ("offset", "limit")}, _json(call.result))
+            if visual is not None:
+                visuals.append(visual)
+                break
     form_done = False
     for call in executed(rec):  # partidos listados: tarjetas de resultados / próximos partidos (la forma de un equipo va aparte)
         payload = _json(call.result) if call.name == "list_matches" else None
@@ -445,12 +485,27 @@ def _form(team: str, matches: list[dict[str, Any]]) -> dict[str, Any]:
 
 
 # --- Preguntas sugeridas (Bloque 4) ----------------------------------------------------------------------------------------------------------
+def _more_chip(calls: list[ToolCallRecord]) -> str | None:
+    for call in reversed(calls):
+        if call.name not in V2_LIST_TOOLS:
+            continue
+        body = _json(call.result)
+        if isinstance(body, dict) and isinstance(body.get("next_offset"), int):
+            left = int(body.get("count") or 0) - int(body["next_offset"])
+            return f"Muéstrame los siguientes {min(10, left)}" if left > 0 else None
+        return None
+    return None
+
+
 def build_suggestions(question: str, answer: str, rec: RunRecord, focus: dict[str, str], asked: list[str],
                       sources: list[dict[str, Any]], visuals: list[dict[str, Any]] | None = None) -> list[str]:
     """2-3 preguntas que las tools SÍ pueden responder, a partir de la consulta realizada y el foco; sin llamada extra al LLM."""
     calls = executed(rec)
     if not calls or states_tool_limit(answer) or rec.error or rec.guardrail not in (None, "aclaracion_ambito"):
         return []
+    more = _more_chip(calls)
+    if more is not None:  # «Ver más»: la siguiente página del listado, sin LLM (paginación conversacional v2)
+        return [more]
     team, player, group = focus.get("team"), focus.get("player"), focus.get("group")
     names_used = {t.name for t in calls}
     scheduled = any(t.arguments.get("status") == "scheduled" for t in calls if t.name == "list_matches")

@@ -24,8 +24,6 @@ from futsal.agent.agent import (
     DEFAULT_MAX_ROWS,
     DEFAULT_MAX_TOOL_CALLS,
     Agent,
-    resolve_arch,
-    resolve_context_mode,
 )
 from futsal.agent.arms import arm_env, current_flags
 from futsal.agent.llm import BUDGET_EXHAUSTED, QUOTA_MARKER, BudgetedLLM, LLMClient, PacedLLM
@@ -46,8 +44,8 @@ RESULTS = "results.json"
 REPORT = "report.md"
 INFRA = "infra:"
 CLOCK_DEPENDENCIES = [
-    ("FIJADO: `Agent._clock` (agent/agent.py:455) = as_of del snapshot. Solo lo lee la frescura del Tier 0 "
-     "(`tier0_compose(now=self._clock())`, agent.py:1026); con `AGENT_TIER0=off` (predeterminado) no interviene."),
+    ("FIJADO: `Agent._clock` = as_of del snapshot. Lo leen las fechas relativas de la pregunta («el sábado», «este fin de semana») "
+     "y la paginación conversacional."),
     ("FIJADO: `create_app(today=...)` de la API (api/app.py:76; `mark_past_due` marca como vencidos los partidos programados anteriores "
      "a «hoy») recibe el día del as_of. Es la dependencia que sí cambia respuestas («este fin de semana», partidos vencidos)."),
     ("NO CONTROLABLE sin tocar el agente: la suite `regression` ejecuta el `evaluate` actual, que construye `Agent(...)` por su cuenta "
@@ -72,15 +70,13 @@ class RunConfig:
     max_requests: int = 0
     min_interval: float = 0.0
     fill_missing: bool = False
-    arm: str = "legacy"
+    arm: str = "base"
     root: Path = Path(".")
     db_url: str | None = None  # BD ya restaurada; si falta se restaura el volcado en `futsal_eval_<id>`
     admin_url: str | None = None
     progress: Callable[[str], None] | None = None
     extra_meta: dict[str, Any] = field(default_factory=dict)
     case_ids: list[str] | None = None  # subconjunto ordenado de la suite (benchmark: --limit); None = la suite entera
-    agent_arch: str | None = None  # legacy | v2; None = AGENT_ARCH del entorno (como siempre)
-    context_mode: str | None = None  # legacy | deterministic | llm; None = AGENT_CONTEXT del entorno
     live_manifest: dict[str, Any] | None = None  # solo con snapshot=live: el mismo «hoy» y huella para todos los modelos
 
 
@@ -173,13 +169,10 @@ def prepare_database(cfg: RunConfig) -> tuple[str, dict[str, Any]]:
 
 
 # ----------------------------------------------------------------------------- expectativa según la arquitectura
-def expected_for(turn: ResolvedTurn, arch: str, v2_tools: frozenset[str]) -> ResolvedTurn:
-    """Expectativa con la que se califica el turno. `legacy`: la de siempre. `v2`: si el caso declara qué haría una arquitectura que SÍ
-    resuelve la consulta (`expect.v2`, verdad SQL), esa conducta y esos hechos; las restricciones propias de la abstención de v1
-    (prohibir marcadores, herramientas necesarias, menciones de la aclaración) dejan de aplicarse cuando la conducta cambia. Las
-    herramientas v2 cuentan como permitidas (no son «inesperadas»)."""
-    if arch != "v2":
-        return turn
+def expected_for(turn: ResolvedTurn, v2_tools: frozenset[str] = frozenset(V2_TOOL_NAMES)) -> ResolvedTurn:
+    """Expectativa con la que se califica el turno: si el caso declara qué hace el agente con las herramientas sin grupo (`expect.v2`,
+    verdad SQL), esa conducta y esos hechos; las restricciones de la antigua abstención (prohibir marcadores, herramientas necesarias,
+    menciones de la aclaración) dejan de aplicarse cuando la conducta cambia. Las herramientas v2 cuentan como permitidas."""
     extra: dict[str, Any] = {}
     if turn.tools_allowed is not None:
         extra["tools_allowed"] = sorted(set(turn.tools_allowed) | v2_tools)
@@ -263,7 +256,7 @@ async def run_conversation(rc: ResolvedCase, rep: int, mcp: McpClient, llm: LLMC
     `agent_kwargs`: arquitectura, modo de contexto y registro v2 (contra el snapshot) que fija `run_eval`."""
     records: list[dict[str, Any]] = []
     agent = Agent(llm, mcp, DEFAULT_MAX_TOOL_CALLS, max_rows=DEFAULT_MAX_ROWS, trace_results=True, **(agent_kwargs or {}))
-    agent._clock = lambda: as_of  # reloj fijo del snapshot (solo lo usa la frescura de Tier 0)
+    agent._clock = lambda: as_of  # reloj fijo del snapshot (fechas relativas y paginación)
     history: list[Turn] = []
     focus: dict[str, Any] = {}
     state: dict[str, Any] | None = None
@@ -332,8 +325,7 @@ def _load_previous(cfg: RunConfig, manifest: dict[str, Any]) -> dict[str, Any] |
     old = data["meta"]
     mismatch = [name for name, same in (
         ("snapshot", old["snapshot"]["fingerprint"] == manifest["fingerprint"]["sha256"]), ("suite", old["suite"] == cfg.suite),
-        ("split", old["split"] == cfg.split), ("brazo", old["arm"] == cfg.arm),
-        ("agente", old.get("agent", {}).get("arch", resolve_arch(None)) == resolve_arch(cfg.agent_arch))) if not same]
+        ("split", old["split"] == cfg.split), ("brazo", old["arm"] == cfg.arm)) if not same]
     if mismatch:
         raise ValueError(f"--fill-missing: el results.json de {cfg.output} no coincide en {', '.join(mismatch)}: no se mezclan ejecuciones")
     return data
@@ -366,11 +358,9 @@ def run_eval(cfg: RunConfig, llm_factory: Callable[[], LLMClient]) -> dict[str, 
         pairs = [(cid, r) for r in range(cfg.reps) for cid in order]
         previous = _load_previous(cfg, manifest)
         todo = _pending_pairs(previous, pairs)
-        arch, context = resolve_arch(cfg.agent_arch), resolve_context_mode(cfg.context_mode)
-        agent_kwargs: dict[str, Any] = {"arch": arch, "context_mode": context}
-        # v1 y v2 pasan por el MCP y la API montados sobre el snapshot (con «hoy» = día del as_of): nunca tocan DATABASE_URL.
-        v2_tools = frozenset(V2_TOOL_NAMES) if arch == "v2" else frozenset()
-        resolved = {cid: replace(rc, turns=[expected_for(t, arch, v2_tools) for t in rc.turns]) for cid, rc in resolved.items()}
+        agent_kwargs: dict[str, Any] = {}
+        # todas las herramientas pasan por el MCP y la API montados sobre el snapshot (con «hoy» = día del as_of): nunca tocan DATABASE_URL.
+        resolved = {cid: replace(rc, turns=[expected_for(t) for t in rc.turns]) for cid, rc in resolved.items()}
         base = llm_factory()
         budget = BudgetedLLM(PacedLLM(base, cfg.min_interval), cfg.max_requests)
         price = (getattr(base, "provider", None), getattr(base, "model", None))
@@ -400,7 +390,7 @@ def run_eval(cfg: RunConfig, llm_factory: Callable[[], LLMClient]) -> dict[str, 
         records = sorted(kept + new_records, key=lambda r: (r["rep"], r["case_id"], r["turn"]))
         stop = stop or next((r["reason"] for r in records if r["verdict"] == "not_run"), None)
         meta = build_meta(cfg, manifest, base, flags, budget.used, stop, price)
-        meta["agent"] = {"arch": arch, "context_mode": context}
+        meta["agent"] = {"arch": "v2", "context_mode": "deterministic"}  # arquitectura única (se registra para comparar con ejecuciones antiguas)
         results = {"schema": 1, "meta": meta,
                    "cases": {cid: _case_info(resolved[cid], by_id[cid].turns) for cid in order},
                    "records": records}

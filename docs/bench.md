@@ -16,17 +16,14 @@ runner sobre el agente real.
 | `futsal.evals.bench.analysis` / `report` | clasificación, estadísticas, rankings A-D, Pareto, router híbrido, incertidumbre → `summary.json` y `report.md` |
 | `futsal.evals.bench.blind` | paquete ciego para Opus y revelado posterior |
 
-**Agente evaluado: v2 por defecto** (`--agent v2`, el del frontal con `AGENT_ARCH=v2`; `--agent legacy` para comparar). Los dos
-siguen el camino agente → MCP → API → BD: el benchmark monta la API y el MCP reales sobre el snapshot (con «hoy» = día del as_of), así
+**Agente evaluado: el único del proyecto** (el mismo del frontal: herramientas v1 + v2 y comprensión determinista; desde el
+2026-11-17 no hay `--agent` ni `--context`). Sigue el camino agente → MCP → API → BD: el benchmark monta la API y el MCP reales sobre el snapshot (con «hoy» = día del as_of), así
 que ninguna herramienta, v1 o v2, puede consultar `DATABASE_URL`. Los casos que declaran qué haría una arquitectura capaz
-(`expect.v2`, verdad SQL) se califican con esa expectativa cuando el agente es v2: debe responder donde v1 se abstenía. El modo de comprensión conversacional se elige con
-`--context legacy|deterministic|llm`; por defecto se toma `AGENT_CONTEXT` del entorno (el mismo `.env` que el frontal). Arquitectura y
-modo quedan registrados en cada ejecución y `--resume` se niega a mezclarlos. En modo `llm` el intérprete usa el mismo modelo
-evaluado, así que sus llamadas también cuentan en coste y presupuesto.
+(`expect.v2`, verdad SQL) se califican siempre con esa expectativa: debe responder donde v1 se abstenía. Las ejecuciones guardadas
+anteriores (con `--agent legacy` o `--context`) se siguen pudiendo leer.
 
 Cambios en código existente (aditivos, sin cambiar conducta): `evals/runner.py` guarda el detalle por llamada (tokens, caché y
-reintentos; los tiempos en `timing`), admite un subconjunto de casos y fija explícitamente arquitectura y modo de contexto (con v2,
-expectativa v2; antes `AGENT_ARCH=v2` en el entorno hacía que los casos se calificaran con la expectativa de v1); `evals/datasets.py` reconoce las suites de `evals/bench/suites/`; `report_batch`,
+reintentos; los tiempos en `timing`), admite un subconjunto de casos y califica con la expectativa v2; `evals/datasets.py` reconoce las suites de `evals/bench/suites/`; `report_batch`,
 agente, API y MCP no se tocan.
 
 ## Modelos soportados
@@ -82,6 +79,10 @@ hoja del responsable. Incluye los 100 casos; `s3_equipo_resultado_rival_puntos` 
 `evals/bench/review/bench-127-revision.csv` (`import-suite … --name bench-127`). Las preguntas que no tienen verdad automática completa
 («revisión humana» en la nota) se deciden en el Excel de revisión.
 
+### `bench-masivas`: consultas masivas y paginación
+
+`evals/bench/suites/bench-masivas.json` (30 casos, 37 turnos) cubre listados por fecha, paginación encadenada, cambios de filtro, rankings, árbitros, cifras globales y días sin datos, más 3 preguntas sencillas de control. Los detalles y la medición antes y después están en `docs/phase-mass-queries.md`.
+
 ## Excel de revisión de respuestas
 
 `python -m futsal.evals.bench export <run>` (necesita `pip install -e '.[bench]'`, que instala openpyxl) escribe `<run>/respuestas.xlsx`.
@@ -103,7 +104,7 @@ Dos fuentes de datos:
   comparables en el tiempo. Se crea con `python -m futsal.evals snapshot create --id ID --as-of AAAA-MM-DDTHH:MM` (necesita `pg_dump`).
 - **Datos vivos** (`--live [--as-of …]`): tu BD actual en solo lectura, sin copia. El «hoy» es el mismo para todos los modelos y la
   huella de los datos se mide al empezar y al terminar: si el cron (u otra cosa) cambió algo, el informe lo avisa con las tablas
-  afectadas. Para comparar legacy con v2, usa el mismo `--as-of` en las dos ejecuciones y lánzalas fuera de las horas del cron
+  afectadas. Para comparar dos ejecuciones (antes y después de un cambio), usa el mismo `--as-of` en las dos y lánzalas fuera de las horas del cron
   (entre semana solo corre a las 03:00).
 
 ```bash
@@ -119,15 +120,15 @@ python -m futsal.evals.bench run --models gemini-flash-lite,claude-haiku --snaps
 ```
 
 ```bash
-python -m futsal.evals.bench run --models gemini-flash-lite,claude-haiku --snapshot ref20261109 --agent v2 --budget-usd 0.50 --confirm-live
+python -m futsal.evals.bench run --models gemini-flash-lite,claude-haiku --snapshot ref20261109 --budget-usd 0.50 --confirm-live
 ```
 
 ```bash
-python -m futsal.evals.bench run --models gemini-flash-lite,claude-haiku --live --as-of 2026-11-14T18:00 --agent v2 --budget-usd 0.50 --confirm-live
+python -m futsal.evals.bench run --models gemini-flash-lite,claude-haiku --live --as-of 2026-11-14T18:00 --budget-usd 0.50 --confirm-live
 ```
 
-Opciones: `--agent v2|legacy` (v2 por defecto), `--context`, `--limit N` (los N primeros casos, intercalados por categoría), `--reps R` (repeticiones en orden rotado), `--suite`,
-`--seed`, `--arm` (banderas del agente, iguales para todos), `--db` (BD ya restaurada), `--run-id`/`--resume` (completa lo
+Opciones: `--limit N` (los N primeros casos, intercalados por categoría), `--reps R` (repeticiones en orden rotado), `--suite`,
+`--seed`, `--arm` (solo `base`: telemetría apagada), `--db` (BD ya restaurada), `--run-id`/`--resume` (completa lo
 pendiente sin repetir), `--output-root` (por defecto `data/bench/`, fuera de Git). `report`, `blind`, `reveal` y `history`
 regeneran informes, preparan la evaluación ciega y listan ejecuciones.
 
