@@ -134,7 +134,7 @@ describe("App", () => {
     expect(screen.queryByTestId("msg-agent")).not.toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Primera pregunta" }));
     expect(screen.getByTestId("msg-agent")).toBeInTheDocument();
-    await userEvent.click(screen.getByRole("button", { name: /Acciones de la conversación Primera pregunta/ })); await userEvent.click(screen.getByRole("menuitem", { name: /Borrar conversación Primera pregunta/ }));
+    await userEvent.click(screen.getByRole("button", { name: /Borrar conversación Primera pregunta/ }));
     expect(screen.getByTestId("welcome")).toBeInTheDocument();
     expect(screen.queryByText("Primera pregunta")).not.toBeInTheDocument();
   });
@@ -212,7 +212,7 @@ describe("App", () => {
     const m = backend(() => reply(contract));
     render(<App />);
     await ask("Para borrar");
-    await userEvent.click(screen.getByRole("button", { name: /Acciones de la conversación Para borrar/ })); await userEvent.click(screen.getByRole("menuitem", { name: /Borrar conversación Para borrar/ }));
+    await userEvent.click(screen.getByRole("button", { name: /Borrar conversación Para borrar/ }));
     await waitFor(() => expect(m.mock.calls.some(([u, i]) => String(u).includes("/chat/conversations/") && (i as RequestInit)?.method === "DELETE")).toBe(true));
   });
 

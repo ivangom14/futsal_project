@@ -7,6 +7,9 @@ import type { LineupPlayer, LineupVisual } from "../types";
 const GK = { x: 62, y: 170 };
 const SLOTS = [{ x: 190, y: 170 }, { x: 300, y: 62 }, { x: 300, y: 278 }, { x: 468, y: 170 }];
 
+/** Nombre corto en la pista: como mucho 13 caracteres (unos 120 px de 600), para que dos marcadores vecinos nunca se solapen. */
+export const courtName = (s: string) => (s.length > 13 ? `${s.slice(0, 12).trimEnd()}…` : s);
+
 function Marker({ p, x, y }: { p: LineupPlayer; x: number; y: number }) {
   return (
     <g>
@@ -18,7 +21,7 @@ function Marker({ p, x, y }: { p: LineupPlayer; x: number; y: number }) {
           <text x={x + 18} y={y - 14} textAnchor="middle" fontSize="11" fontWeight="800" fill="#3b2416">C</text>
         </g>
       )}
-      <text x={x} y={y + 42} textAnchor="middle" fontSize="17" fontWeight="700" fill="#2b1a10" stroke="#fff" strokeWidth="5" paintOrder="stroke">{p.short}</text>
+      <text x={x} y={y + 42} textAnchor="middle" fontSize="17" fontWeight="700" fill="#2b1a10" stroke="#fff" strokeWidth="5" paintOrder="stroke">{courtName(p.short)}</text>
       {p.goalkeeper && <text x={x} y={y + 60} textAnchor="middle" fontSize="13" fill="#6f4a2d" stroke="#fff" strokeWidth="3" paintOrder="stroke">Portero</text>}
     </g>
   );
@@ -66,29 +69,31 @@ function Group({ label, players, empty }: { label: string; players: LineupPlayer
 }
 
 /**
- * Alineación del acta. Por defecto, LISTA (titulares y suplentes con dorsal, portero y capitán): responde a la pregunta y es accesible.
- * La pista es opcional («Ver en pista») porque el acta no indica posiciones y la colocación sería orientativa.
+ * Alineación del acta. Por defecto, la PISTA con el quinteto inicial (solo si el acta permite representarlo fielmente: 5 titulares con
+ * un portero, `court`); debajo, los suplentes. «Ver lista» y «Ver en pista» alternan las dos vistas. Sin quinteto completo, solo la lista.
+ * La pista nunca inventa posiciones: el portero va en su área y los demás en huecos genéricos, con la nota del acta (colocación orientativa).
  */
 export default function Lineup({ v }: { v: LineupVisual }) {
-  const [court, setCourt] = useState(false);
+  const [court, setCourt] = useState(v.court);
+  const showCourt = court && v.court;
   const toggle = v.court ? (
-    <button type="button" onClick={() => setCourt((c) => !c)} aria-pressed={court}
-      className="-my-1 -mr-1 inline-flex min-h-9 items-center gap-1.5 rounded-md px-2 text-xs font-semibold text-accent hover:bg-surface-2">
-      {court ? <List size={14} aria-hidden="true" /> : <LayoutGrid size={14} aria-hidden="true" />}{court ? "Ver lista" : "Ver en pista"}
+    <button type="button" onClick={() => setCourt((c) => !c)} aria-pressed={!showCourt} data-testid="lineup-toggle"
+      className="-my-1 -mr-1 inline-flex min-h-9 items-center gap-1.5 rounded-md px-2 text-xs font-semibold text-accent hover:bg-surface-2 [@media(pointer:coarse)]:min-h-touch">
+      {showCourt ? <List size={14} aria-hidden="true" /> : <LayoutGrid size={14} aria-hidden="true" />}{showCourt ? "Ver lista" : "Ver en pista"}
     </button>
   ) : null;
   return (
     <Panel title={v.title} subtitle={v.subtitle} aside={toggle}>
-      <div className="grid gap-x-6 gap-y-3 p-3 sm:grid-cols-2">
-        {court && v.court ? (
-          <div className="sm:col-span-2"><Court v={v} /></div>
+      <div className={`grid gap-x-6 gap-y-3 p-3 ${showCourt ? "" : "sm:grid-cols-2"}`}>
+        {showCourt ? (
+          <div data-testid="lineup-court"><Court v={v} /></div>
         ) : (
-          <div>
+          <div data-testid="lineup-list">
             <Group label="Titulares" players={v.starters} empty="El acta no indica titulares." />
             {!v.court && v.starters.length > 0 && <p className="mt-1 text-xs text-warning">El acta no permite un quinteto completo (no hay 5 titulares con un portero).</p>}
           </div>
         )}
-        <div className={court ? "sm:col-span-2" : ""}>
+        <div>
           <Group label="Suplentes" players={v.substitutes} empty="No constan suplentes en el acta." />
           {v.unknown.length > 0 && <div className="mt-3"><Group label="Sin titularidad indicada" players={v.unknown} /></div>}
         </div>

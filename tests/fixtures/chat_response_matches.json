@@ -1,6 +1,6 @@
 {
-  "answer": "Estos son los próximos partidos.",
-  "answer_original": null,
+  "answer": "",
+  "answer_original": "Estos son los próximos partidos.",
   "guardrail": null,
   "error": null,
   "answer_kind": "official",
@@ -87,7 +87,20 @@
       "intent": "next_match",
       "intent_confidence": "high"
     },
-    "reconciliation": null,
+    "reconciliation": {
+      "considered": 1,
+      "removed": 1,
+      "kept": 0,
+      "pointer_added": false,
+      "removed_items": [
+        {
+          "kind": "intro",
+          "reason": "presenta el visual sin datos propios",
+          "snippet": "Estos son los próximos partidos."
+        }
+      ],
+      "kept_uncertain": []
+    },
     "input_tokens_peak": 0,
     "resolved_question": null,
     "history_turns": 0,

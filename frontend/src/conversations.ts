@@ -62,7 +62,7 @@ export function historyFor(messages: Message[]): HistoryItem[] {
   messages.forEach((m, i) => {
     const next = messages[i + 1];
     if (m.role !== "user" || !next || next.role !== "assistant" || next.failure || !next.response) return;
-    if (next.response.error || !MEMORY_GUARDRAILS.includes(next.response.guardrail) || !next.content.trim()) return;
+    if (next.response.error || !MEMORY_GUARDRAILS.includes(next.response.guardrail) || !(next.response.answer_original || next.content).trim()) return; // texto visible vacío = el visual ES la respuesta; el original sí cuenta
     // Si la conciliación omitió del texto lo que ya dibuja un gráfico, el historial lleva el texto ORIGINAL: el agente debe conservar esos datos para los seguimientos.
     out.push({ role: "user", content: m.content }, { role: "assistant", content: next.response.answer_original || next.content });
   });

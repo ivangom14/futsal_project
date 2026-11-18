@@ -48,6 +48,7 @@ export default function App() {
   const [farFromEnd, setFarFromEnd] = useState(false);
   const [deleted, setDeleted] = useState<{ conv: Conversation; index: number } | null>(null); // para «Deshacer»
   const abortRef = useRef<AbortController | null>(null);
+  const sendingRef = useRef(false); // envío en curso (síncrono: el estado `loadingId` llega en el siguiente render)
   const scrollRef = useRef<HTMLDivElement>(null);
   const menuButtonRef = useRef<HTMLButtonElement>(null);
   const mainRef = useRef<HTMLElement>(null);
@@ -134,6 +135,7 @@ export default function App() {
         void refreshHealth();
       } finally {
         clearTimeout(timer);
+        sendingRef.current = false;
         abortRef.current = null;
         setSlow(false);
         setLoadingId(null);
@@ -143,7 +145,8 @@ export default function App() {
   );
 
   const send = (question: string) => {
-    if (!active || loadingId) return;
+    if (!active || loadingId || sendingRef.current) return; // un doble toque (p. ej. en una opción) nunca envía dos veces
+    sendingRef.current = true;
     const history = historyFor(active.messages); // contexto de ESTA conversación, sin la pregunta actual
     const focus = focusFor(active.messages);
     setState((s) => appendMessage(s, active.id, { id: uid(), role: "user", content: question, createdAt: Date.now() }));

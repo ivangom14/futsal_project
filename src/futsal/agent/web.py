@@ -47,7 +47,7 @@ from futsal.agent.memory import (
 from futsal.agent.messages import TIMEOUT, FriendlyError, classify_error
 from futsal.agent.presentation import compute_focus, merge_focus, sanitize_focus
 from futsal.agent.question_log import QuestionLog
-from futsal.agent.reconcile import Reconciliation, reconcile_answer
+from futsal.agent.reconcile import Reconciliation, present_answer
 from futsal.agent.trace import RunRecord, redact
 from futsal.config.settings import env_value
 from futsal.importer.crest_index import FILE_RE, crests_dir
@@ -175,18 +175,20 @@ def build_response(result: AgentResult, history_turns: int, question: str, prev_
     sources = pres.build_sources(question, result.answer, rec, result.official, result.groups_used, freshness)
     kind, analysis = pres.answer_kind(question, result.answer, rec)
     visuals = pres.build_visuals(question, rec, result.official, result.names, focus, result.groups_used) if clean else []
-    # La respuesta VISIBLE se concilia con los visuales; `result.answer` (memoria, historial del LLM, tipo de respuesta, fuentes, sugeridas) NO se toca.
+    # Texto VISIBLE (`reconcile.present_answer`, punto único): aclaración con opciones -> solo la pregunta breve (las opciones son botones); con visuales ->
+    # se omite lo que ya dibujan. `result.answer` (memoria, historial del LLM, tipo de respuesta, fuentes, sugeridas) NO se toca.
     # Falla en abierto: si la conciliación está apagada (`CHAT_RECONCILE=off`) o lanza cualquier error, se muestra el texto original.
     shown = Reconciliation(result.answer, result.answer)
-    if visuals and reconcile_enabled():
+    asking = result.guardrail == "aclaracion_ambito"
+    if (visuals or asking) and reconcile_enabled():
         try:
-            shown = reconcile_answer(result.answer, visuals)
+            shown = present_answer(result.answer, visuals, rec.context, clarification=asking)
         except Exception as exc:  # presentación: un fallo aquí jamás debe convertir una respuesta correcta en un error
             log.exception("la conciliación con los visuales falló (run=%s); se muestra el texto original", rec.run_id)
             diag.reconciliation = {"considered": 0, "removed": 0, "kept": 0, "pointer_added": False, "removed_items": [], "kept_uncertain": [], "error": type(exc).__name__}
-    if visuals and shown.considered:
+    if shown.considered:
         diag.reconciliation = shown.audit()
-        log.info("conciliación run=%s: %d elementos de texto evaluados, %d omitidos por repetir un visual", rec.run_id, shown.considered, len(shown.removed))
+        log.info("conciliación run=%s: %d elementos de texto evaluados, %d omitidos por repetir un visual o las opciones", rec.run_id, shown.considered, len(shown.removed))
     diag.postprocess_ms = round((time.monotonic() - t_post) * 1000, 1)
     return ChatResponse(
         answer=shown.text, answer_original=result.answer if shown.changed else None, guardrail=result.guardrail, error=result.error, answer_kind=kind, is_analysis=analysis,

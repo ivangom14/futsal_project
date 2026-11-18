@@ -20,7 +20,7 @@ export interface Source {
 export interface Column { key: string; label: string; align: "left" | "right" }
 export type Visual =
   | { type: "table"; title: string; subtitle?: string | null; partial?: boolean; columns: Column[]; rows: Record<string, string | number | boolean | null>[] }
-  | { type: "bars"; title: string; subtitle?: string | null; partial?: boolean; rows: { label: string; sublabel?: string | null; value: number; rank?: number | null }[] }
+  | { type: "bars"; title: string; subtitle?: string | null; partial?: boolean; /** Filas de la tabla de origen (si hay más que `rows`, se avisa). */ total?: number | null; rows: { label: string; sublabel?: string | null; value: number; rank?: number | null }[] }
   | { type: "comparison"; title: string; subtitle?: string | null; series: string[]; rows: { label: string; values: (number | null)[] }[] }
   | LineupVisual
   | CardsVisual

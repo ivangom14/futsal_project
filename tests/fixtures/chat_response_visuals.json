@@ -183,6 +183,7 @@
       "type": "bars",
       "title": "Goleadores · PRIMERA AFICIONADO FS · Grupo 2",
       "partial": false,
+      "total": 2,
       "subtitle": "Tabla actual · captura 2026-10-28",
       "rows": [
         {
@@ -261,7 +262,14 @@
       "intent": "standings",
       "intent_confidence": "high"
     },
-    "reconciliation": null,
+    "reconciliation": {
+      "considered": 1,
+      "removed": 0,
+      "kept": 1,
+      "pointer_added": false,
+      "removed_items": [],
+      "kept_uncertain": []
+    },
     "input_tokens_peak": 0,
     "resolved_question": null,
     "history_turns": 0,

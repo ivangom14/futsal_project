@@ -50,12 +50,33 @@ const STANDINGS_TITLES: Record<string, string> = {
   position: "Posición", played: "Partidos jugados", won: "Ganados", drawn: "Empatados", lost: "Perdidos",
   goals_for: "Goles a favor", goals_against: "Goles en contra", goal_difference: "Diferencia de goles", points: "Puntos",
 };
-/** Columnas que se pliegan en tarjetas estrechas (siguen en el DOM y se ven con «Ver todas las columnas»). */
-const OPTIONAL: Record<string, string> = { won: "st-opt1", drawn: "st-opt1", lost: "st-opt1", goals_for: "st-opt2", goals_against: "st-opt2" };
+/** Columnas secundarias: se pliegan en tarjetas estrechas (siguen en el DOM y se ven con «Ver todas las columnas», con desplazamiento propio). */
+const OPTIONAL: Record<string, string> = {
+  goal_difference: "st-opt0", won: "st-opt1", drawn: "st-opt1", lost: "st-opt1", goals_for: "st-opt2", goals_against: "st-opt2",
+};
+/** A partir de cuántos caracteres un nombre puede no caber en dos líneas: se ofrece verlo entero con un toque. */
+export const LONG_TEAM = 34;
+
+function TeamCell({ name }: { name: string }) {
+  const [open, setOpen] = useState(false);
+  // Nombre oficial completo como texto normal (con su letra de categoría, «… 'B'»), en dos líneas como mucho; un toque lo despliega.
+  const label = <span className="st-name" data-team-name="">{name}</span>;
+  return (
+    <span className="flex min-w-0 items-center gap-2" title={name}>
+      <TeamCrest name={name} size={20} />
+      {name.length > LONG_TEAM ? (
+        <button type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open} aria-label={`${name} (ver nombre completo)`}
+          className={`st-name-btn min-w-0 text-left ${open ? "is-open" : ""}`}>{label}</button>
+      ) : label}
+    </span>
+  );
+}
 
 /**
- * Clasificación: «Pos» y «Equipo» fijas al desplazar; lo esencial (PJ, DG, Pts) siempre visible y G/E/P (< 22 rem) y GF/GC (< 34 rem)
- * plegadas por consulta de contenedor, sin perder el dato: «Ver todas las columnas» las muestra con desplazamiento horizontal.
+ * Clasificación. Prioridad de lectura: posición, escudo y equipo, partidos jugados y puntos; DG, G/E/P y GF/GC se pliegan por consulta de
+ * contenedor (< 24, 30 y 38 rem) sin perder el dato: «Ver todas las columnas» las muestra con desplazamiento horizontal INTERNO y «Pos»/«Equipo»
+ * fijas. Tabla de anchos fijos: el nombre se queda con todo el espacio libre, sin partir palabras, en dos líneas como mucho (toque = nombre entero).
+ * Orden, posiciones y empates: los de la fuente, sin reordenar ni recalcular.
  */
 function StandingsTable({ v }: { v: Extract<Visual, { type: "table" }> }) {
   const [all, setAll] = useState(false);
@@ -64,10 +85,12 @@ function StandingsTable({ v }: { v: Extract<Visual, { type: "table" }> }) {
     if (key === "team") return "st-team";
     return `${OPTIONAL[key] ?? ""} st-num`;
   };
+  const hasOptional = v.columns.some((c) => OPTIONAL[c.key]);
   return (
     <Panel title={v.title} subtitle={v.subtitle} note={partialNote(v.partial)} aside={<span className="tabular-nums">{v.rows.length} equipos</span>}>
-      <div className="standings overflow-x-auto" data-all={all ? "" : undefined} data-testid="standings" tabIndex={0} role="region" aria-label="Clasificación (tabla desplazable)">
-        <table className="w-full text-sm">
+      <div className="standings" data-all={all ? "" : undefined} data-testid="standings">
+      <div className="st-scroll overflow-x-auto" tabIndex={0} role="region" aria-label="Clasificación (tabla desplazable)">
+        <table className="text-sm">
           <thead>
             <tr>
               {v.columns.map((c) => (
@@ -82,22 +105,21 @@ function StandingsTable({ v }: { v: Extract<Visual, { type: "table" }> }) {
               <tr key={i} className={r.highlight ? "is-highlight" : ""} aria-current={r.highlight ? "true" : undefined}>
                 {v.columns.map((c) => (
                   <td key={c.key} className={`${cell(c.key)} ${c.key === "points" ? "st-pts" : ""}`}>
-                    {c.key === "team" ? (
-                      <span className="flex min-w-[8rem] items-center gap-2 leading-tight">
-                        <TeamCrest name={String(r.team ?? "")} size={20} />
-                        <span className="min-w-0 [overflow-wrap:anywhere]">{fmt(r.team)}</span>
-                      </span>
-                    ) : c.key === "goal_difference" && typeof r[c.key] === "number" && (r[c.key] as number) > 0 ? `+${r[c.key]}` : fmt(r[c.key])}
+                    {c.key === "team" ? <TeamCell name={String(r.team ?? "")} />
+                      : c.key === "goal_difference" && typeof r[c.key] === "number" && (r[c.key] as number) > 0 ? `+${r[c.key]}` : fmt(r[c.key])}
                   </td>
                 ))}
               </tr>
             ))}
           </tbody>
         </table>
+      </div>
+      {hasOptional && (
         <button type="button" onClick={() => setAll((x) => !x)} aria-pressed={all}
-          className="st-toggle sticky left-0 flex min-h-touch w-full items-center justify-center border-t border-line text-sm font-semibold text-accent hover:bg-surface-2">
+          className="st-toggle flex min-h-touch w-full items-center justify-center border-t border-line text-sm font-semibold text-accent hover:bg-surface-2">
           {all ? "Ver menos columnas" : "Ver todas las columnas"}
         </button>
+      )}
       </div>
     </Panel>
   );
@@ -119,6 +141,8 @@ function BarsVisual({ v, onMore, moreDisabled }: { v: Extract<Visual, { type: "b
     <PanelAction onClick={onMore} disabled={moreDisabled} testId="ranking-more"><ChevronDown size={16} aria-hidden="true" /> Ver 10 más</PanelAction>
   ) : v.partial && v.subtitle?.startsWith("Mostrando") ? (
     <PanelNote>Pide «los siguientes» para ver más posiciones.</PanelNote>
+  ) : v.total && v.total > v.rows.length ? (
+    <PanelNote>Se muestran los {v.rows.length} primeros de {v.total}.</PanelNote>
   ) : null;
   return (
     <Panel title={v.title} subtitle={v.subtitle} note={v.subtitle?.startsWith("Mostrando") ? null : partialNote(v.partial)} footer={footer}>
