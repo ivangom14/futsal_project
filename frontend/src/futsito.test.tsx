@@ -287,12 +287,12 @@ describe("desglose del tiempo", () => {
 describe("árbitros, goles y partidos (contrato real)", () => {
   const match = lineupJson as unknown as ChatResponse;
 
-  it("el acta completa se ve como gráficos en orden: alineación, árbitros, goles y tarjetas", async () => {
+  it("el acta completa se ve como gráficos en orden: las dos alineaciones, árbitros, goles y tarjetas", async () => {
     backend(() => reply(match));
     render(<App />);
     await ask("¿Cuál fue la alineación del DOSA y quién arbitró?");
     const figures = screen.getAllByTestId("visual");
-    expect(figures.map((f) => within(f).getByText(/^(Alineación|Árbitros|Goles del partido|Tarjetas del partido)/).textContent)).toEqual(["Alineación", "Árbitros", "Goles del partido", "Tarjetas del partido"]);
+    expect(figures.map((f) => within(f).getByText(/^(Alineación|Árbitros|Goles del partido|Tarjetas del partido)/).textContent)).toEqual(["Alineación", "Alineación", "Árbitros", "Goles del partido", "Tarjetas del partido"]);
     expect(screen.getByText("Ganó el DOSA 3-1.")).toBeInTheDocument(); // el texto queda en una frase: lo detallado va en los gráficos
   });
 
@@ -300,7 +300,7 @@ describe("árbitros, goles y partidos (contrato real)", () => {
     backend(() => reply(match));
     render(<App />);
     await ask("¿Quién arbitró?");
-    const refs = screen.getAllByTestId("visual")[1];
+    const refs = screen.getAllByTestId("visual")[2]; // tras las dos alineaciones
     expect(within(refs).getAllByTestId("official").map((li) => li.textContent)).toEqual([
       "ÁrbitroEduardo Hugo Iniesta del Amo", "ÁrbitroJaime Larrubia Pajares", "Árbitro asistenteArantxa Ortiz Pinillos"]);
     expect(refs.querySelectorAll("svg")).toHaveLength(0);
@@ -310,7 +310,7 @@ describe("árbitros, goles y partidos (contrato real)", () => {
     backend(() => reply(match));
     render(<App />);
     await ask("¿Quién marcó?");
-    const goals = screen.getAllByTestId("visual")[2];
+    const goals = screen.getAllByTestId("visual")[3];
     expect(within(goals).getAllByRole("listitem")).toHaveLength(4);
     expect(within(goals).getByLabelText("minuto 20")).toBeInTheDocument();
     expect(within(goals).getByText(/A Otro Uno/)).toHaveTextContent("(en propia puerta)");

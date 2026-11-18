@@ -84,6 +84,61 @@
       "note": "El acta indica quiénes son titulares y suplentes, pero no la posición de cada jugador en la pista: la colocación en el campo es orientativa."
     },
     {
+      "type": "lineup",
+      "title": "Alineación · FS ALCALA",
+      "subtitle": "C.D. DOSA 3-1 FS ALCALA · Jornada 4",
+      "team": "FS ALCALA",
+      "court": true,
+      "starters": [
+        {
+          "name": "Leo Martin Cano",
+          "short": "L. Martin",
+          "shirt": 1,
+          "captain": false,
+          "goalkeeper": true
+        },
+        {
+          "name": "A Otro Uno",
+          "short": "A. Otro",
+          "shirt": 2,
+          "captain": false,
+          "goalkeeper": false
+        },
+        {
+          "name": "B Otro Dos",
+          "short": "B. Otro",
+          "shirt": 3,
+          "captain": false,
+          "goalkeeper": false
+        },
+        {
+          "name": "C Otro Tres",
+          "short": "C. Otro",
+          "shirt": 4,
+          "captain": false,
+          "goalkeeper": false
+        },
+        {
+          "name": "D Otro Cuatro",
+          "short": "D. Otro",
+          "shirt": 5,
+          "captain": false,
+          "goalkeeper": false
+        }
+      ],
+      "substitutes": [
+        {
+          "name": "E Banquillo Uno",
+          "short": "E. Banquillo",
+          "shirt": 6,
+          "captain": false,
+          "goalkeeper": false
+        }
+      ],
+      "unknown": [],
+      "note": "El acta indica quiénes son titulares y suplentes, pero no la posición de cada jugador en la pista: la colocación en el campo es orientativa."
+    },
+    {
       "type": "officials",
       "title": "Árbitros",
       "subtitle": "C.D. DOSA 3-1 FS ALCALA · Jornada 4",
@@ -244,7 +299,9 @@
           "sections": [
             "officials",
             "players",
-            "goals"
+            "goals",
+            "cards",
+            "staff"
           ]
         },
         "duration_ms": 0,

@@ -475,3 +475,22 @@ def test_the_switch_default_is_on(monkeypatch: pytest.MonkeyPatch) -> None:
 
     monkeypatch.delenv("CHAT_RECONCILE", raising=False)
     assert reconcile_enabled() is True
+
+
+def test_a_paging_follow_up_shows_its_rows_only_in_the_table() -> None:
+    """«Dime solo los de preferente» (seguimiento sin LLM): las filas «sáb 21/11 17:15 · A – B · COMP · Grupo 2» ya están en la tabla;
+    el texto visible se queda con la cabecera («mostrando 1–3 de 13») y la invitación a seguir."""
+    from futsal.agent.presentation import v2_list_visual
+    from futsal.agent.v2.paging import page_text
+
+    items = [{"id": 1, "date": "2026-11-21", "time": "17:15", "comp": "PREFERENTE AFICIONADO FS · Grupo 2", "home": "CFS ARTILLEROS MORATALAZ 'B'",
+              "away": "COLEGIO CARDENAL SPINOLA CHAMARTIN 'C'"},
+             {"id": 2, "date": "2026-11-22", "time": "12:00", "comp": "PREFERENTE AFICIONADO FS · Grupo 1", "home": "CDE MOSTOLES SUR FS",
+              "away": "RACING LA PALOMA"}]
+    body = {"items": items, "count": 13, "offset": 0, "next_offset": 2}
+    args = {"date_from": "2026-11-21", "date_to": "2026-11-22", "category": "senior", "competition": "preferente"}
+    text = page_text("matches_by_date", args, body, "filter", ["competition"])
+    visual = v2_list_visual("matches_by_date", args, body)
+    assert visual is not None
+    shown = reconcile_answer(text, [visual]).text
+    assert "mostrando 1–2 de 13" in shown and "ARTILLEROS" not in shown and "MOSTOLES" not in shown and "siguientes" in shown

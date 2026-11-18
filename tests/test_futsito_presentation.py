@@ -335,7 +335,8 @@ def lineup(question: str, report: dict[str, Any] | None = None) -> Any:
 
 def test_lineup_shows_the_starting_five_with_goalkeeper_first_and_the_substitutes() -> None:
     r = lineup("¿Cuál fue la alineación del DOSA?")
-    (v,) = [v for v in r.visuals if v["type"] == "lineup"]
+    v, other = [v for v in r.visuals if v["type"] == "lineup"]  # el acta tiene dos equipos: el nombrado primero
+    assert other["team"] == "FS ALCALA"
     assert v["title"] == "Alineación · C.D. DOSA" and v["subtitle"] == "C.D. DOSA 3-1 FS ALCALA · Jornada 4" and v["court"] is True
     assert [(p["shirt"], p["short"], p["goalkeeper"]) for p in v["starters"]] == [
         (1, "J. Aparicio", True), (5, "P. Gil", False), (7, "A. Ruiz", False), (9, "I. Nuñez", False), (10, "J. Perez", False)]
@@ -344,11 +345,11 @@ def test_lineup_shows_the_starting_five_with_goalkeeper_first_and_the_substitute
     assert "no la posición" in v["note"] and "orientativa" in v["note"]  # el acta no da posiciones: se avisa, no se inventan
 
 
-def test_lineup_without_naming_a_team_shows_both_and_naming_one_shows_only_it() -> None:
+def test_lineup_always_shows_both_teams_with_the_named_one_first() -> None:
     both = [v["team"] for v in lineup("¿Qué alineaciones hubo en ese partido?").visuals if v["type"] == "lineup"]
     assert both == ["C.D. DOSA", "FS ALCALA"]
-    only = [v["team"] for v in lineup("¿Cuál fue la alineación del Alcalá?").visuals if v["type"] == "lineup"]
-    assert only == ["FS ALCALA"]
+    named = [v["team"] for v in lineup("¿Cuál fue la alineación del Alcalá?").visuals if v["type"] == "lineup"]
+    assert named == ["FS ALCALA", "C.D. DOSA"]  # antes solo salía el nombrado: el usuario quiere ver los dos
 
 
 def test_lineup_needs_real_data_and_degrades_without_the_court_when_incomplete() -> None:
@@ -486,7 +487,7 @@ def _fixture(steps: list[LLMResponse], question: str, path: Any, expected: list[
 
 def test_match_and_matches_contract_fixtures_match_backend() -> None:
     _fixture([call("get_match_report", match_id=9, sections=["officials", "players", "goals"]), LLMResponse("Ganó el DOSA 3-1.", [])],
-             "¿Cuál fue la alineación del DOSA y quién arbitró?", MATCH_FIXTURE, ["lineup", "officials", "timeline", "cards"])
+             "¿Cuál fue la alineación del DOSA y quién arbitró?", MATCH_FIXTURE, ["lineup", "lineup", "officials", "timeline", "cards"])
     _fixture([call("list_matches", group_id=12, status="scheduled", limit=3), LLMResponse("Estos son los próximos partidos.", [])],
              "¿Cuáles son los próximos partidos?", MATCHES_FIXTURE, ["matches"])
 
@@ -529,3 +530,18 @@ def test_cards_from_several_matches_are_a_list_marked_partial_when_truncated() -
     assert pres.cards_from_events({"events": [{"type": "goal", "player": "X", "card_kind": "yellow"}]}) is None
     assert pres.cards_from_events({"events": [{"type": "card", "player": "X", "source_code": "100"}]}) is None  # sin card_kind no se inventa
     assert "las tarjetas" in (pres.visual_note("list_match_events", {}, EVENTS, "tarjetas", {}) or "")
+
+
+def test_asking_for_the_report_fetches_the_whole_report() -> None:
+    """«¿Cuál fue el acta…?» / «¿cómo fue el partido?»: el acta COMPLETA (alineaciones de los dos, goles, tarjetas, árbitros y cuerpo técnico),
+    aunque el modelo pida solo una parte; otras preguntas sobre el partido conservan lo que pidió el modelo."""
+    def sent(question: str, **args: Any) -> dict[str, Any]:
+        c, _ = web([call("get_match_report", match_id=9, **args), LLMResponse("ok", [])])
+        with c:
+            body = c.post("/chat", json={"question": question, "conversation_id": "acta"}).json()
+        return dict(body["diagnostics"]["tools"][0]["arguments"])
+
+    full = sent("¿Cuál fue el acta del último partido del Dosa senior en liga?")
+    assert full["sections"] == ["officials", "goals", "cards", "players", "staff"]
+    assert set(sent("¿Cómo fue el partido?", sections=["goals"])["sections"]) == {"officials", "goals", "cards", "players", "staff"}
+    assert sent("¿Quién marcó los goles?", sections=["goals"])["sections"] == ["goals"]

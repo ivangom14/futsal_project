@@ -23,7 +23,8 @@ MAX_AUDIT_ITEMS = 12
 FILLER = frozenset({
     "vs", "v", "contra", "frente", "a", "al", "las", "los", "la", "el", "lo", "de", "del", "en", "y", "e", "o", "u", "con", "por", "para", "que", "se", "su", "sus",
     "es", "son", "fue", "fueron", "hay", "un", "una", "unos", "unas", "este", "esta", "hora", "horas", "h", "dia", "dias"})
-WEEKDAYS = {"lunes": 0, "martes": 1, "miercoles": 2, "jueves": 3, "viernes": 4, "sabado": 5, "domingo": 6}
+WEEKDAYS = {"lunes": 0, "martes": 1, "miercoles": 2, "jueves": 3, "viernes": 4, "sabado": 5, "domingo": 6,
+            "lun": 0, "mar": 1, "mie": 2, "jue": 3, "vie": 4, "sab": 5, "dom": 6}  # abreviados: «sáb 21/11 17:15» (líneas de la paginación)
 MONTHS = {m: i for i, m in enumerate(("enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"), 1)}
 
 
@@ -221,8 +222,11 @@ def facts_of(v: dict[str, Any]) -> VisualFacts | None:
         for r in rows:
             if isinstance(r.get("home"), str) and isinstance(r.get("away"), str):
                 attrs = _date_attrs(r.get("date")) | _score_attr(r.get("score")) | ({f"qr{r['round']}"} if isinstance(r.get("round"), int) else set())
+                detail = str(r.get("detail") or "")  # competición y grupo de la fila («PREFERENTE … · Grupo 2»)
+                attrs |= {f"qgr{int(m[1])}" for m in re.finditer(r"\bgrupo\s+(\d{1,2})\b", " ".join(words(detail)))}
                 records.append(Record(f"{r['home']} vs {r['away']}", _tokens(r["home"], r["away"]), attrs,
-                                      {"partido", "partidos", "jornada", "juega", "juegan", "enfrenta", "enfrentan", *STATUS_WORDS.get(str(r.get("status")), set())},
+                                      {"partido", "partidos", "jornada", "juega", "juegan", "enfrenta", "enfrentan", *words(detail),
+                                       *STATUS_WORDS.get(str(r.get("status")), set())},
                                       order=(words(r["home"]), words(r["away"]))))
     elif kind == "table":
         for r in rows:

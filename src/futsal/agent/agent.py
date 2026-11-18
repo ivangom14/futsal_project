@@ -163,6 +163,10 @@ CATALOG_HEADER = (
 PROMPTS = PromptSet("standard", SYSTEM_PROMPT + MODULE_V2, HISTORY_RULE, CONTEXT_HEADER, CATALOG_HEADER)  # conjunto único de textos del agente
 
 
+# Preguntas por el acta o por cómo fue un partido: se pide el acta entera (alineaciones de los dos equipos, goles, tarjetas, árbitros y cuerpo técnico)
+FULL_REPORT_RE = re.compile(r"\b(acta|actas|como fue el partido|como fue el encuentro|resumen del partido|cronica|alineacion\w*|"
+                            r"titulares|suplentes|quinteto|convocados|cuerpo tecnico|entrenador\w*)\b")
+REPORT_SECTIONS = ("officials", "goals", "cards", "players", "staff")
 TEAM_CATALOG_TTL = 6 * 3600  # el catálogo de equipos (comprensión de contexto) se rehace como mucho cada 6 h
 
 
@@ -1092,6 +1096,12 @@ class Agent:
         return True, resp
 
     def _v2_repair(self, call: ToolCall) -> tuple[ToolCall, dict[str, Any] | None]:
+        if call.name == "get_match_report" and FULL_REPORT_RE.search(normalize(self._question or "")):
+            # «el acta», «cómo fue el partido», «las alineaciones»: el acta COMPLETA (la herramienta da por defecto solo árbitros y goles)
+            wanted = list(dict.fromkeys([*(call.arguments.get("sections") or []), *REPORT_SECTIONS]))
+            if wanted != list(call.arguments.get("sections") or []):
+                return ToolCall(call.id, call.name, {**call.arguments, "sections": wanted}, call.signature), {"source": "full_report"}
+            return call, None
         if call.name != "matches_by_date" or self._date_hint is None:
             return call, None
         args, why = v2rules.repair_matches_args(call.arguments, self._date_hint)
@@ -1119,7 +1129,7 @@ class Agent:
         async def fetch(c: ToolCall) -> tuple[bool, str, float]:
             t0 = time.perf_counter()
             try:
-                is_error, text = await self._call(c.name, c.arguments)
+                is_error, text = await self._call(c.name, self._v2_repair(c)[0].arguments)  # lo mismo que ejecutaría `_execute`
             except Exception as exc:  # igual que en _execute
                 is_error, text = True, f"error_dependencia: {type(exc).__name__}"
             return is_error, text, _ms(t0)

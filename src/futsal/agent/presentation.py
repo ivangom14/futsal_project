@@ -212,7 +212,9 @@ def lineup_from_report(data: dict[str, Any], question: str, focus: dict[str, str
     for p in data["players"]:
         if isinstance(p, dict) and p.get("team") and p.get("name"):
             by_team.setdefault(str(p["team"]), []).append(p)
-    wanted = [t for t in by_team if _mentioned(question, [{"team": t}])] or [t for t in by_team if t == focus.get("team")] or list(by_team)
+    # el acta tiene DOS equipos: se muestran siempre los dos; primero el que se pregunta (o el del contexto de la conversación)
+    first = [t for t in by_team if _mentioned(question, [{"team": t}])] or [t for t in by_team if t == focus.get("team")]
+    wanted = [*first, *(t for t in by_team if t not in first)]
     out: list[dict[str, Any]] = []
     for team in wanted:
         rows = by_team[team]
