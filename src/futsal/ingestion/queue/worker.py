@@ -28,7 +28,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from futsal.db.models import IngestionRun
 from futsal.ingestion.queue import controls, jobs
-from futsal.ingestion.queue.breaker import CircuitBreaker
+from futsal.ingestion.queue.breaker import CircuitBreaker, is_transient_reason
 from futsal.ingestion.queue.controls import QueueConfig, load_config
 from futsal.ingestion.queue.fetch import (
     Fetcher,
@@ -107,12 +107,14 @@ class WorkerReport:
     dead: int = 0
     released: int = 0
     breaker_reason: str | None = None
+    auto_resumed: str | None = None  # motivo de una pausa pasajera antigua del breaker que esta ejecución levantó
     by_kind: Counter[str] = field(default_factory=Counter)
 
     def as_dict(self) -> dict[str, Any]:
         return {"worker_id": self.worker_id, "stop_reason": self.stop_reason, "run_id": self.run_id, "requests": self.requests,
                 "recovered": self.recovered, "done": self.done, "failed": self.failed, "dead": self.dead,
-                "released": self.released, "breaker_reason": self.breaker_reason, "by_kind": dict(self.by_kind)}
+                "released": self.released, "breaker_reason": self.breaker_reason, "auto_resumed": self.auto_resumed,
+                "by_kind": dict(self.by_kind)}
 
 
 def _engine(session_factory: Callable[[], Session]) -> Engine:
@@ -140,6 +142,11 @@ def run_worker(session_factory: Callable[[], Session], fetcher: Fetcher, *, max_
         fetcher.max_requests = max_requests
     report = WorkerReport(worker_id)
     with session_factory() as s, s.begin():
+        control = controls.get_control(s, source)
+        if control is not None and control.paused and control.opened_by == "breaker" and is_transient_reason(control.reason):
+            # pausa antigua del breaker por un fallo pasajero de la web (antes pausaba): se levanta sola y se vuelve a intentar
+            report.auto_resumed = control.reason
+            controls.resume(s, source, now())
         report.recovered = len(jobs.recover_expired_leases(s, now()))
         run = IngestionRun(source=source, started_at=now(), status="running", input_path=f"queue:{source}", kind=run_kind)
         s.add(run)
@@ -155,7 +162,8 @@ def run_worker(session_factory: Callable[[], Session], fetcher: Fetcher, *, max_
             _finish_run(session_factory, run_id, report, "abandoned", now())
         raise
     report.requests = fetcher.requests
-    status = {"breaker": "failed", "paused": "cancelled"}.get(report.stop_reason, "partial" if report.dead else "success")
+    status = {"breaker": "failed", "paused": "cancelled", "source_unavailable": "partial"}.get(
+        report.stop_reason, "partial" if report.dead else "success")
     _finish_run(session_factory, run_id, report, status, now())
     return report
 
@@ -223,7 +231,9 @@ def _run_job(session_factory: Callable[[], Session], fetcher: Fetcher, engine: E
     try:
         checkpoint = handler(ctx)
     except BreakerTripped as exc:
-        report.stop_reason, report.breaker_reason = "breaker", exc.reason
+        # web caída (vacíos, 5xx, red, 403/429): se corta esta pasada sin pausar; la siguiente ejecución reintenta
+        report.stop_reason = "source_unavailable" if is_transient_reason(exc.reason) else "breaker"
+        report.breaker_reason = exc.reason
         _release(session_factory, report, view, now())  # idempotente: el interruptor ya lo devolvió a pending
         return True
     except (SourcePaused, RequestBudgetExceeded, NetworkDisabled) as exc:
@@ -289,7 +299,7 @@ def run_cli(args: argparse.Namespace, engine: Engine | None = None) -> int:
         fetcher.close()
         session.close()
     print(report.as_dict())
-    return 0 if report.stop_reason in ("empty", "max_requests", "signal") else 1
+    return 0 if report.stop_reason in ("empty", "max_requests", "signal", "source_unavailable") else 1
 
 
 def main(argv: list[str] | None = None) -> int:

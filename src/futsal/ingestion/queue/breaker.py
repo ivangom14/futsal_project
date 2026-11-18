@@ -1,9 +1,14 @@
 """Interruptor automático (circuit breaker) de un `source`. Los umbrales vienen de `config/ingest_schedule.json`.
 
-Al abrirse pausa el source (`controls.pause(..., by='breaker')`) y devuelve a `pending`, sin consumir intento, el trabajo
-en curso. El estado de rachas y ventana vive en memoria y dura lo que la ejecución (un proceso, un `source`).
+Al abrirse devuelve a `pending`, sin consumir intento, el trabajo en curso y detiene la pasada. Dos tipos:
+- PASAJERO (respuestas vacías, 5xx o de red, HTTP 403/429): la web de la RFFM se cae a menudo, sobre todo en fin de semana. Solo se
+  corta esta pasada; NO se pausa el source y la siguiente ejecución (cron/timer) lo vuelve a intentar.
+- DE DATOS (`scope_mismatch`: otra temporada/competición/grupo con HTTP 200; demasiados `schema_error`: cambió el formato): seguir
+  podría guardar datos equivocados, así que pausa el source (`controls.pause(..., by='breaker')`) hasta que alguien lo revise.
+El estado de rachas y ventana vive en memoria y dura lo que la ejecución (un proceso, un `source`).
 """
 
+import re
 from collections import deque
 from datetime import datetime
 
@@ -11,6 +16,14 @@ from sqlalchemy.orm import Session
 
 from futsal.ingestion.queue import controls, jobs
 from futsal.ingestion.queue.controls import BreakerConfig
+
+TRANSIENT_MARKERS = ("cuerpos null o vacíos", "errores 5xx o de red")
+TRANSIENT_STATUS = re.compile(r"^HTTP \d{3} en ")  # 403/429 de `open_on_status` (el «HTTP 200» de un ámbito distinto NO lo es)
+
+
+def is_transient_reason(reason: str | None) -> bool:
+    """¿El motivo de una pausa del breaker es un fallo pasajero de la web? (los de datos: «ámbito distinto…», «… páginas con `schema_error`»)."""
+    return bool(reason) and (any(m in str(reason) for m in TRANSIENT_MARKERS) or bool(TRANSIENT_STATUS.match(str(reason))))
 
 
 class CircuitBreaker:
@@ -28,13 +41,13 @@ class CircuitBreaker:
         """Informa de una respuesta a nivel de transporte (`ok`, `null_body`, `http_error`, `network_error`)."""
         cfg = self.config
         if status_code in cfg.open_on_status:
-            return self._open(session, f"HTTP {status_code} en {url}", job_id, now)
+            return self._open(session, f"HTTP {status_code} en {url}", job_id, now, persistent=False)
         if parse_status == "network_error" or (status_code is not None and status_code >= 500):
             self._server_errors += 1
             self._null_bodies, self._last_null_url = 0, None
             if self._server_errors >= cfg.consecutive_server_errors:
                 return self._open(session, f"{self._server_errors} errores 5xx o de red consecutivos (último: {url})",
-                                  job_id, now)
+                                  job_id, now, persistent=False)
             return None
         self._server_errors = 0
         if parse_status == "null_body":
@@ -43,7 +56,7 @@ class CircuitBreaker:
                 self._last_null_url = url
             if self._null_bodies >= cfg.consecutive_null_bodies:
                 return self._open(session, f"{self._null_bodies} cuerpos null o vacíos consecutivos en URLs distintas "
-                                           f"(último: {url})", job_id, now)
+                                           f"(último: {url})", job_id, now, persistent=False)
         else:
             self._null_bodies, self._last_null_url = 0, None
         return None
@@ -66,9 +79,10 @@ class CircuitBreaker:
                               job_id, now)
         return None
 
-    def _open(self, session: Session, reason: str, job_id: int | None, now: datetime | None) -> str:
+    def _open(self, session: Session, reason: str, job_id: int | None, now: datetime | None, persistent: bool = True) -> str:
         self.opened_reason = reason
-        controls.pause(session, self.source, reason, by="breaker", now=now)
+        if persistent:  # solo los problemas de DATOS pausan el source; los pasajeros cortan esta pasada y nada más
+            controls.pause(session, self.source, reason, by="breaker", now=now)
         if job_id is not None:
             jobs.release(session, job_id, now)
         return reason

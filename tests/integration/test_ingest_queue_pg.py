@@ -15,10 +15,10 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from futsal.config.settings import database_url
-from futsal.db.models import IngestControl, IngestJob, RawFetch
+from futsal.db.models import IngestJob, RawFetch
 from futsal.importer.service import run_import
 from futsal.ingestion.queue import controls, jobs
-from futsal.ingestion.queue.breaker import CircuitBreaker
+from futsal.ingestion.queue.breaker import CircuitBreaker, is_transient_reason
 from futsal.ingestion.queue.controls import BreakerConfig, load_config
 from futsal.ingestion.queue.fetch import (
     Fetcher,
@@ -284,18 +284,18 @@ def trip_case(name: str) -> tuple[Callable[[httpx.Request], httpx.Response], lis
 
 
 @pytest.mark.parametrize("case", ["429", "403", "5xx", "network", "null"])
-def test_breaker_transport_triggers_pause_source_and_release_job(qe: Engine, tmp_path: Path, case: str) -> None:
+def test_breaker_transport_stops_the_run_without_pausing_and_releases_the_job(qe: Engine, tmp_path: Path, case: str) -> None:
+    """La web de la RFFM se cae a menudo (sobre todo en fin de semana): un fallo de transporte corta la pasada, NO pausa el source,
+    y el trabajo vuelve a `pending` sin gastar intento para que la siguiente ejecución lo reintente."""
     handler, urls = trip_case(case)
     with Session(qe) as s, s.begin():
         job = running_job(s)
         f = make_fetcher(s, handler, tmp_path)
         results = [f.get(url(n), job.id) for n in urls]
         assert all(r.tripped is None for r in results[:-1]) and results[-1].tripped
-        assert controls.is_paused(s, SRC)
-        control = s.get(IngestControl, SRC)
-        assert control is not None and control.opened_by == "breaker" and control.reason
+        assert is_transient_reason(results[-1].tripped)
+        assert not controls.is_paused(s, SRC)
         assert (job.status, job.attempts, job.worker) == ("pending", 0, None)
-        assert jobs.claim(s, "w", T0, 60) is None
 
 
 def test_breaker_null_bodies_need_distinct_urls_and_streaks_reset(qe: Engine, tmp_path: Path) -> None:

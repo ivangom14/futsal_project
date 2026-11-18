@@ -333,53 +333,46 @@ def test_real_signal_handlers_set_the_flag_and_are_restored() -> None:
 # --------------------------------------------------------------------------- limitación e interruptor
 
 
-def test_429_opens_the_breaker_stops_the_worker_and_resume_continues(rig: Rig) -> None:
+def test_429_stops_this_run_without_pausing_and_the_next_run_continues(rig: Rig) -> None:
     rig.site.overrides["idGroup=9100001&round=2"] = lambda: httpx.Response(429, content=b"slow down")
     rig.seed_catalog()
     report = rig.worker()
-    assert report.stop_reason == "breaker" and "429" in (report.breaker_reason or "")
+    assert report.stop_reason == "source_unavailable" and "429" in (report.breaker_reason or "")
     with rig.sf() as s:
-        control = controls.get_control(s, SRC)
-        assert control is not None and control.paused and control.opened_by == "breaker"
+        assert not controls.is_paused(s, SRC)  # fallo pasajero de la web: no se pausa
         blocked = s.scalars(select(IngestJob).where(IngestJob.target["group"].astext == "9100001",
                                                     IngestJob.target["round"].astext == "2", IngestJob.kind == "round_results")).one()
         assert (blocked.status, blocked.attempts) == ("pending", 0)  # un 429 nunca se reintenta ni gasta intento
-    calls = len(rig.site.calls)
-    stopped = rig.worker()
-    assert stopped.stop_reason == "paused" and len(rig.site.calls) == calls  # en pausa: ni una petición más
-    run = rig.count("ingestion_runs", "kind = 'ingest_worker' AND status = 'failed'")
-    assert run == 1
-    with rig.sf() as s, s.begin():
-        assert controls.resume(s, SRC)  # `ingest resume`
-    del rig.site.overrides["idGroup=9100001&round=2"]
+    assert rig.count("ingestion_runs", "kind = 'ingest_worker' AND status = 'partial'") == 1
+    del rig.site.overrides["idGroup=9100001&round=2"]  # la web vuelve: la siguiente ejecución (cron) continúa sola, sin `ingest resume`
     cont = rig.worker()
     assert cont.stop_reason == "empty" and rig.count("matches") == 12
     assert rig.count("raw_fetches", "status_code = 429") == 1
 
 
-def test_403_opens_the_breaker_at_once(rig: Rig) -> None:
+def test_403_stops_this_run_at_once_without_pausing(rig: Rig) -> None:
     rig.site.overrides["/api/competitions?temporada=22&tipojuego=3"] = lambda: httpx.Response(403, content=b"x")
     rig.seed_catalog()
     report = rig.worker()
     with rig.sf() as s:
-        assert controls.is_paused(s, SRC)
-    assert report.stop_reason == "breaker" and "403" in (report.breaker_reason or "") and len(rig.site.calls) == 1
+        assert not controls.is_paused(s, SRC)
+    assert report.stop_reason == "source_unavailable" and "403" in (report.breaker_reason or "") and len(rig.site.calls) == 1
 
 
-def test_three_5xx_in_a_row_are_retried_with_backoff_and_the_third_opens_the_breaker(rig: Rig) -> None:
+def test_three_5xx_in_a_row_are_retried_with_backoff_and_the_third_stops_the_run(rig: Rig) -> None:
     rig.site.overrides["/api/competitions?temporada=22&tipojuego=3"] = lambda: httpx.Response(503, content=b"x")
     rig.seed_catalog()
     report = rig.worker(until_empty=False, poll_s=60)  # espera trabajo: el reloj falso avanza con cada sondeo
-    assert report.stop_reason == "breaker" and "5xx" in (report.breaker_reason or "") and len(rig.site.calls) == 3
+    assert report.stop_reason == "source_unavailable" and "5xx" in (report.breaker_reason or "") and len(rig.site.calls) == 3
     gaps = [(b - a).total_seconds() for a, b in zip(rig.site.times, rig.site.times[1:], strict=False)]
     assert gaps[0] >= 10 and gaps[1] >= 30  # 10 s -> 30 s (el sondeo de 60 s los cubre)
     with rig.sf() as s:
-        assert controls.is_paused(s, SRC)
+        assert not controls.is_paused(s, SRC)
         job = s.scalars(select(IngestJob)).one()
         assert (job.status, job.attempts) == ("pending", 2)  # el tercer 5xx abrió el interruptor sin consumir intento
 
 
-def test_null_twice_on_different_urls_pauses_the_source(rig: Rig) -> None:
+def test_null_twice_on_different_urls_stops_the_run_without_pausing(rig: Rig) -> None:
     full_run(rig)
     for rnd in ("1", "2"):
         rig.site.overrides[f"idGroup=9100001&round={rnd}"] = lambda: Site.json_response("null")
@@ -388,9 +381,9 @@ def test_null_twice_on_different_urls_pauses_the_source(rig: Rig) -> None:
                          now=rig.clock.now())
     nulls_before = rig.count("raw_fetches", "parse_status = 'null_body'")
     report = rig.worker()
-    assert report.stop_reason == "breaker" and "null" in (report.breaker_reason or "")
+    assert report.stop_reason == "source_unavailable" and "null" in (report.breaker_reason or "")
     with rig.sf() as s:
-        assert controls.is_paused(s, SRC)
+        assert not controls.is_paused(s, SRC)  # bench-127 v6: dos vacíos sueltos dejaron la ingesta pausada varios días
         states = {(j.target["round"], j.status, j.attempts) for j in s.scalars(select(IngestJob).where(
             IngestJob.kind == "round_results", IngestJob.status.in_(("pending", "failed"))))}
     assert states == {("1", "failed", 1), ("2", "pending", 0)}  # el primero se reintenta; el segundo, sin gastar intento
@@ -630,3 +623,20 @@ def test_calendar_name_difference_is_a_quality_issue_not_a_breaker_trip(rig: Rig
         issues = s.scalars(select(DataQualityIssue).where(DataQualityIssue.code == "name_mismatch")).all()
         assert {i.entity_type for i in issues} == {"competition", "group"}
     assert rig.count("matches") == 12
+
+
+def test_an_old_transient_breaker_pause_is_lifted_by_the_next_run(rig: Rig) -> None:
+    """Pausas antiguas del breaker por un fallo pasajero (versión anterior): la siguiente ejecución las levanta y sigue. Las de DATOS
+    (ámbito distinto, formato cambiado) y las manuales se respetan."""
+    rig.seed_catalog()
+    with rig.sf() as s, s.begin():
+        controls.pause(s, SRC, "2 cuerpos null o vacíos consecutivos en URLs distintas (último: x)", by="breaker", now=rig.clock.now())
+    report = rig.worker()
+    assert report.auto_resumed and report.stop_reason == "empty" and report.requests > 0
+    with rig.sf() as s, s.begin():
+        controls.pause(s, SRC, "ámbito distinto del pedido (HTTP 200 con otra temporada, competición, grupo o modalidad) en x",
+                       by="breaker", now=rig.clock.now())
+    assert rig.worker().stop_reason == "paused"
+    with rig.sf() as s, s.begin():
+        controls.pause(s, SRC, "2 cuerpos null o vacíos consecutivos en URLs distintas (último: x)", by="manual", now=rig.clock.now())
+    assert rig.worker().stop_reason == "paused"
