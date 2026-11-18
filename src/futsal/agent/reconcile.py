@@ -290,9 +290,11 @@ def _covers(need: Counter[str], have: Counter[str]) -> bool:
     return bool(need) and all(have[t] >= n for t, n in need.items())
 
 
-def evaluate_item(text: str, ordinal: int | None, facts: list[VisualFacts], cells: Counter[str] | None = None) -> tuple[bool, str, list[str]]:
+def evaluate_item(text: str, ordinal: int | None, facts: list[VisualFacts], cells: Counter[str] | None = None,
+                  prose: bool = False) -> tuple[bool, str, list[str]]:
     """(¿redundante?, motivo, sobrantes). Redundante solo si registros de UN visual lo respaldan por completo.
-    `cells`: datos canónicos de las columnas de una tabla markdown con cabecera reconocida (p. ej. «Pts» -> qp19)."""
+    `cells`: datos canónicos de las columnas de una tabla markdown con cabecera reconocida (p. ej. «Pts» -> qp19).
+    `prose`: el texto es una FRASE de un párrafo; se admiten además los verbos y nexos neutros con que se narra ese tipo de visual (`PROSE_WORDS`)."""
     seq, base_w, base_s = extract_full(text)
     base_s.update(cells or {})
     best: tuple[str, list[str]] = ("sin registro del visual que lo respalde", [])
@@ -310,7 +312,7 @@ def evaluate_item(text: str, ordinal: int | None, facts: list[VisualFacts], cell
             matched.append(r)
         if not matched:
             continue
-        allowed_w = FILLER | vf.context_words | {w for r in matched for w in r.extra}
+        allowed_w = FILLER | vf.context_words | {w for r in matched for w in r.extra} | (PROSE_WORDS.get(vf.type, frozenset()) if prose else frozenset())
         left_w = sorted(w for w, n in rem_w.items() if n > 0 and w not in allowed_w)
         # la jornada del subtítulo del visual solo respalda una «jornada N» del texto si ningún registro coincidente trae su propia jornada (si la trae, debe ser esa)
         has_round = any(a.startswith("qr") for r in matched for a in r.attrs)
@@ -324,6 +326,61 @@ def evaluate_item(text: str, ordinal: int | None, facts: list[VisualFacts], cell
         if len(left_w) + len(left_s) < len(best[1]) or not best[1]:
             best = (f"{vf.type}: contiene datos que el visual no tiene", (left_w + left_s)[:6])
     return False, best[0], best[1]
+
+
+# --- frases de párrafo ------------------------------------------------------------------------------------------------------------------
+# Verbos y nexos con los que se NARRA lo que dibuja cada tipo de visual («X lidera con 25 puntos, seguido de Y con 24»). No llevan datos: los datos
+# (cifras, fechas, marcadores) siguen teniendo que coincidir con un registro, y cualquier otra palabra conserva la frase.
+_NARRATE = frozenset({"es", "son", "esta", "estan", "tiene", "tienen", "suma", "suman", "lleva", "llevan", "con", "seguido", "seguida", "seguidos", "le", "les",
+                      "sigue", "siguen", "por", "detras", "despues", "luego", "mientras", "primero", "primera", "segundo", "segunda", "tercero", "tercera",
+                      "cuarto", "quinto", "puesto", "posicion", "lugar", "actual", "actualmente", "ahora", "mismo", "misma", "ambos", "tambien", "cada", "uno"})
+PROSE_WORDS: dict[str, frozenset[str]] = {
+    "bars": _NARRATE | {"maximo", "maximos", "goleador", "goleadores", "goleadora", "lider", "lidera", "encabeza", "ranking", "marcado", "anotado", "han", "ha",
+                        "tabla", "clasificacion", "pichichi", "jugador", "jugadores", "equipo", "equipos"},
+    "table": _NARRATE | {"lider", "lidera", "encabeza", "colista", "ultimo", "cierra", "clasificacion", "tabla", "tras", "jornada", "equipo", "equipos",
+                         "partidos", "jugados", "puntos", "goles"},
+    "matches": _NARRATE | {"juega", "juegan", "jugara", "jugaran", "recibe", "reciben", "visita", "visitan", "enfrenta", "enfrentan", "mide", "miden",
+                           "disputa", "disputan", "partido", "partidos", "encuentro", "encuentros", "casa", "fuera", "gano", "gana", "vencio", "empato", "perdio"},
+    "lineup": _NARRATE | {"alineacion", "alineo", "titulares", "titular", "suplentes", "suplente", "quinteto", "inicial", "formado", "formada", "salieron",
+                          "salio", "jugaron", "banquillo", "porteria", "portero", "capitan", "dorsal"},
+}
+# Frase de introducción o de remisión a la tarjeta («Aquí tienes la clasificación del Grupo 2 tras la jornada 10:», «Te muestro el ranking a continuación»):
+# solo se omite si TODAS sus palabras son de este vocabulario o de la cabecera de un visual y no trae ningún dato propio.
+INTRO_WORDS = FILLER | {
+    "aqui", "tienes", "tiene", "te", "muestro", "mostramos", "muestra", "dejo", "paso", "indico", "detallo", "resumo", "puedes", "ver", "consultar", "consulta",
+    "esta", "estas", "este", "estos", "esto", "es", "son", "siguiente", "siguientes", "continuacion", "abajo", "debajo", "completo", "completa", "completos",
+    "ranking", "clasificacion", "tabla", "lista", "listado", "tarjeta", "grafico", "detalle", "actual", "actualizada", "oficial", "oficiales", "datos",
+    "partidos", "partido", "encuentros", "resultados", "goleadores", "maximos", "alineacion", "alineaciones", "titulares", "suplentes", "calendario",
+    "semana", "fin", "hoy", "manana", "proximos", "proxima", "proximo", "hay", "juega", "juegan", "jugaran", "disputa", "disputan", "programados",
+    "tras", "segun", "general", "todos", "todas", "estan", "queda", "quedan", "asi", "va", "van", "grupo", "grupos", "jornada", "competicion", "liga",
+    "categoria", "temporada", "nuestro", "vuestro"}
+# La frase que sigue a una omitida no puede depender de ella («Le saca dos puntos…»): si empieza así, el párrafo se conserva entero.
+ANAPHORA = frozenset({"le", "les", "lo", "la", "su", "sus", "este", "esta", "ese", "esa", "estos", "esos", "ambos", "ambas", "el", "ella", "ellos",
+                      "detras", "seguido", "seguida", "tambien", "ademas", "luego", "despues", "mientras", "aunque", "pero", "sin", "eso", "esto"})
+_ABBREV = re.compile(r"(?:^|[\s(«*_\"])(?:(?:[A-Za-zÁÉÍÓÚÑ]\.){2,}|[A-Za-zÁÉÍÓÚÑ]\.|(?:Sr|Sra|Dr|Dra|Esc|Dep|Avda|Av|Sta|Sto|Ud|Uds|etc|n[úu]m|N[úu]m|p[áa]g|P[áa]g|D|Dña|Ntra|Nta)\.)$")
+# «C.D.», «F.S.», «Esc.», «Sr.»: ese punto no cierra la frase
+
+
+def sentences(paragraph: str) -> list[str]:
+    """Frases de un párrafo (corta tras «.», «!», «?», «…» o «:» seguidos de espacio y mayúscula/apertura). Ante la duda NO corta: una frase de más
+    solo hace que se conserve más texto."""
+    out, start = [], 0
+    for m in re.finditer(r"[.!?…:](?:[»\")*_]*)\s+(?=[¿¡«\"(*_]*[A-ZÁÉÍÓÚÑ0-9])", paragraph):
+        head = paragraph[start:m.start() + 1]
+        if paragraph[m.start()] == "." and _ABBREV.search(head):
+            continue
+        out.append(paragraph[start:m.end()].strip())
+        start = m.end()
+    tail = paragraph[start:].strip()
+    return [x for x in (*out, tail) if x]
+
+
+def is_intro(text: str, facts: list[VisualFacts]) -> bool:
+    """¿Frase sin contenido propio que solo presenta o remite al visual? Ningún dato (cifra, fecha…) salvo los de la cabecera de un visual."""
+    _, w, sp = extract_full(_strip_md(text))
+    ctx_w = set().union(*(f.context_words for f in facts)) if facts else set()
+    ctx_s = set().union(*(f.context_specials for f in facts)) if facts else set()
+    return bool(w) and all(t in INTRO_WORDS or t in ctx_w for t in w) and all(t in ctx_s for t in sp)
 
 
 # --- análisis del markdown ---------------------------------------------------------------------------------------------------------------
@@ -387,26 +444,41 @@ def _safe_facts(v: dict[str, Any]) -> VisualFacts | None:
         return None
 
 
+HEADING = re.compile(r"^\s{0,3}(#{1,6}\s|>|(?:[-*_]\s*){3,}$)")
+
+
+def _plain(line: str) -> bool:
+    """Línea de párrafo: ni vacía, ni lista, ni tabla, ni código, ni título, cita o separador."""
+    t = line.strip()
+    return bool(t) and not LIST_ITEM.match(line) and not t.startswith("|") and not t.startswith("```") and not HEADING.match(line)
+
+
 def reconcile_answer(answer: str, visuals: list[dict[str, Any]]) -> Reconciliation:
-    """Quita del texto visible SOLO los elementos de lista y filas de tabla que los visuales ya muestran por completo."""
+    """Quita del texto visible lo que los visuales ya muestran por completo: elementos de lista, filas de tabla y FRASES de párrafo respaldadas íntegramente
+    por un registro (o que solo presentan el visual). Si no queda nada, el texto visible queda vacío: el visual ES la respuesta."""
     result = Reconciliation(answer, answer)
     facts = [f for f in (_safe_facts(v) for v in visuals or [] if isinstance(v, dict)) if f is not None]
     if not answer.strip() or not facts:
         return result
     lines = answer.split("\n")
     drop: set[int] = set()
+    blocks: dict[int, bool] = {}  # primera línea de cada lista/tabla -> ¿se omitió entera?
+    paragraphs: list[tuple[int, int]] = []
+    rewrite: dict[int, str] = {}
     in_code = False
     i = 0
 
-    def judge(idx: int, kind: str, text: str, ordinal: int | None, cells: Counter[str] | None = None) -> bool:
+    def judge(kind: str, text: str, ordinal: int | None, cells: Counter[str] | None = None, prose: bool = False, pending: list[Any] | None = None) -> bool:
         result.considered += 1
-        redundant, reason, left = evaluate_item(_strip_md(text), ordinal, facts, cells)
+        redundant, reason, left = evaluate_item(_strip_md(text), ordinal, facts, cells, prose)
         if redundant:
-            result.removed.append({"kind": kind, "reason": reason, "snippet": _snippet(text)})
+            (pending if pending is not None else result.removed).append({"kind": kind, "reason": reason, "snippet": _snippet(text)})
         elif left:
             result.kept_uncertain.append({"kind": kind, "reason": reason, "left": left, "snippet": _snippet(text)})
         return redundant
 
+    list_start: int | None = None
+    list_all = True
     while i < len(lines):
         line = lines[i]
         if line.strip().startswith("```"):
@@ -419,9 +491,10 @@ def reconcile_answer(answer: str, visuals: list[dict[str, Any]]) -> Reconciliati
                     rows.append(j)
                     j += 1
                 headers = [(words(c) or [""])[0] for c in lines[i].strip().strip("|").split("|")]
-                gone = [r for r in rows if judge(r, "table_row", *_table_row(lines[r], headers))]
+                gone = [r for r in rows if judge("table_row", *_table_row(lines[r], headers))]
                 drop.update(gone)
-                if rows and len(gone) == len(rows):
+                blocks[i] = bool(rows) and len(gone) == len(rows)
+                if blocks[i]:
                     drop.update({i, i + 1})  # sin filas, la cabecera y la separación no tienen sentido
                 i = j
                 continue
@@ -435,18 +508,106 @@ def reconcile_answer(answer: str, visuals: list[dict[str, Any]]) -> Reconciliati
                 while j < len(lines) and lines[j].strip() and not LIST_ITEM.match(lines[j]) and len(lines[j]) - len(lines[j].lstrip()) > len(m[1]):
                     text += " " + lines[j].strip()  # línea de continuación del mismo elemento
                     j += 1
-                if judge(i, "list_item", text, ordinal):
+                gone = judge("list_item", text, ordinal)
+                if gone:
                     drop.update(range(i, j))
+                if list_start is None:
+                    list_start, list_all = i, True
+                list_all = list_all and gone
+                blocks[list_start] = list_all
                 i = j
                 continue
+            if _plain(line):
+                j = i + 1
+                while j < len(lines) and _plain(lines[j]):
+                    j += 1
+                paragraphs.append((i, j))
+                list_start = None
+                i = j
+                continue
+        if line.strip():
+            list_start = None
         i += 1
-    if not drop:
+
+    def next_block(end: int) -> int | None:
+        k = end
+        while k < len(lines) and not lines[k].strip():
+            k += 1
+        return k if k in blocks else None
+
+    for start, end in paragraphs:  # frases de párrafo: después de las listas, para saber si la que presentan se ha omitido
+        sents = sentences(" ".join(ln.strip() for ln in lines[start:end]))
+        block = next_block(end)
+        kinds: list[str | None] = []  # "data" (respaldada por un registro), "intro" (solo presenta) o None (se conserva)
+        notes: list[list[dict[str, str]]] = []
+        for n, sent in enumerate(sents):
+            note: list[dict[str, str]] = []
+            if is_intro(sent, facts):
+                # «…a continuación:» delante de una lista o tabla solo sobra si esa lista se omitió entera
+                lead = n == len(sents) - 1 and sent.rstrip("*_ ").endswith(":") and block is not None
+                ok = not lead or blocks.get(block, False)
+                result.considered += 1
+                note.append({"kind": "intro", "reason": "presenta el visual sin datos propios", "snippet": _snippet(sent)})
+                kinds.append("intro" if ok else None)
+            else:
+                kinds.append("data" if judge("sentence", sent, None, prose=True, pending=note) else None)
+            notes.append(note)
+        lo, hi = 0, len(sents)
+        if not all(kinds):
+            while kinds[lo]:
+                lo += 1
+            while hi > lo and kinds[hi - 1] == "intro":  # al final solo se quitan remisiones («Te lo muestro abajo»), nunca datos
+                hi -= 1
+            if lo and (words(_strip_md(sents[lo]))[:1] or [""])[0] in ANAPHORA:
+                lo = 0  # la frase que queda dependería de la omitida: el párrafo se conserva desde el principio
+        else:
+            lo = hi = len(sents)
+        for n in (*range(lo), *range(hi, len(sents))):
+            result.removed += notes[n]
+        if lo == hi:
+            drop.update(range(start, end))
+        elif lo or hi < len(sents):
+            drop.update(range(start + 1, end))
+            rewrite[start] = " ".join(sents[lo:hi])
+    if not drop and not rewrite:
         return result
-    kept = [ln for k, ln in enumerate(lines) if k not in drop]
-    out = re.sub(r"\n{3,}", "\n\n", "\n".join(kept)).strip()
-    if not out:  # no queda texto: una frase que remite al visual (título del primero), nunca una respuesta vacía
-        title = next((str(v["title"]) for v in visuals if isinstance(v.get("title"), str)), "")
-        out = f"Te lo muestro en la tarjeta «{title}»." if title else "Te lo muestro a continuación."
-        result.pointer_added = True
-    result.text = out
+    kept = [rewrite.get(k, ln) for k, ln in enumerate(lines) if k not in drop]
+    result.text = re.sub(r"\n{3,}", "\n\n", "\n".join(kept)).strip()
     return result
+
+
+# --- punto único: texto VISIBLE de una respuesta ----------------------------------------------------------------------------------------------------
+ASK_QUESTION = {"competition": "¿A qué competición te refieres?", "group": "¿Qué grupo quieres consultar?", "team": "¿A qué equipo te refieres?"}
+
+
+def clarification_question(context: dict[str, Any] | None) -> str | None:
+    """Aclaración con opciones REALES que el frontend muestra como botones: la pregunta breve, sin enumerarlas (la enumeración queda en el original,
+    que es el que ven la memoria y el historial del LLM). None si no es una aclaración con al menos dos opciones."""
+    ctx = context or {}
+    options = [o for o in ctx.get("options") or [] if isinstance(o, str) and o.strip()]
+    if ctx.get("status") != "ask" or len(options) < 2:
+        return None
+    question = ASK_QUESTION.get(str(ctx.get("option_kind")), "¿A cuál te refieres?")
+    team = ctx.get("team")
+    if ctx.get("option_kind") == "competition" and isinstance(team, str) and team.strip():
+        return f"«{team.strip()}» juega en varias competiciones. {question}"
+    return question
+
+
+def present_answer(answer: str, visuals: list[dict[str, Any]] | None, context: dict[str, Any] | None = None,
+                   clarification: bool = False) -> Reconciliation:
+    """Texto que se MUESTRA (contrato agente-frontend en un solo sitio; puro, sin LLM):
+    - aclaración (`clarification`: el agente pregunta y el contexto trae las opciones): solo la pregunta breve; las opciones van como botones;
+    - con visuales: se omite lo que el visual ya dibuja (`reconcile_answer`);
+    - si no, el texto tal cual. El original nunca se altera."""
+    question = clarification_question(context) if clarification else None
+    options = [" ".join(words(o)) for o in (context or {}).get("options") or [] if isinstance(o, str)]
+    listed = " ".join(words(answer))
+    if question is not None and all(o and o in listed for o in options):  # solo si el texto enumera ESAS opciones (si dice otra cosa, se conserva)
+        result = Reconciliation(question, answer)
+        result.removed.append({"kind": "clarification", "reason": "las opciones se muestran como botones", "snippet": _snippet(answer)})
+        result.considered = 1
+        return result
+    if visuals:
+        return reconcile_answer(answer, visuals)
+    return Reconciliation(answer, answer)

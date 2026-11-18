@@ -435,7 +435,7 @@ def test_the_model_is_told_not_to_repeat_what_the_app_already_draws() -> None:
                             "¿Cuál fue la alineación del DOSA y quién arbitró?")
     note = data["visual_note"]
     assert "los árbitros" in note and "las alineaciones" in note and "los goles por minuto" in note and "no lo repitas en texto" in note
-    assert "una o dos frases" in note  # el texto sigue aportando lo esencial
+    assert "UNA frase breve con el dato clave" in note and "sin introducción" in note  # el texto aporta solo lo esencial y lo que la tarjeta no muestra
     assert "visual_note" in seen_tool_result([call("get_standings", group_id=12), LLMResponse("ok", [])], "clasificación")
     assert "los partidos en una tabla" in seen_tool_result([call("list_matches", group_id=12, status="scheduled"), LLMResponse("ok", [])], "próximos")["visual_note"]
 

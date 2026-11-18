@@ -79,19 +79,16 @@ describe("historial", () => {
     const list = Array.from({ length: SEARCH_FROM }, (_, i) => conv(`c${i}`, `Conversación ${i}`, now - i));
     const empty: Conversation = { id: "new", title: "Nueva conversación", createdAt: now, updatedAt: now, messages: [] };
     const onDelete = vi.fn();
-    render(<Sidebar conversations={[empty, ...list]} activeId="c0" open={false} onNew={() => undefined} onSelect={() => undefined} onDelete={onDelete} onClose={() => undefined} />);
+    const onSelectSpy = vi.fn();
+    render(<Sidebar conversations={[empty, ...list]} activeId="c0" open={false} onNew={() => undefined} onSelect={onSelectSpy} onDelete={onDelete} onClose={() => undefined} />);
     expect(screen.getAllByRole("button", { name: /^Conversación \d$/ })).toHaveLength(SEARCH_FROM);
     expect(screen.getByRole("button", { name: "Conversación 0" })).toHaveAttribute("aria-current", "page");
     await userEvent.type(screen.getByRole("searchbox", { name: "Buscar conversaciones" }), "3");
     expect(screen.getAllByRole("button", { name: /^Conversación \d$/ })).toHaveLength(1);
-    const trigger = screen.getByRole("button", { name: "Acciones de la conversación Conversación 3" });
-    await userEvent.click(trigger);
-    expect(screen.getByRole("menuitem", { name: /Borrar conversación Conversación 3/ })).toHaveFocus();
-    await userEvent.keyboard("{Escape}");
-    expect(screen.queryByRole("menu")).toBeNull();
-    expect(trigger).toHaveFocus();
-    await userEvent.click(trigger);
-    await userEvent.click(screen.getByRole("menuitem", { name: /Borrar conversación Conversación 3/ }));
+    // papelera directa (sin menú «⋯»): borra sin abrir la conversación
+    expect(screen.queryByRole("button", { name: /Acciones de la conversación/ })).toBeNull();
+    await userEvent.click(screen.getByRole("button", { name: "Borrar conversación Conversación 3" }));
+    expect(onSelectSpy).not.toHaveBeenCalled();
     expect(onDelete).toHaveBeenCalledWith("c3");
   });
 });

@@ -108,7 +108,7 @@ describe("iconos", () => {
       expect(within(agent).getByRole("button", { name }).querySelector("svg")).not.toBeNull();
     }
     expect(screen.getByRole("button", { name: "Abrir conversaciones" }).querySelector("svg")).not.toBeNull();
-    expect(screen.getAllByRole("button", { name: /Acciones de la conversación/ })[0].querySelector("svg")).not.toBeNull();
+    expect(screen.getAllByRole("button", { name: /Borrar conversación/ })[0].querySelector("svg")).not.toBeNull();
     expect(document.body.textContent ?? "").not.toMatch(FUNCTIONAL_EMOJI);
   });
 });

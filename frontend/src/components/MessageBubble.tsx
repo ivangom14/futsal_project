@@ -1,6 +1,6 @@
 import { memo, useState, type ReactNode } from "react";
 import ReactMarkdown, { type Components } from "react-markdown";
-import { CircleSlash, Lightbulb, MessageCircleQuestion, RotateCcw, TriangleAlert } from "lucide-react";
+import { CircleSlash, Lightbulb, RotateCcw, TriangleAlert } from "lucide-react";
 import remarkGfm from "remark-gfm";
 import FeedbackBar from "./FeedbackBar";
 import Suggestions from "./Suggestions";
@@ -114,11 +114,6 @@ function MessageBubble({ message, onRetry, onSuggest, suggestDisabled = false, o
   const onMore = more && onSuggest ? () => onSuggest(more) : undefined;
   return (
     <article className={`min-w-0 ${asking ? "border-l-[3px] border-accent pl-3" : ""}`} data-testid="msg-agent" aria-label={asking ? "Aclaración de Futsito" : "Respuesta de Futsito"}>
-      {asking && (
-        <p className="mb-1 flex items-center gap-1.5 text-[13px] font-semibold text-accent">
-          <MessageCircleQuestion size={15} aria-hidden="true" /> Necesito un detalle
-        </p>
-      )}
       {r?.is_analysis && (
         <p className="mb-1.5 flex items-center gap-1.5 text-[13px] font-medium text-warning" data-testid="analysis-label"
           title="Interpretación elaborada por el asistente a partir de los datos">
@@ -138,16 +133,21 @@ function MessageBubble({ message, onRetry, onSuggest, suggestDisabled = false, o
           No he podido completar del todo la consulta.{diagnostics ? " El detalle está en «Detalles técnicos»." : " Puede faltar parte de la información."}
         </Notice>
       )}
+      {r && options.length > 0 && (
+        // Opciones de la aclaración: botones apilados a todo el ancho en móvil (nombres largos legibles), en fila en pantallas anchas. Solo la última
+        // respuesta las deja pulsar; en las anteriores quedan como registro de lo que se ofreció.
+        <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:flex-wrap" role="group" aria-label="Opciones" data-testid="clarification-options">
+          {options.map((o) => (
+            <Chip key={o} variant="option" disabled={!onSuggest || suggestDisabled} onClick={onSuggest ? () => onSuggest(o) : undefined}
+              className="w-full justify-start sm:w-auto">{o}</Chip>
+          ))}
+        </div>
+      )}
       {r && <Visuals visuals={visuals} onMore={onMore} moreDisabled={suggestDisabled} />}
       {r && (
         <div className="mt-2 flex flex-wrap items-start gap-x-2">
           <div className="min-w-0 flex-1"><SourceFooter sources={r.sources ?? []} /></div>
           <FeedbackBar value={message.feedback} onSubmit={(fb) => onFeedback(message.id, r.diagnostics.run_id, fb)} />
-        </div>
-      )}
-      {r && onSuggest && options.length > 0 && (
-        <div className="mt-2 flex flex-wrap gap-2" role="group" aria-label="Opciones" data-testid="clarification-options">
-          {options.map((o) => <Chip key={o} variant="option" disabled={suggestDisabled} onClick={() => onSuggest(o)}>{o}</Chip>)}
         </div>
       )}
       {r && onSuggest && options.length === 0 && <Suggestions items={chips} onPick={onSuggest} disabled={suggestDisabled} />}

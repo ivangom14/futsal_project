@@ -181,17 +181,13 @@ describe("valoración de respuestas", () => {
 describe("alineaciones", () => {
   const lineupContract = lineupJson as unknown as ChatResponse;
 
-  it("lista titulares y suplentes por defecto y, a petición, dibuja el quinteto en la pista, con el contrato real", async () => {
+  it("abre en la pista con el quinteto y los suplentes debajo; «Ver lista» y «Ver en pista» alternan, con el contrato real", async () => {
     backend(() => reply(lineupContract));
     render(<App />);
     await ask("¿Cuál fue la alineación del DOSA?");
     const [figure] = screen.getAllByTestId("visual"); // el acta completa trae además árbitros y goles
     expect(within(figure).getByText("Alineación")).toBeInTheDocument();
     expect(within(figure).getByText("C.D. DOSA")).toBeInTheDocument();
-    const starters = within(within(figure).getByRole("region", { name: "Titulares" })).getAllByRole("listitem");
-    expect(starters).toHaveLength(5);
-    expect(within(figure).queryByRole("img", { name: /^Quinteto inicial/ })).not.toBeInTheDocument();
-    await userEvent.click(within(figure).getByRole("button", { name: "Ver en pista" }));
     const court = within(figure).getByRole("img", { name: /^Quinteto inicial de C\.D\. DOSA: 1 Javier Aparicio Jimenez, 5 Pedro Gil Mora/ });
     expect(within(court as unknown as HTMLElement).getAllByText(/^[A-Z]\. /)).toHaveLength(5); // 5 titulares con su etiqueta
     expect(within(court as unknown as HTMLElement).getByText("Portero")).toBeInTheDocument();
@@ -202,6 +198,11 @@ describe("alineaciones", () => {
     expect(items[1]).toContain("Luis Suplente Garcia");
     expect(within(figure).getByText(/la colocación en el campo es orientativa/)).toBeInTheDocument(); // no inventa posiciones
     expect(screen.queryByText(/Cierre|Pívot|Pivote|Ala /)).not.toBeInTheDocument();
+    await userEvent.click(within(figure).getByRole("button", { name: "Ver lista" }));
+    expect(within(figure).queryByRole("img", { name: /^Quinteto inicial/ })).not.toBeInTheDocument();
+    expect(within(within(figure).getByRole("region", { name: "Titulares" })).getAllByRole("listitem")).toHaveLength(5);
+    await userEvent.click(within(figure).getByRole("button", { name: "Ver en pista" }));
+    expect(within(figure).getByRole("img", { name: /^Quinteto inicial/ })).toBeInTheDocument();
   });
 
   it("sin cinco titulares y un portero no dibuja la pista: lista los titulares y lo avisa", async () => {

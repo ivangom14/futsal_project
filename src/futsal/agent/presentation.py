@@ -24,7 +24,7 @@ MAX_ROWS = 20
 MAX_MATCHES = 12
 MAX_EVENTS = 20
 PARTICLES = frozenset({"de", "del", "la", "las", "los", "y", "da", "do"})
-MAX_BARS = 10
+MAX_SCORER_ROWS = 30  # goleadores oficiales que viajan al frontend (10 visibles de entrada)
 V2_LIST_TOOLS = frozenset({"matches_by_date", "scorers_ranking", "teams_ranking", "officials_ranking", "find_official"})
 
 
@@ -321,6 +321,14 @@ def _matches_title(call: ToolCallRecord, names: dict[str, dict[int, str]], group
     return f"{kind}" + (f" · {where}" if where else ""), " · ".join(x for x in extra if x) or None
 
 
+V2_LIST_PART = {"matches_by_date": "los partidos", "find_official": "los partidos del árbitro", "scorers_ranking": "el ranking de goleadores",
+                "teams_ranking": "el ranking de equipos", "officials_ranking": "el ranking de árbitros"}
+# Lo que se le dice al LLM cuando la aplicación va a dibujar los datos: evitar la duplicidad DESDE EL ORIGEN (y los tokens de enumerar filas). La frase con el dato
+# clave queda en el original (memoria, historial, calificación); si solo repite la tarjeta, `reconcile` la omite del texto visible.
+VISUAL_NOTE = ("La aplicación ya muestra {parts} en una tarjeta con todos sus datos: no lo repitas en texto (ni lista, ni tabla, ni enumerando filas). "
+               "Responde con UNA frase breve con el dato clave pedido, sin introducción; añade solo lo que la tarjeta no muestra (avisos, datos parciales, análisis pedido).")
+
+
 def visual_note(tool: str, args: dict[str, Any], data: Any, question: str, focus: dict[str, str]) -> str | None:
     """Si la aplicación va a dibujar estos datos, se lo dice al LLM (dentro del resultado de la tool) para que no los repita en texto.
     Solo se avisa cuando el visual SÍ se va a generar (mismas funciones que lo construyen): nunca se pierde información."""
@@ -346,10 +354,11 @@ def visual_note(tool: str, args: dict[str, Any], data: Any, question: str, focus
     elif tool in ("get_standings", "get_scorer_table") and data.get("status") in ("ok", "incomplete"):
         if len(data.get("standings" if tool == "get_standings" else "scorers") or []) >= 2:
             parts.append("la clasificación" if tool == "get_standings" else "el ranking de goleadores")
+    elif tool in V2_LIST_TOOLS and v2_list_visual(tool, args, data) is not None:
+        parts.append(V2_LIST_PART.get(tool, "el listado"))
     if not parts:
         return None
-    return (f"La aplicación ya muestra {', '.join(parts)} como gráfico junto a tu respuesta: no lo repitas en texto (ni en lista ni en tabla). "
-            "Responde con una o dos frases que aporten lo esencial (p. ej. el resultado o el líder) y lo demás que haya pedido el usuario.")
+    return VISUAL_NOTE.format(parts=", ".join(parts))
 
 
 def lineup_visuals(question: str, rec: RunRecord, focus: dict[str, str]) -> list[dict[str, Any]]:
@@ -437,10 +446,11 @@ def build_visuals(question: str, rec: RunRecord, official: list[dict[str, Any]],
                                          if isinstance(pair[0].get(k), int) and isinstance(pair[1].get(k), int)]})
         scorers = [r for r in data.get("scorers") or [] if isinstance(r, dict) and isinstance(r.get("goals"), int)]
         if scorers:
-            visuals.append({"type": "bars", "title": f"Goleadores · {where}", "partial": partial,
+            # Hasta MAX_SCORER_ROWS filas (el frontend enseña 10 y despliega el resto); `total` = filas de la tabla oficial, para avisar si no caben todas.
+            visuals.append({"type": "bars", "title": f"Goleadores · {where}", "partial": partial, "total": len(scorers),
                             "subtitle": f"Tabla actual · captura {str(src.get('captured_at'))[:10]}" if src.get("captured_at") else None,
                             "rows": [{"label": str(r.get("player")), "sublabel": r.get("team"), "value": r["goals"],
-                                      "rank": r.get("rank")} for r in scorers[:MAX_BARS]]})
+                                      "rank": r.get("rank")} for r in scorers[:MAX_SCORER_ROWS]]})
     for call in reversed(executed(rec)):  # v2: el último listado paginado (la página que se acaba de mostrar)
         if call.name in V2_LIST_TOOLS:
             visual = v2_list_visual(call.name, {k: v for k, v in call.arguments.items() if k not in ("offset", "limit")}, _json(call.result))

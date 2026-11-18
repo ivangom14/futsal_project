@@ -119,10 +119,27 @@ describe("aclaraciones y supuestos", () => {
     await ask("¿Cómo va la liga?");
     const agent = screen.getByTestId("msg-agent");
     expect(agent).toHaveAccessibleName("Aclaración de Futsito");
-    expect(within(agent).getByText("Necesito un detalle")).toBeInTheDocument();
+    expect(within(agent).queryByText("Necesito un detalle")).not.toBeInTheDocument(); // la pregunta breve basta: sin rótulos extra
     expect(within(agent).queryByText("Sugerida que no debe salir")).not.toBeInTheDocument();
     await userEvent.click(within(within(agent).getByTestId("clarification-options")).getByRole("button", { name: "PREFERENTE FS" }));
     await waitFor(() => expect(questions).toEqual(["¿Cómo va la liga?", "PREFERENTE FS"]));
+  });
+
+  it("aclaración breve: solo la pregunta y los botones; un doble toque envía una sola vez y las opciones antiguas quedan inactivas", async () => {
+    const options = ["PRIMERA DIVISION AUTONOMICA AFICIONADO FS", "COPA DE LA COMUNIDAD SENIOR FS"];
+    const clar = withContext({ status: "ask", options }, { answer: "¿A qué competición te refieres?",
+      answer_original: `¿A cuál te refieres?\n\n- ${options[0]}\n- ${options[1]}` });
+    const { questions } = backend(clar, base);
+    render(<App />);
+    await ask("¿Cómo va la autonómica?");
+    const agent = screen.getByTestId("msg-agent");
+    expect(agent.querySelector(".prose")).toHaveTextContent(/^¿A qué competición te refieres\?$/); // sin enumeración duplicada
+    const btn = within(within(agent).getByTestId("clarification-options")).getByRole("button", { name: options[1] });
+    await userEvent.dblClick(btn);
+    await waitFor(() => expect(questions).toEqual(["¿Cómo va la autonómica?", options[1]]));
+    await waitFor(() => expect(screen.getAllByTestId("msg-agent")).toHaveLength(2));
+    const old = within(screen.getAllByTestId("msg-agent")[0]).getByTestId("clarification-options");
+    expect(within(old).getByRole("button", { name: options[0] })).toBeDisabled();
   });
 
   it("el supuesto antepuesto por el backend se muestra como nota y no se repite en el texto", async () => {
@@ -168,7 +185,7 @@ describe("deshacer al borrar", () => {
     const { fetchMock } = backend(base);
     render(<App />);
     await ask("Para recuperar");
-    await userEvent.click(screen.getByRole("button", { name: /Acciones de la conversación Para recuperar/ })); await userEvent.click(screen.getByRole("menuitem", { name: /Borrar conversación Para recuperar/ }));
+    await userEvent.click(screen.getByRole("button", { name: /Borrar conversación Para recuperar/ }));
     expect(screen.queryByRole("button", { name: "Para recuperar" })).not.toBeInTheDocument();
     expect(fetchMock.mock.calls.some(([u, i]) => String(u).includes("/chat/conversations/") && (i as RequestInit)?.method === "DELETE")).toBe(true);
     const toast = screen.getByTestId("undo-toast");
@@ -186,7 +203,7 @@ describe("deshacer al borrar", () => {
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
     await user.type(screen.getByLabelText("Pregunta"), "Temporal{Enter}");
     await screen.findByTestId("msg-agent");
-    await user.click(screen.getByRole("button", { name: /Acciones de la conversación Temporal/ })); await user.click(screen.getByRole("menuitem", { name: /Borrar conversación Temporal/ }));
+    await user.click(screen.getByRole("button", { name: /Borrar conversación Temporal/ }));
     expect(screen.getByTestId("undo-toast")).toBeInTheDocument();
     await act(async () => { await vi.advanceTimersByTimeAsync(6_100); });
     expect(screen.queryByTestId("undo-toast")).not.toBeInTheDocument();

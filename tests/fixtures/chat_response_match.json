@@ -220,7 +220,14 @@
       "reason": "sin ámbito ni equipo",
       "intent_confidence": "none"
     },
-    "reconciliation": null,
+    "reconciliation": {
+      "considered": 1,
+      "removed": 0,
+      "kept": 1,
+      "pointer_added": false,
+      "removed_items": [],
+      "kept_uncertain": []
+    },
     "input_tokens_peak": 0,
     "resolved_question": null,
     "history_turns": 0,

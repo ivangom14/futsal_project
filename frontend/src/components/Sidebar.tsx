@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { MoreHorizontal, Search, SquarePen, Trash2, X } from "lucide-react";
+import { Search, SquarePen, Trash2, X } from "lucide-react";
 import { LogoMark } from "./Logo";
 import ThemeSwitch from "./ThemeSwitch";
 import type { Conversation } from "../types";
@@ -44,38 +44,17 @@ export function matchesQuery(c: Conversation, q: string): boolean {
   return words.every((w) => hay.includes(w));
 }
 
-/** Menú de acciones de una conversación (hoy, solo borrar: con «Deshacer» en el aviso). Escape o un toque fuera lo cierran. */
-function RowMenu({ title, onDelete }: { title: string; onDelete: () => void }) {
-  const [open, setOpen] = useState(false);
-  const box = useRef<HTMLDivElement>(null);
-  const trigger = useRef<HTMLButtonElement>(null);
-  useEffect(() => {
-    if (!open) return;
-    box.current?.querySelector<HTMLElement>('[role="menuitem"]')?.focus();
-    const onDown = (e: PointerEvent) => { if (!box.current?.contains(e.target as Node)) setOpen(false); };
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") { e.stopPropagation(); e.preventDefault(); setOpen(false); trigger.current?.focus(); }
-    };
-    document.addEventListener("pointerdown", onDown);
-    document.addEventListener("keydown", onKey, true);
-    return () => { document.removeEventListener("pointerdown", onDown); document.removeEventListener("keydown", onKey, true); };
-  }, [open]);
+/**
+ * Papelera de una conversación: botón propio (no está dentro del de abrir, así que borrar nunca abre la conversación). El borrado se puede
+ * deshacer desde el aviso («Deshacer»). Discreta (gris) y visible siempre; en roja al pasar el ratón o con el foco.
+ */
+function DeleteButton({ title, onDelete }: { title: string; onDelete: () => void }) {
   return (
-    <div ref={box} className="relative shrink-0">
-      <button ref={trigger} type="button" onClick={() => setOpen((o) => !o)} aria-haspopup="menu" aria-expanded={open}
-        aria-label={`Acciones de la conversación ${title}`} title="Más acciones"
-        className="row-actions grid h-9 w-9 place-items-center rounded-md text-ink-2 hover:bg-surface hover:text-ink [@media(pointer:coarse)]:h-touch [@media(pointer:coarse)]:w-10">
-        <MoreHorizontal size={18} aria-hidden="true" />
-      </button>
-      {open && (
-        <div role="menu" aria-label={`Acciones de ${title}`} className="absolute right-0 top-full z-30 mt-1 min-w-44 rounded-md border border-line bg-surface p-1 shadow-pop">
-          <button role="menuitem" type="button" onClick={() => { setOpen(false); onDelete(); }} aria-label={`Borrar conversación ${title}`}
-            className="flex min-h-10 w-full items-center gap-2 rounded-sm px-2.5 text-left text-sm text-danger hover:bg-danger-soft focus-visible:bg-danger-soft">
-            <Trash2 size={16} strokeWidth={1.75} aria-hidden="true" /> Borrar
-          </button>
-        </div>
-      )}
-    </div>
+    <button type="button" onClick={(e) => { e.stopPropagation(); onDelete(); }} aria-label={`Borrar conversación ${title}`} title="Borrar conversación"
+      className="row-delete grid h-9 w-9 shrink-0 place-items-center rounded-md text-ink-2 hover:bg-danger-soft hover:text-danger focus-visible:text-danger [@media(pointer:coarse)]:h-touch [@media(pointer:coarse)]:w-10"
+      data-testid="conversation-delete">
+      <Trash2 size={16} strokeWidth={1.75} aria-hidden="true" />
+    </button>
   );
 }
 
@@ -171,7 +150,7 @@ export default function Sidebar({ conversations, activeId, open, onNew, onSelect
                         className={`min-h-10 min-w-0 flex-1 truncate rounded-md py-2 pl-3 pr-1 text-left text-sm [@media(pointer:coarse)]:min-h-touch ${current ? "font-semibold text-ink" : "text-ink"}`}>
                         {c.title}
                       </button>
-                      <RowMenu title={c.title} onDelete={() => onDelete(c.id)} />
+                      <DeleteButton title={c.title} onDelete={() => onDelete(c.id)} />
                     </li>
                   );
                 })}

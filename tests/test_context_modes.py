@@ -147,5 +147,6 @@ def test_web_service_persists_state_and_rebuilds_it_after_a_restart() -> None:
     # el servidor se reinicia (memoria vacía): el navegador reenvía el historial y el contexto se reconstruye
     llm2 = Seq([call("get_standings", group_id=101), call("get_standings", group_id=102), LLMResponse("Tabla.", [])])
     r3 = build(llm2).post("/chat", json={"question": "¿Y la clasificación?", "conversation_id": "c1", "history": [
-        {"role": "user", "content": "Clasificación de la tercera"}, {"role": "assistant", "content": r1.json()["answer"]}]})
+        {"role": "user", "content": "Clasificación de la tercera"},
+        {"role": "assistant", "content": r1.json()["answer_original"] or r1.json()["answer"]}]})  # como el navegador (conversations.historyFor)
     assert r3.status_code == 200 and TER in next(m.text for m in reversed(llm2.seen[0]) if m.role == "user")

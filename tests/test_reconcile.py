@@ -61,10 +61,15 @@ def test_date_only_has_no_time_and_naive_datetimes_are_local_and_garbage_is_none
 
 
 # --- lista totalmente redundante ----------------------------------------------------------------------------------------------------------
-def test_a_fully_redundant_list_is_removed_but_intro_and_conclusion_are_kept() -> None:
+def test_a_fully_redundant_list_and_its_intro_are_removed_but_the_conclusion_is_kept() -> None:
     r = reconcile_answer(LISTING, [NEXT])
-    assert lines(r.text) == ["Estos son los próximos partidos del grupo:", "¡Disfruta de la jornada!"]
-    assert r.original == LISTING and r.changed and (r.considered, len(r.removed)) == (4, 4)
+    assert lines(r.text) == ["¡Disfruta de la jornada!"]  # «Estos son los próximos partidos del grupo:» solo presentaba la lista omitida
+    assert r.original == LISTING and r.changed and (r.considered, len(r.removed)) == (6, 5)
+
+
+def test_an_intro_is_kept_when_the_list_it_presents_is_kept() -> None:
+    text = "Estos son los próximos partidos del grupo:\n\n- PARQUE NORTE F.S. - RODILLITO 'B' vs C.D. DOSA (07/11/2026 a las 11:00), con el campo en obras\n"
+    assert not reconcile_answer(text, [NEXT]).changed
 
 
 def test_the_time_in_text_must_match_the_madrid_time_of_the_visual() -> None:
@@ -191,15 +196,23 @@ def test_without_visuals_or_with_unreconcilable_ones_the_text_is_untouched() -> 
     assert reconcile_answer("", [NEXT]).text == "" and reconcile_answer("Sin listas, solo prosa.", [NEXT]).text == "Sin listas, solo prosa."
 
 
-def test_prose_is_never_removed_even_if_it_repeats_a_row() -> None:
+def test_a_prose_sentence_fully_backed_by_a_row_is_removed() -> None:
     prose = "El PARQUE NORTE F.S. - RODILLITO 'B' juega contra C.D. DOSA el 07/11/2026 a las 11:00."
-    assert reconcile_answer(prose, [NEXT]).text == prose
+    r = reconcile_answer(prose, [NEXT])
+    assert r.text == "" and r.removed[0]["kind"] == "sentence"
 
 
-def test_if_nothing_is_left_a_short_pointer_to_the_visual_replaces_the_text() -> None:
+def test_a_prose_sentence_with_anything_the_visual_lacks_is_kept() -> None:
+    for prose in ("El PARQUE NORTE F.S. - RODILLITO 'B' juega contra C.D. DOSA el 07/11/2026 a las 11:00, un partido clave para el ascenso.",
+                  "El PARQUE NORTE F.S. - RODILLITO 'B' juega contra C.D. DOSA el 07/11/2026 a las 12:00.",  # hora distinta del visual
+                  "El DOSA juega el sábado."):  # nombre incompleto: no se puede atribuir a un registro
+        assert reconcile_answer(prose, [NEXT]).text == prose
+
+
+def test_if_nothing_is_left_the_visible_text_is_empty_and_the_visual_is_the_answer() -> None:
     only_list = "\n".join(ln for ln in LISTING.splitlines() if ln.startswith("- "))
     r = reconcile_answer(only_list, [NEXT])
-    assert r.pointer_added and r.text.startswith("Te lo muestro en la tarjeta «Próximos partidos") and r.audit()["pointer_added"] is True
+    assert r.text == "" and not r.pointer_added and r.audit()["pointer_added"] is False and r.original == only_list
 
 
 def test_code_blocks_are_not_touched() -> None:
@@ -230,7 +243,7 @@ def test_the_audit_records_counts_and_reasons_without_storing_full_answers() -> 
     long_item = "- " + "AGRUPACION COLEGIO CALASANCIO 'A' vs SAN FELIPE NERI - ELIPA DRAGONS 017 (08/11/2026 a las 11:00) " + "y mucho texto de opinión " * 20
     r = reconcile_answer(f"Intro.\n\n{long_item}\n{LISTING.splitlines()[2]}\n", [NEXT])
     audit = r.audit()
-    assert audit["considered"] == 2 and audit["removed"] == 1 and audit["kept"] == 1
+    assert audit["considered"] == 3 and audit["removed"] == 1 and audit["kept"] == 2  # «Intro.» se evalúa como frase y se conserva
     assert all(len(i["snippet"]) <= MAX_SNIPPET + 1 and i["reason"] and i["kind"] == "list_item" for i in audit["removed_items"] + audit["kept_uncertain"])
     assert json.dumps(audit).count("opinión") < 2 and "y mucho texto de opinión " * 5 not in json.dumps(audit)  # nunca la respuesta completa
 
@@ -277,11 +290,11 @@ def test_only_the_visible_answer_changes_and_memory_keeps_the_original() -> None
     with web_client(memory) as c:
         body = c.post("/chat", json={"question": "¿Cuáles son los próximos partidos?", "conversation_id": "conv-reconcile-1"}).json()
     assert [v["type"] for v in body["visuals"]] == ["matches"]
-    assert "AGRUPACION" not in body["answer"] and "Estos son los próximos partidos" in body["answer"] and "¡Disfruta de la jornada!" in body["answer"]
+    assert "AGRUPACION" not in body["answer"] and "Estos son los próximos partidos" not in body["answer"] and body["answer"] == "¡Disfruta de la jornada!"
     stored = memory.get("conv-reconcile-1")
     assert stored and stored[-1].answer == LISTING  # el historial que verá el LLM en la siguiente pregunta es el original completo
     rec = body["diagnostics"]["reconciliation"]
-    assert rec["considered"] == 4 and rec["removed"] == 4 and rec["removed_items"][0]["reason"].startswith("matches:")
+    assert rec["considered"] == 6 and rec["removed"] == 5 and rec["removed_items"][0]["reason"].startswith("matches:")
     assert "text" not in json.dumps(rec).lower().replace("texto", "")  # sin campo con la respuesta completa
 
 
@@ -434,10 +447,10 @@ def test_after_a_server_restart_the_followup_keeps_the_data_if_the_browser_sends
 def test_a_reconciliation_failure_never_breaks_the_response(monkeypatch: pytest.MonkeyPatch) -> None:
     from futsal.agent import web
 
-    def boom(answer: str, visuals: list[dict[str, Any]]) -> Any:
+    def boom(*_: Any, **__: Any) -> Any:
         raise TypeError("visual inesperado")
 
-    monkeypatch.setattr(web, "reconcile_answer", boom)
+    monkeypatch.setattr(web, "present_answer", boom)
     steps = [LLMResponse("", [ToolCall("c1", "list_matches", {"group_id": 1, "status": "scheduled"})]), LLMResponse(LISTING, [])]
     with spy_client(steps, ConversationMemory(), []) as c:
         res = c.post("/chat", json={"question": "¿Cuáles son los próximos partidos?"})
