@@ -116,8 +116,6 @@ html, body { overflow-x: hidden; max-width: 100%; -webkit-text-size-adjust: 100%
   .standings .st-name { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; line-height: 1.125rem;
     overflow-wrap: break-word; word-break: normal; hyphens: manual; }
   .standings .st-name { font-stretch: 87.5%; }
-  .standings .st-tag { flex-shrink: 0; min-width: 1.125rem; padding: 0 0.25rem; border: 1px solid var(--fs-line-strong); border-radius: var(--fs-radius-sm);
-    font-size: 0.6875rem; font-weight: 700; line-height: 1rem; text-align: center; color: var(--fs-ink-2); }
   .standings .st-name-btn { display: block; min-width: 0; border-radius: var(--fs-radius-sm); }
   .standings .st-name-btn.is-open .st-name { -webkit-line-clamp: unset; display: block; }
   .standings tr.is-highlight td, .data-table tr.is-highlight td { background: var(--fs-brand-soft); font-weight: 600; }

@@ -2,7 +2,7 @@
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
-import Visuals, { LONG_TEAM, splitCategory } from "./components/Visuals";
+import Visuals, { LONG_TEAM } from "./components/Visuals";
 import { historyFor } from "./conversations";
 import contract from "../../tests/fixtures/chat_response.json";
 import type { ChatResponse, Message, Visual } from "./types";
@@ -25,14 +25,13 @@ describe("clasificación en móvil", () => {
     for (const key of ["position", "team", "played", "points"]) expect(within(table).getAllByRole("columnheader")[cols.findIndex((c) => c.key === key)].className).not.toMatch(/st-opt/);
   });
 
-  it("nombre largo: palabras enteras en dos líneas, la letra de categoría siempre visible y un toque muestra el nombre completo", async () => {
+  it("nombre largo: texto normal con su letra de categoría (sin recuadro), dos líneas y un toque muestra el nombre completo", async () => {
     expect(LONG.length).toBeGreaterThan(LONG_TEAM);
-    expect(splitCategory(LONG)).toEqual(["CDB SPORTING LAS AGUILAS DE MADRID - MERCADO LAS AGUILAS", "B"]);
-    expect(splitCategory("C.D. DOSA")).toEqual(["C.D. DOSA", null]);
     render(<Visuals visuals={[standings]} />);
     const btn = screen.getByRole("button", { name: `${LONG} (ver nombre completo)` });
     expect(btn).toHaveAttribute("aria-expanded", "false");
-    expect(within(btn).getByText("B")).toHaveClass("st-tag");
+    expect(within(btn).getByText(LONG)).toHaveClass("st-name"); // «… 'B'» forma parte del nombre
+    expect(document.querySelector(".st-tag")).toBeNull();
     await userEvent.click(btn);
     expect(btn).toHaveAttribute("aria-expanded", "true");
     expect(btn).toHaveClass("is-open");

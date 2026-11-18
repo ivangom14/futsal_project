@@ -57,22 +57,10 @@ const OPTIONAL: Record<string, string> = {
 /** A partir de cuántos caracteres un nombre puede no caber en dos líneas: se ofrece verlo entero con un toque. */
 export const LONG_TEAM = 34;
 
-/** Letra de categoría final («… 'A'»): distingue equipos del mismo club, así que nunca se recorta con el nombre. */
-export function splitCategory(name: string): [string, string | null] {
-  const m = /^(.*\S)\s*['"‘’“”]([A-Z])['"‘’“”]$/.exec(name.trim());
-  return m ? [m[1], m[2]] : [name, null];
-}
-
 function TeamCell({ name }: { name: string }) {
   const [open, setOpen] = useState(false);
-  const [base, tag] = splitCategory(name);
-  // Nombre sin la letra + distintivo con la letra (se lee «… equipo A»); el nombre oficial completo queda en `title`.
-  const label = (
-    <span className="flex min-w-0 items-center gap-1.5">
-      <span className="st-name" data-team-name="">{base}</span>
-      {tag && <span className="st-tag"><span className="sr-only">equipo </span>{tag}</span>}
-    </span>
-  );
+  // Nombre oficial completo como texto normal (con su letra de categoría, «… 'B'»), en dos líneas como mucho; un toque lo despliega.
+  const label = <span className="st-name" data-team-name="">{name}</span>;
   return (
     <span className="flex min-w-0 items-center gap-2" title={name}>
       <TeamCrest name={name} size={20} />
