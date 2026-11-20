@@ -176,14 +176,29 @@ export default function App() {
   };
 
   // Callbacks ESTABLES para los mensajes memorizados: la versión vigente se lee de una ref (sin cierres obsoletos).
-  const live = useRef({ send, retry, submitFeedback });
-  live.current = { send, retry, submitFeedback };
+  const live = useRef({ send, retry, submitFeedback, messages });
+  live.current = { send, retry, submitFeedback, messages };
   const stableSend = useCallback((q: string) => live.current.send(q), []);
   const stableRetry = useCallback((m: Message) => live.current.retry(m), []);
   const stableFeedback = useCallback((id: string, runId: string | null, fb: Feedback) => live.current.submitFeedback(id, runId, fb), []);
   const cancel = useCallback(() => abortRef.current?.abort(), []);
   const newConversation = useCallback(() => { setState((s) => startConversation(s, s.conversations.find((c) => c.id === s.activeId)?.sport)); setMenu(false); }, []);
+  // Cambio propuesto por el agente: nueva conversación en el otro deporte y la MISMA pregunta, enviada por el camino normal (`send`).
+  const pendingAsk = useRef<{ sport: Sport; question: string } | null>(null);
+  const acceptSwitch = useCallback((next: Sport) => {
+    const ms = live.current.messages;
+    const i = ms.map((m) => m.role === "assistant" && !!m.response).lastIndexOf(true);
+    const question = ms.slice(0, i).reverse().find((m) => m.role === "user")?.content;
+    if (!question || i < 0) return;
+    pendingAsk.current = { sport: next, question };
+    setState((s) => changeSport(s, next));
+  }, []);
   const switchSport = useCallback((next: Sport) => setState((s) => changeSport(s, next)), []);
+
+  useEffect(() => {
+    const p = pendingAsk.current;
+    if (p && active && active.sport === p.sport && active.messages.length === 0) { pendingAsk.current = null; live.current.send(p.question); }
+  }, [active]);
 
   const loading = loadingId !== null;
   const loadingHere = loading && loadingId === active?.id;
@@ -234,7 +249,7 @@ export default function App() {
             {active && empty && <Welcome onPick={stableSend} disabled={loading} sport={sport} />}
             {messages.map((m, i) => (
               <MessageBubble key={m.id} message={m} onRetry={m.failure && i === messages.length - 1 ? stableRetry : undefined}
-                onSuggest={m.id === lastAgentId ? stableSend : undefined} suggestDisabled={loading} onFeedback={stableFeedback} />
+                onSuggest={m.id === lastAgentId ? stableSend : undefined} suggestDisabled={loading} onSwitchSport={m.id === lastAgentId ? acceptSwitch : undefined} onFeedback={stableFeedback} />
             ))}
             {loadingHere && <AgentStatus slow={slow} onCancel={cancel} />}
           </div>

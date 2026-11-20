@@ -182,6 +182,8 @@ def _mentioned(question: str, rows: list[dict[str, Any]], key: str = "team") -> 
 
 LINEUP_NOTE = ("El acta indica quiénes son titulares y suplentes, pero no la posición de cada jugador en la pista: "
                "la colocación en el campo es orientativa.")
+# Fútbol 11 (Fase 2): se muestra la LISTA de titulares y suplentes; el acta no da posiciones y no se inventa ninguna formación.
+LINEUP_NOTE_F11 = "El acta indica quiénes son titulares y suplentes, pero no la posición ni la demarcación de cada jugador."
 
 
 def _pretty(name: str) -> str:
@@ -203,7 +205,7 @@ def _player(p: dict[str, Any]) -> dict[str, Any]:
             "captain": bool(p.get("captain")), "goalkeeper": bool(p.get("goalkeeper"))}
 
 
-def lineup_from_report(data: dict[str, Any], question: str, focus: dict[str, str]) -> list[dict[str, Any]]:
+def lineup_from_report(data: dict[str, Any], question: str, focus: dict[str, str], sport: str | None = None) -> list[dict[str, Any]]:
     """Quinteto inicial y suplentes de UN acta (`get_match_report` con la sección `players`). Sin datos, sin visual."""
     if not data.get("report_available") or not isinstance(data.get("players"), list):
         return []
@@ -224,6 +226,14 @@ def lineup_from_report(data: dict[str, Any], question: str, focus: dict[str, str
             continue
         subs = [_player(p) for p in sorted((r for r in rows if r.get("lineup") == "substitute"), key=order)]
         unknown = [_player(p) for p in sorted((r for r in rows if r.get("lineup") not in ("starter", "substitute")), key=order)]
+        if sport == "football11":  # sin pista de fútbol sala: lista de titulares y suplentes (`sport` solo aparece en fútbol 11)
+            rep = data.get("report") or {}
+            side = "home" if team == head.get("home_team") else "away" if team == head.get("away_team") else None
+            scheme = rep.get(f"{side}_formation") if side else None  # esquema DECLARADO en el acta oficial (no se reparte a jugadores)
+            note = LINEUP_NOTE_F11 + (f" Esquema declarado en el acta: {scheme}." if isinstance(scheme, str) and scheme.strip() else "")
+            out.append({"type": "lineup", "title": f"Alineación · {team}", "subtitle": _match_line(head), "team": team, "court": False,
+                        "sport": sport, "starters": starters, "substitutes": subs, "unknown": unknown, "note": note})
+            continue
         out.append({"type": "lineup", "title": f"Alineación · {team}", "subtitle": _match_line(head), "team": team,
                     "court": len(starters) == 5 and sum(1 for s in starters if s["goalkeeper"]) == 1,
                     "starters": starters, "substitutes": subs, "unknown": unknown, "note": LINEUP_NOTE})
@@ -363,7 +373,7 @@ def visual_note(tool: str, args: dict[str, Any], data: Any, question: str, focus
     return VISUAL_NOTE.format(parts=", ".join(parts))
 
 
-def lineup_visuals(question: str, rec: RunRecord, focus: dict[str, str]) -> list[dict[str, Any]]:
+def lineup_visuals(question: str, rec: RunRecord, focus: dict[str, str], sport: str | None = None) -> list[dict[str, Any]]:
     """Visuales de actas: alineaciones, árbitros y goles, con lo que devolvió `get_match_report`. Sin datos, sin visual."""
     out: list[dict[str, Any]] = []
     seen: set[tuple[Any, ...]] = set()
@@ -376,7 +386,7 @@ def lineup_visuals(question: str, rec: RunRecord, focus: dict[str, str]) -> list
         if key in seen:
             continue
         seen.add(key)
-        lineups = lineup_from_report(data, question, focus)
+        lineups = lineup_from_report(data, question, focus, sport)
         officials, timeline, cards = officials_from_report(data), goals_timeline(data), cards_from_report(data)
         out += lineups[:2] + [v for v in (officials, timeline, cards) if v]
     for call in executed(rec):  # tarjetas de varios partidos
@@ -421,8 +431,9 @@ def v2_list_visual(tool: str, args: dict[str, Any], body: Any) -> dict[str, Any]
 
 
 def build_visuals(question: str, rec: RunRecord, official: list[dict[str, Any]], names: dict[str, dict[int, str]],
-                  focus: dict[str, str] | None = None, groups_used: dict[int, dict[str, str]] | None = None) -> list[dict[str, Any]]:
-    visuals: list[dict[str, Any]] = lineup_visuals(question, rec, focus or {})
+                  focus: dict[str, str] | None = None, groups_used: dict[int, dict[str, str]] | None = None,
+                  sport: str | None = None) -> list[dict[str, Any]]:
+    visuals: list[dict[str, Any]] = lineup_visuals(question, rec, focus or {}, sport)
     for data in official:
         where = " · ".join(x for x in (data.get("competition"), data.get("group")) if x)
         src = data.get("source") or {}

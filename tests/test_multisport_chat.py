@@ -110,3 +110,48 @@ def test_agent_keeps_one_catalog_per_sport() -> None:
     assert agent.sport == "football11" and "fútbol (fútbol 11)" in llm.systems[-1] and "fútbol sala RFFM" not in llm.systems[-1]
     asyncio.run(agent.run("¿Quién lidera?", sport="futsal"))
     assert llm.systems[-1] == fs_system  # fútbol sala recupera su propio prompt y catálogo, sin mezclas
+
+
+# --- Fase 2: mención explícita de otro deporte (determinista, sin LLM) ------------------------------------------------------------
+
+
+@pytest.mark.parametrize("sport,question,switch", [
+    ("football11", "¿Cómo va la Primera Senior de fútbol sala?", "futsal"),  # competición del catálogo (simulado) activo
+    ("futsal", "¿Qué partidos de fútbol hay este sábado?", "football11"),
+    ("futsal", "Clasificación de la Primera Juvenil de fútbol 11", "football11"),
+    ("futsal", "¿Qué partidos hay de fútbol y de fútbol sala?", "football11"),
+])
+def test_naming_another_sport_proposes_a_switch_without_calling_the_llm(sport: str, question: str, switch: str) -> None:
+    c, llm, mcp = web([])  # sin pasos: cualquier llamada al LLM fallaría
+    with c:
+        body = c.post("/chat", json={"question": question, "sport": sport, "conversation_id": "conv-x"}).json()
+    assert body["sport_switch"] == switch and body["guardrail"] == "otro_deporte" and llm.seen == []
+    assert not [n for n, _ in mcp.sport_calls if n not in ("list_competitions", "list_teams")]  # ni datos del otro deporte
+    assert {sp for _, sp in mcp.sport_calls} <= {sport}
+
+
+@pytest.mark.parametrize("sport,question", [("futsal", "¿Cómo va el DOSA en fútbol sala?"), ("football11", "Clasificación de Preferente de fútbol"),
+                                            ("futsal", "¿Quién lidera la Preferente?"), ("futsal", "Partidos de fútbol 7 alevín"),
+                                            ("futsal", "¿Quién ganó el último Mundial de fútbol 11?"),  # fuera de ámbito: rechazo normal
+                                            ("football11", "¿Quién ganó la Champions de fútbol sala?")])
+def test_same_sport_or_no_sport_mention_is_answered_normally(sport: str, question: str) -> None:
+    c, llm, _ = web([LLMResponse(ANSWER, [])])
+    with c:
+        body = c.post("/chat", json={"question": question, "sport": sport}).json()
+    assert "sport_switch" not in body and body["guardrail"] != "otro_deporte" and len(llm.seen) == 1  # contrato de siempre
+
+
+def test_off_topic_message_names_the_selected_sport() -> None:
+    from futsal.agent.agent import OFF_TOPIC_MESSAGES, PROMPTS_BY_SPORT, is_off_topic
+    assert "fútbol sala" in OFF_TOPIC_MESSAGES["futsal"] and "fútbol (fútbol 11)" in OFF_TOPIC_MESSAGES["football11"]
+    assert OFF_TOPIC_MESSAGES["football11"] in PROMPTS_BY_SPORT["football11"].system and "fútbol sala" not in PROMPTS_BY_SPORT["football11"].system.split("Herramientas v2")[0]
+    assert all(is_off_topic(m) for m in OFF_TOPIC_MESSAGES.values()) and not is_off_topic("El líder es X")
+
+
+def test_short_follow_up_naming_the_other_sport_proposes_the_switch() -> None:
+    llm = Script([])
+    agent = Agent(llm, ScopedMcp(), 5)
+    res = asyncio.run(agent.run("¿Y en futsal?", [Turn("¿Quién lidera la Primera Senior, grupo 1?", ANSWER)], sport="football11"))
+    assert res.sport_switch == "futsal" and llm.seen == []
+    alone = asyncio.run(Agent(Script([LLMResponse(ANSWER, [])]), ScopedMcp(), 5).run("¿Y en futsal?", sport="football11"))
+    assert alone.sport_switch is None  # sin conversación previa, «¿y en futsal?» no basta para saber que es de competición

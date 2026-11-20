@@ -33,7 +33,7 @@ export interface LineupPlayer { name: string; short: string; shirt: number | nul
 export interface LineupVisual {
   type: "lineup"; title: string; subtitle?: string | null; team: string;
   /** Hay exactamente 5 titulares con 1 portero: solo entonces se dibuja la pista. */
-  court: boolean; starters: LineupPlayer[]; substitutes: LineupPlayer[]; unknown: LineupPlayer[]; note: string;
+  court: boolean; /** Solo en fútbol 11 (sin posiciones ni pista); si falta, fútbol sala. */ sport?: "football11"; starters: LineupPlayer[]; substitutes: LineupPlayer[]; unknown: LineupPlayer[]; note: string;
 }
 
 export interface OfficialsVisual {
@@ -116,6 +116,8 @@ export interface ChatResponse {
   /** Texto original del agente, solo si la conciliación omitió algo de `answer` (está en un gráfico): se reenvía como historial, no se muestra. */
   answer_original?: string | null;
   guardrail: string | null;
+  /** El agente propone cambiar de deporte: la pregunta nombra otro distinto al de la conversación. */
+  sport_switch?: Sport | null;
   error: string | null;
   /** De dónde sale lo que se muestra: datos oficiales, documentos o ambos. */
   answer_kind: "official" | "documental" | "mixed" | "none";

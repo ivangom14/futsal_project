@@ -39,7 +39,7 @@ describe("multideporte", () => {
     await waitFor(() => expect(m.mock.calls.some(([u]) => String(u).endsWith("/chat/crests?sport=futsal"))).toBe(true));
     await userEvent.click(radio("Fútbol"));
     await waitFor(() => expect(m.mock.calls.some(([u]) => String(u).endsWith("/chat/crests?sport=football11"))).toBe(true));
-    expect(screen.queryByLabelText("Consultas de ejemplo")).toBeNull(); // sin sugerencias de fútbol sala
+    expect(screen.queryByText(/Primera Autonómica/)).toBeNull(); // sin sugerencias de fútbol sala
   });
 
   it("cada pregunta envía el deporte; cambiar con mensajes abre una conversación nueva sin reutilizar el foco", async () => {
@@ -80,5 +80,16 @@ describe("multideporte", () => {
     expect(screen.getByTestId("sport-switch")).toBeVisible();
     expect(screen.getByLabelText("Pregunta")).toBeInTheDocument();
     Object.defineProperty(window, "innerWidth", { configurable: true, value: prev });
+  });
+});
+
+describe("bienvenida de fútbol", () => {
+  it("muestra sugerencias de Preferente Aficionado con football11", async () => {
+    backend();
+    render(<App />);
+    await userEvent.click(radio("Fútbol"));
+    const list = screen.getByLabelText("Consultas de ejemplo");
+    expect(within(list).getAllByRole("button")).toHaveLength(4);
+    expect(within(list).getByText("Clasificación de Preferente Aficionado, grupo 1")).toBeInTheDocument();
   });
 });

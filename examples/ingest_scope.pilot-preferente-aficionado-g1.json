@@ -1,0 +1,95 @@
+{
+  "version": 1,
+  "_doc": "ALCANCE AISLADO DEL PILOTO DE LA FASE 2 (no operativo). Solo fútbol 11 · Preferente Aficionado · Grupo 1 (26737702). Uso manual: FUTSAL_INGEST_SCOPE=examples/ingest_scope.pilot-preferente-aficionado-g1.json con una BD de pruebas. La programación no define esa variable.",
+  "source": "rffm",
+  "sports": {
+    "futsal": {
+      "game_type": "3",
+      "enabled": true,
+      "competitions": "all",
+      "_doc": "Todo el fútbol sala del catálogo de la RFFM, como hasta ahora (sin cambios de comportamiento)."
+    },
+    "football11": {
+      "game_type": "1",
+      "enabled": true,
+      "_doc": "Fase 1: declarado y DESHABILITADO (no se descubre ni descarga nada). Fase 2 habilita el deporte y una sola entrada (circuito vertical); Fase 3, las 12. Las otras 31 competiciones de fútbol 11 del catálogo quedan fuera de alcance.",
+      "competitions": [
+        {
+          "name": "COPA RFEF FASE AUTONÓMICA",
+          "category_code": "40050",
+          "group": "Categoría nacional",
+          "enabled": false
+        },
+        {
+          "name": "TERCERA FEDERACIÓN RFEF",
+          "category_code": "40050",
+          "group": "Categoría nacional",
+          "enabled": false
+        },
+        {
+          "name": "COPA DE AFICIONADOS RFFM 2026/2027",
+          "category_code": "40053",
+          "group": "Aficionados",
+          "enabled": false
+        },
+        {
+          "name": "PRIMERA DIVISIÓN AUTONÓMICA AFICIONADO",
+          "category_code": "40053",
+          "group": "Aficionados",
+          "enabled": false
+        },
+        {
+          "name": "PREFERENTE AFICIONADO",
+          "category_code": "40054",
+          "group": "Aficionados",
+          "enabled": true,
+          "groups": [
+            "26737702"
+          ]
+        },
+        {
+          "name": "PRIMERA AFICIONADO",
+          "category_code": "40055",
+          "group": "Aficionados",
+          "enabled": false
+        },
+        {
+          "name": "SEGUNDA AFICIONADO",
+          "category_code": "40056",
+          "group": "Aficionados",
+          "enabled": false
+        },
+        {
+          "name": "NACIONAL JUVENIL",
+          "category_code": "40059",
+          "group": "Juveniles",
+          "enabled": false
+        },
+        {
+          "name": "PRIMERA DIVISIÓN AUTONÓMICA JUVENIL",
+          "category_code": "40060",
+          "group": "Juveniles",
+          "enabled": false
+        },
+        {
+          "name": "PREFERENTE JUVENIL",
+          "category_code": "40061",
+          "group": "Juveniles",
+          "enabled": false
+        },
+        {
+          "name": "PRIMERA JUVENIL",
+          "category_code": "40062",
+          "group": "Juveniles",
+          "enabled": false
+        },
+        {
+          "name": "SEGUNDA JUVENIL",
+          "category_code": "40063",
+          "group": "Juveniles",
+          "enabled": false
+        }
+      ]
+    }
+  }
+}

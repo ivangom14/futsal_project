@@ -74,9 +74,11 @@ function Group({ label, players, empty }: { label: string; players: LineupPlayer
  * La pista nunca inventa posiciones: el portero va en su área y los demás en huecos genéricos, con la nota del acta (colocación orientativa).
  */
 export default function Lineup({ v }: { v: LineupVisual }) {
-  const [court, setCourt] = useState(v.court);
-  const showCourt = court && v.court;
-  const toggle = v.court ? (
+  const football = v.sport === "football11"; // fútbol 11: solo lista (sin posiciones, nunca la pista de 5)
+  const canCourt = v.court && !football;
+  const [court, setCourt] = useState(canCourt);
+  const showCourt = court && canCourt;
+  const toggle = canCourt ? (
     <button type="button" onClick={() => setCourt((c) => !c)} aria-pressed={!showCourt} data-testid="lineup-toggle"
       className="-my-1 -mr-1 inline-flex min-h-9 items-center gap-1.5 rounded-md px-2 text-xs font-semibold text-accent hover:bg-surface-2 [@media(pointer:coarse)]:min-h-touch">
       {showCourt ? <List size={14} aria-hidden="true" /> : <LayoutGrid size={14} aria-hidden="true" />}{showCourt ? "Ver lista" : "Ver en pista"}
@@ -90,7 +92,7 @@ export default function Lineup({ v }: { v: LineupVisual }) {
         ) : (
           <div data-testid="lineup-list">
             <Group label="Titulares" players={v.starters} empty="El acta no indica titulares." />
-            {!v.court && v.starters.length > 0 && <p className="mt-1 text-xs text-warning">El acta no permite un quinteto completo (no hay 5 titulares con un portero).</p>}
+            {!v.court && !football && v.starters.length > 0 && <p className="mt-1 text-xs text-warning">El acta no permite un quinteto completo (no hay 5 titulares con un portero).</p>}
           </div>
         )}
         <div>

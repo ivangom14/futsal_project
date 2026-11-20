@@ -13,9 +13,17 @@ export const EXAMPLES: { q: string; Icon: LucideIcon }[] = [
   { q: "¿Cuánto dura un partido de fútbol sala?", Icon: BookOpen },
 ];
 
+export const EXAMPLES_FOOTBALL: { q: string; Icon: LucideIcon }[] = [
+  { q: "¿Qué equipos hay en Preferente Aficionado, grupo 1?", Icon: BookOpen },
+  { q: "Clasificación de Preferente Aficionado, grupo 1", Icon: ListOrdered },
+  { q: "Máximos goleadores de Preferente Aficionado, grupo 1", Icon: Medal },
+  { q: "¿Qué partidos de Preferente Aficionado, grupo 1 hay este fin de semana?", Icon: CalendarDays },
+];
+
 /** Estado inicial: qué hace Futsito en una línea y cuatro consultas de un toque, pegadas al compositor (zona del pulgar). */
 export default function Welcome({ onPick, disabled, sport = "futsal" }: { onPick: (q: string) => void; disabled: boolean; sport?: Sport }) {
-  const futsal = sport === "futsal"; // las sugerencias son de fútbol sala: con otro deporte no se muestran
+  const futsal = sport === "futsal";
+  const examples = futsal ? EXAMPLES : EXAMPLES_FOOTBALL;
   return (
     <div className="flex flex-1 flex-col justify-end pb-3 pt-8 md:justify-center md:pb-10" data-testid="welcome">
       <div className="flex items-center gap-3">
@@ -27,8 +35,8 @@ export default function Welcome({ onPick, disabled, sport = "futsal" }: { onPick
           </p>
         </div>
       </div>
-      {futsal && <ul className="mt-5 grid gap-2 sm:grid-cols-2" aria-label="Consultas de ejemplo">
-        {EXAMPLES.map(({ q, Icon }) => (
+      <ul className="mt-5 grid gap-2 sm:grid-cols-2" aria-label="Consultas de ejemplo">
+        {examples.map(({ q, Icon }) => (
           <li key={q}>
             <button disabled={disabled} onClick={() => onPick(q)}
               className="flex min-h-touch w-full items-center gap-3 rounded-md border border-line bg-surface px-3 py-2.5 text-left text-[15px] leading-snug text-ink transition-colors hover:border-line-strong hover:bg-surface-2 disabled:opacity-50">
@@ -37,7 +45,7 @@ export default function Welcome({ onPick, disabled, sport = "futsal" }: { onPick
             </button>
           </li>
         ))}
-      </ul>}
+      </ul>
       <p className="mt-3 text-[13px] text-ink-2">Puedes encadenar preguntas: «¿y sus próximos partidos?».</p>
     </div>
   );

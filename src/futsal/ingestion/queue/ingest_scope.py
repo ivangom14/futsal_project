@@ -6,6 +6,7 @@ planificador (`gather_state` solo planifica grupos habilitados) y el trabajador 
 """
 
 import json
+import os
 import re
 from collections.abc import Mapping
 from dataclasses import dataclass
@@ -19,6 +20,9 @@ from sqlalchemy.orm import Session
 from futsal.domain.names import norm_name
 
 SCOPE_PATH = Path(__file__).parents[2] / "config" / "ingest_scope.json"
+# Alcance alternativo SOLO para ejecuciones manuales aisladas (p. ej. el piloto de la Fase 2 sobre una BD de pruebas). El fichero
+# operativo (`SCOPE_PATH`) no cambia; la programación (systemd → scripts/update_rffm.sh) no define esta variable.
+SCOPE_ENV = "FUTSAL_INGEST_SCOPE"
 _SEASON_LABEL = re.compile(r"\b\d{4}\s*/\s*\d{2,4}\b|\b\d{4}\s*-\s*\d{2,4}\b")
 
 OUT_OF_SCOPE = "out_of_scope"
@@ -37,6 +41,12 @@ class Entry:
     name: str
     category_code: str | None
     enabled: bool
+    groups: tuple[str, ...] | None = None  # opcional: solo estos grupos (nombre oficial normalizado o código); None = todos
+
+    def allows_group(self, external_id: str | None, name: str | None) -> bool:
+        if self.groups is None:
+            return True
+        return (external_id or "") in self.groups or scope_name(name) in {scope_name(g) for g in self.groups}
 
     def matches(self, name: str | None, category_code: str | None) -> bool:
         if self.category_code is not None and (category_code or "").strip() != self.category_code:
@@ -77,6 +87,17 @@ class IngestScope:
     def allows(self, sport: str | None, name: str | None, category_code: str | None) -> bool:
         return self.status(sport, name, category_code) == ENABLED
 
+    def allows_group(self, sport: str | None, name: str | None, category_code: str | None,
+                     group_external_id: str | None, group_name: str | None) -> bool:
+        """Competición habilitada y, si la entrada restringe grupos, el grupo está entre ellos."""
+        if not self.allows(sport, name, category_code):
+            return False
+        cfg = self.sports[str(sport)]
+        if cfg.all_competitions:
+            return True
+        entry = next(e for e in cfg.entries if e.matches(name, category_code))
+        return entry.allows_group(group_external_id, group_name)
+
     def sport_enabled(self, sport: str | None) -> bool:
         cfg = self.sports.get(sport or "")
         return bool(cfg and cfg.enabled)
@@ -91,7 +112,8 @@ def parse_scope(raw: Mapping[str, Any]) -> IngestScope:
         comps = cfg.get("competitions")
         if comps != "all" and not isinstance(comps, list):
             raise ValueError(f"ingest_scope: '{sport}.competitions' debe ser 'all' o una lista")
-        entries = tuple(Entry(str(e["name"]), str(e["category_code"]) if e.get("category_code") else None, bool(e.get("enabled")))
+        entries = tuple(Entry(str(e["name"]), str(e["category_code"]) if e.get("category_code") else None, bool(e.get("enabled")),
+                              tuple(str(g) for g in e["groups"]) if e.get("groups") else None)
                         for e in (comps if isinstance(comps, list) else []))
         if not cfg.get("game_type"):
             raise ValueError(f"ingest_scope: '{sport}' sin game_type")
@@ -101,8 +123,13 @@ def parse_scope(raw: Mapping[str, Any]) -> IngestScope:
     return IngestScope(str(raw.get("source") or "rffm"), sports)
 
 
-@lru_cache(maxsize=4)
-def load_scope(path: Path = SCOPE_PATH) -> IngestScope:
+def load_scope(path: Path | None = None) -> IngestScope:
+    """Alcance operativo; `FUTSAL_INGEST_SCOPE` lo sustituye en ejecuciones manuales aisladas (nunca en la programación)."""
+    return _load(path or Path(os.environ.get(SCOPE_ENV) or SCOPE_PATH))
+
+
+@lru_cache(maxsize=8)
+def _load(path: Path) -> IngestScope:
     return parse_scope(json.loads(path.read_text(encoding="utf-8")))
 
 
@@ -135,4 +162,13 @@ def gate_target(session: Session, scope: IngestScope, target: Mapping[str, Any],
             return f"competición {cid} desconocida: fuera del alcance de ingesta"
         name, code = row
     status = scope.status(sport, name, code)
-    return None if status == ENABLED else f"competición {cid} ({name}) {status}"
+    if status != ENABLED:
+        return f"competición {cid} ({name}) {status}"
+    gid = target.get("group")
+    if gid is not None:
+        from futsal.db.models import CompetitionGroup
+        gname = session.scalar(select(CompetitionGroup.name).where(CompetitionGroup.source == source,
+                                                                   CompetitionGroup.external_id == str(gid)))
+        if not scope.allows_group(sport, name, code, str(gid), gname):
+            return f"grupo {gid} ({gname}) de la competición {cid} fuera del alcance de ingesta"
+    return None

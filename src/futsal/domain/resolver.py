@@ -67,6 +67,10 @@ def _singular(token: str, vocab: frozenset[str]) -> str:
     return token[:-1] if token not in vocab and token.endswith("s") and token[:-1] in vocab else token
 
 
+_SPORT_WORDS = re.compile(r"\b(?:(?:de|en|del|al)\s+)?futbol\s+(?:sala|11|once)\b|\b(?:de|en|del|al)\s+futbol\b(?!\s+(?:femenin|sala|11|once))"
+                          r"|\bfutsal\b|\bf\s?11\b")
+
+
 class Resolver:
     def __init__(self, competitions: list[Competition], aliases: dict[str, Any], dims: dict[str, Any]) -> None:
         self.competitions = competitions
@@ -85,6 +89,14 @@ class Resolver:
         self.words = self.vocab | self.kind_words | set(self.age_map) | self.stop
         self.by_name = {f.comp.name: f for f in self.facets}
         self.protected = frozenset(dims.get("protected_words", ()))
+        # «No existe en la base» solo si el término no figura en el catálogo ACTIVO (el de un deporte): una frase que aparece
+        # tal cual, como palabras contiguas, en el nombre oficial de alguna competición sí existe («segunda», «nacional» y
+        # «liga nacional» en fútbol 11). Las palabras de tipo («liga», «copa») no forman parte del nombre oficial.
+        names = [f" {fold(c.name)} " for c in competitions]
+        def exists(phrase: str) -> bool:
+            core = " ".join(w for w in fold(phrase).split() if w not in self.kind_words)
+            return bool(core) and any(f" {core} " in n for n in names)
+        self.absent_phrases = tuple(ph for ph in dims["absent_phrases"] if not exists(ph))
         self._season = [re.compile(p) for p in dims["season_patterns"]]
         self._colloquial = self._colloquial_entries()
 
@@ -110,13 +122,15 @@ class Resolver:
 
     # ----------------------------------------------------------------------------------------------------------------
     def parse(self, text: str) -> Parsed:
-        low = fold(text)
+        # El deporte es otra dimensión (selector + `domain.sports`): «de fútbol», «en fútbol sala», «futsal», «F11» no describen la
+        # competición y se quitan antes de resolverla. Nunca dentro de un nombre oficial («Tercera Federación de Fútbol Femenino»).
+        low = _SPORT_WORDS.sub(" ", fold(text))
         season = "previous" if any(p.search(low) for p in self._season) else None
         words = low.split()
         ordinals = self.dims["ordinals"]
         ordinal = next((ordinals[w] for w in words if w in ordinals), None) if len(words) <= MAX_ORDINAL_WORDS + 2 else None
         absent: list[str] = []
-        for phrase in sorted(self.dims["absent_phrases"], key=len, reverse=True):
+        for phrase in sorted(self.absent_phrases, key=len, reverse=True):
             if _spans(low, phrase):
                 absent.append(phrase)
                 low = re.sub(rf"(?<![a-z0-9]){re.escape(phrase)}(?![a-z0-9])", " ", low)

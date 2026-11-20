@@ -419,7 +419,7 @@ def gather_state(session: Session, source: str, season: str, game_type: str, cfg
         stmt = stmt.where(CompetitionGroup.external_id.in_(list(group_ids)))
     scope = load_scope()  # alcance declarativo: solo se planifican grupos de competiciones habilitadas (fútbol sala: todas)
     rows = [(grp, comp) for grp, comp in session.execute(stmt).all()
-            if scope.allows(comp.modality, comp.name, comp.category_code)]
+            if scope.allows_group(comp.modality, comp.name, comp.category_code, grp.external_id, grp.name)]
     by_group: dict[int, list[MatchState]] = {}
     last_round: dict[int, int] = {}
     ids = [grp.id for grp, _ in rows]

@@ -261,7 +261,12 @@ def discover_groups(ctx: Context) -> dict[str, Any]:
         raise JobError(f"import_catalog falló en {len(failed)} grupos: {failed[0].get('error')}", transient=True)
     pri = ctx.schedule.priorities
     queued = 0
+    scope = load_scope()
+    sport = scope.sport_of_game_type(game_type)
+    cname, ccode = competition_meta_fields(meta)
     for g in report["groups"]:
+        if not scope.allows_group(sport, cname, ccode, g["group_id"], g["group_name"]):
+            continue  # grupo fuera del alcance (entrada restringida a ciertos grupos): se importa su metadato, no se descarga
         if g["active"] or g["group_id"] in new_groups:
             ctx.enqueue(CALENDAR, group_target(season, cid, g["group_id"], game_type),
                         priority=pri.rest if g["active"] else pri.inactive)

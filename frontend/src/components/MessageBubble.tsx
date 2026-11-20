@@ -8,7 +8,7 @@ import TechnicalDetails from "./TechnicalDetails";
 import Visuals from "./Visuals";
 import SourceFooter from "./SourceFooter";
 import { showDiagnostics } from "../diagnostics";
-import type { Feedback, Message, Visual } from "../types";
+import { SPORT_LABEL, type Feedback, type Message, type Sport, type Visual } from "../types";
 import Button from "../ui/Button";
 import Notice from "../ui/Notice";
 import Chip from "../ui/Chip";
@@ -20,6 +20,8 @@ interface Props {
   /** Solo la última respuesta ofrece preguntas sugeridas y «ver más». */
   onSuggest?: (q: string) => void;
   suggestDisabled?: boolean;
+  /** Solo en la última respuesta: acepta el cambio de deporte que propone (`sport_switch`) y repite la pregunta. */
+  onSwitchSport?: (sport: Sport) => void;
   onFeedback: (messageId: string, runId: string | null, fb: Feedback) => Promise<void> | void;
 }
 
@@ -66,7 +68,7 @@ function LongText({ long, children }: { long: boolean; children: ReactNode }) {
   );
 }
 
-function MessageBubble({ message, onRetry, onSuggest, suggestDisabled = false, onFeedback }: Props) {
+function MessageBubble({ message, onRetry, onSuggest, suggestDisabled = false, onSwitchSport, onFeedback }: Props) {
   if (message.role === "user") {
     return (
       <div className="flex justify-end pl-10" data-testid="msg-user">
@@ -142,6 +144,11 @@ function MessageBubble({ message, onRetry, onSuggest, suggestDisabled = false, o
               className="w-full justify-start sm:w-auto">{o}</Chip>
           ))}
         </div>
+      )}
+      {r?.sport_switch && (
+        <Chip variant="option" className="mt-2" disabled={!onSwitchSport || suggestDisabled} onClick={onSwitchSport ? () => onSwitchSport(r.sport_switch!) : undefined}>
+          Cambiar a {SPORT_LABEL[r.sport_switch]} y preguntar
+        </Chip>
       )}
       {r && <Visuals visuals={visuals} onMore={onMore} moreDisabled={suggestDisabled} />}
       {r && (

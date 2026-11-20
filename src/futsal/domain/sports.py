@@ -8,6 +8,7 @@ Contrato de las llamadas: `sport` es OBLIGATORIO (`futsal` | `football11`); `all
 combinadas intencionadas y nunca un valor por defecto. El valor por defecto vive en el frontend (fútbol sala).
 """
 
+import re
 from typing import Literal
 
 Sport = Literal["futsal", "football11"]
@@ -46,3 +47,24 @@ def sport_of_game_type(game_type_code: str | None, game_type_map: dict[str, str]
 def game_type_of_sport(sport: str, game_type_map: dict[str, str]) -> str | None:
     """Código oficial de tipo de juego de una modalidad (inverso de `sport_of_game_type`)."""
     return next((code for code, s in game_type_map.items() if s == sport), None)
+
+
+# --- Deporte mencionado en el texto (determinista) ---------------------------------------------------------------------------
+# «fútbol sala», «futsal» → fútbol sala; «fútbol 11/once», «F11» o «fútbol» suelto (no seguido de sala/7/5/playa) → fútbol 11.
+_FUTSAL = re.compile(r"\bf[uú]tbol[\s-]*sala\b|\bfutsal\b", re.IGNORECASE)
+_FOOTBALL11 = re.compile(r"\bf[uú]tbol[\s-]*(?:11|once)\b|\bf-?11\b|\bf[uú]tbol\b(?![\s-]*(?:sala|7|siete|5|cinco|playa)\b)", re.IGNORECASE)
+_WITHOUT_ACCENTS = str.maketrans("áéíóúÁÉÍÓÚ", "aeiouAEIOU")
+
+
+def mentioned_sports(text: str, ignore: tuple[str, ...] = ()) -> frozenset[str]:
+    """Deportes que el texto nombra EXPLÍCITAMENTE. `ignore`: nombres propios del catálogo activo que contienen «fútbol»
+    (p. ej. un club «ESCUELA DE FÚTBOL X» de fútbol sala) y no deben leerse como mención de deporte."""
+    low = text.translate(_WITHOUT_ACCENTS).lower()
+    for name in ignore:
+        low = low.replace(name.translate(_WITHOUT_ACCENTS).lower(), " ")
+    found = set()
+    if _FUTSAL.search(low):
+        found.add("futsal")
+    if _FOOTBALL11.search(_FUTSAL.sub(" ", low)):
+        found.add("football11")
+    return frozenset(found)

@@ -1,6 +1,7 @@
 """Bucle de tool calling: LLM client + MCP client, con límite de tool calls y traza."""
 
 import asyncio
+import contextlib
 import json
 import logging
 import re
@@ -9,7 +10,7 @@ from collections.abc import Callable, Sequence
 from dataclasses import asdict, dataclass, field, replace
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from futsal.agent import telemetry
 from futsal.agent.context import ContextEngine, Understanding
@@ -73,6 +74,7 @@ from futsal.domain.competitions import (
     scope_resolved,
 )
 from futsal.domain.dates import configure_bands, parse_date_hint
+from futsal.domain.sports import LABELS, Sport, mentioned_sports
 from futsal.mcp_server.v2_tools import V2_TOOL_NAMES
 
 logger = logging.getLogger("futsal.agent")  # (`log` es el callback de traza del bucle)
@@ -163,14 +165,27 @@ CATALOG_HEADER = (
 PROMPTS = PromptSet("standard", SYSTEM_PROMPT + MODULE_V2, HISTORY_RULE, CONTEXT_HEADER, CATALOG_HEADER)  # conjunto único de textos del agente
 # Fase 1 multideporte: fútbol sala conserva su prompt byte a byte; fútbol 11 solo cambia la presentación del asistente (el resto de
 # textos específicos —aviso de fuera de ámbito, módulo de reglas— se adapta en la Fase 2 con datos reales de fútbol 11).
+# Aviso de fuera de ámbito por deporte (el de fútbol sala es el de siempre, byte a byte).
+OFF_TOPIC_MESSAGES = {
+    "futsal": OFF_TOPIC_MESSAGE,
+    "football11": OFF_TOPIC_MESSAGE.replace("la competición de fútbol sala de la RFFM",
+                                            "las competiciones de fútbol (fútbol 11) de la RFFM", 1),
+}
+SPORT_LABELS = {"futsal": "fútbol sala", "football11": "fútbol (fútbol 11)"}  # cómo se nombra el ámbito en los textos internos
 PROMPTS_BY_SPORT = {
     "futsal": PROMPTS,
     "football11": replace(PROMPTS, system=PROMPTS.system.replace(
-        "Eres un asistente de consulta de fútbol sala RFFM.", "Eres un asistente de consulta de fútbol (fútbol 11) RFFM.", 1)),
+        "Eres un asistente de consulta de fútbol sala RFFM.", "Eres un asistente de consulta de fútbol (fútbol 11) RFFM.", 1)
+        .replace(OFF_TOPIC_MESSAGE, OFF_TOPIC_MESSAGES["football11"])),
 }
+
+
+def is_off_topic(text: str) -> bool:
+    """¿Es el aviso de fuera de ámbito de algún deporte? (no es contexto válido para la memoria)."""
+    return text.strip() in OFF_TOPIC_MESSAGES.values()
 # Estado precargado que depende del deporte (catálogo, contexto, equipos): una copia por deporte, nunca compartida.
 SPORT_CACHED = ("_system", "_competitions", "_catalog", "_ctx_teams", "_ctx_rounds", "_team_catalog", "_ctx_engine", "_ctx_engine_key",
-                "_prompts")
+                "_prompts", "_off_topic", "_sport_label")
 
 
 # Preguntas por el acta o por cómo fue un partido: se pide el acta entera (alineaciones de los dos equipos, goles, tarjetas, árbitros y cuerpo técnico)
@@ -253,6 +268,7 @@ class AgentResult:
     resolved_question: str | None = None  # pregunta efectiva si se unió a una aclaración pendiente (Fase 23)
     official: list[dict[str, Any]] = field(default_factory=list)  # resultados válidos de las tablas oficiales obtenidos en esta ejecución
     state: dict[str, Any] | None = None  # estado conversacional estructurado tras esta pregunta (solo modos deterministic/llm; None en legacy)
+    sport_switch: Sport | None = None  # la pregunta nombra OTRO deporte: no se consulta; la interfaz propone cambiar a este
 
 
 def _date(source: Any) -> str:
@@ -449,6 +465,7 @@ class Agent:
         self._aliases = aliases if aliases is not None else load_aliases()
         self._prompt_mode = "standard"
         self._prompts = PROMPTS
+        self._off_topic, self._sport_label = OFF_TOPIC_MESSAGE, SPORT_LABELS["futsal"]  # se fijan por deporte en `_activate_sport`
         self._active_tools: list[dict[str, Any]] | None = None
         self._clock: Callable[[], datetime] = lambda: datetime.now(UTC)  # reloj de las fechas relativas («el sábado», «los siguientes»); los tests lo sustituyen
         self._scope_mentioned = False  # ¿la pregunta ACTUAL nombra una competición/categoría/alias/grupo que la aplicación reconoce? (ver `_resolve_scope`)
@@ -576,7 +593,7 @@ class Agent:
             teams = None
         key = (tuple((c.id, c.name, c.groups) for c in self._competitions), id(teams))
         if self._ctx_engine is None or key != self._ctx_engine_key:
-            self._ctx_engine = ContextEngine(self._competitions, self._aliases, load_dimensions(), teams)
+            self._ctx_engine = ContextEngine(self._competitions, self._aliases, load_dimensions(), teams, sport_label=self._sport_label)
             self._ctx_engine_key = key
         return self._ctx_engine
 
@@ -629,7 +646,7 @@ class Agent:
         if und is None or engine is None:
             return None
         ctx = rec.context if rec.context is not None else {}
-        refusal = text.strip() == OFF_TOPIC_MESSAGE
+        refusal = text.strip() == self._off_topic
         low = normalize(text)
         if result.tool_calls > 0:
             if refusal and und.status in ("act", "assume"):  # ya hay datos y el modelo aún rechaza: se entregan los datos verificados
@@ -710,11 +727,11 @@ class Agent:
             return
         ctx = rec.context if rec.context is not None else {}
         answer = result.answer.strip()
-        if (und.status == "assume" and und.assumption and result.tool_calls > 0 and answer and answer != OFF_TOPIC_MESSAGE
+        if (und.status == "assume" and und.assumption and result.tool_calls > 0 and answer and answer != self._off_topic
                 and "entiendo que" not in normalize(answer)[:240]):
             result.answer = f"{und.assumption} {result.answer}"
             ctx["assumption_prepended"] = True
-        stored = result.guardrail in (None, "aclaracion_ambito") and result.answer.strip() not in ("", OFF_TOPIC_MESSAGE)
+        stored = result.guardrail in (None, "aclaracion_ambito") and result.answer.strip() not in ("", self._off_topic)
         if und.status == "ask" and result.tool_calls and result.guardrail is None:
             und = replace(und, status="none")  # el modelo respondió con datos: no queda ninguna aclaración pendiente
         new_state = engine.next_state(state, und, question, result.answer) if stored else state  # lo que no queda en el historial tampoco cambia el estado
@@ -849,7 +866,62 @@ class Agent:
             self._ctx_teams, self._ctx_rounds, self._team_catalog = set(), set(), None
             self._ctx_engine, self._ctx_engine_key = None, ()
             self._prompts = PROMPTS_BY_SPORT.get(str(sport), PROMPTS)
+            self._off_topic = OFF_TOPIC_MESSAGES.get(str(sport), OFF_TOPIC_MESSAGE)
+            self._sport_label = SPORT_LABELS.get(str(sport), SPORT_LABELS["futsal"])
         self._mcp.sport = sport
+
+    async def _other_sport(self, question: str, history: Sequence[Turn], result: AgentResult, rec: RunRecord) -> bool:
+        """La pregunta nombra EXPLÍCITAMENTE otro deporte que el de la conversación: no se cambia el ámbito en silencio ni se mezclan
+        datos. Respuesta determinista (sin LLM) que propone cambiar el selector; la interfaz repite la pregunta en ese deporte."""
+        active = self._mcp.sport
+        if active is None:
+            return False
+        named = mentioned_sports(question)
+        if not named or named == {active}:
+            return False
+        if not await self._about_competitions(question, history):
+            return False  # «¿Quién ganó el Mundial de fútbol 11?»: fuera de ámbito en los dos deportes → flujo normal (rechazo)
+        ignore = await self._futbol_names()  # «ESCUELA DE FÚTBOL X» del catálogo activo no es una mención de deporte
+        named = mentioned_sports(question, ignore)
+        if not named or named == {active}:
+            return False
+        other = cast(Sport, next(s for s in sorted(named) if s != active))
+        ui = {"futsal": "Fútbol sala", "football11": "Fútbol"}
+        if active in named:
+            result.answer = (f"Por ahora consulto un deporte cada vez y tienes seleccionado «{ui[active]}». Para los datos de "
+                             f"{LABELS[other]}, cambia a «{ui[other]}».")
+        else:
+            result.answer = (f"Tu pregunta es de {LABELS[other]} y tienes seleccionado «{ui[active]}». Cambia a «{ui[other]}» "
+                             "para consultarla: no mezclo los datos de los dos deportes.")
+        result.guardrail, result.sport_switch = "otro_deporte", other
+        rec.context = {**(rec.context or {}), "sport": {"active": active, "named": sorted(named), "switch_to": other}}
+        return True
+
+    async def _about_competitions(self, question: str, history: Sequence[Turn]) -> bool:
+        """¿Trata de competiciones de la RFFM? Vocabulario de competición, palabras del catálogo activo (los nombres homónimos
+        existen en los dos deportes), categorías y tipos, o un seguimiento corto («¿y en futsal?») de una conversación en marcha."""
+        if mentions_domain(question) or (history and len(question.split()) <= 6):
+            return True
+        if not self._competitions:
+            with contextlib.suppress(Exception):  # sin catálogo, solo cuenta el vocabulario genérico
+                await self._context()
+        words = set(normalize(question).split())
+        vocab = {w for c in self._competitions for w in normalize(c.name).split() if len(w) > 3 and w not in ("futbol", "sala")}
+        vocab |= {normalize(w) for ws in self._aliases.get("age_words", {}).values() for w in ws}
+        vocab |= {normalize(w) for ws in self._aliases.get("kind_words", {}).values() for w in ws}
+        return bool(words & vocab)
+
+    async def _futbol_names(self) -> tuple[str, ...]:
+        """Nombres del catálogo ACTIVO (competiciones, grupos y equipos) que contienen «fútbol»; solo se calcula si hace falta."""
+        try:
+            if not self._competitions:
+                await self._context()
+            names = [c.name for c in self._competitions] + [g for c in self._competitions for _, g in c.groups]
+            teams = await self._team_catalog_get({})
+            names += list(teams.by_name) if teams is not None else []
+        except Exception:  # noqa: BLE001 - sin catálogo, se decide solo con el texto
+            return ()
+        return tuple(n for n in names if "futbol" in normalize(n))
 
     async def run(self, question: str, history: Sequence[Turn] = (), focus: dict[str, Any] | None = None,
                   conversation_id: str | None = None, state: dict[str, Any] | None = None, *, sport: str | None = None) -> AgentResult:
@@ -871,7 +943,9 @@ class Agent:
         self._und = None
         self._listing = None
         try:
-            if not await self._page_followup(question, history, result, rec, log):
+            if await self._other_sport(question, history, result, rec):
+                pass  # respuesta determinista: se pide cambiar el selector, sin LLM ni datos del otro deporte
+            elif not await self._page_followup(question, history, result, rec, log):
                 await self._loop(question, history, focus or {}, result, rec, log)
                 self._finalize_context(question, result, rec)
         finally:
@@ -1003,7 +1077,7 @@ class Agent:
                 log("GUARDRAIL\n→ pregunta de reglamento sin consultar search_rules: se pide consultarlo antes de aceptar la respuesta")
                 continue
             if (not resp.tool_calls and result.tool_calls == 0 and not nudged and (mentions_domain(ctx) or self._scope_mentioned)
-                    and (resp.text.strip() == OFF_TOPIC_MESSAGE or not states_tool_limit(resp.text))):
+                    and (resp.text.strip() == self._off_topic or not states_tool_limit(resp.text))):
                 # La pregunta habla de la competición (vocabulario de dominio, o una competición/categoría/alias que la propia aplicación reconoce, p. ej. «¿Cómo va
                 # la liga preferente?»): se pide UNA vez consultar las tools antes de darla por ajena.
                 nudged = True
@@ -1019,7 +1093,7 @@ class Agent:
                 continue
             if not resp.tool_calls:
                 result.answer = resp.text
-                if result.tool_calls == 0 and resp.text.strip() != OFF_TOPIC_MESSAGE:
+                if result.tool_calls == 0 and resp.text.strip() != self._off_topic:
                     if states_tool_limit(resp.text):
                         # Limitación honesta (sin cifras): no es un tema ajeno, no se sustituye por el aviso de alcance.
                         result.guardrail = "limitacion_sin_tools"
@@ -1028,7 +1102,7 @@ class Agent:
                         # Guardarraíl: toda respuesta con datos debe apoyarse en al menos una tool.
                         first = f"{rec.raw_answer} || " if rec.raw_answer else ""
                         rec.raw_answer = (first + redact(resp.text.strip()[:300]))[:600]
-                        result.answer, result.guardrail = OFF_TOPIC_MESSAGE, "sin_datos_de_tools"
+                        result.answer, result.guardrail = self._off_topic, "sin_datos_de_tools"
                         log("GUARDRAIL\n→ respuesta sin consultar tools: se sustituye por el aviso de alcance")
                 log("LLM\n→ final answer")
                 log(f"ASSISTANT\n{resp.text}")
@@ -1094,7 +1168,7 @@ class Agent:
         if claim:
             info["premise"] = claim
             out += v2rules.premise_note(claim)
-        self._nir = v2nir.detect(effective)
+        self._nir = v2nir.detect(effective, self._mcp.sport)
         if self._nir is not None and not self._nir.alone:
             info["not_in_report"] = self._nir.kind
             out += v2nir.note(self._nir)

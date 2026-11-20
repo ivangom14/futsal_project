@@ -13,6 +13,8 @@ from sqlalchemy.orm import Session, aliased
 
 from futsal.domain.cards import CARDS_NOTE, card_kind, summarize
 from futsal.db.models import (
+    Competition,
+    CompetitionGroup,
     Match,
     MatchEvent,
     MatchObservation,
@@ -33,6 +35,10 @@ EventType = Literal["goal", "own_goal", "card"]
 MISSING_LISTED = 10
 NOT_IN_SOURCE = ["periodos / resultado por periodos", "sustituciones", "penaltis", "minuto añadido",
                  "marcador tras cada evento"]
+# Fase 2 multideporte: el acta de FÚTBOL 11 sí trae sustituciones (`sustituciones_equipo_*`, verificado en el piloto) pero aún no se
+# interpretan: no son «no consta en la fuente» sino «no incorporado». Fútbol sala: lo de siempre.
+NOT_IN_SOURCE_BY_SPORT = {"futsal": NOT_IN_SOURCE, "football11": [x for x in NOT_IN_SOURCE if x != "sustituciones"]}
+NOT_INGESTED_BY_SPORT: dict[str, list[str]] = {"football11": ["sustituciones"]}
 CARD_NOTE = CARDS_NOTE
 
 
@@ -117,6 +123,8 @@ def _match_header(db: Session, match_id: int) -> tuple[Match, dict[str, Any]]:
 
 def match_report(db: Session, match_id: int, sections: tuple[str, ...] = DEFAULT_SECTIONS) -> dict[str, Any]:
     m, head = _match_header(db, match_id)
+    sport = db.scalar(select(Competition.modality).join(CompetitionGroup, CompetitionGroup.competition_id == Competition.id)
+                      .where(CompetitionGroup.id == m.group_id)) or "futsal"
     obs = db.scalars(select(MatchReportObservation).join(MatchReport, MatchReport.id == MatchReportObservation.report_id)
                      .where(MatchReport.match_id == match_id)
                      .order_by(MatchReportObservation.observed_at.desc(), MatchReportObservation.id.desc())
@@ -135,7 +143,9 @@ def match_report(db: Session, match_id: int, sections: tuple[str, ...] = DEFAULT
                    "venue": obs.venue, "home_formation": obs.home_formation, "away_formation": obs.away_formation,
                    "observations_stored": db.scalar(select(func.count()).select_from(MatchReportObservation)
                                                     .where(MatchReportObservation.report_id == obs.report_id))},
-        "not_in_source": NOT_IN_SOURCE}
+        "not_in_source": NOT_IN_SOURCE_BY_SPORT.get(sport, NOT_IN_SOURCE)}
+    if NOT_INGESTED_BY_SPORT.get(sport):
+        out["not_ingested"] = NOT_INGESTED_BY_SPORT[sport]  # en el acta oficial pero aún sin incorporar: nunca afirmar que no consta
     events = list(db.scalars(select(MatchEvent).where(MatchEvent.observation_id == obs.id)
                              .order_by(MatchEvent.sequence)))
 

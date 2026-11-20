@@ -105,8 +105,10 @@ class TeamHit:
 
 
 class ContextEngine:
-    def __init__(self, competitions: list[Competition], aliases: dict[str, Any], dims: dict[str, Any], teams: TeamCatalog | None = None) -> None:
+    def __init__(self, competitions: list[Competition], aliases: dict[str, Any], dims: dict[str, Any], teams: TeamCatalog | None = None,
+                 *, sport_label: str = "fútbol sala") -> None:
         self.competitions = competitions
+        self.sport_label = sport_label  # ámbito en los mensajes de revisión (fútbol sala: texto de siempre)
         self.resolver = Resolver(competitions, aliases, dims)
         self.by_name = {c.name: c for c in competitions}
         self.teams = teams
@@ -486,12 +488,12 @@ class ContextEngine:
     def revision(self, u: Understanding) -> str:
         """Mensaje de recuperación (no repite la llamada: entrega la interpretación verificada y el plan)."""
         if u.provenance.get("scope") in ("broad", "repeat"):
-            return ("Revisión de la aplicación: la pregunta pide un alcance amplio y trata de la competición de fútbol sala de la RFFM: no pidas aclaración ni uses el aviso de "
+            return (f"Revisión de la aplicación: la pregunta pide un alcance amplio y trata de la competición de {self.sport_label} de la RFFM: no pidas aclaración ni uses el aviso de "
                     "alcance. Llama ahora a las herramientas v2 adecuadas (matches_by_date, club_overview, scorers_ranking, teams_ranking, find_player, find_official).")
         plan = "; ".join(f"{n}({', '.join(f'{k}={v}' for k, v in a.items())})" for n, a in self.plan(u)) or "las herramientas adecuadas"
         intent = (f"Intención identificada: {u.intent}" if u.intent else
                   "Intención no determinada (si el usuario pregunta cómo va una competición o un equipo, quiere la clasificación: get_standings)")
-        return ("Revisión de la aplicación: tu respuesta anterior no consultó datos, pero la pregunta SÍ trata de la competición de fútbol sala de la RFFM: no uses el aviso de "
+        return (f"Revisión de la aplicación: tu respuesta anterior no consultó datos, pero la pregunta SÍ trata de la competición de {self.sport_label} de la RFFM: no uses el aviso de "
                 f"alcance. Interpretación verificada con el catálogo → {intent}; competiciones: "
                 f"{'; '.join(u.competitions) or 'las del contexto'}.\nConsulta estos grupos: "
                 f"{', '.join(f'group_id={t.group_id}' for t in u.targets)}.\nLlama ahora a: {plan}.")

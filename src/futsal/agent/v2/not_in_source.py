@@ -43,22 +43,36 @@ class NotInReport:
     kind: str
     what: str
     alone: bool  # True: no hay nada más resoluble en la pregunta → respuesta determinista
+    in_source: bool = False  # el acta SÍ lo trae pero aún no se incorpora (fútbol 11: sustituciones): nunca decir que no consta
 
 
-def detect(question: str) -> NotInReport | None:
+# Fase 2 multideporte: lo que el acta del deporte SÍ recoge aunque Futsito aún no lo incorpore (verificado en el piloto de fútbol 11).
+IN_SOURCE_NOT_INGESTED = {"football11": frozenset({"substitutions"})}
+
+
+def detect(question: str, sport: str | None = None) -> NotInReport | None:
     low = _fold(question)
     if _RULES.search(low):
         return None  # pregunta de reglamento («¿cuántos cambios se pueden hacer?»): flujo normal
     for kind, patterns, what in _KINDS:
         if any(p.search(low) for p in patterns):
-            return NotInReport(kind, what, _OTHER.search(low) is None)
+            return NotInReport(kind, what, _OTHER.search(low) is None, kind in IN_SOURCE_NOT_INGESTED.get(sport or "", ()))
     return None
 
 
+NOT_INGESTED = ("El acta de la RFFM de este partido incluye {qué}, pero todavía no las he incorporado a mis datos, así que no puedo "
+                "detallarlas.")
+
+
 def answer(found: NotInReport) -> str:
+    if found.in_source:
+        return NOT_INGESTED.format(qué=found.what.split(" (")[0])
     return NOT_IN_REPORT.format(qué=found.what)
 
 
 def note(found: NotInReport) -> str:
+    if found.in_source:
+        return (NOTE_HEAD + f" La pregunta incluye un dato que el acta trae pero que aún no está incorporado ({found.what}). Para esa parte "
+                f"responde exactamente «{answer(found)}» y contesta el resto con las herramientas; no inventes ni deduzcas ese dato.")
     return (NOTE_HEAD + f" La pregunta incluye un dato que el acta de la RFFM no recoge ({found.what}). Para esa parte responde exactamente «{answer(found)}» "
             "y contesta el resto con las herramientas; no inventes ni deduzcas ese dato.")

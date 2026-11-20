@@ -21,15 +21,15 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from mcp import ClientSession
 from mcp.client.stdio import stdio_client
-from pydantic import BaseModel, Field, StringConstraints
+from pydantic import BaseModel, Field, StringConstraints, model_serializer
 
 from futsal.agent import presentation as pres
 from futsal.agent.agent import (
     DEFAULT_MAX_ROWS,
     DEFAULT_MAX_TOOL_CALLS,
-    OFF_TOPIC_MESSAGE,
     Agent,
     AgentResult,
+    is_off_topic,
 )
 from futsal.agent.feedback import FeedbackRequest, RunSummaries, record
 from futsal.agent.llm import create_llm
@@ -140,6 +140,16 @@ class ChatResponse(BaseModel):
     suggestions: list[str] = Field(default_factory=list)
     focus: dict[str, str] = Field(default_factory=dict)  # de qué trata la conversación (nombres)
     diagnostics: Diagnostics
+    # La pregunta nombra OTRO deporte que el seleccionado: no se ha consultado; la interfaz ofrece cambiar a este y repetirla.
+    # Solo aparece en la respuesta cuando hay propuesta: el resto de respuestas conserva exactamente su contrato anterior.
+    sport_switch: Literal["futsal", "football11"] | None = None
+
+    @model_serializer(mode="wrap")
+    def _omit_empty_switch(self, handler: Any) -> Any:
+        data = handler(self)
+        if isinstance(data, dict) and data.get("sport_switch") is None:
+            data.pop("sport_switch", None)
+        return data
 
 
 def reconcile_enabled() -> bool:
@@ -158,7 +168,7 @@ def context_view(ctx: dict[str, Any] | None) -> dict[str, Any] | None:
 
 
 def build_response(result: AgentResult, history_turns: int, question: str, prev_focus: dict[str, str], asked: list[str],
-                   freshness: dict[int, dict[str, Any]]) -> ChatResponse:
+                   freshness: dict[int, dict[str, Any]], sport: str | None = None) -> ChatResponse:
     rec = result.run or RunRecord()
     totals = rec.totals()
     tools = [ToolInfo(name=t.name, arguments=t.arguments, duration_ms=round(t.duration_ms, 1), is_error=t.is_error,
@@ -177,7 +187,7 @@ def build_response(result: AgentResult, history_turns: int, question: str, prev_
     focus = merge_focus(prev_focus, compute_focus(rec, result.names, result.groups_used, result.official, question)) if clean else prev_focus
     sources = pres.build_sources(question, result.answer, rec, result.official, result.groups_used, freshness)
     kind, analysis = pres.answer_kind(question, result.answer, rec)
-    visuals = pres.build_visuals(question, rec, result.official, result.names, focus, result.groups_used) if clean else []
+    visuals = pres.build_visuals(question, rec, result.official, result.names, focus, result.groups_used, sport) if clean else []
     # Texto VISIBLE (`reconcile.present_answer`, punto único): aclaración con opciones -> solo la pregunta breve (las opciones son botones); con visuales ->
     # se omite lo que ya dibujan. `result.answer` (memoria, historial del LLM, tipo de respuesta, fuentes, sugeridas) NO se toca.
     # Falla en abierto: si la conciliación está apagada (`CHAT_RECONCILE=off`) o lanza cualquier error, se muestra el texto original.
@@ -196,7 +206,8 @@ def build_response(result: AgentResult, history_turns: int, question: str, prev_
     return ChatResponse(
         answer=shown.text, answer_original=result.answer if shown.changed else None, guardrail=result.guardrail, error=result.error, answer_kind=kind, is_analysis=analysis,
         sources=[Source(**src) for src in sources], visuals=visuals, focus=focus, diagnostics=diag,
-        suggestions=pres.build_suggestions(question, result.answer, rec, focus, asked, sources, visuals))
+        suggestions=[] if result.sport_switch else pres.build_suggestions(question, result.answer, rec, focus, asked, sources, visuals),
+        sport_switch=result.sport_switch)
 
 
 class ChatTimeout(Exception):
@@ -482,7 +493,7 @@ def create_chat_app(runner: AgentRunner | None = None,
         switched = conversations.bind_sport(cid, body.sport) if cid else False
         known = conversations.get(cid) if cid else None
         stored = known if known is not None else (  # el servidor manda; el navegador solo siembra un id desconocido
-            [t for t in turns_from_client((h.role, h.content) for h in body.history) if t.answer != OFF_TOPIC_MESSAGE]
+            [t for t in turns_from_client((h.role, h.content) for h in body.history) if not is_off_topic(t.answer)]
             if cid and not switched else [])
         context = select_turns(stored, max_turns, max_chars)
         # el servidor manda: solo una conversación que no conoce se siembra con el foco del navegador (sanitizado)
@@ -503,7 +514,7 @@ def create_chat_app(runner: AgentRunner | None = None,
             return _failure(classify_error(f"{type(exc).__name__}: {exc}"), f"{type(exc).__name__}: {exc}")
         if result.error and not result.answer:  # fallo sin respuesta utilizable (LLM caído, cuota…)
             return _failure(classify_error(result.error), result.error)
-        if (cid and not result.error and result.answer.strip() not in ("", OFF_TOPIC_MESSAGE)
+        if (cid and not result.error and result.answer.strip() and not is_off_topic(result.answer)
                 and result.guardrail in MEMORY_GUARDRAILS):
             conversations.put(cid, [*stored, Turn(question, result.answer)])  # los fallos o respuestas sustituidas no son contexto
         elif cid and known is None and stored:
@@ -512,7 +523,7 @@ def create_chat_app(runner: AgentRunner | None = None,
         t_fresh = time.monotonic()
         fresh = await asyncio.get_running_loop().run_in_executor(None, lambda: freshness(groups, body.sport) if groups else {})
         fresh_ms = (time.monotonic() - t_fresh) * 1000
-        response = build_response(result, len(context), question, prev_focus, [t.question for t in stored[-6:]], fresh)
+        response = build_response(result, len(context), question, prev_focus, [t.question for t in stored[-6:]], fresh, body.sport)
         response.diagnostics.postprocess_ms = round(response.diagnostics.postprocess_ms + fresh_ms, 1)
         d = response.diagnostics
         summaries.add(d.run_id, {"model": d.model, "provider": d.provider, "tools": [t.name for t in d.tools], "tool_errors": len(d.errors),
