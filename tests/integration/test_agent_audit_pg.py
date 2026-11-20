@@ -84,8 +84,8 @@ def seed(engine: Engine, *, other_competition: bool = True) -> None:
                               ("AAA UNO, ANA", teams[5], 1)])  # mismo nombre, otro jugador
         if not other_competition:
             return
-        other = Competition(external_id="90000020", season_id=comp.season_id, name="LIGA OTRA FS")
-        cup = Competition(external_id="90000021", season_id=comp.season_id, name="COPA OTRA FS")
+        other = Competition(modality="futsal", external_id="90000020", season_id=comp.season_id, name="LIGA OTRA FS")
+        cup = Competition(modality="futsal", external_id="90000021", season_id=comp.season_id, name="COPA OTRA FS")
         s.add_all([other, cup])
         s.flush()
         groups = {n: CompetitionGroup(external_id=f"9000003{i}", competition_id=(cup if n == "cup" else other).id,
@@ -175,7 +175,7 @@ def test_target_group_is_chosen_by_its_external_id_not_by_lowest_id(engine: Engi
         season = Season(external_id="22", name="2026-27")
         s.add(season)
         s.flush()
-        comp = Competition(external_id="90000050", season_id=season.id, name="OTRA")
+        comp = Competition(modality="futsal", external_id="90000050", season_id=season.id, name="OTRA")
         s.add(comp)
         s.flush()
         s.add(CompetitionGroup(external_id="90000051", competition_id=comp.id, name="Grupo previo"))

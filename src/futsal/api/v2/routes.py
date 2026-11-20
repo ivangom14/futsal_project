@@ -10,6 +10,7 @@ from fastapi.responses import JSONResponse
 from fastapi.routing import APIRoute
 from sqlalchemy.orm import Session
 
+from futsal.api.sport import SportParam
 from futsal.repositories import v2_queries as q
 
 Limit = Annotated[int, Query(ge=1, le=q.MAX_LIMIT)]
@@ -38,10 +39,11 @@ def v2_router(get_session: Callable[[], Iterator[Session]], today: Callable[[], 
     router = APIRouter(route_class=V2Route)
     Db = Annotated[Session, Depends(get_session)]
 
-    def filters(season: Annotated[str | None, Query(max_length=40)] = None, category: Annotated[str | None, Query(max_length=30)] = None,
+    def filters(sport: SportParam, season: Annotated[str | None, Query(max_length=40)] = None,
+                category: Annotated[str | None, Query(max_length=30)] = None,
                 gender: Annotated[str | None, Query(max_length=30)] = None,
                 competition: Annotated[str | None, Query(max_length=80)] = None) -> q.Filters:
-        return q.Filters(season, category, gender, competition)
+        return q.Filters(sport, season, category, gender, competition)
 
     F = Annotated[q.Filters, Depends(filters)]
 

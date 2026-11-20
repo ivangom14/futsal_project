@@ -17,6 +17,7 @@ from sqlalchemy import Engine, delete, func, select, update
 from sqlalchemy.orm import Session
 
 from futsal.db.kb_models import KbChunk, KbDocument, KbDocumentVersion, KbIngestionRun
+from futsal.domain.sports import SPORTS
 from futsal.knowledge.chunking import ChunkConfig, chunk_segments
 from futsal.knowledge.extract import ExtractionError, get_extractor
 from futsal.knowledge.models import ExtractedDocument, PageSection
@@ -42,6 +43,8 @@ class DocumentSpec:
     effective_date: date | None = None
     version_label: str | None = None
     season_label: str | None = None
+    # Deportes a los que se aplica (0009): obligatorio al indexar; nunca se infiere (un reglamento de fútbol sala no vale para fútbol 11).
+    sports: tuple[str, ...] = ()
     # PDF compuesto: tramos de páginas con su parte; los que traen `skip_reason` no se indexan (se documenta el motivo).
     page_sections: tuple[PageSection, ...] = ()
 
@@ -138,11 +141,14 @@ def _apply_metadata(doc: KbDocument, spec: DocumentSpec) -> None:
         spec.structure_profile, spec.source_url, spec.issuer)
     doc.publication_date, doc.effective_date = spec.publication_date, spec.effective_date
     doc.version_label, doc.season_label = spec.version_label, spec.season_label
+    doc.sports = list(spec.sports)
     doc.updated_at = datetime.now(UTC)
 
 
 def _ingest(engine: Engine, spec: DocumentSpec, path: Path, cfg: ChunkConfig, storage: Path,
             force: bool) -> IngestResult:
+    if not spec.sports or any(sp not in SPORTS for sp in spec.sports):
+        raise ValueError(f"el documento {spec.doc_key} debe declarar sus deportes (sports) entre: {', '.join(SPORTS)}")
     if spec.structure_profile not in PROFILES:
         raise ValueError(f"perfil de estructura desconocido: {spec.structure_profile}")
     if not path.is_file():
@@ -188,7 +194,7 @@ def _ingest(engine: Engine, spec: DocumentSpec, path: Path, cfg: ChunkConfig, st
         is_new_doc = doc is None
         if doc is None:
             doc = KbDocument(doc_key=spec.doc_key, title=spec.title, doc_type=spec.doc_type,
-                             language=spec.language, structure_profile=spec.structure_profile)
+                             language=spec.language, structure_profile=spec.structure_profile, sports=list(spec.sports))
             s.add(doc)
         _apply_metadata(doc, spec)
         s.flush()

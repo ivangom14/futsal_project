@@ -73,12 +73,12 @@ def test_chat_crests_apagado_por_defecto(monkeypatch: pytest.MonkeyPatch) -> Non
     monkeypatch.chdir(FIXTURES)  # sin .env del proyecto
     called: list[int] = []
 
-    def source() -> list[dict[str, Any]]:
+    def source(sport: str) -> list[dict[str, Any]]:
         called.append(1)
         return ROWS
 
     client = _chat(source)
-    assert client.get("/chat/crests").json() == {"mode": "off", "crests": {}}
+    assert client.get("/chat/crests", params={"sport": "futsal"}).json() == {"mode": "off", "crests": {}}
     assert client.get("/chat/crests/img/0123456789abcdef0123.webp").status_code == 404
     assert called == []  # ni siquiera consulta la API
 
@@ -87,21 +87,21 @@ def test_chat_crests_link_usa_cache_y_sobrevive_a_errores(monkeypatch: pytest.Mo
     monkeypatch.setenv("CRESTS_MODE", "link")
     calls: list[int] = []
 
-    def source() -> list[dict[str, Any]]:
+    def source(sport: str) -> list[dict[str, Any]]:
         calls.append(1)
         if len(calls) > 1:
             raise httpx.ConnectError("caída")
         return ROWS
 
     client = _chat(source)
-    first = client.get("/chat/crests").json()
+    first = client.get("/chat/crests", params={"sport": "futsal"}).json()
     assert first == {"mode": "link", "crests": {"C.D. DOSA": ROWS[0]["crest_url"], "FS ALCALA": ROWS[1]["crest_url"]}}
-    assert client.get("/chat/crests").json() == first and calls == [1]  # en caché
+    assert client.get("/chat/crests", params={"sport": "futsal"}).json() == first and calls == [1]  # en caché
 
-    def failing() -> list[dict[str, Any]]:
+    def failing(sport: str) -> list[dict[str, Any]]:
         raise httpx.ConnectError("caída")
 
-    body = _chat(failing).get("/chat/crests").json()
+    body = _chat(failing).get("/chat/crests", params={"sport": "futsal"}).json()
     assert body["crests"] == {} and body["error"] == "ConnectError"
 
 
@@ -109,8 +109,8 @@ def test_chat_crests_local_sirve_las_copias(monkeypatch: pytest.MonkeyPatch, tmp
     monkeypatch.setenv("CRESTS_MODE", "local")
     webp = normalize(_png_rgba())
     (tmp_path / ROWS[0]["file"]).write_bytes(webp)
-    client = _chat(lambda: ROWS, tmp_path)
-    assert client.get("/chat/crests").json() == {"mode": "local", "crests": {"C.D. DOSA": f"/chat/crests/img/{ROWS[0]['file']}"}}  # sin copia → monograma
+    client = _chat(lambda sport: ROWS, tmp_path)
+    assert client.get("/chat/crests", params={"sport": "futsal"}).json() == {"mode": "local", "crests": {"C.D. DOSA": f"/chat/crests/img/{ROWS[0]['file']}"}}  # sin copia → monograma
     img = client.get(f"/chat/crests/img/{ROWS[0]['file']}")
     assert img.status_code == 200 and img.content == webp
     assert img.headers["content-type"] == "image/webp" and "immutable" in img.headers["cache-control"]

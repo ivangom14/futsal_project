@@ -15,7 +15,7 @@ from sqlalchemy import (
     UniqueConstraint,
     func,
 )
-from sqlalchemy.dialects.postgresql import JSONB, TSVECTOR
+from sqlalchemy.dialects.postgresql import ARRAY, JSONB, TSVECTOR
 from sqlalchemy.orm import Mapped, mapped_column
 
 from futsal.db.models import Base
@@ -35,6 +35,8 @@ class KbDocument(Base):
     version_label: Mapped[str | None] = mapped_column(Text)
     season_label: Mapped[str | None] = mapped_column(Text)
     structure_profile: Mapped[str] = mapped_column(Text)
+    # 0009: deportes a los que se aplica el documento (futsal, football11); obligatorio, sin valor por defecto.
+    sports: Mapped[list[str]] = mapped_column(ARRAY(Text))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 

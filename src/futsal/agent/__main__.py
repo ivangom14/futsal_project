@@ -35,7 +35,7 @@ def _print_run(res: AgentResult) -> None:
           f"out={t['output_tokens']} thinking={t['thinking_tokens']}")
 
 
-async def _main(questions: list[str], trace_path: Path | None, trace_results: bool) -> int:
+async def _main(questions: list[str], trace_path: Path | None, trace_results: bool, sport: str) -> int:
     llm = create_llm()
     limit = int(env_value("MAX_TOOL_CALLS", str(DEFAULT_MAX_TOOL_CALLS)))
     rows = int(env_value("MAX_RESULT_ROWS", str(DEFAULT_MAX_ROWS)))
@@ -47,7 +47,7 @@ async def _main(questions: list[str], trace_path: Path | None, trace_results: bo
                           on_trace=lambda line: print(line + "\n"), max_rows=rows,
                           trace_path=trace_path, trace_results=trace_results)
             for q in questions:
-                res = await agent.run(q)
+                res = await agent.run(q, sport=sport)
                 status |= 1 if res.error else 0
                 _print_run(res)
                 print("-" * 40)
@@ -58,6 +58,8 @@ async def _main(questions: list[str], trace_path: Path | None, trace_results: bo
 def main() -> None:
     parser = argparse.ArgumentParser(prog="futsal.agent")
     parser.add_argument("questions", nargs="+")
+    parser.add_argument("--sport", required=True, choices=("futsal", "football11"),
+                        help="deporte de la consulta (obligatorio): futsal (fútbol sala) o football11 (fútbol)")
     parser.add_argument("--trace-file", default=env_value("AGENT_TRACE_FILE", DEFAULT_TRACE_FILE),
                         help="JSONL de trazas (vacío para desactivar)")
     parser.add_argument("--trace-results", action="store_true",
@@ -65,7 +67,7 @@ def main() -> None:
     args = parser.parse_args()
     try:
         raise SystemExit(asyncio.run(_main(args.questions, Path(args.trace_file) if args.trace_file else None,
-                                           args.trace_results)))
+                                           args.trace_results, args.sport)))
     except LLMError as exc:
         raise SystemExit(f"error: {exc}") from exc
 

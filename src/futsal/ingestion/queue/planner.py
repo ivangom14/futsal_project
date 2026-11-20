@@ -27,6 +27,7 @@ from futsal.db.models import (
     Season,
 )
 from futsal.ingestion.queue import jobs
+from futsal.ingestion.queue.ingest_scope import load_scope
 from futsal.ingestion.queue.jobs import canonical_key
 from futsal.ingestion.queue.schedule import ScheduleConfig
 
@@ -416,7 +417,9 @@ def gather_state(session: Session, source: str, season: str, game_type: str, cfg
             .order_by(CompetitionGroup.external_id))
     if group_ids is not None:
         stmt = stmt.where(CompetitionGroup.external_id.in_(list(group_ids)))
-    rows = session.execute(stmt).all()
+    scope = load_scope()  # alcance declarativo: solo se planifican grupos de competiciones habilitadas (fútbol sala: todas)
+    rows = [(grp, comp) for grp, comp in session.execute(stmt).all()
+            if scope.allows(comp.modality, comp.name, comp.category_code)]
     by_group: dict[int, list[MatchState]] = {}
     last_round: dict[int, int] = {}
     ids = [grp.id for grp, _ in rows]

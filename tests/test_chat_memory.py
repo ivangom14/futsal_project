@@ -88,7 +88,7 @@ def tool(tool_name: str, **args: Any) -> LLMResponse:
 def run(llm: Script, question: str, history: list[Turn] | None = None, mcp: FakeMcp | None = None) -> tuple[Any, FakeMcp]:
     fake = mcp or FakeMcp()
     agent = Agent(llm, fake, 5, trace_results=True)
-    return asyncio.run(agent.run(question, history or [])), fake
+    return asyncio.run(agent.run(question, history or [], sport="futsal")), fake
 
 
 # --- A: referencias a entidades ------------------------------------------------------------------------------------------------
@@ -294,7 +294,7 @@ def web(steps: list[LLMResponse | Exception]) -> tuple[TestClient, Script]:
 
 
 def ask(c: TestClient, question: str, cid: str | None = "conv-1", history: list[dict[str, str]] | None = None) -> Any:
-    body: dict[str, Any] = {"question": question, "history": history or []}
+    body: dict[str, Any] = {"sport": "futsal", "question": question, "history": history or []}
     if cid:
         body["conversation_id"] = cid
     return c.post("/chat", json=body)
@@ -368,4 +368,4 @@ def test_client_history_only_seeds_an_unknown_conversation() -> None:
 def test_invalid_memory_fields_are_400(extra: dict[str, Any]) -> None:
     c, _ = web([])
     with c:
-        assert c.post("/chat", json={"question": "hola", **extra}).status_code == 400
+        assert c.post("/chat", json={"sport": "futsal", "question": "hola", **extra}).status_code == 400

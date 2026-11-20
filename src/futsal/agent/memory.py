@@ -109,6 +109,7 @@ class ConversationMemory:
         self._data: OrderedDict[str, list[Turn]] = OrderedDict()
         self._focus: OrderedDict[str, dict[str, str]] = OrderedDict()
         self._state: OrderedDict[str, dict[str, Any]] = OrderedDict()  # estado conversacional estructurado (caché derivable del historial; ver `convstate`)
+        self._sport: OrderedDict[str, str] = OrderedDict()  # deporte de cada conversación (Fase 1 multideporte)
         self._max = max_conversations
 
     def get(self, conversation_id: str) -> list[Turn] | None:
@@ -141,7 +142,26 @@ class ConversationMemory:
         while len(self._state) > self._max:
             self._state.popitem(last=False)
 
+    def bind_sport(self, conversation_id: str, sport: str) -> bool:
+        """Fija el deporte de la conversación. Si ya tenía OTRO, se descartan su historial, foco y estado (nunca se arrastran
+        competiciones, equipos ni grupos de un deporte a otro) y devuelve True."""
+        previous = self._sport.get(conversation_id)
+        self._sport[conversation_id] = sport
+        self._sport.move_to_end(conversation_id)
+        while len(self._sport) > self._max:
+            self._sport.popitem(last=False)
+        if previous is None or previous == sport:
+            return False
+        self._data.pop(conversation_id, None)
+        self._focus.pop(conversation_id, None)
+        self._state.pop(conversation_id, None)
+        return True
+
+    def get_sport(self, conversation_id: str) -> str | None:
+        return self._sport.get(conversation_id)
+
     def forget(self, conversation_id: str) -> bool:
+        self._sport.pop(conversation_id, None)
         self._focus.pop(conversation_id, None)
         self._state.pop(conversation_id, None)
         return self._data.pop(conversation_id, None) is not None

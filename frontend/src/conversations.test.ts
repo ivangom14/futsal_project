@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  appendMessage, deleteConversation, historyFor, loadState, saveState, selectConversation, startConversation, STORAGE_KEY, titleFrom,
+  appendMessage, changeSport, deleteConversation, historyFor, loadState, saveState, selectConversation, startConversation, STORAGE_KEY, titleFrom,
   type State,
 } from "./conversations";
 
@@ -89,5 +89,42 @@ describe("historyFor", () => {
     const h = historyFor(msgs);
     expect(h).toHaveLength(40);
     expect(h[h.length - 1].content).toBe("r49");
+  });
+});
+
+describe("deporte", () => {
+  it("una conversación antigua sin sport se carga como futsal y se conserva; un deporte desconocido no se reinterpreta como futsal", () => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({
+      conversations: [
+        { id: "old", title: "antigua", createdAt: 1, updatedAt: 1, messages: [user("hola")] },
+        { id: "f11", sport: "football11", title: "f11", createdAt: 1, updatedAt: 1, messages: [] },
+        { id: "odd", sport: "padel", title: "raro", createdAt: 1, updatedAt: 1, messages: [] },
+      ],
+      activeId: "old",
+    }));
+    const s = loadState();
+    expect(s.conversations.map((c) => [c.id, c.sport])).toEqual([["old", "futsal"], ["f11", "football11"]]);
+    saveState(s);
+    expect(JSON.parse(localStorage.getItem(STORAGE_KEY)!).conversations[0].sport).toBe("futsal"); // se persiste ya migrada
+  });
+
+  it("la conversación nueva guarda el deporte seleccionado (futsal por defecto)", () => {
+    expect(startConversation(empty).conversations[0].sport).toBe("futsal");
+    expect(startConversation(empty, "football11").conversations[0].sport).toBe("football11");
+  });
+
+  it("changeSport: vacía cambia de deporte; con mensajes abre otra y deja la anterior intacta", () => {
+    let s = startConversation(empty);
+    s = changeSport(s, "football11");
+    expect(s.conversations).toHaveLength(1);
+    expect(s.conversations[0].sport).toBe("football11");
+    const first = s.activeId!;
+    s = appendMessage(s, first, user("q"));
+    s = changeSport(s, "futsal");
+    expect(s.conversations).toHaveLength(2);
+    expect(s.activeId).not.toBe(first);
+    expect(s.conversations.find((c) => c.id === s.activeId)!.sport).toBe("futsal");
+    expect(s.conversations.find((c) => c.id === first)).toMatchObject({ sport: "football11", messages: [expect.anything()] });
+    expect(changeSport(s, "futsal")).toBe(s);
   });
 });

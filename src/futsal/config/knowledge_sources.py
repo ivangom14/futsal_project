@@ -16,6 +16,7 @@ class KnowledgeSource:
 KNOWLEDGE_SOURCES: dict[str, KnowledgeSource] = {
     "fifa-futsal-laws-2025-26": KnowledgeSource(DocumentSpec(
         doc_key="fifa-futsal-laws-2025-26",
+        sports=("futsal",),
         title="Reglas de Juego del Futsal 2025/26",
         doc_type="reglamento",
         language="es",
@@ -33,6 +34,7 @@ KNOWLEDGE_SOURCES: dict[str, KnowledgeSource] = {
     # `fifa-futsal-laws-2025-26`: no se indexan para no duplicar fragmentos. Ver docs/phase15-circular27.md.
     "rfef-circular-27-2025-26": KnowledgeSource(DocumentSpec(
         doc_key="rfef-circular-27-2025-26",
+        sports=("futsal",),
         title="Circular n.º 27 de la RFEF: Reglas de Juego del Futsal 2025/2026 (Circular FIFA n.º 1941)",
         doc_type="circular",
         language="es",
@@ -55,6 +57,7 @@ KNOWLEDGE_SOURCES: dict[str, KnowledgeSource] = {
     # Anula y sustituye a la Circular 9 (17-ago-2026), que no está en la base. Ver docs/phase15-circular10.md.
     "rfef-circular-10-rectificativa-2026-27": KnowledgeSource(DocumentSpec(
         doc_key="rfef-circular-10-rectificativa-2026-27",
+        sports=("futsal",),
         title="Circular n.º 10 (rectificativa) de la CTAFS de la RFEF: Reglas de Juego y criterios arbitrales 2026/2027",
         doc_type="circular",
         language="es",

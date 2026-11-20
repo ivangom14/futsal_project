@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Search, SquarePen, Trash2, X } from "lucide-react";
 import { LogoMark } from "./Logo";
 import ThemeSwitch from "./ThemeSwitch";
-import type { Conversation } from "../types";
+import { SPORT_LABEL, type Conversation } from "../types";
 
 interface Props {
   conversations: Conversation[];
@@ -150,6 +150,7 @@ export default function Sidebar({ conversations, activeId, open, onNew, onSelect
                         className={`min-h-10 min-w-0 flex-1 truncate rounded-md py-2 pl-3 pr-1 text-left text-sm [@media(pointer:coarse)]:min-h-touch ${current ? "font-semibold text-ink" : "text-ink"}`}>
                         {c.title}
                       </button>
+                      {c.sport === "football11" && <span className="shrink-0 text-[11px] text-ink-2" title={SPORT_LABEL[c.sport]} data-testid="conversation-sport">{SPORT_LABEL[c.sport]}</span>}
                       <DeleteButton title={c.title} onDelete={() => onDelete(c.id)} />
                     </li>
                   );

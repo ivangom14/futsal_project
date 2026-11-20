@@ -15,6 +15,7 @@ from futsal.config.targets import RFFM_TARGET
 from futsal.db.session import make_engine
 from futsal.ingestion.queue import controls, jobs
 from futsal.ingestion.queue.controls import load_config
+from futsal.ingestion.queue.ingest_scope import load_scope
 from futsal.ingestion.queue.planner import (
     calendar_covered_rounds,
     collapse,
@@ -57,6 +58,7 @@ def add_parsers(sub: "argparse._SubParsersAction[argparse.ArgumentParser]") -> N
         else:
             p.add_argument("--skip-catalog", action="store_true",
                            help="no descubre competiciones nuevas: solo mantiene los grupos ya importados (evita la carga masiva)")
+    isub.add_parser("scope", help="alcance declarativo de ingesta por deporte (config/ingest_scope.json); sin red ni BD")
     work = isub.add_parser("work", help="trabajador de la cola (red real solo con --allow-network Y FUTSAL_RFFM_NETWORK_AUTHORIZED=1)")
     add_work_arguments(work)
 
@@ -70,6 +72,8 @@ def _at(value: str | None) -> datetime:
 
 def run(args: argparse.Namespace) -> int:
     cmd = args.ingest_command
+    if cmd == "scope":
+        return _scope()
     if cmd == "work" and not network_authorized(args.allow_network):
         return run_cli(args)  # rechaza antes de tocar nada
     engine = make_engine()
@@ -107,6 +111,18 @@ def run(args: argparse.Namespace) -> int:
             ok = jobs.cancel(session, args.id, now)
             print(f"trabajo {args.id}: {'cancelado' if ok else 'no existe o ya terminó'}")
             return 0 if ok else 1
+    return 0
+
+
+def _scope() -> int:
+    """Qué deportes y competiciones están en el alcance y cuáles habilitadas (lo descubierto se ve en el informe de discover_catalog)."""
+    scope = load_scope()
+    for sport, cfg in scope.sports.items():
+        mode = "todas las del catálogo" if cfg.all_competitions else f"{len(cfg.entries)} declaradas"
+        print(f"{sport} (tipojuego={cfg.game_type}): {'HABILITADO' if cfg.enabled else 'deshabilitado'} · {mode}")
+        for e in cfg.entries:
+            state = scope.status(sport, e.name, e.category_code)
+            print(f"  - {e.name} [{e.category_code or '-'}]: {state}")
     return 0
 
 

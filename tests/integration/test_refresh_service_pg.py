@@ -377,7 +377,7 @@ def _tables_world(engine: Engine) -> dict[str, Any]:
         season = Season(external_id="99", name="2099")
         s.add(season)
         s.flush()
-        comp = Competition(external_id=TCOMP, season_id=season.id, name="LIGA")
+        comp = Competition(modality="futsal", external_id=TCOMP, season_id=season.id, name="LIGA")
         s.add(comp)
         s.flush()
         group = CompetitionGroup(external_id=TGROUP, competition_id=comp.id, name="Grupo 1")

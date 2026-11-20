@@ -10,6 +10,7 @@ from fastapi.testclient import TestClient
 from mcp.shared.memory import create_connected_server_and_client_session as connect
 from sqlalchemy import Engine, func, select, text
 from sqlalchemy.orm import Session
+from tests.sport_client import FutsalClient
 
 from futsal.agent.agent import Agent
 from futsal.agent.llm import LLMResponse, ToolCall
@@ -41,7 +42,7 @@ def _seed(engine: Engine) -> dict[str, int]:
             season = Season(external_id=sid, name=name)
             s.add(season)
             s.flush()
-            comp = Competition(external_id=COMP if sid == "99" else "90000010", season_id=season.id, name="LIGA EJEMPLO FS")
+            comp = Competition(modality="futsal", external_id=COMP if sid == "99" else "90000010", season_id=season.id, name="LIGA EJEMPLO FS")
             s.add(comp)
             s.flush()
             group = CompetitionGroup(external_id=GROUP if sid == "99" else "90000011", competition_id=comp.id, name="Grupo 1")
@@ -104,14 +105,14 @@ def test_a_change_in_the_published_table_creates_a_new_capture_and_keeps_the_old
     assert changed != load("standings_round4_full.html")
     rep = _run(db, "standings", FakeSite({("clasificaciones", GROUP, None): changed}), tmp_path, refresh=True)
     assert rep["groups"][0]["rounds"][0]["change"] == "new" and _count(db, StandingsSnapshot) == 2
-    body = TestClient(create_app(db)).get(f"/groups/{_gid(db)}/standings").json()
+    body = FutsalClient(create_app(db)).get(f"/groups/{_gid(db)}/standings").json()
     assert body["standings"][0]["points"] == 11                                                    # la captura más reciente
 
 
 def test_rounds_are_separate_snapshots_and_the_history_is_queryable(db: Engine, tmp_path: Path) -> None:
     _run(db, "standings", _site(), tmp_path)
     _run(db, "standings", _site(), tmp_path, round_number=1)
-    client, gid = TestClient(create_app(db)), _gid(db)
+    client, gid = FutsalClient(create_app(db)), _gid(db)
     assert client.get(f"/groups/{gid}/standings").json()["source"]["round"] == 4
     one = client.get(f"/groups/{gid}/standings?round=1").json()
     assert one["source"]["round"] == 1 and one["standings"][0]["team"] == "A.D. EJEMPLO TRES" and one["source"]["rounds_available"] == [1, 4]
@@ -137,7 +138,7 @@ def test_failures_are_recorded_and_one_table_does_not_block_the_other(db: Engine
     cov = coverage(db, _inv())["detail"][0]
     assert cov["standings"]["status"] == "ok" and cov["scorers"]["status"] == "failed" and cov["scorers"]["last_attempt"]["error_code"] == "transient"
     gid = _gid(db)
-    api = TestClient(create_app(db)).get(f"/groups/{gid}/scorer-table").json()
+    api = FutsalClient(create_app(db)).get(f"/groups/{gid}/scorer-table").json()
     assert api["status"] == "failed" and "scorers" not in api and "no constan" in api["message"]       # no se devuelve una tabla vacía
 
 
@@ -146,7 +147,7 @@ def test_a_failed_refresh_keeps_serving_the_last_good_capture_with_a_warning(db:
     bad = FakeSite({("goleadores", GROUP, None): FetchError("HTTP 500")})
     later = datetime(2099, 10, 21, tzinfo=UTC)
     _run(db, "scorers", bad, tmp_path, refresh=True, now=lambda: later)
-    body = TestClient(create_app(db)).get(f"/groups/{_gid(db)}/scorer-table").json()
+    body = FutsalClient(create_app(db)).get(f"/groups/{_gid(db)}/scorer-table").json()
     assert body["status"] == "ok" and len(body["scorers"]) == 6 and "falló" in body["warning"] and body["last_attempt"]["outcome"] == "failed"
 
 
@@ -171,7 +172,7 @@ def test_cup_groups_and_groups_missing_in_the_database_are_reported_not_hidden(d
     rep = _run(db, "standings", site, tmp_path, _inv(extra))
     by = {g["group_id"]: g["status"] for g in rep["groups"]}
     assert by == {GROUP: "ok", CUP_GROUP: "not_applicable", UNKNOWN_GROUP: "no_group_in_db"}
-    cup = TestClient(create_app(db)).get(f"/groups/{_seed_ids(db)['cup']}/standings").json()
+    cup = FutsalClient(create_app(db)).get(f"/groups/{_seed_ids(db)['cup']}/standings").json()
     assert cup["status"] == "not_applicable" and "standings" not in cup
     cov = coverage(db, _inv(extra))
     assert cov["groups"] == 3 and cov["by_status"]["standings"] == {"ok": 1, "not_applicable": 1, "no_group_in_db": 1}
@@ -180,11 +181,11 @@ def test_cup_groups_and_groups_missing_in_the_database_are_reported_not_hidden(d
 def test_incomplete_and_empty_tables_keep_their_status(db: Engine, tmp_path: Path) -> None:
     inc = _run(db, "standings", FakeSite({("clasificaciones", GROUP, None): load("standings_incomplete_row.html")}), tmp_path)
     assert inc["groups"][0]["status"] == "incomplete"
-    api = TestClient(create_app(db)).get(f"/groups/{_gid(db)}/standings").json()
+    api = FutsalClient(create_app(db)).get(f"/groups/{_gid(db)}/standings").json()
     assert api["status"] == "incomplete" and api["coverage"]["complete"] is False and api["coverage"]["warnings"]
     empty = _run(db, "scorers", FakeSite({("goleadores", GROUP, None): load("scorers_empty.html")}), tmp_path)
     assert empty["groups"][0]["status"] == "empty"
-    body = TestClient(create_app(db)).get(f"/groups/{_gid(db)}/scorer-table").json()
+    body = FutsalClient(create_app(db)).get(f"/groups/{_gid(db)}/scorer-table").json()
     assert body["status"] == "empty" and body["scorers"] == [] and body["coverage"]["complete"] is True   # vacía VÁLIDA, distinta de una caída
 
 
@@ -200,7 +201,7 @@ def _seed_ids(engine: Engine) -> dict[str, int]:
 
 
 def test_api_distinguishes_not_ingested_unknown_group_and_invalid_parameters(db: Engine) -> None:
-    c, gid = TestClient(create_app(db)), _gid(db)
+    c, gid = FutsalClient(create_app(db)), _gid(db)
     for path in ("standings", "scorer-table"):
         body = c.get(f"/groups/{gid}/{path}").json()
         assert body["status"] == "not_ingested" and "no los reconstruyas" in body["message"] and "standings" not in body and "scorers" not in body
@@ -214,7 +215,7 @@ def test_api_distinguishes_not_ingested_unknown_group_and_invalid_parameters(db:
 
 def test_standings_keep_the_published_order_and_derive_only_goal_difference(db: Engine, tmp_path: Path) -> None:
     _run(db, "standings", _site(), tmp_path)
-    body = TestClient(create_app(db)).get(f"/groups/{_gid(db)}/standings").json()
+    body = FutsalClient(create_app(db)).get(f"/groups/{_gid(db)}/standings").json()
     assert body["status"] == "ok" and body["derived"] == ["goal_difference"] and body["coverage"]["played_min"] == 3
     assert [r["position"] for r in body["standings"]] == [1, 2, 3, 4, 5, 6]
     first, second = body["standings"][0], body["standings"][1]
@@ -226,7 +227,7 @@ def test_standings_keep_the_published_order_and_derive_only_goal_difference(db: 
 
 def test_scorer_table_ties_same_names_name_search_and_team_filter(db: Engine, tmp_path: Path) -> None:
     _run(db, "scorers", _site(), tmp_path)
-    c, gid = TestClient(create_app(db)), _gid(db)
+    c, gid = FutsalClient(create_app(db)), _gid(db)
     top = c.get(f"/groups/{gid}/scorer-table?limit=4").json()
     assert top["matching"] == 6 and top["shown"] == 4 and top["coverage"]["players_listed"] == 6 and top["coverage"]["goals_total"] == 21
     assert [s["rank"] for s in top["scorers"]] == [1, 2, 2, 2] and top["scorers"][1]["tied_with"] == 2 and "tied_with" not in top["scorers"][0]
@@ -245,7 +246,7 @@ def test_scorer_table_ties_same_names_name_search_and_team_filter(db: Engine, tm
 def test_seasons_and_competitions_are_kept_apart_and_competition_view_lists_every_group(db: Engine, tmp_path: Path) -> None:
     _run(db, "scorers", _site(), tmp_path)
     ids = _seed_ids(db)
-    c = TestClient(create_app(db))
+    c = FutsalClient(create_app(db))
     assert c.get(f"/groups/{ids['group98']}/scorer-table").json()["status"] == "not_ingested"     # otra temporada: sin mezcla
     assert c.get(f"/groups/{ids['group98']}/standings").json()["status"] == "not_ingested"
     with Session(db) as s:
@@ -272,7 +273,7 @@ def test_mcp_tools_go_through_the_api_and_old_tools_keep_working(db: Engine, tmp
                                ("get_scorer_table", {"group_id": gid, "limit": 2}), ("get_scorer_table", {"group_id": gid, "name": "nerin"}),
                                ("get_scorer_table", {}), ("get_standings", {"group_id": 99999}), ("list_competitions", {}),
                                ("top_scorers", {"group_id": gid}), ("search_rules", {"query": "saque de esquina"})):
-                res = await session.call_tool(name, args)
+                res = await session.call_tool(name, {"sport": "futsal", **args})  # Fase 1: deporte obligatorio
                 text_ = res.content[0].text  # type: ignore[union-attr]
                 out.append((res.isError, text_ if res.isError else json.loads(text_)))
         return out
@@ -311,7 +312,7 @@ def test_agent_answers_the_standing_question_with_the_official_table_in_one_call
 
     async def go() -> Any:
         async with connect(server._mcp_server) as session:
-            return await Agent(llm, SessionMcpClient(session), 5, preload_context=False).run("¿Cómo está la clasificación de mi grupo?")
+            return await Agent(llm, SessionMcpClient(session), 5, preload_context=False).run("¿Cómo está la clasificación de mi grupo?", sport="futsal")
 
     res = asyncio.run(go())
     assert res.tool_calls == 1 and res.guardrail is None and "jornada 4" in res.answer

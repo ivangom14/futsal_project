@@ -86,7 +86,7 @@ def normalized(body: dict[str, Any]) -> dict[str, Any]:
 
 def test_chat_returns_answer_sources_and_diagnostics() -> None:
     with client(rules_steps()) as c:
-        res = c.post("/chat", json={"question": QUESTION})
+        res = c.post("/chat", json={"sport": "futsal", "question": QUESTION})
     assert res.status_code == 200
     body = ChatResponse.model_validate(res.json())
     assert "20 minutos" in body.answer and body.error is None and body.guardrail is None
@@ -100,7 +100,7 @@ def test_chat_returns_answer_sources_and_diagnostics() -> None:
 def test_contract_fixture_matches_backend() -> None:
     """El frontend prueba contra este mismo JSON: si cambia el contrato, este test obliga a regenerarlo."""
     with client(rules_steps()) as c:
-        body = normalized(c.post("/chat", json={"question": QUESTION}).json())
+        body = normalized(c.post("/chat", json={"sport": "futsal", "question": QUESTION}).json())
     if not FIXTURE.exists():  # primera generación explícita
         FIXTURE.write_text(json.dumps(body, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     assert json.loads(FIXTURE.read_text(encoding="utf-8")) == body
@@ -111,7 +111,7 @@ def test_no_sources_are_invented_without_rag() -> None:
         LLMResponse("", [ToolCall("c1", "get_standings", {})]), LLMResponse("El líder es X.", [])]
     mcp = FakeMcp({"get_standings": '{"error":"x"}'})
     with client(steps, mcp) as c:
-        body = c.post("/chat", json={"question": "¿Quién lidera la clasificación?"}).json()
+        body = c.post("/chat", json={"sport": "futsal", "question": "¿Quién lidera la clasificación?"}).json()
     assert body["sources"] == []
 
 
@@ -122,7 +122,7 @@ def test_official_table_is_a_source() -> None:
     steps: list[LLMResponse | Exception] = [
         LLMResponse("", [ToolCall("c1", "get_standings", {"group_id": 1})]), LLMResponse("Líder A.", [])]
     with client(steps, FakeMcp({"get_standings": table})) as c:
-        body = c.post("/chat", json={"question": "¿Cómo va la clasificación?"}).json()
+        body = c.post("/chat", json={"sport": "futsal", "question": "¿Cómo va la clasificación?"}).json()
     src = body["sources"][0]
     assert src["kind"] == "official_data" and src["title"] == "Clasificación oficial · RFFM" and src["updated_at"] == "2026-10-20T10:00:00"
     assert body["answer_kind"] == "official" and body["visuals"][0]["type"] == "table"
@@ -130,7 +130,7 @@ def test_official_table_is_a_source() -> None:
 
 def test_llm_failure_is_http_error_not_an_answer() -> None:
     with client([LLMError("cuota agotada (429)")]) as c:
-        res = c.post("/chat", json={"question": QUESTION})
+        res = c.post("/chat", json={"sport": "futsal", "question": QUESTION})
     body = res.json()
     assert res.status_code == 429 and body["code"] == "rate_limit" and "demasiadas consultas" in body["detail"]
     assert "cuota agotada" in body["technical"] and "cuota" not in body["detail"]  # detalle técnico aparte, no en el mensaje
@@ -139,7 +139,7 @@ def test_llm_failure_is_http_error_not_an_answer() -> None:
 def test_tool_limit_keeps_safe_answer_and_reports_error() -> None:
     calls = [LLMResponse("", [ToolCall(f"c{i}", "search_rules", {"query": f"q{i}"})]) for i in range(5)]
     with client(calls) as c:
-        res = c.post("/chat", json={"question": QUESTION})
+        res = c.post("/chat", json={"sport": "futsal", "question": QUESTION})
     body = res.json()
     assert res.status_code == 200 and body["error"] and body["answer"] and body["guardrail"] == "limite_herramientas"
 
@@ -152,7 +152,7 @@ def test_invalid_input_is_400(body: dict[str, Any]) -> None:
 
 def test_whitespace_question_is_400() -> None:
     with client([]) as c:
-        assert c.post("/chat", json={"question": "   "}).status_code == 400
+        assert c.post("/chat", json={"sport": "futsal", "question": "   "}).status_code == 400
 
 
 def test_agent_unavailable_is_503_and_visible_in_health(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -165,7 +165,7 @@ def test_agent_unavailable_is_503_and_visible_in_health(monkeypatch: pytest.Monk
     monkeypatch.setenv("GEMINI_API_KEY", "")
     app = create_chat_app(AgentRunner(broken), lambda: {"reachable": True, "detail": None})
     with TestClient(app) as c:
-        assert c.post("/chat", json={"question": QUESTION}).status_code == 503
+        assert c.post("/chat", json={"sport": "futsal", "question": QUESTION}).status_code == 503
         health = c.get("/chat/health").json()
     assert health["status"] == "degraded" and "GEMINI_API_KEY" in health["agent"]["error"]
     assert health["llm"]["key_configured"] is False

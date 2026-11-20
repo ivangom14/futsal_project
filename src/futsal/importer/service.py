@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 from futsal.db.models import DataQualityIssue, IngestionRun
 from futsal.importer.schema import read_league
 from futsal.importer.transform import ImportPlan, build_plan
-from futsal.repositories.league import RegressionPolicy, Stats, import_plan
+from futsal.repositories.league import RegressionPolicy, SportConflict, Stats, import_plan
 
 
 @dataclass
@@ -121,4 +121,9 @@ def run_import(engine: Engine, input_path: Path, *, dry_run: bool = False,
             run.status = "failed"
             run.finished_at = datetime.now(UTC)
             run.error_summary = report.error
+            if isinstance(exc, SportConflict):  # el plan no se aplica, pero el conflicto queda registrado como incidencia
+                i = exc.issue
+                session.add(DataQualityIssue(ingestion_run_id=run_id, code=i.code, entity_type=i.entity_type,
+                                             external_id=i.external_id, message=i.message, details=i.details))
+                report.issues, report.issue_codes = 1, Counter({i.code: 1})
     return report

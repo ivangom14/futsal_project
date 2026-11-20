@@ -3,6 +3,7 @@
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
+from tests.sport_client import FutsalClient
 
 from futsal.api.app import create_app
 from futsal.domain.names import club_base_name, club_base_tokens, norm_name, squad_of, tokens_of
@@ -62,7 +63,7 @@ def test_squad_suffix(name: str, squad: str | None) -> None:
 @pytest.fixture()
 def client() -> TestClient:
     # El motor es perezoso: estos casos fallan en validación antes de abrir ninguna conexión.
-    return TestClient(create_app(create_engine("postgresql+psycopg://nobody:none@127.0.0.1:1/none")))
+    return FutsalClient(create_app(create_engine("postgresql+psycopg://nobody:none@127.0.0.1:1/none")))
 
 
 @pytest.mark.parametrize("url", [

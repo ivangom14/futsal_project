@@ -37,7 +37,7 @@ def _run(llm: Script, question: str, max_calls: int = 3) -> AgentResult:
 
     async def go() -> AgentResult:
         async with connect(server._mcp_server) as session:
-            return await Agent(llm, SessionMcpClient(session), max_calls).run(question)  # type: ignore[arg-type]
+            return await Agent(llm, SessionMcpClient(session), max_calls).run(question, sport="futsal")  # type: ignore[arg-type]
 
     return asyncio.run(go())
 

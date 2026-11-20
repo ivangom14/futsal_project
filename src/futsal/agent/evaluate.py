@@ -75,6 +75,9 @@ LIMIT_PHRASES = ["no incluyen", "no incluye", "no dispongo", "no disponible", "n
                  "no constan", "no figuran", "no aparecen", "no registra", "no detalla", "no especifica",
                  "no proporciona", "no se recoge", "no esta disponible", "no dispone", "no publica"]
 
+# Fase 1 multideporte: todos los casos de esta evaluación son de fútbol sala (el deporte se pasa explícito, nunca se supone).
+EVAL_SPORT = "futsal"
+
 
 # ----------------------------------------------------------------------------- verdad (solo SELECT)
 @dataclass(frozen=True)
@@ -1193,7 +1196,7 @@ async def run_case(case: EvalCase, mcp: McpClient, mode: str, llm: LLMClient | N
         assert llm is not None
         client = llm
     run = await Agent(client, mcp, max_tool_calls, max_rows=max_rows, trace_path=trace_path,
-                      trace_results=True).run(case.question)
+                      trace_results=True).run(case.question, sport=EVAL_SPORT)
     rec = run.run
     assert rec is not None
     t = rec.totals()

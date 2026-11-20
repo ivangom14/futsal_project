@@ -26,6 +26,7 @@ from futsal.db.models import (
     Team,
 )
 from futsal.domain.catalog_classify import ATTRS, OVERRIDE, CompetitionMeta, classify_competition
+from futsal.domain.sports import sport_of_game_type
 from futsal.importer.schema import InputError
 from futsal.importer.service import run_import
 from futsal.ingestion.rffm.catalog_ingest import DOWNLOADED, PARTIAL
@@ -120,7 +121,12 @@ def apply_competition_meta(comp: Competition, incoming: Mapping[str, Any] | None
     result = classify_competition(CompetitionMeta(name=comp.name or "", **merged), overrides, cfg)
     new_json = result.as_json()
     value_changed = False
+    sport = sport_of_game_type(merged.get("game_type_code"), dict(cfg["game_type_code"]))
+    if sport is not None and comp.modality and sport != comp.modality:  # 0009: el deporte nunca cambia por el catálogo
+        raise ValueError(f"la competición {comp.external_id} es de {comp.modality} y el catálogo la trae como {sport}: no se aplica")
     for attr in ATTRS:
+        if attr == "modality":  # columna = deporte (0009): solo la fija el tipo de juego oficial al darla de alta, nunca un override o el nombre
+            continue
         before = old.get(attr) if isinstance(old.get(attr), dict) else None
         if before and before.get("previous") is not None and before.get("value") == new_json[attr]["value"]:
             new_json[attr]["previous"] = before["previous"]  # se conserva (idempotencia)

@@ -55,6 +55,10 @@ CLOCK_DEPENDENCIES = [
      "`time.perf_counter`/`time.monotonic` (latencias y ritmo)."),
 ]
 
+# Fase 1 multideporte: Futsito-Eval y las suites del benchmark son de fútbol sala; el deporte se pasa explícito al agente.
+# (La batería multideporte de la Fase 4 añadirá el deporte por caso.)
+EVAL_SPORT = "futsal"
+
 
 class FingerprintMismatch(RuntimeError):
     """La base de datos no coincide con la huella del snapshot: no se ejecuta nada."""
@@ -265,8 +269,8 @@ async def run_conversation(rc: ResolvedCase, rep: int, mcp: McpClient, llm: LLMC
         if halted:
             records.append(_record(rc.case_id, rc.stratum, rc.holdout, rep, i, turn.user, "not_run", halted))
             continue
-        result = await (agent.run(turn.user, history, focus, f"{rc.case_id}#{rep}", state) if state
-                        else agent.run(turn.user, history, focus, f"{rc.case_id}#{rep}"))
+        result = await (agent.run(turn.user, history, focus, f"{rc.case_id}#{rep}", state, sport=EVAL_SPORT) if state
+                        else agent.run(turn.user, history, focus, f"{rc.case_id}#{rep}", sport=EVAL_SPORT))
         run = result.run
         assert run is not None
         usage = _usage(run, price)

@@ -4,8 +4,8 @@ PostgreSQL temporal, sin LLM. Cada expansión se justifica comparando la misma c
 from collections.abc import Iterator
 
 import pytest
-from fastapi.testclient import TestClient
 from sqlalchemy import Engine, text
+from tests.sport_client import FutsalClient
 
 from futsal.api.app import create_app
 from futsal.knowledge import vocabulary
@@ -40,8 +40,8 @@ def kb(pg_engine: Engine) -> Iterator[Engine]:
     with pg_engine.begin() as c:
         c.execute(text("TRUNCATE kb_chunks, kb_document_versions, kb_documents, kb_ingestion_runs RESTART IDENTITY CASCADE"))
         for (key, title, kind), pages in ((FIFA, FIFA_PAGES), (C10, C10_PAGES)):
-            doc = c.execute(text("INSERT INTO kb_documents (doc_key, title, doc_type, language, structure_profile) "
-                                 "VALUES (:k, :t, :d, 'es', 'plain') RETURNING id"), {"k": key, "t": title, "d": kind}).scalar()
+            doc = c.execute(text("INSERT INTO kb_documents (doc_key, title, doc_type, language, structure_profile, sports) "
+                                 "VALUES (:k, :t, :d, 'es', 'plain', ARRAY['futsal']) RETURNING id"), {"k": key, "t": title, "d": kind}).scalar()
             ver = c.execute(text("INSERT INTO kb_document_versions (document_id, content_hash, file_path, file_bytes, extraction_status,"
                                  " index_status, is_current) VALUES (:d, :h, 'x.pdf', 1, 'ok', 'indexed', true) RETURNING id"),
                             {"d": doc, "h": key}).scalar()
@@ -126,7 +126,7 @@ def test_a_cited_circular_goes_before_the_general_rules(kb: Engine) -> None:
 
 
 def test_an_unindexed_circular_is_reported_and_no_hit_pretends_to_come_from_it(kb: Engine) -> None:
-    client = TestClient(create_app(kb))
+    client = FutsalClient(create_app(kb))
     body = client.get("/knowledge/search", params={"q": "que establecia la circular 9 de la RFEF sobre el saque de meta"}).json()
     assert body["cited_circulars"] == [{"circular": 9, "indexed": False}]
     assert "Circular 9" in body["note"] and "no está en la base" in body["note"]
@@ -136,7 +136,7 @@ def test_an_unindexed_circular_is_reported_and_no_hit_pretends_to_come_from_it(k
 
 
 def test_hits_say_whether_they_are_general_rules_or_a_circular(kb: Engine) -> None:
-    body = TestClient(create_app(kb)).get("/knowledge/search", params={"q": "guardameta saque de meta linea de medio campo"}).json()
+    body = FutsalClient(create_app(kb)).get("/knowledge/search", params={"q": "guardameta saque de meta linea de medio campo"}).json()
     kinds = {h["doc_key"]: h["type"] for h in body["hits"]}
     assert kinds == {FIFA_KEY: "reglamento", C10_KEY: "circular"}
     assert all(h["pages"] and h["document"] and h["doc_key"] for h in body["hits"])      # documento y página se conservan
@@ -144,7 +144,7 @@ def test_hits_say_whether_they_are_general_rules_or_a_circular(kb: Engine) -> No
 
 # --- sin evidencia ----------------------------------------------------------------------------------------------------------------
 def test_a_question_without_evidence_gets_no_fragment_that_answers_it(kb: Engine) -> None:
-    body = TestClient(create_app(kb)).get("/knowledge/search", params={"q": "cuanto cobra un arbitro de futsal por partido"}).json()
+    body = FutsalClient(create_app(kb)).get("/knowledge/search", params={"q": "cuanto cobra un arbitro de futsal por partido"}).json()
     assert not any("cobra" in h["text"].lower() or "euros" in h["text"].lower() for h in body["hits"])
     assert "cited_circulars" not in body                       # sin circular citada no hay referencias ni avisos inventados
 

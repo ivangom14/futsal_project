@@ -95,7 +95,7 @@ def _run(llm: Script, question: str, max_calls: int = 5) -> AgentResult:
 
     async def go() -> AgentResult:
         async with connect(server._mcp_server) as session:
-            return await Agent(llm, SessionMcpClient(session), max_calls).run(question)  # type: ignore[arg-type]
+            return await Agent(llm, SessionMcpClient(session), max_calls).run(question, sport="futsal")  # type: ignore[arg-type]
 
     return asyncio.run(go())
 
@@ -104,8 +104,15 @@ def _results(llm: Script) -> list[str]:
     return [r.content for m in llm.messages for r in m.tool_results]
 
 
+def _params(r: Any) -> dict[str, str]:
+    """Parámetros que recibe la API sin `sport` (Fase 1: siempre `futsal`, inyectado por el agente; se comprueba aquí)."""
+    params = dict(r.url.params)
+    assert params.pop("sport") == "futsal"
+    return params
+
+
 def _matches_requests() -> list[dict[str, str]]:
-    return [dict(r.url.params) for r in requests if r.url.path == "/groups/1/matches"]
+    return [_params(r) for r in requests if r.url.path == "/groups/1/matches"]
 
 
 # --- 1. el equipo se resuelve con tools fiables, no con un ID inventado --------------------------------------------------------------
@@ -233,7 +240,7 @@ def test_tools_without_team_or_round_ids_are_untouched() -> None:
     res = _run(llm, "clasificación y acta del partido 102")
     assert res.tool_calls == 3 and res.guardrail is None and len(res.official) == 1
     assert not any("error_validacion" in r for r in _results(llm))
-    assert [dict(r.url.params) for r in requests if r.url.path == "/groups/1/matches"] == [{"status": "finished"}]
+    assert [_params(r) for r in requests if r.url.path == "/groups/1/matches"] == [{"status": "finished"}]
 
 
 # --- una llamada rechazada no es un fallo de la herramienta, pero sigue contando como llamada ---------------------------------------

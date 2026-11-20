@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { API_URL, getCrests } from "./api";
+import type { Sport } from "./types";
 
 /**
  * Escudos oficiales por nombre de equipo, de `GET /chat/crests`: copias propias (CRESTS_MODE=local) o imágenes de la RFFM
@@ -17,21 +18,26 @@ export function resolveCrestUrl(u: unknown): string | null {
 
 const CrestContext = createContext<ReadonlyMap<string, string>>(new Map());
 
-export function CrestProvider({ children }: { children: ReactNode }) {
-  const [crests, setCrests] = useState<ReadonlyMap<string, string>>(() => new Map());
+const NO_CRESTS: ReadonlyMap<string, string> = new Map();
+
+/** Los escudos se piden con el deporte activo y se cachean por deporte (al volver a un deporte ya cargado no se repite la petición). */
+export function CrestProvider({ sport, children }: { sport: Sport; children: ReactNode }) {
+  const [bySport, setBySport] = useState<Partial<Record<Sport, ReadonlyMap<string, string>>>>({});
+  const cached = bySport[sport] !== undefined;
   useEffect(() => {
+    if (cached) return;
     let alive = true;
-    getCrests()
+    getCrests(sport)
       .then((r) => {
         const entries = Object.entries(r?.crests ?? {})
           .map(([n, u]) => [n, resolveCrestUrl(u)] as const)
           .filter((e): e is readonly [string, string] => typeof e[0] === "string" && e[1] !== null);
-        if (alive && entries.length) setCrests(new Map(entries.map(([n, u]) => [crestKey(n), u])));
+        if (alive && entries.length) setBySport((m) => ({ ...m, [sport]: new Map(entries.map(([n, u]) => [crestKey(n), u])) }));
       })
       .catch(() => undefined); // sin escudos: monogramas
     return () => { alive = false; };
-  }, []);
-  return <CrestContext.Provider value={crests}>{children}</CrestContext.Provider>;
+  }, [sport, cached]);
+  return <CrestContext.Provider value={bySport[sport] ?? NO_CRESTS}>{children}</CrestContext.Provider>;
 }
 
 export const useCrestUrl = (name: string): string | undefined => useContext(CrestContext).get(crestKey(name));

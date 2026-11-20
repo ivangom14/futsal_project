@@ -79,14 +79,14 @@ def with_mcp(w: dict[str, Any], fn: Callable[[HybridMcp], Awaitable[T]]) -> T:
 
 
 def v2_call(w: dict[str, Any], name: str, args: dict[str, Any]) -> tuple[bool, str]:
-    return with_mcp(w, lambda mcp: mcp.call_tool(name, args))
+    return with_mcp(w, lambda mcp: mcp.call_tool(name, {"sport": "futsal", **args}))  # Fase 1: deporte obligatorio
 
 
 def converse(w: dict[str, Any], llm: Rec, question: str, history: list[Turn] | None = None, **kw: Any) -> Any:
     async def run(mcp: HybridMcp) -> Any:
         agent = Agent(llm, mcp, 8, **kw)
         agent._clock = lambda: NOW
-        return await agent.run(question, history or [])
+        return await agent.run(question, history or [], sport="futsal")
     return with_mcp(w, run)
 
 

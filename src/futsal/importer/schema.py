@@ -51,6 +51,9 @@ class LeagueFile(BaseModel):
     season: NamedExt
     competition: NamedExt
     group: NamedExt
+    # Tipo de juego oficial (tipojuego de la RFFM) = deporte. Obligatorio para dar de alta una competición nueva; si la
+    # competición ya existe, su deporte manda y un tipo de juego distinto es un conflicto de identidad (no se importa).
+    game_type: NamedExt | None = None
     rounds: list[RoundIn]
     matches: list[MatchIn]
 

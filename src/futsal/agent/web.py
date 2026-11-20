@@ -15,7 +15,7 @@ from pathlib import Path as FilePath
 from typing import Annotated, Any, Literal
 
 import httpx
-from fastapi import FastAPI, HTTPException, Path, Request
+from fastapi import FastAPI, HTTPException, Path, Query, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
@@ -72,6 +72,9 @@ class ChatRequest(BaseModel):
     # Solo siembra una conversación que el servidor no conoce (p. ej. tras reiniciarlo); si la conoce, manda su propio historial.
     history: list[HistoryItem] = Field(default_factory=list, max_length=2 * MAX_STORED_TURNS)
     focus: dict[str, str] = Field(default_factory=dict)  # foco de la conversación (nombres); solo siembra, como `history`
+    # Deporte de la conversación (Fase 1 multideporte): OBLIGATORIO, sin valor por defecto en el servidor (el frontend envía
+    # «futsal» por defecto). Si una conversación conocida cambia de deporte, su contexto se descarta (memory.bind_sport).
+    sport: Literal["futsal", "football11"]
 
 
 class Source(BaseModel):
@@ -271,13 +274,14 @@ class AgentRunner:
         self._thread.join(timeout=10)
 
     async def ask(self, question: str, history: Sequence[Turn] = (), focus: dict[str, Any] | None = None,
-                  timeout: float | None = None, conversation_id: str | None = None, state: dict[str, Any] | None = None) -> AgentResult:
+                  timeout: float | None = None, conversation_id: str | None = None, state: dict[str, Any] | None = None,
+                  *, sport: str | None = None) -> AgentResult:
         if self._agent is None:  # primer arranque fallido o aún en curso: reintenta
             self.start()
             await asyncio.get_running_loop().run_in_executor(None, self._settled.wait, 30)
         if self._agent is None or self._loop is None:
             raise ChatUnavailable(self.error or "el agente no ha terminado de arrancar")
-        fut = asyncio.run_coroutine_threadsafe(self._run(question, history, focus or {}, conversation_id, state), self._loop)
+        fut = asyncio.run_coroutine_threadsafe(self._run(question, history, focus or {}, conversation_id, state, sport), self._loop)
         try:
             return await asyncio.wait_for(asyncio.wrap_future(fut), timeout)
         except TimeoutError as exc:
@@ -285,14 +289,15 @@ class AgentRunner:
             raise ChatTimeout(f"tiempo máximo de {timeout:.0f}s superado (¿Gemini limitando peticiones?)") from exc
 
     async def _run(self, question: str, history: Sequence[Turn], focus: dict[str, Any],
-                   conversation_id: str | None = None, state: dict[str, Any] | None = None) -> AgentResult:
+                   conversation_id: str | None = None, state: dict[str, Any] | None = None, sport: str | None = None) -> AgentResult:
         assert self._agent is not None and self._lock is not None
         self.waiting += 1
         try:
             async with self._lock:
                 self.running_since = time.monotonic()
                 try:
-                    return await (self._agent.run(question, history, focus, conversation_id, state) if state else self._agent.run(question, history, focus, conversation_id))
+                    return await (self._agent.run(question, history, focus, conversation_id, state, sport=sport) if state
+                                  else self._agent.run(question, history, focus, conversation_id, sport=sport))
                 finally:
                     self.running_since = None
         finally:
@@ -321,33 +326,33 @@ def _failure(friendly: FriendlyError, technical: str, status: int | None = None)
 
 
 FRESHNESS_TTL = 60.0
-_freshness_cache: dict[int, tuple[float, dict[str, Any] | None]] = {}
+_freshness_cache: dict[tuple[str, int], tuple[float, dict[str, Any] | None]] = {}
 
 
-def api_freshness(group_ids: list[int]) -> dict[int, dict[str, Any]]:
+def api_freshness(group_ids: list[int], sport: str) -> dict[int, dict[str, Any]]:
     """Frescura (Fase 21) de los grupos consultados, desde la API de datos (solo lectura, caché de 60 s). Si falla, no se inventa nada."""
     import time
 
     base = env_value("API_BASE_URL", "http://127.0.0.1:8000")
     out: dict[int, dict[str, Any]] = {}
     for gid in group_ids[:3]:
-        cached = _freshness_cache.get(gid)
+        cached = _freshness_cache.get((sport, gid))
         if cached is None or time.monotonic() - cached[0] > FRESHNESS_TTL:
             try:
-                res = httpx.get(f"{base}/groups/{gid}/freshness", timeout=2.0)
+                res = httpx.get(f"{base}/groups/{gid}/freshness", params={"sport": sport}, timeout=2.0)
                 cached = (time.monotonic(), res.json() if res.status_code == 200 else None)
             except (httpx.HTTPError, ValueError):
                 cached = (time.monotonic(), None)
-            _freshness_cache[gid] = cached
+            _freshness_cache[(sport, gid)] = cached
         if cached[1]:
             out[gid] = cached[1]
     return out
 
 
-def _api_crests() -> list[dict[str, Any]]:
-    """Filas de `GET /crests` de la API de datos (nombre, URL oficial y, si hay copia local, `file`)."""
+def _api_crests(sport: str) -> list[dict[str, Any]]:
+    """Filas de `GET /crests` de la API de datos para un deporte (nombre, URL oficial y, si hay copia local, `file`)."""
     base = env_value("API_BASE_URL", "http://127.0.0.1:8000")
-    res = httpx.get(f"{base}/crests", timeout=5.0)
+    res = httpx.get(f"{base}/crests", params={"sport": sport}, timeout=5.0)
     res.raise_for_status()
     items = res.json().get("items", [])
     return [r for r in items if isinstance(r, dict)] if isinstance(items, list) else []
@@ -377,11 +382,11 @@ CRESTS_TTL_S = 600.0
 def create_chat_app(runner: AgentRunner | None = None,
                     data_api_status: Callable[[], dict[str, Any]] = _data_api_status,
                     memory: ConversationMemory | None = None,
-                    freshness: Callable[[list[int]], dict[int, dict[str, Any]]] = api_freshness,
+                    freshness: Callable[[list[int], str], dict[int, dict[str, Any]]] = api_freshness,
                     feedback_path: FilePath | None = None,
                     question_timeout: float | None = None,
                     question_log: QuestionLog | None = None,
-                    crests_source: Callable[[], list[dict[str, Any]]] = _api_crests,
+                    crests_source: Callable[[str], list[dict[str, Any]]] = _api_crests,
                     crests_folder: FilePath | None = None) -> FastAPI:
     agent_runner = runner or AgentRunner()
     conversations = memory if memory is not None else ConversationMemory()
@@ -408,14 +413,14 @@ def create_chat_app(runner: AgentRunner | None = None,
         detail = "; ".join(f"{'.'.join(str(p) for p in e['loc'])}: {e['msg']}" for e in exc.errors())
         return JSONResponse({"detail": f"parámetros inválidos: {detail}"}, status_code=400)
 
-    crest_cache: dict[str, Any] = {"at": 0.0, "items": []}
+    crest_cache: dict[str, dict[str, Any]] = {}  # por deporte
 
     def crest_mode() -> str:
         mode = env_value("CRESTS_MODE", "off").strip().lower()
         return mode if mode in ("link", "local") else "off"
 
     @app.get("/chat/crests")
-    def crests() -> dict[str, Any]:
+    def crests(sport: Annotated[Literal["futsal", "football11"], Query(description="Deporte (obligatorio)")]) -> dict[str, Any]:
         """Escudos para la interfaz (docs/design-system/04-escudos-equipos.md). CRESTS_MODE=off (por defecto): ninguno,
         la UI usa monogramas. `local`: copias propias normalizadas (`crest-download`), servidas por este servicio.
         `link`: URLs de la RFFM que carga el navegador (la RFFM ve la IP del visitante). Uso previsto: pruebas privadas."""
@@ -424,12 +429,13 @@ def create_chat_app(runner: AgentRunner | None = None,
             return {"mode": "off", "crests": {}}
         now = time.monotonic()
         error = None
-        if not crest_cache["items"] or now - crest_cache["at"] >= CRESTS_TTL_S:
+        cache = crest_cache.setdefault(sport, {"at": 0.0, "items": []})
+        if not cache["items"] or now - cache["at"] >= CRESTS_TTL_S:
             try:
-                crest_cache.update(at=now, items=crests_source())
+                cache.update(at=now, items=crests_source(sport))
             except (httpx.HTTPError, ValueError) as exc:
                 error = type(exc).__name__
-        body: dict[str, Any] = {"mode": mode, "crests": _crest_map(crest_cache["items"], mode)}
+        body: dict[str, Any] = {"mode": mode, "crests": _crest_map(cache["items"], mode)}
         if error:
             body["error"] = error
         return body
@@ -471,17 +477,22 @@ def create_chat_app(runner: AgentRunner | None = None,
         if not question:
             raise HTTPException(400, "la pregunta está vacía")
         cid = body.conversation_id
+        # Deporte: una conversación conocida que cambia de deporte pierde su contexto (ni historial ni foco del otro deporte;
+        # tampoco el que siembre el navegador en esa misma petición).
+        switched = conversations.bind_sport(cid, body.sport) if cid else False
         known = conversations.get(cid) if cid else None
         stored = known if known is not None else (  # el servidor manda; el navegador solo siembra un id desconocido
-            [t for t in turns_from_client((h.role, h.content) for h in body.history) if t.answer != OFF_TOPIC_MESSAGE] if cid else [])
+            [t for t in turns_from_client((h.role, h.content) for h in body.history) if t.answer != OFF_TOPIC_MESSAGE]
+            if cid and not switched else [])
         context = select_turns(stored, max_turns, max_chars)
         # el servidor manda: solo una conversación que no conoce se siembra con el foco del navegador (sanitizado)
-        prev_focus = (conversations.get_focus(cid) or ({} if known is not None else sanitize_focus(body.focus))) if cid else {}
+        prev_focus = (conversations.get_focus(cid) or ({} if known is not None or switched else sanitize_focus(body.focus))) if cid else {}
         try:
             started = time.monotonic()
             log.info("pregunta recibida (conversación %s, %d turnos de contexto, en cola: %d)", (cid or "-")[:8], len(context), agent_runner.waiting)
             prev_state = conversations.get_state(cid) if cid and known is not None else None  # estado conversacional (solo modos deterministic/llm); si el servidor no lo conoce, se reconstruye del historial
-            result = await (agent_runner.ask(question, context, prev_focus, max_seconds, cid, prev_state) if prev_state else agent_runner.ask(question, context, prev_focus, max_seconds, cid))
+            result = await (agent_runner.ask(question, context, prev_focus, max_seconds, cid, prev_state, sport=body.sport) if prev_state
+                            else agent_runner.ask(question, context, prev_focus, max_seconds, cid, sport=body.sport))
             log.info("pregunta resuelta en %.1fs (error=%s, guardarraíl=%s)", time.monotonic() - started, bool(result.error), result.guardrail)
         except ChatTimeout as exc:
             return _failure(TIMEOUT, str(exc))
@@ -499,7 +510,7 @@ def create_chat_app(runner: AgentRunner | None = None,
             conversations.put(cid, stored)
         groups = sorted(result.groups_used)
         t_fresh = time.monotonic()
-        fresh = await asyncio.get_running_loop().run_in_executor(None, lambda: freshness(groups) if groups else {})
+        fresh = await asyncio.get_running_loop().run_in_executor(None, lambda: freshness(groups, body.sport) if groups else {})
         fresh_ms = (time.monotonic() - t_fresh) * 1000
         response = build_response(result, len(context), question, prev_focus, [t.question for t in stored[-6:]], fresh)
         response.diagnostics.postprocess_ms = round(response.diagnostics.postprocess_ms + fresh_ms, 1)

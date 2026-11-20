@@ -3,8 +3,8 @@ from collections.abc import Callable, Iterator
 from pathlib import Path
 
 import pytest
-from fastapi.testclient import TestClient
 from sqlalchemy import Engine, text
+from tests.sport_client import FutsalClient
 
 from futsal.api.app import create_app
 from futsal.config.knowledge_sources import KNOWLEDGE_SOURCES
@@ -16,9 +16,8 @@ from futsal.knowledge.search import KnowledgeSearch
 pytestmark = pytest.mark.integration
 PdfMaker = Callable[[list[str]], bytes]
 LAW = "El guardameta no puede tocar el balon con la mano tras un pase intencionado de un companero de equipo"
-BASE = DocumentSpec(doc_key="reglas", title="Reglas de prueba", doc_type="reglamento", language="es", version_label="v1")
-COMPOSITE = DocumentSpec(
-    doc_key="circular", title="Circular de prueba", doc_type="circular", language="es", issuer="RFEF",
+BASE = DocumentSpec(sports=("futsal",), doc_key="reglas", title="Reglas de prueba", doc_type="reglamento", language="es", version_label="v1")
+COMPOSITE = DocumentSpec(sports=("futsal",), doc_key="circular", title="Circular de prueba", doc_type="circular", language="es", issuer="RFEF",
     structure_profile="rfef-circular", version_label="C-1",
     page_sections=(PageSection(1, 1, "Comunicación de la RFEF"), PageSection(2, 2, "Resumen de cambios"),
                    PageSection(3, 4, "Reglas completas (anexo)", skip_reason="idéntico a reglas")))
@@ -77,7 +76,7 @@ def test_ingest_is_idempotent_and_does_not_touch_the_existing_document(kb: Engin
 def test_invalid_sections_fail_the_run_without_creating_the_document(kb: Engine, tmp_path: Path, make_pdf: PdfMaker) -> None:
     comp = tmp_path / "c.pdf"
     comp.write_bytes(make_pdf(PAGES))
-    bad = DocumentSpec(doc_key="mala", title="Mala", doc_type="circular", language="es", structure_profile="rfef-circular",
+    bad = DocumentSpec(sports=("futsal",), doc_key="mala", title="Mala", doc_type="circular", language="es", structure_profile="rfef-circular",
                        page_sections=(PageSection(1, 9, "fuera"),))
     res = ingest_document(kb, bad, comp, storage=tmp_path / "store")
     assert res.outcome == "failed" and "fuera del documento" in (res.error or "")
@@ -88,7 +87,7 @@ def test_invalid_sections_fail_the_run_without_creating_the_document(kb: Engine,
 def test_api_exposes_part_and_document_for_circular_hits_only(kb: Engine, tmp_path: Path, make_pdf: PdfMaker) -> None:
     _, comp = _both(kb, tmp_path, make_pdf)
     ingest_document(kb, COMPOSITE, comp, storage=tmp_path / "store")
-    client = TestClient(create_app(kb))
+    client = FutsalClient(create_app(kb))
     hits = client.get("/knowledge/search", params={"q": "RFEF comunica afiliados circular", "limit": 3}).json()["hits"]
     top = hits[0]
     assert top["doc_key"] == "circular" and top["document"] == "Circular de prueba" and top["part"] == "Comunicación de la RFEF"

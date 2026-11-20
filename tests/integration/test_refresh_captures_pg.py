@@ -18,7 +18,7 @@ def _group(s: Session) -> int:
     season = Season(external_id="99", name="s")
     s.add(season)
     s.flush()
-    comp = Competition(external_id="c1", season_id=season.id, name="C")
+    comp = Competition(modality="futsal", external_id="c1", season_id=season.id, name="C")
     s.add(comp)
     s.flush()
     g = CompetitionGroup(external_id="g1", competition_id=comp.id, name="G")

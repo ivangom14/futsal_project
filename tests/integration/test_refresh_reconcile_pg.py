@@ -7,11 +7,11 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from fastapi.testclient import TestClient
 from mcp.shared.memory import create_connected_server_and_client_session as connect
 from sqlalchemy import Engine, text
 from sqlalchemy.exc import DBAPIError
 from sqlalchemy.orm import Session
+from tests.sport_client import FutsalClient
 
 from futsal.api.app import create_app
 from futsal.db.table_models import ScorerSnapshot, StandingsSnapshot
@@ -174,7 +174,7 @@ def test_freshness_distinguishes_each_dataset_and_flags_stale_never_and_partial(
 
 def test_api_and_mcp_expose_freshness_read_only(engine: Engine, tmp_path: Path) -> None:
     gid = _refreshed(engine, tmp_path)
-    client = TestClient(create_app(engine))
+    client = FutsalClient(create_app(engine))
     body = client.get(f"/groups/{gid}/freshness").json()
     assert set(body["datasets"]) == {"matches", "reports", "standings", "scorers"} and "note" in body
     with Session(engine) as s:
@@ -189,9 +189,9 @@ def test_api_and_mcp_expose_freshness_read_only(engine: Engine, tmp_path: Path) 
     async def go() -> tuple[list[str], dict[str, Any], dict[str, Any], str]:
         async with connect(server._mcp_server) as session:
             names = [t.name for t in (await session.list_tools()).tools]
-            by_group = await session.call_tool("get_data_freshness", {"group_id": gid})
-            by_comp = await session.call_tool("get_data_freshness", {"competition_id": cid})
-            none = await session.call_tool("get_data_freshness", {})
+            by_group = await session.call_tool("get_data_freshness", {"sport": "futsal", "group_id": gid})
+            by_comp = await session.call_tool("get_data_freshness", {"sport": "futsal", "competition_id": cid})
+            none = await session.call_tool("get_data_freshness", {"sport": "futsal"})
             return names, json.loads(by_group.content[0].text), json.loads(by_comp.content[0].text), str(none.content[0].text)  # type: ignore[union-attr]
 
     names, group, competition, error = asyncio.run(go())

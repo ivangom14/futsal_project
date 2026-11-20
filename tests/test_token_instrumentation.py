@@ -69,7 +69,7 @@ def _run(llm: Script, question: str = "¿Quién lidera la clasificación de Terc
     trace = kw.pop("trace_path", None)
     cid = kw.pop("conversation_id", None)
     agent = Agent(llm, FakeMcp(), 5, trace_path=trace, **kw)
-    return asyncio.run(agent.run(question, history, conversation_id=cid))
+    return asyncio.run(agent.run(question, history, conversation_id=cid, sport="futsal"))
 
 
 # --- tokens.py: reparto por origen ---------------------------------------------------------------------------------------------

@@ -7,6 +7,7 @@ from typing import Any
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import Engine, text
+from tests.sport_client import FutsalClient
 
 from futsal.api.app import create_app
 from futsal.importer.report_service import run_report_import
@@ -40,7 +41,7 @@ def _one(engine: Engine, sql: str) -> Any:
 def api(engine: Engine, tmp_path: Path) -> TestClient:
     assert run_import(engine, FIX / "league_two_rounds.json").status == "success"
     _import_report(engine, tmp_path)
-    return TestClient(create_app(engine))
+    return FutsalClient(create_app(engine))
 
 
 def _ids(engine: Engine) -> dict[str, int]:
@@ -156,7 +157,7 @@ def test_score_discrepancy_is_exposed_not_silently_overwritten(engine: Engine, t
     assert run_import(engine, FIX / "league_two_rounds.json").status == "success"
     before = _one(engine, "SELECT home_score || '-' || away_score FROM matches WHERE external_id = '5575697'")
     _import_report(engine, tmp_path, goles_local="5")  # acta cerrada con otro marcador: prevalece, con rastro
-    client = TestClient(create_app(engine))
+    client = FutsalClient(create_app(engine))
     mid = _one(engine, "SELECT id FROM matches WHERE external_id = '5575697'")
     cons = client.get(f"/matches/{mid}/report", params={"sections": "officials"}).json()["consistency"]
     assert cons["competition_score"] == cons["report_score"] == [5, 4]

@@ -1,4 +1,4 @@
-import type { Conversation, Feedback, Focus, HistoryItem, Message } from "./types";
+import { DEFAULT_SPORT, isSport, type Conversation, type Feedback, type Focus, type HistoryItem, type Message, type Sport } from "./types";
 
 export const STORAGE_KEY = "rffm-chat-v1";
 export const TITLE_MAX = 48;
@@ -16,16 +16,23 @@ export function titleFrom(text: string): string {
   return t.length > TITLE_MAX ? `${t.slice(0, TITLE_MAX - 1)}…` : t;
 }
 
-export function createConversation(now = Date.now()): Conversation {
-  return { id: uid(), title: "Nueva conversación", createdAt: now, updatedAt: now, messages: [] };
+export function createConversation(sport: Sport = DEFAULT_SPORT, now = Date.now()): Conversation {
+  return { id: uid(), sport, title: "Nueva conversación", createdAt: now, updatedAt: now, messages: [] };
 }
 
 const isMessage = (m: unknown): m is Message =>
   typeof m === "object" && m !== null && typeof (m as Message).id === "string" && ((m as Message).role === "user" || (m as Message).role === "assistant") && typeof (m as Message).content === "string";
 
+// `sport` se valida aparte (normalizeSport): una conversación antigua sin `sport` NO se descarta.
 const isConversation = (c: unknown): c is Conversation =>
   typeof c === "object" && c !== null && typeof (c as Conversation).id === "string" && typeof (c as Conversation).title === "string" &&
   Array.isArray((c as Conversation).messages) && (c as Conversation).messages.every(isMessage);
+
+/** Migración: una conversación SIN `sport` (anterior al multideporte) es de fútbol sala —todo lo guardado antes lo era— y se
+ *  conserva como «futsal». Un deporte presente pero desconocido (p. ej. guardado por una versión futura) NO se reinterpreta como
+ *  fútbol sala: se omite al cargar para no mezclar contextos entre deportes. */
+const normalizeSport = (c: Conversation): Conversation | null =>
+  isSport(c.sport) ? c : (c as { sport?: unknown }).sport === undefined || (c as { sport?: unknown }).sport === null ? { ...c, sport: DEFAULT_SPORT } : null;
 
 export function loadState(): State {
   try {
@@ -33,7 +40,7 @@ export function loadState(): State {
     if (raw) {
       const data = JSON.parse(raw) as State;
       if (Array.isArray(data.conversations)) {
-        const conversations = data.conversations.filter(isConversation); // descarta entradas con otra forma (versiones antiguas, datos corruptos)
+        const conversations = data.conversations.filter(isConversation).map(normalizeSport).filter((c): c is Conversation => c !== null); // descarta entradas con otra forma (versiones antiguas, datos corruptos)
         const active = conversations.some((c) => c.id === data.activeId) ? data.activeId : (conversations[0]?.id ?? null);
         return { conversations, activeId: active };
       }
@@ -86,11 +93,20 @@ export function setFeedback(state: State, convId: string, messageId: string, fee
   };
 }
 
-export function startConversation(state: State): State {
+export function startConversation(state: State, sport: Sport = DEFAULT_SPORT): State {
   const empty = state.conversations.find((c) => c.messages.length === 0);
-  if (empty) return { ...state, activeId: empty.id }; // no se acumulan conversaciones vacías
-  const conv = createConversation();
+  if (empty) return { conversations: state.conversations.map((c) => (c === empty ? { ...c, sport } : c)), activeId: empty.id }; // no se acumulan conversaciones vacías
+  const conv = createConversation(sport);
   return { conversations: [conv, ...state.conversations], activeId: conv.id };
+}
+
+/** Cambia el deporte activo: si la conversación activa está vacía solo cambia su deporte; si ya tiene mensajes, se abre una NUEVA
+ *  en el deporte elegido y la anterior queda intacta (así no se mezclan competiciones, equipos ni foco entre deportes). */
+export function changeSport(state: State, sport: Sport): State {
+  const active = state.conversations.find((c) => c.id === state.activeId);
+  if (!active || active.sport === sport) return state;
+  if (active.messages.length === 0) return { ...state, conversations: state.conversations.map((c) => (c === active ? { ...c, sport } : c)) };
+  return startConversation(state, sport);
 }
 
 export function selectConversation(state: State, id: string): State {

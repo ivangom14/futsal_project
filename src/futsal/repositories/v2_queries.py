@@ -9,7 +9,7 @@ devuelve un parecido como si fuera lo pedido: solo `suggestions`. Los cálculos 
 import re
 from collections import Counter
 from collections.abc import Collection, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import date, datetime, time, timedelta
 from typing import Any
 from zoneinfo import ZoneInfo
@@ -41,6 +41,7 @@ from futsal.db.models import (
 from futsal.db.table_models import ScorerRow, ScorerSnapshot, StandingsRow, StandingsSnapshot
 from futsal.domain.competitions import classify
 from futsal.domain.names import club_base_tokens, norm_name, squad_of, tokens_of
+from futsal.domain.sports import SportError, parse_scope
 from futsal.repositories.report_queries import latest
 
 MADRID = ZoneInfo("Europe/Madrid")
@@ -67,6 +68,7 @@ class InvalidParam(ValueError):
 
 @dataclass(frozen=True)
 class Filters:
+    sport: str  # obligatorio (Fase 1 multideporte): futsal | football11 | all — nunca hay deporte por defecto
     season: str | None = None
     category: str | None = None
     gender: str | None = None
@@ -81,6 +83,7 @@ class CompInfo:
     gender: str
     kind: str
     source: str  # catalog (clasificada auto|confirmed en 0007) | name (deducida del nombre)
+    sport: str = ""
 
 
 @dataclass
@@ -88,6 +91,12 @@ class Scope:
     season: Season | None
     comps: dict[int, CompInfo]
     notes: list[str] = field(default_factory=list)
+    sports: tuple[str, ...] = ()
+
+    @property
+    def combined(self) -> bool:
+        """Ámbito explícito de varios deportes (`sport=all`): cada fila debe decir su deporte."""
+        return len(self.sports) > 1
 
     @property
     def ids(self) -> list[int]:
@@ -103,8 +112,31 @@ def ref_obj(kind: str, ident: int | None, name: str | None) -> dict[str, Any]:
     return {"ref": ref(kind, ident), "name": name}
 
 
+def _sport(scope: Scope, comp_id: int | None) -> dict[str, Any]:
+    """`{"sport": …}` solo en un ámbito combinado (`sport=all`); en un solo deporte la respuesta no cambia."""
+    info = scope.comps.get(comp_id) if scope.combined and comp_id is not None else None
+    return {"sport": info.sport} if info is not None else {}
+
+
+def _tag_sports(value: Any, scope: Scope) -> None:
+    """Ámbito combinado: añade `sport` a toda fila (también anidada) que referencia su competición (`competition.ref`)."""
+    if isinstance(value, list):
+        for v in value:
+            _tag_sports(v, scope)
+    elif isinstance(value, dict):
+        comp = value.get("competition")
+        if isinstance(comp, dict) and isinstance(comp.get("ref"), str) and comp["ref"].startswith("comp:") and "sport" not in value:
+            value.update(_sport(scope, int(comp["ref"].split(":", 1)[1])))
+        for k, v in value.items():
+            if k != "competition":
+                _tag_sports(v, scope)
+
+
 def envelope(items: list[dict[str, Any]], count: int, notes: list[str], freshness: datetime | None, scope: Scope | None = None,
              offset: int | None = None, **extra: Any) -> dict[str, Any]:
+    if scope is not None and scope.combined:
+        _tag_sports(items, scope)
+        _tag_sports(extra, scope)
     body: dict[str, Any] = {"items": items, "count": count, "shown": len(items), "notes": notes,
                             "freshness": freshness.isoformat() if freshness else None}
     if offset is not None:  # página: `count` es el total exacto del filtro; `next_offset` = None si no hay más
@@ -175,7 +207,7 @@ def _needed_tokens(name: str) -> list[str]:
 
 
 # ----------------------------------------------------------------------------- ámbito: temporada + clasificación de competiciones
-def _default_season(db: Session, today: date) -> tuple[Season | None, str]:
+def _default_season(db: Session, today: date, sports: tuple[str, ...]) -> tuple[Season | None, str]:
     current = db.scalar(select(Season).where(Season.is_current).order_by(Season.id.desc()).limit(1))
     if current is not None:
         return current, "marcada como vigente (is_current)"
@@ -184,13 +216,13 @@ def _default_season(db: Session, today: date) -> tuple[Season | None, str]:
         select(Competition.season_id, func.count(Match.id).label("n"))
         .select_from(Match).join(CompetitionGroup, CompetitionGroup.id == Match.group_id)
         .join(Competition, Competition.id == CompetitionGroup.competition_id)
-        .where(day.between(today - timedelta(days=60), today + timedelta(days=30)))
+        .where(day.between(today - timedelta(days=60), today + timedelta(days=30)), Competition.modality.in_(sports))
         .group_by(Competition.season_id).order_by(func.count(Match.id).desc(), Competition.season_id.desc()).limit(1)).first()
     if recent is not None:
         return db.get(Season, recent[0]), "la que tiene más partidos recientes"
     anyone = db.execute(
         select(Competition.season_id).select_from(Match).join(CompetitionGroup, CompetitionGroup.id == Match.group_id)
-        .join(Competition, Competition.id == CompetitionGroup.competition_id)
+        .join(Competition, Competition.id == CompetitionGroup.competition_id).where(Competition.modality.in_(sports))
         .group_by(Competition.season_id).order_by(func.count(Match.id).desc(), Competition.season_id.desc()).limit(1)).first()
     if anyone is not None:
         return db.get(Season, anyone[0]), "la que tiene más partidos (ninguna tiene partidos recientes)"
@@ -226,21 +258,26 @@ def comp_info(cid: int, name: str | None, category: str, gender: str, kind: str,
 
 
 def build_scope(db: Session, today: date, f: Filters, *, kind: str | None = None, drop_unknown_category: bool = False) -> Scope:
+    try:
+        sports = parse_scope(f.sport)
+    except SportError as exc:
+        raise InvalidParam(str(exc)) from exc
     category = _valid(f.category, CATEGORIES, "category")
     gender = _valid(GENDER_ALIASES.get((f.gender or "").strip().lower(), f.gender), GENDERS, "gender")
     notes: list[str] = []
     if f.season is not None:
         season = _season_from_ref(db, f.season)
         if season is None:
-            return Scope(None, {}, [f"temporada «{f.season}» no encontrada"])
+            return Scope(None, {}, [f"temporada «{f.season}» no encontrada"], sports)
     else:
-        season, why = _default_season(db, today)
+        season, why = _default_season(db, today, sports)
         if season is None:
-            return Scope(None, {}, ["no hay temporadas cargadas"])
+            return Scope(None, {}, ["no hay temporadas cargadas"], sports)
         notes.append(f"temporada por defecto: {season_label(season)} ({why})")
     rows = db.execute(select(Competition.id, Competition.name, Competition.category, Competition.gender, Competition.kind,
-                             Competition.review_status).where(Competition.season_id == season.id).order_by(Competition.id)).all()
-    comps = {r[0]: comp_info(*r) for r in rows}
+                             Competition.review_status, Competition.modality)
+                      .where(Competition.season_id == season.id, Competition.modality.in_(sports)).order_by(Competition.id)).all()
+    comps = {r[0]: replace(comp_info(*r[:6]), sport=r[6]) for r in rows}
     if f.competition:
         m = re.fullmatch(r"(?:comp:)?(\d+)", f.competition.strip().lower())
         if m:
@@ -275,7 +312,7 @@ def build_scope(db: Session, today: date, f: Filters, *, kind: str | None = None
     if filtering and by_name:
         notes.append(f"{by_name} competiciones de la temporada se han clasificado por su nombre (no están clasificadas en el catálogo): "
                      "categoría, género y tipo son aproximados")
-    return Scope(season, comps, notes)
+    return Scope(season, comps, notes, sports)
 
 
 def _valid(value: str | None, allowed: tuple[str, ...], name: str) -> str | None:
@@ -555,6 +592,7 @@ def official_matches(db: Session, scope: Scope, name: str, order: str, limit: in
                       func.min(sub.c.home).label("home"), func.min(sub.c.away).label("away"), func.min(sub.c.home_score).label("home_score"),
                       func.min(sub.c.away_score).label("away_score"), func.min(sub.c.status).label("status"),
                       func.min(sub.c.comp_name).label("comp_name"), func.min(sub.c.group_name).label("group_name"),
+                      func.min(sub.c.comp_id).label("comp_id"),  # deporte de la fila en el ámbito combinado (sport=all)
                       func.string_agg(func.distinct(sub.c.role), ", ").label("role"), func.max(sub.c.observed_at).label("fresh"),
                       func.min(local_date).label("day"), func.count().over().label("total"))
                .where(sub.c.n == people[0].n).group_by(sub.c.match_id))
@@ -566,7 +604,7 @@ def official_matches(db: Session, scope: Scope, name: str, order: str, limit: in
     items = []
     for r in rows:
         day, hour, _ = _local_parts(r.scheduled_at, r.scheduled_date)
-        row: dict[str, Any] = {"id": r.match_id, "date": day, "time": hour, "comp": compact_comp(r.comp_name, r.group_name), "home": r.home,
+        row: dict[str, Any] = {"id": r.match_id, **_sport(scope, r.comp_id), "date": day, "time": hour, "comp": compact_comp(r.comp_name, r.group_name), "home": r.home,
                                "away": r.away, "role": r.role}
         if r.home_score is not None:
             row["score"] = compact_score(r.home_score, r.away_score)
@@ -628,7 +666,7 @@ def matches(db: Session, scope: Scope, *, date_from: date | None, date_to: date 
     for r in rows:
         day, hour, iso = _local_parts(r.scheduled_at, r.scheduled_date)
         if compact:  # lo que necesita un listado: fecha, hora, competición, equipos, marcador y estado (sin refs ni actas)
-            row: dict[str, Any] = {"id": r.id, "date": day, "time": hour, "comp": compact_comp(r.comp_name, r.group_name), "home": r.home,
+            row: dict[str, Any] = {"id": r.id, **_sport(scope, r.comp_id), "date": day, "time": hour, "comp": compact_comp(r.comp_name, r.group_name), "home": r.home,
                                    "away": r.away}
             if r.home_score is not None:
                 row["score"] = compact_score(r.home_score, r.away_score)
@@ -829,7 +867,7 @@ def scorers_ranking(db: Session, scope: Scope, limit: int, offset: int = 0, comp
         .order_by(ScorerRow.goals.desc(), sql_norm(ScorerRow.player_name), ScorerRow.team_name, ScorerRow.id))
     rows, total = page_rows(db, stmt, parse_offset(offset), limit)
     if compact:
-        items = [{"rank": i, "player": r.player_name, "team": r.team_name, "comp": compact_comp(r.comp_name, r.group_name), "goals": r.goals,
+        items = [{"rank": i, **_sport(scope, r.comp_id), "player": r.player_name, "team": r.team_name, "comp": compact_comp(r.comp_name, r.group_name), "goals": r.goals,
                   "matches": r.matches_played} for i, r in enumerate(rows, offset + 1)]
     else:
         items = [{"rank": i, "player": {"ref": ref("player", r.player_id), "name": r.player_name}, "team": ref_obj("team", r.team_id, r.team_name),
@@ -883,7 +921,7 @@ def teams_ranking(db: Session, scope: Scope, metric: str, order: str | None, min
         stats = {"played": r.pj, "won": int(r.w), "drawn": int(r.d), "lost": r.pj - int(r.w) - int(r.d), "goals_for": int(r.gf),
                  "goals_against": int(r.ga), "points_per_game": round((3 * int(r.w) + int(r.d)) / r.pj, 2)}
         if compact:
-            items.append({"rank": i, "team": r.team_name, "comp": compact_comp(r.comp_name, r.group_name), **stats})
+            items.append({"rank": i, **_sport(scope, r.comp_id), "team": r.team_name, "comp": compact_comp(r.comp_name, r.group_name), **stats})
         else:
             items.append({"rank": i, "team": ref_obj("team", r.team_id, r.team_name), "competition": ref_obj("comp", r.comp_id, r.comp_name),
                           "group": ref_obj("group", r.group_id, r.group_name), **stats})

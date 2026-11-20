@@ -4,6 +4,7 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import Engine, text
+from tests.sport_client import FutsalClient
 
 from futsal.api.app import create_app
 from futsal.importer.service import run_import
@@ -15,7 +16,7 @@ FIXTURE = Path(__file__).parents[1] / "fixtures" / "league_two_rounds.json"
 @pytest.fixture()
 def client(engine: Engine) -> Iterator[TestClient]:
     run_import(engine, FIXTURE)
-    with TestClient(create_app(engine)) as c:
+    with FutsalClient(create_app(engine)) as c:
         yield c
 
 
@@ -133,7 +134,7 @@ def test_matches_order_desc_and_past_due_flag(engine: Engine) -> None:
     from datetime import date
 
     run_import(engine, FIXTURE)
-    with TestClient(create_app(engine, today=lambda: date(2999, 1, 1))) as c:  # «hoy» muy posterior: todo programado está desfasado
+    with FutsalClient(create_app(engine, today=lambda: date(2999, 1, 1))) as c:  # «hoy» muy posterior: todo programado está desfasado
         gid = _group_id(c)
         asc = c.get(f"/groups/{gid}/matches").json()["items"]
         desc = c.get(f"/groups/{gid}/matches?order=desc").json()["items"]
@@ -154,7 +155,7 @@ def test_matches_order_date_asc_returns_the_nearest_match_even_if_it_belongs_to_
         c.execute(text("UPDATE matches SET scheduled_date='2027-03-01', scheduled_at='2027-03-01 18:00+00' WHERE external_id='5575696'"))
         c.execute(text("UPDATE matches SET status='scheduled', home_score=NULL, away_score=NULL, scheduled_date='2026-11-07', scheduled_at='2026-11-07 18:00+00' "
                        "WHERE external_id='5575709'"))
-    with TestClient(create_app(engine, today=lambda: date(2026, 10, 1))) as c:
+    with FutsalClient(create_app(engine, today=lambda: date(2026, 10, 1))) as c:
         gid = _group_id(c)
         by_round = c.get(f"/groups/{gid}/matches?status=scheduled").json()["items"]
         by_date = c.get(f"/groups/{gid}/matches?status=scheduled&order=date_asc").json()["items"]

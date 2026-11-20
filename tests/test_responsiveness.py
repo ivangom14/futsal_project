@@ -44,7 +44,7 @@ def client(llm: SlowLLM, timeout: float = 5.0) -> TestClient:
 
 
 def post(c: TestClient, q: str = "Cuéntame un chiste") -> Any:
-    return c.post("/chat", json={"question": q, "conversation_id": "c1"}, timeout=30)
+    return c.post("/chat", json={"sport": "futsal", "question": q, "conversation_id": "c1"}, timeout=30)
 
 
 def test_a_slow_question_times_out_with_a_friendly_error_and_frees_the_queue() -> None:

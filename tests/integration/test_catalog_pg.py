@@ -5,9 +5,9 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from fastapi.testclient import TestClient
 from sqlalchemy import Engine, func, select
 from sqlalchemy.orm import Session
+from tests.sport_client import FutsalClient
 
 from futsal.api.app import create_app
 from futsal.db.models import Competition, CompetitionGroup, Match, Team
@@ -98,7 +98,7 @@ def test_unreadable_league_file_does_not_stop_the_batch(engine: Engine, paths: d
 def test_initial_competition_is_untouched_and_api_scopes_by_group(engine: Engine, paths: dict[tuple[str, str], Path]) -> None:
     run_import(engine, FIXTURE)
     import_catalog(engine, report_for(paths))
-    with TestClient(create_app(engine)) as client:
+    with FutsalClient(create_app(engine)) as client:
         comps = {c["external_id"]: c for c in client.get("/competitions").json()["items"]}
         assert set(comps) == {"26738243", "900", "910"}
         initial = client.get(f"/competitions/{comps['26738243']['id']}/groups").json()["items"]
@@ -119,7 +119,7 @@ def test_initial_competition_is_untouched_and_api_scopes_by_group(engine: Engine
 def test_competitions_list_their_groups_and_teams_resolve_across_groups(engine: Engine,
                                                                         paths: dict[tuple[str, str], Path]) -> None:
     import_catalog(engine, report_for(paths))
-    with TestClient(create_app(engine)) as client:
+    with FutsalClient(create_app(engine)) as client:
         comps = {c["external_id"]: c for c in client.get("/competitions").json()["items"]}
         assert [g["name"] for g in comps["900"]["groups"]] == ["Grupo 7", "Grupo 8"]
         assert len(comps["910"]["groups"]) == 1

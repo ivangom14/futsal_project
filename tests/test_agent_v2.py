@@ -71,7 +71,8 @@ class Stub(FakeMcp):
     async def call_tool(self, name: str, arguments: dict[str, Any]) -> tuple[bool, str]:
         if name not in V2_TOOL_NAMES:
             return await super().call_tool(name, arguments)
-        self.calls_v2.append((name, dict(arguments)))
+        assert arguments.get("sport") == "futsal"  # Fase 1: el agente inyecta el deporte de la petición en cada herramienta v2
+        self.calls_v2.append((name, {k: v for k, v in arguments.items() if k != "sport"}))
         return False, json.dumps(self.replies.get(name, EMPTY), ensure_ascii=False)
 
 
@@ -82,7 +83,7 @@ def call(tool: str, **args: Any) -> LLMResponse:
 def ask(llm: Rec, question: str, history: list[Turn] | None = None, reg: Stub | None = None, **kw: Any) -> Any:
     agent = Agent(llm, reg or Stub(), 8, **kw)
     agent._clock = lambda: NOW
-    return asyncio.run(agent.run(question, history or []))
+    return asyncio.run(agent.run(question, history or [], sport="futsal"))
 
 
 def last_user(llm: Rec, turn: int = 0) -> str:
@@ -173,7 +174,7 @@ def test_invalid_v2_arguments_return_a_validation_error_without_crashing() -> No
         async with connect(create_server(api_stub(seen))._mcp_server) as session:
             agent = Agent(llm, SessionMcpClient(session), 8)
             agent._clock = lambda: NOW
-            return await agent.run("Ranking de equipos")
+            return await agent.run("Ranking de equipos", sport="futsal")
 
     res = asyncio.run(go())
     errors = [r.content for m in llm.seen[2] if m.role == "tool" for r in m.tool_results]
@@ -255,7 +256,7 @@ def test_deterministic_context_second_scope_question_assumes_and_declares() -> N
     llm = Rec([call("club_overview", name="DOSA", results=True), LLMResponse("Va bien.", [])])
     agent = Agent(llm, Stub(), 8)
     hist = [Turn("¿Cómo va la tercera división?", "…"), Turn(q, first.answer or "¿A cuál de estas competiciones te refieres?")]
-    res = asyncio.run(agent.run("el dosa, no sé", hist, state=first.state))
+    res = asyncio.run(agent.run("el dosa, no sé", hist, state=first.state, sport="futsal"))
     assert res.run is not None and res.run.context["status"] in ("assume", "act")
 
 
@@ -327,10 +328,10 @@ def test_single_mcp_server_publishes_v1_and_v2_and_v2_calls_go_through_the_api()
     names = {t.name for t in asyncio.run(server.list_tools())}
     assert V2_TOOLS <= names and {"list_matches", "get_standings", "find_teams"} <= names  # un solo servidor: v1 y v2
     assert all(t["description"] and t["input_schema"].get("properties") is not None for t in V2_DEFS)
-    out = asyncio.run(server.call_tool("teams_ranking", {"metric": "goals_for"}))
+    out = asyncio.run(server.call_tool("teams_ranking", {"sport": "futsal", "metric": "goals_for"}))
     payload = out[1] if isinstance(out, tuple) else out
     assert isinstance(payload, dict) and payload["items"][0]["rank"] == 1 and payload["metric"] == "goals_for"
-    assert seen[0].url.path == "/v2/rankings/teams" and dict(seen[0].url.params) == {"metric": "goals_for", "min_played": "1", "limit": "10",
+    assert seen[0].url.path == "/v2/rankings/teams" and dict(seen[0].url.params) == {"sport": "futsal", "metric": "goals_for", "min_played": "1", "limit": "10",
                                                                                     "offset": "0", "compact": "true", "competition_kind": "league"}
 
 

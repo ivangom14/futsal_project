@@ -162,7 +162,7 @@ def _run_agent(llm: Any, path: Path) -> Any:
 
     async def go() -> Any:
         async with connect(server._mcp_server) as session:
-            return await Agent(llm, SessionMcpClient(session), 5, preload_context=False, trace_path=path).run("q")
+            return await Agent(llm, SessionMcpClient(session), 5, preload_context=False, trace_path=path).run("q", sport="futsal")
 
     return asyncio.run(go())
 

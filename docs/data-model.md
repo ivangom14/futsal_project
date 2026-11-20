@@ -1,5 +1,8 @@
 # Modelo de datos (Fase 3)
 
+> **Migración 0009 (Fase 1 multideporte):** `competitions.modality` = deporte obligatorio (solo desde `game_type_code`), identidad de
+> equipo `(source, sport, external_code)` en `team_entities` y `kb_documents.sports`. Detalle: `docs/multisport-phase1.md`.
+
 Claves internas (`id` bigint) + identificadores externos RFFM (`source`, `external_id`). Nunca se identifica por nombre.
 
 ```mermaid

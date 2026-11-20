@@ -75,7 +75,7 @@ def _run(llm: ScriptedLLM, question: str, max_calls: int = 5) -> AgentResult:
 
     async def go() -> AgentResult:
         async with connect(server._mcp_server) as session:
-            return await Agent(llm, SessionMcpClient(session), max_calls).run(question)
+            return await Agent(llm, SessionMcpClient(session), max_calls).run(question, sport="futsal")
 
     return asyncio.run(go())
 
@@ -333,7 +333,7 @@ def test_context_gives_ids_to_llm_without_counting_tool_calls() -> None:
 
     async def go() -> AgentResult:
         async with connect(server._mcp_server) as session:
-            return await Agent(llm, SessionMcpClient(session)).run("Cuéntame un chiste")
+            return await Agent(llm, SessionMcpClient(session)).run("Cuéntame un chiste", sport="futsal")
 
     res = asyncio.run(go())
     assert res.tool_calls == 0
@@ -367,7 +367,7 @@ def _run_traced(llm: ScriptedLLM, tmp: Path | None, results: bool = False) -> Ag
     async def go() -> AgentResult:
         async with connect(server._mcp_server) as session:
             agent = Agent(llm, SessionMcpClient(session), 5, trace_path=tmp, trace_results=results)
-            return await agent.run("¿Cómo quedó el partido 2?")
+            return await agent.run("¿Cómo quedó el partido 2?", sport="futsal")
 
     return asyncio.run(go())
 
@@ -415,7 +415,7 @@ def test_trace_records_llm_error_and_never_leaks_secret(tmp_path: Path, monkeypa
 
     async def go() -> AgentResult:
         async with connect(server._mcp_server) as session:
-            return await Agent(Boom(), SessionMcpClient(session), 5, trace_path=path).run("q")
+            return await Agent(Boom(), SessionMcpClient(session), 5, trace_path=path).run("q", sport="futsal")
 
     res = asyncio.run(go())
     raw = path.read_text(encoding="utf-8")
@@ -628,7 +628,7 @@ def test_context_with_many_groups_lists_all_of_them_and_asks_for_clarification()
 
     async def go() -> AgentResult:
         async with connect(server._mcp_server) as session:
-            return await Agent(llm, SessionMcpClient(session)).run("Cuéntame un chiste")
+            return await Agent(llm, SessionMcpClient(session)).run("Cuéntame un chiste", sport="futsal")
 
     res = asyncio.run(go())
     system = llm.systems[0]
@@ -645,7 +645,7 @@ def test_context_small_universe_keeps_previous_format_with_api_without_inline_gr
 
     async def go() -> None:
         async with connect(server._mcp_server) as session:
-            await Agent(llm, SessionMcpClient(session)).run("Cuéntame un chiste")
+            await Agent(llm, SessionMcpClient(session)).run("Cuéntame un chiste", sport="futsal")
 
     asyncio.run(go())
     assert "group_id=9" in llm.systems[0] and "4=C.D. DOSA" in llm.systems[0]

@@ -12,6 +12,7 @@ from fastapi.testclient import TestClient
 from mcp.shared.memory import create_connected_server_and_client_session as connect
 from sqlalchemy import Engine, text
 from sqlalchemy.exc import OperationalError
+from tests.sport_client import FutsalClient
 
 from futsal.agent.agent import Agent
 from futsal.agent.llm import LLMResponse, ToolCall
@@ -23,7 +24,7 @@ from futsal.mcp_server.server import create_server
 
 pytestmark = pytest.mark.integration
 PdfMaker = Callable[[list[str]], bytes]
-SPEC = DocumentSpec(doc_key="doc-a", title="Reglamento de prueba", doc_type="reglamento", language="es",
+SPEC = DocumentSpec(sports=("futsal",), doc_key="doc-a", title="Reglamento de prueba", doc_type="reglamento", language="es",
                     effective_date=date(2025, 9, 5), version_label="v1")
 PAGES = ["El saque de esquina se ejecuta desde el cuadrante mas cercano al punto donde el balon salio",
          "El guardameta no puede tocar el balon con la mano tras un pase intencionado de un companero",
@@ -41,7 +42,7 @@ def kb(pg_engine: Engine, tmp_path: Path, make_pdf: PdfMaker) -> Iterator[Engine
 
 
 def test_api_returns_compact_cited_fragments(kb: Engine) -> None:
-    r = TestClient(create_app(kb)).get("/knowledge/search", params={"q": "saque de esquina", "limit": 3})
+    r = FutsalClient(create_app(kb)).get("/knowledge/search", params={"q": "saque de esquina", "limit": 3})
     assert r.status_code == 200
     body = r.json()
     assert body["method"] == "fts" and body["count"] == len(body["hits"]) >= 1 and "NO mide relevancia" in body["note"]
@@ -53,7 +54,7 @@ def test_api_returns_compact_cited_fragments(kb: Engine) -> None:
 
 
 def test_api_filters_limits_and_reports_no_hits(kb: Engine) -> None:
-    c = TestClient(create_app(kb))
+    c = FutsalClient(create_app(kb))
     assert len(c.get("/knowledge/search", params={"q": "balon", "limit": 1}).json()["hits"]) == 1
     nothing = c.get("/knowledge/search", params={"q": "zzzzzz qqqqqq"}).json()
     assert nothing["count"] == 0 and nothing["hits"] == [] and "reformula" in nothing["note"]
@@ -64,11 +65,11 @@ def test_api_filters_limits_and_reports_no_hits(kb: Engine) -> None:
 @pytest.mark.parametrize("params", [{"q": "x"}, {"q": "balon", "limit": 0}, {"q": "balon", "limit": 11},
                                     {"q": "balon", "rule": 0}, {"q": "a" * 501}])
 def test_api_validates_parameters(kb: Engine, params: dict[str, Any]) -> None:
-    assert TestClient(create_app(kb)).get("/knowledge/search", params=params).status_code in (400, 422)
+    assert FutsalClient(create_app(kb)).get("/knowledge/search", params=params).status_code in (400, 422)
 
 
 def test_api_is_safe_against_sql_in_the_query_and_reports_unavailable_kb(kb: Engine, monkeypatch: pytest.MonkeyPatch) -> None:
-    c = TestClient(create_app(kb))
+    c = FutsalClient(create_app(kb))
     assert c.get("/knowledge/search", params={"q": "'; DROP TABLE kb_chunks; --"}).status_code == 200
     with kb.connect() as conn:
         assert conn.execute(text("SELECT count(*) FROM kb_chunks")).scalar() >= 1             # la tabla sigue ahí
@@ -86,7 +87,7 @@ def test_mcp_tool_end_to_end_goes_through_the_api(kb: Engine) -> None:
 
     async def go() -> tuple[bool, str]:
         async with connect(server._mcp_server) as session:
-            res = await session.call_tool("search_rules", {"query": "guardameta balon mano", "limit": 2})
+            res = await session.call_tool("search_rules", {"sport": "futsal", "query": "guardameta balon mano", "limit": 2})
             return res.isError, res.content[0].text  # type: ignore[union-attr]
 
     is_error, body = asyncio.run(go())
@@ -118,7 +119,7 @@ def test_agent_uses_search_rules_and_receives_a_compact_result(kb: Engine) -> No
 
     async def go() -> Any:
         async with connect(server._mcp_server) as session:
-            return await Agent(llm, SessionMcpClient(session), 5, preload_context=False).run("¿Cómo se saca un córner?")
+            return await Agent(llm, SessionMcpClient(session), 5, preload_context=False).run("¿Cómo se saca un córner?", sport="futsal")
 
     res = asyncio.run(go())
     assert res.tool_calls == 1 and res.guardrail is None and "página 1" in res.answer
@@ -140,7 +141,7 @@ def test_api_returns_exactly_what_the_retrieval_layer_returns_for_the_evaluation
     with pg_engine.begin() as c:
         c.execute(text("TRUNCATE kb_chunks, kb_document_versions, kb_documents, kb_ingestion_runs RESTART IDENTITY CASCADE"))
     ingest_document(pg_engine, KNOWLEDGE_SOURCES["fifa-futsal-laws-2025-26"].spec, REAL_PDF, storage=tmp_path)
-    client, direct = TestClient(create_app(pg_engine)), KnowledgeSearch(pg_engine)
+    client, direct = FutsalClient(create_app(pg_engine)), KnowledgeSearch(pg_engine)
     checked = 0
     for q in load_questions(FIXTURE):
         for query in {q["question"], q.get("reformulated") or q["question"]}:

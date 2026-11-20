@@ -3,8 +3,8 @@ from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
-from fastapi.testclient import TestClient
 from sqlalchemy import Engine, text
+from tests.sport_client import FutsalClient
 
 from futsal.api.app import create_app
 from futsal.config.knowledge_sources import KNOWLEDGE_SOURCES
@@ -55,7 +55,7 @@ def test_real_circular10_is_added_without_harming_fifa_or_circular27(kb: Engine,
         assert lit["page@5"] >= lit_before["page@5"] and ref["page@5"] >= ref_before["page@5"], key  # type: ignore[operator]
     lit10, ref10 = _metrics(kb, "rfef-circular-10-rectificativa-2026-27")                          # suelo medido: literal 4/8, reformulada 8/8
     assert lit10["text@5"] >= 0.5 and ref10["text@5"] == 1.0
-    hit = TestClient(create_app(kb)).get("/knowledge/search", params={
+    hit = FutsalClient(create_app(kb)).get("/knowledge/search", params={
         "q": "saque de meta guardameta línea de medio campo tiro libre indirecto", "limit": 1}).json()["hits"][0]
     assert hit["doc_key"] == spec10.doc_key and hit["pages"] == "1" and hit["part"].startswith("I. MODIFICACIONES")
     assert hit["section"].startswith("1 Restricci")

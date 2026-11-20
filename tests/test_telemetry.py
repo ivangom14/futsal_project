@@ -40,7 +40,7 @@ class Llm:
 
 
 def run_agent(question: str = "¿Quién lidera la clasificación de Tercera División FS grupo 3?", history: list[Turn] | None = None, cid: str | None = "conv-secreta-1") -> RunRecord:
-    res = asyncio.run(Agent(Llm(), Mcp(), 5).run(question, history or [], conversation_id=cid))
+    res = asyncio.run(Agent(Llm(), Mcp(), 5).run(question, history or [], conversation_id=cid, sport="futsal"))
     return res.run
 
 
@@ -123,7 +123,7 @@ def test_a_failure_to_write_never_breaks_the_answer(monkeypatch: pytest.MonkeyPa
     blocker.write_text("x", encoding="utf-8")  # un fichero donde debería haber carpeta
     monkeypatch.setenv("AGENT_TELEMETRY", "on")
     monkeypatch.setenv("AGENT_TELEMETRY_DIR", str(blocker / "sub"))
-    res = asyncio.run(Agent(Llm(), Mcp(), 5).run("¿Quién lidera?"))
+    res = asyncio.run(Agent(Llm(), Mcp(), 5).run("¿Quién lidera?", sport="futsal"))
     assert res.answer == "Lidera el C.D. DOSA con 10 puntos." and res.error is None
 
 

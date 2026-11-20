@@ -9,6 +9,7 @@ from mcp.server.fastmcp import FastMCP
 from pydantic import Field
 
 from futsal.config.settings import api_base_url
+from futsal.mcp_server.sport import SportArg
 from futsal.mcp_server.v2_tools import register_v2_tools
 
 TIMEOUT_SECONDS = 10.0
@@ -72,45 +73,51 @@ def create_server(client: httpx.Client | None = None) -> FastMCP:
 
     @tool("list_competitions")
     def list_competitions(
+        sport: SportArg,
         season_id: Annotated[int | None, Field(description="ID de temporada")] = None,
     ) -> dict[str, Any]:
         """Competiciones con sus grupos (id y nombre); el `id` del grupo es el group_id del resto de tools."""
-        return _listing("competitions", _get(http, "/competitions", "temporada", season_id=season_id))
+        return _listing("competitions", _get(http, "/competitions", "temporada", sport=sport, season_id=season_id))
 
     @tool("list_groups")
     def list_groups(
+        sport: SportArg,
         competition_id: Annotated[int, Field(description="ID de competición")],
     ) -> dict[str, Any]:
         """Grupos de una competición; su `id` es el group_id del resto de tools."""
         return _listing(
             "groups",
-            _get(http, f"/competitions/{competition_id}/groups", f"competición {competition_id}"),
+            _get(http, f"/competitions/{competition_id}/groups", f"competición {competition_id}", sport=sport),
         )
 
     @tool("find_teams")
     def find_teams(
+        sport: SportArg,
         name: Annotated[str, Field(min_length=2, max_length=80, description="Nombre o parte del nombre")],
     ) -> dict[str, Any]:
         """Busca equipos por nombre en todos los grupos (team_id, group_id, grupo y competición). Si salen
         varios grupos y la pregunta no lo precisa, pregunta cuál en vez de elegir."""
-        return _listing("teams", _get(http, "/teams", "equipos", name=name))
+        return _listing("teams", _get(http, "/teams", "equipos", sport=sport, name=name))
 
     @tool("list_rounds")
     def list_rounds(
+        sport: SportArg,
         group_id: Annotated[int, Field(description="ID de grupo")],
     ) -> dict[str, Any]:
         """Jornadas de un grupo por número; su `id` es el round_id de list_matches."""
-        return _listing("rounds", _get(http, f"/groups/{group_id}/rounds", f"grupo {group_id}"))
+        return _listing("rounds", _get(http, f"/groups/{group_id}/rounds", f"grupo {group_id}", sport=sport))
 
     @tool("list_teams")
     def list_teams(
+        sport: SportArg,
         group_id: Annotated[int, Field(description="ID de grupo")],
     ) -> dict[str, Any]:
         """Equipos de un grupo por nombre."""
-        return _listing("teams", _get(http, f"/groups/{group_id}/teams", f"grupo {group_id}"))
+        return _listing("teams", _get(http, f"/groups/{group_id}/teams", f"grupo {group_id}", sport=sport))
 
     @tool("list_matches")
     def list_matches(
+        sport: SportArg,
         group_id: Annotated[int, Field(description="ID de grupo")],
         round_id: Annotated[int | None, Field(description="ID de jornada, no número")] = None,
         status: Annotated[MatchStatus | None, Field(description="Estado")] = None,
@@ -125,7 +132,7 @@ def create_server(client: httpx.Client | None = None) -> FastMCP:
         """Partidos de un grupo: equipos, fecha, estado, marcador y has_report (acta disponible). Filtros
         opcionales; count = total de coincidencias (shown = filas devueltas si hay limit). past_due=true: sigue
         programado pero su fecha ya pasó (datos posiblemente desactualizados; no es un partido jugado)."""
-        data = _get(http, f"/groups/{group_id}/matches", f"grupo {group_id}",
+        data = _get(http, f"/groups/{group_id}/matches", f"grupo {group_id}", sport=sport,
                     round_id=round_id, status=status, team_id=team_id, has_report=has_report, order=order, limit=limit)
         if limit is not None and len(data["items"]) > limit:  # API anterior a `limit` (sin reiniciar): se recorta aquí
             data = {"items": data["items"][:limit], "count": len(data["items"]), "shown": limit}
@@ -133,24 +140,27 @@ def create_server(client: httpx.Client | None = None) -> FastMCP:
 
     @tool("get_match")
     def get_match(
+        sport: SportArg,
         match_id: Annotated[int, Field(description="ID de partido")],
     ) -> dict[str, Any]:
         """Detalle de un partido: equipos, marcador, estado, pista y zona horaria."""
-        return _get(http, f"/matches/{match_id}", f"partido {match_id}")
+        return _get(http, f"/matches/{match_id}", f"partido {match_id}", sport=sport)
 
     @tool("get_match_report")
     def get_match_report(
+        sport: SportArg,
         match_id: Annotated[int, Field(description="ID de partido")],
         sections: Annotated[list[ReportSection] | None, Field(
             description="Por defecto officials y goals")] = None,
     ) -> dict[str, Any]:
         """Acta: árbitros, goles, tarjetas, alineaciones y consistency (marcador vs acta). Sin acta:
         report_available=false y motivo; not_in_source: lo que no consta."""
-        return _get(http, f"/matches/{match_id}/report", f"partido {match_id}",
+        return _get(http, f"/matches/{match_id}/report", f"partido {match_id}", sport=sport,
                     sections=",".join(sections) if sections else None)
 
     @tool("list_match_events")
     def list_match_events(
+        sport: SportArg,
         group_id: int,
         team_id: Annotated[int | None, Field(description="Jugadores de este equipo")] = None,
         against_team_id: Annotated[int | None, Field(description="Goles contra este equipo")] = None,
@@ -162,12 +172,13 @@ def create_server(client: httpx.Client | None = None) -> FastMCP:
     ) -> dict[str, Any]:
         """Eventos de actas (goles, propia meta, tarjetas): partido, equipo, rival, jugador, minuto y coverage
         (si es parcial, faltar no prueba nada)."""
-        return _get(http, f"/groups/{group_id}/match-events", f"grupo {group_id}", team_id=team_id,
+        return _get(http, f"/groups/{group_id}/match-events", f"grupo {group_id}", sport=sport, team_id=team_id,
                     against_team_id=against_team_id, round_id=round_id, match_id=match_id,
                     player_id=player_id, event_type=event_type, limit=limit)
 
     @tool("top_scorers")
     def top_scorers(
+        sport: SportArg,
         group_id: int,
         team_id: int | None = None,
         against_team_id: int | None = None,
@@ -178,33 +189,36 @@ def create_server(client: httpx.Client | None = None) -> FastMCP:
         limit: Annotated[int, Field(ge=1, le=200)] = 20,
     ) -> dict[str, Any]:
         """Goles por jugador de las ACTAS (filtros rival/jornada/partido), con coverage. No es la tabla oficial."""
-        return _get(http, f"/groups/{group_id}/scorers", f"grupo {group_id}", team_id=team_id,
+        return _get(http, f"/groups/{group_id}/scorers", f"grupo {group_id}", sport=sport, team_id=team_id,
                     against_team_id=against_team_id, round_id=round_id, match_id=match_id,
                     player_id=player_id, min_goals=min_goals, limit=limit)
 
     @tool("get_standings")
     def get_standings(
+        sport: SportArg,
         group_id: int,
         round: Annotated[int | None, Field(ge=1, le=200)] = None,
     ) -> dict[str, Any]:
         """Clasificación OFICIAL RFFM de la jornada `round` (sin él, la última); no la calcules. Indica jornada y captura."""
-        return _get(http, f"/groups/{group_id}/standings", f"grupo {group_id}", round=round)
+        return _get(http, f"/groups/{group_id}/standings", f"grupo {group_id}", sport=sport, round=round)
 
     @tool("get_data_freshness")
     def get_data_freshness(
+        sport: SportArg,
         group_id: int | None = None,
         competition_id: int | None = None,
     ) -> dict[str, Any]:
         """Cuándo se actualizó cada dato (partidos, actas, clasificación, goleadores) de un grupo (group_id) o de una competición (competition_id),
         con avisos de datos desactualizados o parciales. Solo lectura; úsala si preguntan si los datos están al día."""
         if group_id is not None:
-            return _get(http, f"/groups/{group_id}/freshness", f"grupo {group_id}")
+            return _get(http, f"/groups/{group_id}/freshness", f"grupo {group_id}", sport=sport)
         if competition_id is None:
             raise ToolError("error_validacion: indica group_id o competition_id")
-        return _get(http, f"/competitions/{competition_id}/freshness", f"competición {competition_id}")
+        return _get(http, f"/competitions/{competition_id}/freshness", f"competición {competition_id}", sport=sport)
 
     @tool("get_scorer_table")
     def get_scorer_table(
+        sport: SportArg,
         group_id: int | None = None,
         competition_id: int | None = None,
         name: Annotated[str | None, Field(min_length=2, max_length=80)] = None,
@@ -213,22 +227,24 @@ def create_server(client: httpx.Client | None = None) -> FastMCP:
         """Goleadores OFICIAL RFFM (no uses actas), solo la tabla ACTUAL sin desglose por jornada: solo jugadores con goles, empates con mismo rank. group_id; o competition_id para
         el máximo de cada grupo; name busca un jugador."""
         if group_id is not None:
-            return _get(http, f"/groups/{group_id}/scorer-table", f"grupo {group_id}", name=name, limit=limit)
+            return _get(http, f"/groups/{group_id}/scorer-table", f"grupo {group_id}", sport=sport, name=name, limit=limit)
         if competition_id is None:
             raise ToolError("error_validacion: indica group_id o competition_id")
-        return _get(http, f"/competitions/{competition_id}/scorer-table", f"competición {competition_id}", limit=limit)
+        return _get(http, f"/competitions/{competition_id}/scorer-table", f"competición {competition_id}", sport=sport, limit=limit)
 
     @tool("find_players")
     def find_players(
+        sport: SportArg,
         group_id: int,
         name: Annotated[str, Field(min_length=2, max_length=80, description="Nombre o apellido")],
         team_id: int | None = None,
     ) -> dict[str, Any]:
         """Jugadores de las actas por nombre (devuelve player_id). Sin resultados: no consta."""
-        return _get(http, f"/groups/{group_id}/players", f"grupo {group_id}", name=name, team_id=team_id)
+        return _get(http, f"/groups/{group_id}/players", f"grupo {group_id}", sport=sport, name=name, team_id=team_id)
 
     @tool("search_rules")
     def search_rules(
+        sport: SportArg,
         query: Annotated[str, Field(min_length=2, max_length=500, description="Palabras clave del reglamento")],
         limit: Annotated[int, Field(ge=1, le=10)] = 5,
         rule: Annotated[int | None, Field(ge=1, description=desc("search_rules.rule", "Solo esa regla FIFA (las circulares se incluyen siempre); úsalo solo si el usuario nombra la regla"))] = None,
@@ -237,7 +253,7 @@ def create_server(client: httpx.Client | None = None) -> FastMCP:
         vocabulario del reglamento (córner→saque de esquina, pista→terreno de juego, roja→expulsión, cambios→sustituciones,
         portero→guardameta) y prueba otra si no aparece. Devuelve fragmentos con regla y página: cítalas y no afirmes nada que
         no esté en ellos. Sin resultados útiles: dilo."""
-        return _get(http, "/knowledge/search", "reglamento", q=query, limit=limit, rule=rule)
+        return _get(http, "/knowledge/search", "reglamento", sport=sport, q=query, limit=limit, rule=rule)
 
     # Herramientas v2 (consultas sin grupo) sobre la API /v2: mismo servidor y mismo cliente HTTP. 
     register_v2_tools(mcp, lambda path, resource, **params: _get(http, path, resource, **params))

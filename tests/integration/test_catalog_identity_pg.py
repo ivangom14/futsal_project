@@ -144,6 +144,7 @@ def test_migration_roundtrip_keeps_previous_data_identical(lifecycle_db: tuple[E
     # El backfill sí actualiza `updated_at` de las filas que enlaza/clasifica; el resto de lo previo debe quedar intacto al bajar.
     stable = {t: [c for c in cols if c != "updated_at"] for t, cols in columns.items()}
     before_stable = snapshot(engine, stable)
+    command.upgrade(cfg, "head")  # el backfill usa el modelo actual (0009: team_entities.sport)
     run_backfill(engine, inventories=[])
     assert sql(engine, "SELECT count(*) FROM team_entities")[0][0] > 0
     command.downgrade(cfg, "0006")
@@ -179,7 +180,7 @@ def seeded(cat_engine: Engine, paths: dict[tuple[str, str], Path]) -> Engine:
 
 
 def test_checks_reject_invalid_enumerations(seeded: Engine) -> None:
-    sql(seeded, "INSERT INTO team_entities(source, external_code) VALUES ('rffm','T1')")
+    sql(seeded, "INSERT INTO team_entities(source, sport, external_code) VALUES ('rffm','futsal','T1')")
     for stmt in (
         "UPDATE competitions SET review_status='maybe' WHERE external_id='900'",
         "UPDATE team_entities SET club_link_status='guess'",
@@ -205,7 +206,7 @@ def test_foreign_keys_and_uniqueness(seeded: Engine) -> None:
     with pytest.raises(IntegrityError):
         sql(seeded, "UPDATE teams SET team_entity_id=999999")
     with pytest.raises(IntegrityError):
-        sql(seeded, "INSERT INTO team_entities(source, external_code, club_id) VALUES ('rffm','T9', 999999)")
+        sql(seeded, "INSERT INTO team_entities(source, sport, external_code, club_id) VALUES ('rffm','futsal','T9', 999999)")
     with pytest.raises(IntegrityError):
         sql(seeded, "INSERT INTO competition_links(from_competition_id, to_competition_id, basis, confidence) "
                     "VALUES (999998, 999999, 'override', 1)")
@@ -213,9 +214,9 @@ def test_foreign_keys_and_uniqueness(seeded: Engine) -> None:
     with pytest.raises(IntegrityError):
         sql(seeded, "INSERT INTO clubs(source, external_code) VALUES ('rffm','C1')")
     sql(seeded, "INSERT INTO clubs(source, external_code) VALUES ('otra','C1')")
-    sql(seeded, "INSERT INTO team_entities(source, external_code) VALUES ('rffm','T1')")
+    sql(seeded, "INSERT INTO team_entities(source, sport, external_code) VALUES ('rffm','futsal','T1')")
     with pytest.raises(IntegrityError):
-        sql(seeded, "INSERT INTO team_entities(source, external_code) VALUES ('rffm','T1')")
+        sql(seeded, "INSERT INTO team_entities(source, sport, external_code) VALUES ('rffm','futsal','T1')")
     sql(seeded, "UPDATE team_entities SET club_id=(SELECT id FROM clubs WHERE external_code='C1' AND source='rffm')")
     ids = [r[0] for r in sql(seeded, "SELECT id FROM competitions ORDER BY id")]
     sql(seeded, "INSERT INTO competition_links(from_competition_id, to_competition_id, basis, confidence) VALUES (:a,:b,'override',0.9)",
@@ -298,10 +299,11 @@ def test_backfill_by_name_only_marks_needs_review_and_is_idempotent(seeded: Engi
     c = competition(seeded, "900")
     assert (c.modality, c.scope, c.category, c.gender, c.kind, c.review_status) == (
         "futsal", "unknown", "juvenil", "female", "unknown", "needs_review")
-    assert c.classification is not None and c.classification["modality"]["confidence"] == 0.6
+    # 0009: el deporte (modality) lo fija el tipo de juego oficial al dar de alta la competición, no el nombre
+    assert c.game_type_code == "3" and c.classification is not None and c.classification["modality"]["confidence"] == 1.0
     assert run_backfill(seeded, inventories=[])["changes"] == 0
     other = competition(seeded, "910")  # «COMP B»: sin señal alguna
-    assert (other.modality, other.category, other.gender, other.review_status) == ("unknown", "unknown", "unknown", "needs_review")
+    assert (other.modality, other.category, other.gender, other.review_status) == ("futsal", "unknown", "unknown", "needs_review")
 
 
 def write_inventory(tmp_path: Path) -> Path:

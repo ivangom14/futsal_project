@@ -6,8 +6,19 @@ from typing import Any
 import httpx
 from mcp.shared.memory import create_connected_server_and_client_session as connect
 
-from futsal.agent.agent import OFF_TOPIC_MESSAGE, RULES_RECONSIDER_MESSAGE, SYSTEM_PROMPT, Agent, AgentResult
-from futsal.agent.criteria import mentions_competition, mentions_rules, unsupported_digits, unsupported_rule_citations
+from futsal.agent.agent import (
+    OFF_TOPIC_MESSAGE,
+    RULES_RECONSIDER_MESSAGE,
+    SYSTEM_PROMPT,
+    Agent,
+    AgentResult,
+)
+from futsal.agent.criteria import (
+    mentions_competition,
+    mentions_rules,
+    unsupported_digits,
+    unsupported_rule_citations,
+)
 from futsal.agent.llm import LLMResponse, Message, ToolCall
 from futsal.agent.mcp_client import SessionMcpClient
 from futsal.mcp_server.server import create_server
@@ -50,7 +61,7 @@ def _run(llm: Script, question: str, hits: dict[str, Any] | None = None) -> Agen
 
     async def go() -> AgentResult:
         async with connect(server._mcp_server) as session:
-            return await Agent(llm, SessionMcpClient(session), 5).run(question)  # type: ignore[arg-type]
+            return await Agent(llm, SessionMcpClient(session), 5).run(question, sport="futsal")  # type: ignore[arg-type]
 
     return asyncio.run(go())
 

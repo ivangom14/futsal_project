@@ -10,6 +10,19 @@ from fastapi.responses import JSONResponse
 from sqlalchemy import Engine, func, select, text
 from sqlalchemy.orm import Session, aliased
 
+from futsal.api.freshness import freshness_router
+from futsal.api.knowledge import knowledge_router
+from futsal.api.reports import reports_router
+from futsal.api.sport import (
+    SportParam,
+    require_competition,
+    require_group,
+    require_match,
+    sports,
+    team_ids_of,
+)
+from futsal.api.tables import tables_router
+from futsal.api.v2.routes import v2_router
 from futsal.config.targets import RFFM_ASSET_HOST
 from futsal.db.models import (
     Competition,
@@ -21,12 +34,8 @@ from futsal.db.models import (
     Season,
     Team,
 )
-from futsal.api.freshness import freshness_router
-from futsal.api.knowledge import knowledge_router
-from futsal.api.reports import reports_router
-from futsal.api.tables import tables_router
-from futsal.api.v2.routes import v2_router
 from futsal.db.session import make_engine
+from futsal.domain.sports import ALL
 from futsal.importer.crest_index import crests_dir, load_index
 
 STATUSES = ("scheduled", "finished", "postponed", "suspended", "cancelled", "unknown")
@@ -107,9 +116,9 @@ def create_app(engine: Engine | None = None, today: Callable[[], date] = date.to
         return JSONResponse({"status": "ok", "database": "ok"})
 
     @app.get("/competitions")
-    def competitions(db: Db, season_id: int | None = None) -> dict[str, Any]:
+    def competitions(db: Db, sport: SportParam, season_id: int | None = None) -> dict[str, Any]:
         stmt = (select(Competition, Season.name).join(Season, Season.id == Competition.season_id)
-                .order_by(Competition.id))
+                .where(Competition.modality.in_(sports(sport))).order_by(Competition.id))
         if season_id is not None:
             stmt = stmt.where(Competition.season_id == season_id)
         by_comp: dict[int, list[dict[str, Any]]] = {}
@@ -117,54 +126,50 @@ def create_app(engine: Engine | None = None, today: Callable[[], date] = date.to
             by_comp.setdefault(g.competition_id, []).append({"id": g.id, "name": g.name})
         return _items([
             {"id": c.id, "external_id": c.external_id, "name": c.name,
-             "season_id": c.season_id, "season": season, "groups": by_comp.get(c.id, [])}
+             "season_id": c.season_id, "season": season, "groups": by_comp.get(c.id, []),
+             **({"sport": c.modality} if sport == ALL else {})}  # ámbito combinado: cada fila dice su deporte
             for c, season in db.execute(stmt)])
 
     @app.get("/crests")
-    def crests(db: Db) -> dict[str, Any]:
+    def crests(db: Db, sport: SportParam) -> dict[str, Any]:
         """Escudos conocidos (ruta en `teams.crest_url`, rellenada por `crest-backfill`) con URL absoluta de la RFFM.
         No descarga ni sirve imágenes: quien las muestre decide si enlazarlas (ver CRESTS_MODE en el servicio de chat)."""
-        rows = db.execute(select(Team.id, Team.name, Team.crest_url).where(Team.crest_url.is_not(None)).order_by(Team.id))
+        rows = db.execute(select(Team.id, Team.name, Team.crest_url).where(Team.crest_url.is_not(None), Team.id.in_(team_ids_of(db, sport)))
+                          .order_by(Team.id))
         local = load_index(crests_dir())  # copias descargadas con `crest-download` (file = nombre en la carpeta)
         return _items([{"team_id": i, "name": n, "crest_url": f"{RFFM_ASSET_HOST}{u}" if u and u.startswith("/") else u,
                         "file": local.get(u or "", {}).get("file")} for i, n, u in rows])
 
     @app.get("/teams")
-    def find_teams(db: Db, name: Annotated[str, Query(min_length=2, max_length=80)],
+    def find_teams(db: Db, sport: SportParam, name: Annotated[str, Query(min_length=2, max_length=80)],
                    limit: Annotated[int, Query(ge=1, le=100)] = 30) -> dict[str, Any]:
         """Equipos por nombre en todos los grupos: permite resolver el grupo cuando la pregunta no lo indica."""
         like = "%" + name.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%"
         rows = [{"id": t.id, "name": t.name, "group_id": g.id, "group": g.name,
-                 "competition_id": c.id, "competition": c.name}
+                 "competition_id": c.id, "competition": c.name, **({"sport": c.modality} if sport == ALL else {})}
                 for t, g, c in db.execute(
                     select(Team, CompetitionGroup, Competition)
                     .join(CompetitionGroup, CompetitionGroup.id == Team.group_id)
                     .join(Competition, Competition.id == CompetitionGroup.competition_id)
-                    .where(func.kb_unaccent(Team.name).ilike(func.kb_unaccent(like), escape="\\"))
+                    .where(func.kb_unaccent(Team.name).ilike(func.kb_unaccent(like), escape="\\"),
+                           Competition.modality.in_(sports(sport)))
                     .order_by(Competition.id, CompetitionGroup.id, Team.name))]
         if len(rows) > limit:
             return {"items": rows[:limit], "count": len(rows), "shown": limit}
         return _items(rows)
 
     @app.get("/competitions/{competition_id}/groups")
-    def groups(competition_id: int, db: Db) -> dict[str, Any]:
-        if db.get(Competition, competition_id) is None:
-            raise HTTPException(404, f"competición {competition_id} no encontrada")
+    def groups(competition_id: int, db: Db, sport: SportParam) -> dict[str, Any]:
+        require_competition(db, competition_id, sport)
         rows = db.scalars(select(CompetitionGroup)
                           .where(CompetitionGroup.competition_id == competition_id)
                           .order_by(CompetitionGroup.id))
         return _items([{"id": g.id, "external_id": g.external_id, "name": g.name,
                         "competition_id": g.competition_id} for g in rows])
 
-    def _group(db: Session, group_id: int) -> CompetitionGroup:
-        group = db.get(CompetitionGroup, group_id)
-        if group is None:
-            raise HTTPException(404, f"grupo {group_id} no encontrado")
-        return group
-
     @app.get("/groups/{group_id}/rounds")
-    def rounds(group_id: int, db: Db) -> dict[str, Any]:
-        _group(db, group_id)
+    def rounds(group_id: int, db: Db, sport: SportParam) -> dict[str, Any]:
+        require_group(db, group_id, sport)
         rows = db.scalars(select(Round).where(Round.group_id == group_id)
                           .order_by(Round.visible_number, Round.id))
         return _items([{"id": r.id, "external_id": r.external_id, "label": r.visible_label,
@@ -172,19 +177,19 @@ def create_app(engine: Engine | None = None, today: Callable[[], date] = date.to
                        for r in rows])
 
     @app.get("/groups/{group_id}/teams")
-    def teams(group_id: int, db: Db) -> dict[str, Any]:
-        _group(db, group_id)
+    def teams(group_id: int, db: Db, sport: SportParam) -> dict[str, Any]:
+        require_group(db, group_id, sport)
         rows = db.scalars(select(Team).where(Team.group_id == group_id).order_by(Team.name))
         return _items([{"id": t.id, "external_id": t.external_id, "name": t.name}
                        for t in rows])
 
     @app.get("/groups/{group_id}/matches")
-    def matches(group_id: int, db: Db, round_id: int | None = None,
+    def matches(group_id: int, db: Db, sport: SportParam, round_id: int | None = None,
                 status: str | None = None, team_id: int | None = None,
                 has_report: bool | None = None,
                 order: Annotated[str, Query(pattern="^(asc|desc|date_asc)$")] = "asc",
                 limit: Annotated[int | None, Query(ge=1, le=200)] = None) -> dict[str, Any]:
-        _group(db, group_id)
+        require_group(db, group_id, sport)
         if team_id is not None and db.scalar(
                 select(Team.id).where(Team.id == team_id, Team.group_id == group_id)) is None:
             raise HTTPException(404, f"equipo {team_id} no encontrado en el grupo {group_id}")
@@ -213,7 +218,8 @@ def create_app(engine: Engine | None = None, today: Callable[[], date] = date.to
         return _items(rows)
 
     @app.get("/matches/{match_id}")
-    def match_detail(match_id: int, db: Db) -> dict[str, Any]:
+    def match_detail(match_id: int, db: Db, sport: SportParam) -> dict[str, Any]:
+        require_match(db, match_id, sport)
         home, away = aliased(Team), aliased(Team)
         row = db.execute(
             select(Match, home.name, away.name, Round.visible_number)

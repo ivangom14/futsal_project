@@ -30,6 +30,7 @@ class FeedbackRequest(BaseModel):
     reason: Literal["wrong_data", "lost_context", "incomplete", "bad_source", "misunderstood", "other"] | None = None
     comment: str | None = Field(default=None, max_length=MAX_COMMENT)
     run_id: str | None = Field(default=None, max_length=32, pattern=r"^[A-Za-z0-9_-]*$")
+    sport: Literal["futsal", "football11"]  # deporte de la conversación valorada (Fase 1 multideporte; obligatorio)
 
 
 class RunSummaries:
@@ -52,7 +53,7 @@ def record(path: Path, fb: FeedbackRequest, summary: dict[str, Any] | None, now:
     comment = redact((fb.comment or "").strip())[:MAX_COMMENT] or None
     entry = {"ts": (now or datetime.now(UTC)).isoformat(), "conversation_id": fb.conversation_id, "message_id": fb.message_id,
              "rating": fb.rating, "reason": fb.reason if fb.rating == "down" else None,
-             "comment": comment if fb.rating == "down" else None, "run_id": fb.run_id, "diagnostics": summary}
+             "comment": comment if fb.rating == "down" else None, "run_id": fb.run_id, "sport": fb.sport, "diagnostics": summary}
     path.parent.mkdir(parents=True, exist_ok=True)
     with _lock, path.open("a", encoding="utf-8") as f:
         f.write(json.dumps(entry, ensure_ascii=False) + "\n")

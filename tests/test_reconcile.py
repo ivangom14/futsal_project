@@ -288,7 +288,7 @@ def web_client(memory: ConversationMemory) -> TestClient:
 def test_only_the_visible_answer_changes_and_memory_keeps_the_original() -> None:
     memory = ConversationMemory()
     with web_client(memory) as c:
-        body = c.post("/chat", json={"question": "¿Cuáles son los próximos partidos?", "conversation_id": "conv-reconcile-1"}).json()
+        body = c.post("/chat", json={"sport": "futsal", "question": "¿Cuáles son los próximos partidos?", "conversation_id": "conv-reconcile-1"}).json()
     assert [v["type"] for v in body["visuals"]] == ["matches"]
     assert "AGRUPACION" not in body["answer"] and "Estos son los próximos partidos" not in body["answer"] and body["answer"] == "¡Disfruta de la jornada!"
     stored = memory.get("conv-reconcile-1")
@@ -304,7 +304,7 @@ def test_reconciliation_is_skipped_without_visuals_and_leaves_no_audit() -> None
         yield Agent(Script([LLMResponse(LISTING, [])]), FakeMcp(), 3)
 
     with TestClient(create_chat_app(AgentRunner(factory), lambda: {"reachable": True, "detail": None})) as c:
-        body = c.post("/chat", json={"question": "hola"}).json()
+        body = c.post("/chat", json={"sport": "futsal", "question": "hola"}).json()
     assert body["visuals"] == [] and body["diagnostics"]["reconciliation"] is None
 
 
@@ -316,7 +316,7 @@ def test_source_and_kind_decisions_use_the_original_text(monkeypatch: pytest.Mon
     monkeypatch.setattr(presentation, "build_sources", lambda q, answer, *a, **k: (seen.__setitem__("sources", answer), real_sources(q, answer, *a, **k))[1])
     monkeypatch.setattr(presentation, "answer_kind", lambda q, answer, *a, **k: (seen.__setitem__("kind", answer), real_kind(q, answer, *a, **k))[1])
     with web_client(ConversationMemory()) as c:
-        c.post("/chat", json={"question": "¿Cuáles son los próximos partidos?"})
+        c.post("/chat", json={"sport": "futsal", "question": "¿Cuáles son los próximos partidos?"})
     assert seen["sources"] == LISTING and seen["kind"] == LISTING
 
 
@@ -410,7 +410,7 @@ def spy_client(steps: list[LLMResponse], memory: ConversationMemory, seen: list[
 def first_turn() -> dict[str, Any]:
     steps = [LLMResponse("", [ToolCall("c1", "list_matches", {"group_id": 1, "status": "scheduled"})]), LLMResponse(LISTING, [])]
     with spy_client(steps, ConversationMemory(), []) as c:
-        return c.post("/chat", json={"question": "¿Cuáles son los próximos partidos?", "conversation_id": "conv-restart"}).json()
+        return c.post("/chat", json={"sport": "futsal", "question": "¿Cuáles son los próximos partidos?", "conversation_id": "conv-restart"}).json()
 
 
 def test_the_response_carries_the_original_text_only_when_something_was_omitted() -> None:
@@ -419,7 +419,7 @@ def test_the_response_carries_the_original_text_only_when_something_was_omitted(
 
     steps = [LLMResponse("", [ToolCall("c1", "list_matches", {"group_id": 1, "status": "scheduled"})]), LLMResponse("Solo prosa, sin listas.", [])]
     with spy_client(steps, ConversationMemory(), []) as c:
-        plain = c.post("/chat", json={"question": "¿Cuáles son los próximos partidos?"}).json()
+        plain = c.post("/chat", json={"sport": "futsal", "question": "¿Cuáles son los próximos partidos?"}).json()
     assert plain["answer_original"] is None and plain["answer"] == "Solo prosa, sin listas." and plain["visuals"]
 
 
@@ -430,13 +430,13 @@ def test_after_a_server_restart_the_followup_keeps_the_data_if_the_browser_sends
     # lo que hacía antes: el navegador reenvía lo VISIBLE y el servidor (sin memoria) se lo da al LLM sin la lista
     seen_before: list[list[Message]] = []
     with spy_client(list(follow), ConversationMemory(), seen_before) as c:
-        c.post("/chat", json={"question": "¿A qué hora juega el segundo?", "conversation_id": "conv-restart",
+        c.post("/chat", json={"sport": "futsal", "question": "¿A qué hora juega el segundo?", "conversation_id": "conv-restart",
                               "history": [{"role": "user", "content": q1}, {"role": "assistant", "content": body["answer"]}], "focus": body["focus"]})
     assert not any("CALASANCIO" in m.text for m in seen_before[0][:-1])
     # ahora: el navegador reenvía `answer_original` y el LLM ve los partidos
     seen_after: list[list[Message]] = []
     with spy_client(list(follow), ConversationMemory(), seen_after) as c:
-        r = c.post("/chat", json={"question": "¿A qué hora juega el segundo?", "conversation_id": "conv-restart",
+        r = c.post("/chat", json={"sport": "futsal", "question": "¿A qué hora juega el segundo?", "conversation_id": "conv-restart",
                                   "history": [{"role": "user", "content": q1}, {"role": "assistant", "content": body["answer_original"]}], "focus": body["focus"]})
     assert r.status_code == 200
     history = [m for m in seen_after[0][:-1] if m.role == "assistant"]
@@ -453,7 +453,7 @@ def test_a_reconciliation_failure_never_breaks_the_response(monkeypatch: pytest.
     monkeypatch.setattr(web, "present_answer", boom)
     steps = [LLMResponse("", [ToolCall("c1", "list_matches", {"group_id": 1, "status": "scheduled"})]), LLMResponse(LISTING, [])]
     with spy_client(steps, ConversationMemory(), []) as c:
-        res = c.post("/chat", json={"question": "¿Cuáles son los próximos partidos?"})
+        res = c.post("/chat", json={"sport": "futsal", "question": "¿Cuáles son los próximos partidos?"})
     body = res.json()
     assert res.status_code == 200 and body["answer"] == LISTING and body["answer_original"] is None and [v["type"] for v in body["visuals"]] == ["matches"]
     assert body["diagnostics"]["reconciliation"]["error"] == "TypeError"
@@ -464,7 +464,7 @@ def test_the_reconcile_switch_only_turns_off_with_off(monkeypatch: pytest.Monkey
     monkeypatch.setenv("CHAT_RECONCILE", value)
     steps = [LLMResponse("", [ToolCall("c1", "list_matches", {"group_id": 1, "status": "scheduled"})]), LLMResponse(LISTING, [])]
     with spy_client(steps, ConversationMemory(), []) as c:
-        body = c.post("/chat", json={"question": "¿Cuáles son los próximos partidos?"}).json()
+        body = c.post("/chat", json={"sport": "futsal", "question": "¿Cuáles son los próximos partidos?"}).json()
     assert (body["answer"] != LISTING) is active and (body["answer_original"] is not None) is active
     assert (body["diagnostics"]["reconciliation"] is not None) is active
     assert [v["type"] for v in body["visuals"]] == ["matches"]  # los visuales no dependen del interruptor

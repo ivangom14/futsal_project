@@ -15,6 +15,7 @@ def _call(name: str, args: dict[str, Any], handler: Any) -> tuple[bool, str]:
     from mcp.shared.memory import create_connected_server_and_client_session as connect
 
     server = create_server(httpx.Client(base_url="http://api", transport=httpx.MockTransport(handler)))
+    args = {"sport": "futsal", **args}  # Fase 1: deporte obligatorio en todas las herramientas
 
     async def go() -> tuple[bool, str]:
         async with connect(server._mcp_server) as session:
@@ -40,9 +41,9 @@ def test_table_tools_turn_api_failures_into_controlled_errors_never_into_data(na
 
 def test_table_tools_keep_their_public_contract() -> None:
     tools = {t.name: t for t in asyncio.run(create_server().list_tools())}
-    assert set(tools["get_standings"].inputSchema["properties"]) == {"group_id", "round"}
-    assert set(tools["get_scorer_table"].inputSchema["properties"]) == {"group_id", "competition_id", "name", "limit"}
-    assert tools["get_standings"].inputSchema["required"] == ["group_id"]
+    assert set(tools["get_standings"].inputSchema["properties"]) == {"sport", "group_id", "round"}
+    assert set(tools["get_scorer_table"].inputSchema["properties"]) == {"sport", "group_id", "competition_id", "name", "limit"}
+    assert tools["get_standings"].inputSchema["required"] == ["sport", "group_id"]
 
 
 def test_table_tools_forward_exactly_the_requested_parameters() -> None:
@@ -57,8 +58,9 @@ def test_table_tools_forward_exactly_the_requested_parameters() -> None:
     _call("get_scorer_table", {"group_id": 7, "name": "Perez", "limit": 5}, handler)
     _call("get_scorer_table", {"competition_id": 4, "limit": 2}, handler)
     assert [(r.url.path, dict(r.url.params)) for r in seen] == [
-        ("/groups/7/standings", {"round": "3"}), ("/groups/7/standings", {}),
-        ("/groups/7/scorer-table", {"name": "Perez", "limit": "5"}), ("/competitions/4/scorer-table", {"limit": "2"})]
+        ("/groups/7/standings", {"sport": "futsal", "round": "3"}), ("/groups/7/standings", {"sport": "futsal"}),
+        ("/groups/7/scorer-table", {"sport": "futsal", "name": "Perez", "limit": "5"}),
+        ("/competitions/4/scorer-table", {"sport": "futsal", "limit": "2"})]
 
 
 def test_scorer_table_requires_a_group_or_a_competition_and_rejects_bad_rounds() -> None:

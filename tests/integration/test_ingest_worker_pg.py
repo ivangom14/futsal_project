@@ -520,7 +520,8 @@ def test_two_complete_runs_leave_the_same_domain_counts(rig: Rig) -> None:
 def seed_tables_group(engine: Engine, tmp_path: Path) -> dict[str, Any]:
     league = LeagueFile(source="rffm", season=NamedExt(external_id="99", name=None),
                         competition=NamedExt(external_id="90000001", name="LIGA EJEMPLO FS"),
-                        group=NamedExt(external_id="90000002", name="Grupo 1"), rounds=[], matches=[])
+                        group=NamedExt(external_id="90000002", name="Grupo 1"), game_type=NamedExt(external_id="3"),
+                        rounds=[], matches=[])
     path = tmp_path / "tables_group.json"
     path.write_text(league.model_dump_json(), encoding="utf-8")
     assert run_import(engine, path).status == "success"

@@ -199,8 +199,8 @@ def _people(session: Session) -> None:
 def _kb(session: Session) -> None:
     """Un documento indexado de reglamento (FIFA) con el fragmento de la duración de las mitades, para las pruebas de reglamento."""
     session.execute(text(
-        "INSERT INTO kb_documents (id, doc_key, title, doc_type, language, structure_profile) "
-        "VALUES (1, 'fifa-futsal-laws-2025-26', 'Reglas de Juego de Futsal 2025/26', 'reglamento', 'es', 'laws')"))
+        "INSERT INTO kb_documents (id, doc_key, title, doc_type, language, structure_profile, sports) "
+        "VALUES (1, 'fifa-futsal-laws-2025-26', 'Reglas de Juego de Futsal 2025/26', 'reglamento', 'es', 'laws', ARRAY['futsal'])"))
     session.execute(text(
         "INSERT INTO kb_document_versions (id, document_id, content_hash, file_path, file_bytes, page_count, extraction_status, "
         "index_status, is_current) VALUES (1, 1, 'synthetic', 'synthetic.pdf', 1, 70, 'ok', 'indexed', true)"))

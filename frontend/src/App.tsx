@@ -2,19 +2,21 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react
 import { ArrowDown, Menu, SquarePen } from "lucide-react";
 import { ApiError, askAgent, forgetConversation, getHealth, sendFeedback } from "./api";
 import {
-  appendMessage, deleteConversation, focusFor, restoreConversation, historyFor, loadState, removeMessage, saveState, selectConversation, setFeedback, startConversation, uid,
+  appendMessage, changeSport, deleteConversation, focusFor, restoreConversation, historyFor, loadState, removeMessage, saveState, selectConversation, setFeedback, startConversation, uid,
   type State,
 } from "./conversations";
 import AgentStatus from "./components/AgentStatus";
 import Composer from "./components/Composer";
 import ConnectionBadge from "./components/ConnectionBadge";
 import MessageBubble from "./components/MessageBubble";
+import SportSwitch from "./components/SportSwitch";
 import Sidebar from "./components/Sidebar";
 import Welcome from "./components/Welcome";
 import UndoToast from "./components/UndoToast";
 import { LogoMark } from "./components/Logo";
+import { CrestProvider } from "./crests";
 import { trackVisualViewport } from "./viewport";
-import type { Connection, Conversation, Feedback, Focus, HistoryItem, Message } from "./types";
+import { DEFAULT_SPORT, type Connection, type Conversation, type Feedback, type Focus, type HistoryItem, type Message, type Sport } from "./types";
 
 const HEALTH_POLL_MS = 15_000;
 const prefersReducedMotion = () => typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -58,6 +60,7 @@ export default function App() {
 
   const active = state.conversations.find((c) => c.id === state.activeId) ?? null;
   const messages = active?.messages ?? [];
+  const sport: Sport = active?.sport ?? DEFAULT_SPORT; // el deporte activo es el de la conversación activa
 
   useEffect(() => {
     saveState(state);
@@ -117,14 +120,14 @@ export default function App() {
   }, [refreshHealth]);
 
   const ask = useCallback(
-    async (convId: string, question: string, history: HistoryItem[], focus: Focus) => {
+    async (convId: string, sport: Sport, question: string, history: HistoryItem[], focus: Focus) => {
       setLoadingId(convId);
       setSlow(false);
       const ctrl = new AbortController();
       abortRef.current = ctrl;
       const timer = setTimeout(() => setSlow(true), SLOW_MS);
       try {
-        const response = await askAgent(question, convId, history, focus, ctrl.signal);
+        const response = await askAgent(question, convId, sport, history, focus, ctrl.signal);
         const msg: Message = { id: uid(), role: "assistant", content: response.answer, createdAt: Date.now(), response };
         setState((s) => appendMessage(s, convId, msg));
       } catch (e) {
@@ -150,7 +153,7 @@ export default function App() {
     const history = historyFor(active.messages); // contexto de ESTA conversación, sin la pregunta actual
     const focus = focusFor(active.messages);
     setState((s) => appendMessage(s, active.id, { id: uid(), role: "user", content: question, createdAt: Date.now() }));
-    void ask(active.id, question, history, focus);
+    void ask(active.id, active.sport, question, history, focus);
   };
 
   const retry = (failed: Message) => {
@@ -163,12 +166,12 @@ export default function App() {
     if (!question) return;
     const before = active.messages.slice(0, idx - 1); // lo anterior a la pregunta que falló
     setState((s) => removeMessage(s, active.id, failed.id));
-    void ask(active.id, question, historyFor(before), focusFor(before));
+    void ask(active.id, active.sport, question, historyFor(before), focusFor(before));
   };
 
   const submitFeedback = async (messageId: string, runId: string | null, fb: Feedback) => {
     if (!active) return;
-    await sendFeedback(active.id, messageId, runId, fb); // si falla, la valoración no se marca como enviada
+    await sendFeedback(active.id, messageId, runId, fb, active.sport); // si falla, la valoración no se marca como enviada
     setState((s) => setFeedback(s, active.id, messageId, fb));
   };
 
@@ -179,13 +182,15 @@ export default function App() {
   const stableRetry = useCallback((m: Message) => live.current.retry(m), []);
   const stableFeedback = useCallback((id: string, runId: string | null, fb: Feedback) => live.current.submitFeedback(id, runId, fb), []);
   const cancel = useCallback(() => abortRef.current?.abort(), []);
-  const newConversation = useCallback(() => { setState(startConversation); setMenu(false); }, []);
+  const newConversation = useCallback(() => { setState((s) => startConversation(s, s.conversations.find((c) => c.id === s.activeId)?.sport)); setMenu(false); }, []);
+  const switchSport = useCallback((next: Sport) => setState((s) => changeSport(s, next)), []);
 
   const loading = loadingId !== null;
   const loadingHere = loading && loadingId === active?.id;
   const lastAgentId = [...messages].reverse().find((m) => m.role === "assistant" && m.response)?.id;
   const empty = messages.length === 0;
   return (
+    <CrestProvider sport={sport}>
     <div className="relative flex h-full bg-canvas">
       <Sidebar
         conversations={state.conversations}
@@ -226,7 +231,7 @@ export default function App() {
         </header>
         <div ref={scrollRef} onScroll={onScroll} className="flex-1 overflow-y-auto overflow-x-hidden overscroll-contain" data-testid="messages">
           <div className={`mx-auto flex min-h-full max-w-3xl flex-col px-3 min-[360px]:px-4 ${empty ? "" : "gap-6 pb-6 pt-4"}`}>
-            {active && empty && <Welcome onPick={stableSend} disabled={loading} />}
+            {active && empty && <Welcome onPick={stableSend} disabled={loading} sport={sport} />}
             {messages.map((m, i) => (
               <MessageBubble key={m.id} message={m} onRetry={m.failure && i === messages.length - 1 ? stableRetry : undefined}
                 onSuggest={m.id === lastAgentId ? stableSend : undefined} suggestDisabled={loading} onFeedback={stableFeedback} />
@@ -243,7 +248,8 @@ export default function App() {
             </button>
           )}
           <Composer onSend={stableSend} onStop={loadingHere ? cancel : undefined} loading={loading}
-            focus={historyFor(messages).length > 0 ? focusFor(messages) : undefined} onClearContext={newConversation} />
+            focus={historyFor(messages).length > 0 ? focusFor(messages) : undefined} onClearContext={newConversation}
+            sportSwitch={<SportSwitch sport={sport} onChange={switchSport} />} />
         </div>
       </main>
       {deleted && (
@@ -251,5 +257,6 @@ export default function App() {
           onUndo={() => { const d = deleted; setDeleted(null); setState((s) => restoreConversation(s, d.conv, d.index)); }} />
       )}
     </div>
+    </CrestProvider>
   );
 }

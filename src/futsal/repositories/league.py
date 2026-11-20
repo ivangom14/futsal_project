@@ -10,10 +10,11 @@ from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import distinct_on
 from sqlalchemy.orm import Session
 
+from futsal.config.source_config import game_type_map
 from futsal.db.models import (
     Competition,
-    DataQualityIssue,
     CompetitionGroup,
+    DataQualityIssue,
     Match,
     MatchObservation,
     MatchReport,
@@ -23,6 +24,7 @@ from futsal.db.models import (
     Team,
     Tracked,
 )
+from futsal.domain.sports import sport_of_game_type
 from futsal.importer.transform import SOURCE, ImportPlan, Issue, MatchRec, content_hash
 
 T = TypeVar("T", bound=Tracked)
@@ -147,6 +149,51 @@ def _guard_match(session: Session, plan: ImportPlan, group: CompetitionGroup, m:
     return False
 
 
+class SportConflict(Exception):
+    """Una competición o grupo ya almacenado pertenece a OTRO deporte: no se importa nada del plan (nunca se fusionan)."""
+
+    def __init__(self, issue: Issue) -> None:
+        super().__init__(issue.message)
+        self.issue = issue
+
+
+def _sport_values(session: Session, plan: ImportPlan) -> dict[str, Any]:
+    """Deporte de la competición del plan desde su tipo de juego oficial (0009: obligatorio para darla de alta).
+
+    Competición existente: su deporte manda; un tipo de juego que lleva a otro deporte es `SportConflict`. Competición nueva sin
+    tipo de juego (o con uno desconocido): error explícito, nunca se supone fútbol sala."""
+    incoming = sport_of_game_type(plan.game_type_code, game_type_map(SOURCE))
+    stored = session.scalars(select(Competition).filter_by(source=SOURCE, external_id=plan.competition_external_id)).one_or_none()
+    if stored is not None:
+        if incoming is not None and incoming != stored.modality:
+            raise SportConflict(Issue(
+                "sport_conflict", "competition", plan.competition_external_id,
+                f"la competición {plan.competition_external_id} es de {stored.modality} y la fuente la trae con tipo de juego "
+                f"{plan.game_type_code} ({incoming}): no se importa",
+                {"stored_sport": stored.modality, "incoming_game_type": plan.game_type_code, "incoming_sport": incoming,
+                 "group_external_id": plan.group_external_id}))
+        return {"game_type_code": plan.game_type_code} if incoming is not None and not stored.game_type_code else {}
+    if incoming is None:
+        raise ValueError(f"la competición nueva {plan.competition_external_id} no indica un tipo de juego válido "
+                         f"({plan.game_type_code!r}): no se puede dar de alta sin deporte")
+    return {"modality": incoming, "game_type_code": plan.game_type_code}
+
+
+def _guard_group_sport(session: Session, plan: ImportPlan, comp: Competition) -> None:
+    """Un grupo ya almacenado bajo una competición de otro deporte no se mueve (lo haría `_upsert` en silencio)."""
+    stored = session.scalars(select(CompetitionGroup).filter_by(source=SOURCE, external_id=plan.group_external_id)).one_or_none()
+    if stored is None or stored.competition_id == comp.id:
+        return
+    other = session.get(Competition, stored.competition_id)
+    if other is not None and other.modality != comp.modality:
+        raise SportConflict(Issue(
+            "sport_conflict", "group", plan.group_external_id,
+            f"el grupo {plan.group_external_id} pertenece a la competición {other.external_id} ({other.modality}) y la fuente lo "
+            f"trae en {comp.external_id} ({comp.modality}): no se importa",
+            {"stored_competition_external_id": other.external_id, "stored_sport": other.modality,
+             "incoming_competition_external_id": comp.external_id, "incoming_sport": comp.modality}))
+
+
 def import_plan(session: Session, plan: ImportPlan, run_id: int, now: datetime,
                 policy: RegressionPolicy = RegressionPolicy()) -> Stats:
     """Aplica el plan dentro de la transacción de `session`; devuelve contadores por entidad.
@@ -159,9 +206,10 @@ def import_plan(session: Session, plan: ImportPlan, run_id: int, now: datetime,
                      "observations")}
     season = _upsert(session, Season, {"external_id": plan.season_external_id},
                      {"name": plan.season_name}, now, stats, "seasons")
-    comp = _upsert(session, Competition, {"external_id": plan.competition_external_id},
-                   {"season_id": season.id, "name": plan.competition_name}, now, stats,
+    comp_values: dict[str, Any] = {"season_id": season.id, "name": plan.competition_name, **_sport_values(session, plan)}
+    comp = _upsert(session, Competition, {"external_id": plan.competition_external_id}, comp_values, now, stats,
                    "competitions")
+    _guard_group_sport(session, plan, comp)
     group = _upsert(session, CompetitionGroup, {"external_id": plan.group_external_id},
                     {"competition_id": comp.id, "name": plan.group_name}, now, stats, "groups")
     rounds = {

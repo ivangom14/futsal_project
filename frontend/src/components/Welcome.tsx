@@ -1,5 +1,6 @@
 import { BookOpen, CalendarDays, ListOrdered, Medal, type LucideIcon } from "lucide-react";
 import { LogoMark } from "./Logo";
+import type { Sport } from "../types";
 
 /**
  * Sugerencias del estado inicial: una por capacidad VERIFICADA del agente (partidos de un día/fin de semana por categoría, tabla
@@ -13,7 +14,8 @@ export const EXAMPLES: { q: string; Icon: LucideIcon }[] = [
 ];
 
 /** Estado inicial: qué hace Futsito en una línea y cuatro consultas de un toque, pegadas al compositor (zona del pulgar). */
-export default function Welcome({ onPick, disabled }: { onPick: (q: string) => void; disabled: boolean }) {
+export default function Welcome({ onPick, disabled, sport = "futsal" }: { onPick: (q: string) => void; disabled: boolean; sport?: Sport }) {
+  const futsal = sport === "futsal"; // las sugerencias son de fútbol sala: con otro deporte no se muestran
   return (
     <div className="flex flex-1 flex-col justify-end pb-3 pt-8 md:justify-center md:pb-10" data-testid="welcome">
       <div className="flex items-center gap-3">
@@ -21,11 +23,11 @@ export default function Welcome({ onPick, disabled }: { onPick: (q: string) => v
         <div className="min-w-0">
           <h2 className="font-display text-xl font-extrabold tracking-tight text-ink md:text-2xl">¿Qué quieres saber?</h2>
           <p className="text-[15px] leading-snug text-ink-2">
-            Partidos, resultados, clasificaciones, goleadores, actas y reglamento del fútbol sala de la RFFM, con datos oficiales.
+            Partidos, resultados, clasificaciones, goleadores, actas y reglamento {futsal ? "del fútbol sala" : "del fútbol"} de la RFFM, con datos oficiales.
           </p>
         </div>
       </div>
-      <ul className="mt-5 grid gap-2 sm:grid-cols-2" aria-label="Consultas de ejemplo">
+      {futsal && <ul className="mt-5 grid gap-2 sm:grid-cols-2" aria-label="Consultas de ejemplo">
         {EXAMPLES.map(({ q, Icon }) => (
           <li key={q}>
             <button disabled={disabled} onClick={() => onPick(q)}
@@ -35,7 +37,7 @@ export default function Welcome({ onPick, disabled }: { onPick: (q: string) => v
             </button>
           </li>
         ))}
-      </ul>
+      </ul>}
       <p className="mt-3 text-[13px] text-ink-2">Puedes encadenar preguntas: «¿y sus próximos partidos?».</p>
     </div>
   );

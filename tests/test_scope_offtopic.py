@@ -14,7 +14,7 @@ from futsal.agent.reconcile import to_madrid_iso
 
 def run(question: str, steps: list[LLMResponse], mcp: Mcp | None = None) -> tuple[Script, Any]:
     llm = Script(steps)
-    return llm, asyncio.run(Agent(llm, mcp or Mcp(), 5).run(question, []))
+    return llm, asyncio.run(Agent(llm, mcp or Mcp(), 5).run(question, [], sport="futsal"))
 
 
 def test_recognized_competition_without_teams_is_reconsulted_instead_of_refused() -> None:

@@ -83,7 +83,7 @@ def client(llm: Any) -> TestClient:
 def test_chat_shows_friendly_messages_and_keeps_the_technical_detail(
         exc: LLMError, status: int, code: str, text: str, caplog: pytest.LogCaptureFixture) -> None:
     with caplog.at_level(logging.WARNING, logger="futsal.chat"), client(Boom(exc)) as c:
-        res = c.post("/chat", json={"question": "¿Quién lidera?"})
+        res = c.post("/chat", json={"sport": "futsal", "question": "¿Quién lidera?"})
     body = res.json()
     assert res.status_code == status and body["code"] == code and text in body["detail"]
     assert "LLM" not in body["detail"] and "HTTP" not in body["detail"] and "429" not in body["detail"]  # nada técnico en el mensaje
@@ -93,7 +93,7 @@ def test_chat_shows_friendly_messages_and_keeps_the_technical_detail(
 
 def test_unexpected_exception_is_a_friendly_internal_error_without_traceback(caplog: pytest.LogCaptureFixture) -> None:
     with caplog.at_level(logging.WARNING, logger="futsal.chat"), client(Boom(RuntimeError("fallo MCP interno"))) as c:
-        res = c.post("/chat", json={"question": "¿Quién lidera?"})
+        res = c.post("/chat", json={"sport": "futsal", "question": "¿Quién lidera?"})
     assert res.status_code == 500 and res.json()["code"] == "internal" and "Traceback" not in res.text
     assert any("fallo MCP interno" in r.getMessage() for r in caplog.records)
 
@@ -105,7 +105,7 @@ def test_unavailable_agent_is_friendly() -> None:
         yield  # pragma: no cover
 
     with TestClient(create_chat_app(AgentRunner(broken), lambda: {"reachable": True, "detail": None})) as c:
-        res = c.post("/chat", json={"question": "hola"})
+        res = c.post("/chat", json={"sport": "futsal", "question": "hola"})
     assert res.status_code == 503 and res.json()["code"] == "unavailable" and "GEMINI_API_KEY" not in res.json()["detail"]
     assert "GEMINI_API_KEY" in res.json()["technical"]
 
@@ -113,5 +113,5 @@ def test_unavailable_agent_is_friendly() -> None:
 def test_secrets_never_reach_the_technical_field(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("GEMINI_API_KEY", "super-secret-key-123456")
     with client(Boom(LLMError("LLM HTTP 400: key=super-secret-key-123456 inválida"))) as c:
-        res = c.post("/chat", json={"question": "hola"})
+        res = c.post("/chat", json={"sport": "futsal", "question": "hola"})
     assert "super-secret" not in res.text

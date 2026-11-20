@@ -41,7 +41,7 @@ def _run(llm: Script, question: str) -> AgentResult:
 
     async def go() -> AgentResult:
         async with __import__("mcp.shared.memory", fromlist=["x"]).create_connected_server_and_client_session(server._mcp_server) as s:
-            return await Agent(llm, SessionMcpClient(s), 5).run(question)  # type: ignore[arg-type]
+            return await Agent(llm, SessionMcpClient(s), 5).run(question, sport="futsal")  # type: ignore[arg-type]
 
     return asyncio.run(go())
 

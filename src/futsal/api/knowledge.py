@@ -7,6 +7,7 @@ from fastapi import APIRouter, HTTPException, Query
 from sqlalchemy import Engine
 from sqlalchemy.exc import SQLAlchemyError
 
+from futsal.api.sport import SportParam, sports
 from futsal.knowledge.search import KnowledgeSearch, SearchError, SearchResult
 
 NOTE = ("Fragmentos literales de los documentos indexados (campo document: reglas FIFA o circulares de la RFEF). La puntuación "
@@ -48,13 +49,13 @@ def knowledge_router(get_engine: Callable[[], Engine]) -> APIRouter:
     router = APIRouter()
 
     @router.get("/knowledge/search")
-    def search_rules(q: Annotated[str, Query(min_length=2, max_length=500)],
+    def search_rules(q: Annotated[str, Query(min_length=2, max_length=500)], sport: SportParam,
                      limit: Annotated[int, Query(ge=1, le=10)] = 5,
                      rule: Annotated[int | None, Query(ge=1)] = None,
                      doc_key: str | None = None, include_history: bool = False) -> dict[str, Any]:
         try:
             result = KnowledgeSearch(get_engine()).search(q, limit=limit, rule=rule, doc_key=doc_key,
-                                                          include_history=include_history)
+                                                          include_history=include_history, sports=sports(sport))
         except SearchError as exc:
             raise HTTPException(400, str(exc)) from exc
         except SQLAlchemyError as exc:  # sin migración 0004 o sin documento indexado

@@ -156,7 +156,7 @@ class Script:
 def ask(question: str, history: list[Turn] | None = None, then: list[LLMResponse] | None = None) -> tuple[Script, Any, Mcp]:
     llm = Script([LLMResponse("", [ToolCall("c1", "find_teams", {"name": "DOSA"})]), *(then or [LLMResponse("ok", [])])])
     mcp = Mcp()
-    res = asyncio.run(Agent(llm, mcp, 5).run(question, history or []))
+    res = asyncio.run(Agent(llm, mcp, 5).run(question, history or [], sport="futsal"))
     return llm, res, mcp
 
 

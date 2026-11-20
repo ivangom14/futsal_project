@@ -33,8 +33,8 @@ def app_client(qlog: QuestionLog, steps: list[LLMResponse | Exception]) -> TestC
 def test_one_line_per_request_with_only_ts_and_question(tmp_path: Path) -> None:
     qlog = QuestionLog(tmp_path, max_chars=40)
     with app_client(qlog, [LLMResponse("Hola", [])]) as c:
-        assert c.post("/chat", json={"question": "  ¿Quién lidera? mi correo es pepe@x.com " + "a" * 100}).status_code == 200
-        assert c.post("/chat", json={"question": "   "}).status_code == 400  # vacía: no es una pregunta
+        assert c.post("/chat", json={"sport": "futsal", "question": "  ¿Quién lidera? mi correo es pepe@x.com " + "a" * 100}).status_code == 200
+        assert c.post("/chat", json={"sport": "futsal", "question": "   "}).status_code == 400  # vacía: no es una pregunta
     rows = lines(tmp_path)
     assert len(rows) == 1 and set(rows[0]) == {"ts", "question"} and rows[0]["ts"].endswith("Z")
     assert rows[0]["question"] == "¿Quién lidera? mi correo es [email] a" and "Hola" not in json.dumps(rows)
@@ -43,14 +43,14 @@ def test_one_line_per_request_with_only_ts_and_question(tmp_path: Path) -> None:
 def test_internal_retries_do_not_duplicate(tmp_path: Path) -> None:
     qlog = QuestionLog(tmp_path)
     with app_client(qlog, [LLMError("503 temporal"), LLMResponse("ok", [])]) as c:
-        c.post("/chat", json={"question": "¿Cuántas jornadas hay?"})
+        c.post("/chat", json={"sport": "futsal", "question": "¿Cuántas jornadas hay?"})
     assert [r["question"] for r in lines(tmp_path)] == ["¿Cuántas jornadas hay?"]
 
 
 def test_disabled_writes_nothing(tmp_path: Path) -> None:
     qlog = QuestionLog(tmp_path / "q", enabled=False)
     with app_client(qlog, [LLMResponse("ok", [])]) as c:
-        assert c.post("/chat", json={"question": "hola"}).status_code == 200
+        assert c.post("/chat", json={"sport": "futsal", "question": "hola"}).status_code == 200
     assert not (tmp_path / "q").exists()
 
 
@@ -84,7 +84,7 @@ def test_write_failure_does_not_affect_agent(tmp_path: Path) -> None:
     answers = []
     for qlog in (QuestionLog(tmp_path, enabled=False), QuestionLog(blocker / "questions")):  # el 2.º falla al crear el directorio
         with app_client(qlog, [LLMResponse("Cada mitad dura 20 minutos.", [])]) as c:
-            res = c.post("/chat", json={"question": "¿Cuánto dura una mitad?"})
+            res = c.post("/chat", json={"sport": "futsal", "question": "¿Cuánto dura una mitad?"})
             answers.append((res.status_code, res.json()["answer"], res.json()["guardrail"]))
         assert qlog._thread is None  # el escritor sobrevive al fallo y se cierra limpio
     assert answers[0] == answers[1] and answers[0][0] == 200
@@ -117,8 +117,8 @@ def test_concurrent_questions(tmp_path: Path) -> None:
 def test_answers_opt_in_same_as_shown_and_null_on_failure(tmp_path: Path) -> None:
     qlog = QuestionLog(tmp_path, answers=True, answer_max_chars=30)
     with app_client(qlog, [LLMResponse("Cada mitad dura 20 minutos.", []), LLMError("401 clave")]) as c:
-        shown = c.post("/chat", json={"question": "¿Cuánto dura una mitad?"}).json()["answer"]
-        assert c.post("/chat", json={"question": "otra"}).json().get("answer") is None  # fallo controlado del chat
+        shown = c.post("/chat", json={"sport": "futsal", "question": "¿Cuánto dura una mitad?"}).json()["answer"]
+        assert c.post("/chat", json={"sport": "futsal", "question": "otra"}).json().get("answer") is None  # fallo controlado del chat
     first, second = lines(tmp_path)
     assert first == {"ts": first["ts"], "question": "¿Cuánto dura una mitad?", "answer": " ".join(shown[:30].split())}
     assert second == {"ts": second["ts"], "question": "otra", "answer": None}

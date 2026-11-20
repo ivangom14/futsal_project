@@ -34,6 +34,8 @@ def _run(name: str, args: dict[str, Any], handler: Any = _handler) -> tuple[bool
     client = httpx.Client(base_url="http://api", transport=httpx.MockTransport(handler))
     server = create_server(client)
 
+    args = {"sport": "futsal", **args}  # Fase 1: deporte obligatorio en todas las herramientas (estas pruebas son de fútbol sala)
+
     async def go() -> tuple[bool, str]:
         async with connect(server._mcp_server) as session:
             res = await session.call_tool(name, args)
@@ -80,7 +82,7 @@ def test_list_matches_forwards_filters() -> None:
 
     _run("list_matches", {"group_id": 1, "round_id": 2, "status": "finished"}, handler)
     assert seen[0].path == "/groups/1/matches"
-    assert dict(seen[0].params) == {"round_id": "2", "status": "finished"}
+    assert dict(seen[0].params) == {"sport": "futsal", "round_id": "2", "status": "finished"}
 
 
 def test_not_found_is_controlled() -> None:
@@ -131,7 +133,7 @@ def test_list_matches_forwards_team_id() -> None:
         return httpx.Response(200, json=LISTING)
 
     err, _ = _run("list_matches", {"group_id": 1, "team_id": 11, "status": "finished"}, handler)
-    assert not err and seen == {"team_id": "11", "status": "finished"}
+    assert not err and seen == {"sport": "futsal", "team_id": "11", "status": "finished"}
     tools = asyncio.run(create_server().list_tools())
     props = next(t for t in tools if t.name == "list_matches").inputSchema["properties"]
     assert "team_id" in props
@@ -143,15 +145,15 @@ def _echo(request: httpx.Request) -> httpx.Response:
 
 def test_report_tools_forward_filters_to_read_only_api_routes() -> None:
     _, text = _run("get_match_report", {"match_id": 7, "sections": ["officials", "cards"]}, _echo)
-    assert json.loads(text) == {"path": "/matches/7/report", "params": {"sections": "officials,cards"}}
+    assert json.loads(text) == {"path": "/matches/7/report", "params": {"sport": "futsal", "sections": "officials,cards"}}
     _, text = _run("top_scorers", {"group_id": 1, "round_id": 3, "min_goals": 2, "against_team_id": 9}, _echo)
     got = json.loads(text)
     assert got["path"] == "/groups/1/scorers"
-    assert got["params"] == {"round_id": "3", "min_goals": "2", "against_team_id": "9", "limit": "20"}
+    assert got["params"] == {"sport": "futsal", "round_id": "3", "min_goals": "2", "against_team_id": "9", "limit": "20"}
     _, text = _run("list_match_events", {"group_id": 1, "event_type": "card", "player_id": 4}, _echo)
-    assert json.loads(text)["params"] == {"event_type": "card", "player_id": "4", "limit": "40"}
+    assert json.loads(text)["params"] == {"sport": "futsal", "event_type": "card", "player_id": "4", "limit": "40"}
     _, text = _run("find_players", {"group_id": 1, "name": "perez"}, _echo)
-    assert json.loads(text) == {"path": "/groups/1/players", "params": {"name": "perez"}}
+    assert json.loads(text) == {"path": "/groups/1/players", "params": {"sport": "futsal", "name": "perez"}}
     seen: list[dict[str, str]] = []
 
     def _capture(request: httpx.Request) -> httpx.Response:
@@ -159,7 +161,7 @@ def test_report_tools_forward_filters_to_read_only_api_routes() -> None:
         return httpx.Response(200, json=LISTING)
 
     _run("list_matches", {"group_id": 1, "status": "finished", "has_report": False}, _capture)
-    assert seen == [{"status": "finished", "has_report": "false"}]
+    assert seen == [{"sport": "futsal", "status": "finished", "has_report": "false"}]
 
 
 def test_report_tools_reject_invalid_parameters_and_map_missing_match() -> None:
@@ -177,7 +179,7 @@ def test_list_matches_forwards_limit_and_exposes_shown() -> None:
         return httpx.Response(200, json={"items": [{"id": 1}], "count": 163, "shown": 1})
 
     is_error, text = _run("list_matches", {"group_id": 1, "status": "scheduled", "limit": 1}, handler)
-    assert dict(seen[0].params) == {"status": "scheduled", "limit": "1"}
+    assert dict(seen[0].params) == {"sport": "futsal", "status": "scheduled", "limit": "1"}
     assert not is_error and json.loads(text) == {"matches": [{"id": 1}], "count": 163, "shown": 1}
     plain = _run("list_matches", {"group_id": 1}, lambda r: httpx.Response(200, json=LISTING))
     assert "shown" not in json.loads(plain[1])
@@ -235,7 +237,7 @@ def test_search_rules_forwards_query_and_filters_and_describes_the_reformulation
 
     is_error, text = _run("search_rules", {"query": "saque de esquina", "limit": 3, "rule": 17}, handler)
     assert not is_error and json.loads(text)["method"] == "fts"
-    assert seen[0].path == "/knowledge/search" and dict(seen[0].params) == {"q": "saque de esquina", "limit": "3", "rule": "17"}
+    assert seen[0].path == "/knowledge/search" and dict(seen[0].params) == {"sport": "futsal", "q": "saque de esquina", "limit": "3", "rule": "17"}
     assert "reformula" in _description("search_rules") and "saque de esquina" in _description("search_rules")
 
 
@@ -256,7 +258,7 @@ def test_list_matches_forwards_order_and_rejects_an_invalid_one() -> None:
         return httpx.Response(200, json=LISTING)
 
     _run("list_matches", {"group_id": 1, "team_id": 4, "status": "finished", "order": "desc", "limit": 1}, handler)
-    assert dict(seen[0].params) == {"team_id": "4", "status": "finished", "order": "desc", "limit": "1"}
+    assert dict(seen[0].params) == {"sport": "futsal", "team_id": "4", "status": "finished", "order": "desc", "limit": "1"}
     is_error, text = _run("list_matches", {"group_id": 1, "order": "random"})
     assert is_error and "order" in text
 

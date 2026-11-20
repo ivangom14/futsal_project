@@ -74,7 +74,7 @@ def _run(llm: Script, question: str = "pregunta", max_calls: int = 5) -> AgentRe
 
     async def go() -> AgentResult:
         async with connect(server._mcp_server) as session:
-            return await Agent(llm, SessionMcpClient(session), max_calls).run(question)  # type: ignore[arg-type]
+            return await Agent(llm, SessionMcpClient(session), max_calls).run(question, sport="futsal")  # type: ignore[arg-type]
 
     return asyncio.run(go())
 
@@ -89,7 +89,8 @@ def test_filtered_counts_are_exact_and_reach_the_model_as_count_not_as_rows() ->
                   LLMResponse("Se han jugado 23 partidos y quedan 159 (de 182).", [])])
     res = _run(llm)
     assert res.answer == "Se han jugado 23 partidos y quedan 159 (de 182)." and res.tool_calls == 2 and res.guardrail is None
-    sent = [(dict(r.url.params)) for r in requests if r.url.path == "/groups/1/matches"]
+    sent = [{k: v for k, v in r.url.params.items() if k != "sport"} for r in requests if r.url.path == "/groups/1/matches"]
+    assert all(r.url.params.get("sport") == "futsal" for r in requests)  # Fase 1: el deporte llega a TODAS las llamadas a la API
     assert sent == [{"status": "finished", "limit": "1"}, {"limit": "1"}]                       # filtros y límite llegan a la API
     seen = _seen(llm)
     assert '"count":23' in seen[0] and '"shown":1' in seen[0] and '"count":182' in seen[1]

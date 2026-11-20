@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useState, type KeyboardEvent } from "react";
+import { useLayoutEffect, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import { ArrowUp, Square, X } from "lucide-react";
 import type { Focus } from "../types";
 
@@ -15,6 +15,8 @@ interface Props {
   focus?: Focus;
   /** Quitar el contexto = empezar una conversación nueva (el foco vive en el historial de esta, en el servidor). */
   onClearContext?: () => void;
+  /** Selector de deporte, sobre el campo de texto. */
+  sportSwitch?: ReactNode;
 }
 
 /** «Lope de Vega FS», «PREFERENTE · Grupo 2»… o null si no hay foco que mostrar. */
@@ -30,7 +32,7 @@ export function focusLabel(f: Focus | undefined): string | null {
  * Enter envía y Shift+Enter salta de línea. Durante la consulta, «Detener» ocupa el sitio de «Enviar». El contexto solo se muestra
  * cuando existe y se puede quitar con un toque.
  */
-export default function Composer({ onSend, onStop, loading, focus, onClearContext }: Props) {
+export default function Composer({ onSend, onStop, loading, focus, onClearContext, sportSwitch }: Props) {
   const [text, setText] = useState("");
   const ref = useRef<HTMLTextAreaElement>(null);
   useLayoutEffect(() => {
@@ -57,6 +59,7 @@ export default function Composer({ onSend, onStop, loading, focus, onClearContex
   return (
     <div className="bg-canvas px-3 pt-1.5 pb-[max(0.5rem,env(safe-area-inset-bottom))] pl-[max(0.75rem,env(safe-area-inset-left))] pr-[max(0.75rem,env(safe-area-inset-right))]">
       <div className="mx-auto max-w-3xl">
+        {sportSwitch && <div className="mb-1.5">{sportSwitch}</div>}
         {label && (
           <div className="mb-1.5 flex" data-testid="context-hint">
             <span className="inline-flex min-w-0 max-w-full items-center rounded-full border border-line bg-surface pl-3 text-[13px] text-ink-2"

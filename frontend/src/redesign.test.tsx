@@ -59,7 +59,7 @@ describe("respuestas largas y tablas del agente", () => {
 });
 
 const conv = (id: string, title: string, updatedAt: number, q = title): Conversation => ({
-  id, title, createdAt: updatedAt, updatedAt, messages: [{ id: `${id}u`, role: "user", content: q, createdAt: updatedAt }],
+  id, sport: "futsal", title, createdAt: updatedAt, updatedAt, messages: [{ id: `${id}u`, role: "user", content: q, createdAt: updatedAt }],
 });
 
 describe("historial", () => {
@@ -77,7 +77,7 @@ describe("historial", () => {
   });
   it("con muchas conversaciones ofrece búsqueda; la vacía no se lista; borrar está en un menú y se cierra con Escape", async () => {
     const list = Array.from({ length: SEARCH_FROM }, (_, i) => conv(`c${i}`, `Conversación ${i}`, now - i));
-    const empty: Conversation = { id: "new", title: "Nueva conversación", createdAt: now, updatedAt: now, messages: [] };
+    const empty: Conversation = { id: "new", sport: "futsal", title: "Nueva conversación", createdAt: now, updatedAt: now, messages: [] };
     const onDelete = vi.fn();
     const onSelectSpy = vi.fn();
     render(<Sidebar conversations={[empty, ...list]} activeId="c0" open={false} onNew={() => undefined} onSelect={onSelectSpy} onDelete={onDelete} onClose={() => undefined} />);

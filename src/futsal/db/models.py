@@ -25,6 +25,8 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
+from futsal.domain.sports import MODALITIES
+
 NAMING = {
     "ix": "ix_%(table_name)s_%(column_0_N_name)s",
     "uq": "uq_%(table_name)s_%(column_0_N_name)s",
@@ -79,6 +81,7 @@ class Competition(Tracked, Base):
         Index("ix_competitions_season_id_modality_category_gender", "season_id", "modality", "category", "gender"),
         Index("ix_competitions_review_status", "review_status"),
         Index("ix_competitions_source_category_code", "source", "category_code"),
+        CheckConstraint(f"modality IN ({', '.join(repr(m) for m in MODALITIES)})", name="modality_valid"),
     )
     season_id: Mapped[int] = mapped_column(ForeignKey("seasons.id"), index=True)
     name: Mapped[str | None] = mapped_column(String(256))
@@ -94,7 +97,8 @@ class Competition(Tracked, Base):
     end_date: Mapped[date | None] = mapped_column(Date)
     source_meta: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
     # Atributos normalizados.
-    modality: Mapped[str] = mapped_column(Text, server_default=UNKNOWN, default="unknown")
+    # DEPORTE de la competición (0009): obligatorio, sin valor por defecto; solo lo fija `game_type_code` (domain/sports.py).
+    modality: Mapped[str] = mapped_column(Text)
     scope: Mapped[str] = mapped_column(Text, server_default=UNKNOWN, default="unknown")
     category: Mapped[str] = mapped_column(Text, server_default=UNKNOWN, default="unknown")
     gender: Mapped[str] = mapped_column(Text, server_default=UNKNOWN, default="unknown")
@@ -164,11 +168,14 @@ class TeamEntity(Base):
 
     __tablename__ = "team_entities"
     __table_args__ = (
-        UniqueConstraint("source", "external_code"),
+        UniqueConstraint("source", "sport", "external_code"),
         CheckConstraint("club_link_status IN ('official','override','unknown')", name="club_link_status_valid"),
+        CheckConstraint(f"sport IN ({', '.join(repr(m) for m in MODALITIES)})", name="sport_valid"),
     )
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
     source: Mapped[str] = mapped_column(String(32))
+    # 0009: el CodEquipo no se ha verificado exclusivo de una modalidad: un mismo código en dos deportes = dos entidades.
+    sport: Mapped[str] = mapped_column(Text)
     external_code: Mapped[str] = mapped_column(Text)
     club_id: Mapped[int | None] = mapped_column(ForeignKey("clubs.id"))
     club_link_status: Mapped[str] = mapped_column(Text, server_default=UNKNOWN, default="unknown")

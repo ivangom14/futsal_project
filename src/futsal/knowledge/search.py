@@ -84,6 +84,7 @@ WHERE {match}
        OR coalesce(v.version_label, d.version_label) = :version_label)
   AND (CAST(:language AS text) IS NULL OR d.language = :language)
   AND (CAST(:rule AS integer) IS NULL OR c.rule_number = :rule OR d.doc_type = 'circular')
+  AND (CAST(:sports AS text[]) IS NULL OR d.sports && CAST(:sports AS text[]))
 ORDER BY score DESC, c.id
 LIMIT :limit
 """
@@ -140,6 +141,7 @@ class KnowledgeSearch:
     def search(self, query: str, *, limit: int = DEFAULT_LIMIT, doc_key: str | None = None,
                version_label: str | None = None, language: str | None = None,
                rule: int | None = None, include_history: bool = False,
+               sports: tuple[str, ...] | None = None,
                max_hit_chars: int = DEFAULT_HIT_CHARS,
                max_total_chars: int = DEFAULT_TOTAL_CHARS) -> SearchResult:
         q = " ".join(query.split())
@@ -154,6 +156,8 @@ class KnowledgeSearch:
         params: dict[str, Any] = {
             "q": q, "limit": limit, "doc_key": doc_key, "version_label": version_label,
             "language": language, "rule": rule, "include_history": include_history,
+            # deportes del documento (0009): la API siempre lo pasa; None solo en herramientas offline de evaluación del índice
+            "sports": list(sports) if sports is not None else None,
             "tmin": TRIGRAM_MIN, "and_bonus": AND_BONUS, "rank_norm": RANK_NORM}
         numbers = cited_circulars(q)
         with self._engine.connect() as conn:

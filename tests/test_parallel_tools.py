@@ -50,7 +50,7 @@ def run(steps: list[LLMResponse], mcp: FakeMcp, parallel: bool) -> tuple[Any, Sc
     agent = Agent(llm, mcp, 20)
     if not parallel:
         agent._batch_independent = lambda calls: False  # type: ignore[method-assign]
-    return asyncio.run(agent.run(Q, [])), llm
+    return asyncio.run(agent.run(Q, [], sport="futsal")), llm
 
 
 def shape(res: Any, llm: Script) -> dict[str, Any]:

@@ -41,6 +41,12 @@ from futsal.importer.table_service import ingest_tables
 from futsal.ingestion.queue import jobs
 from futsal.ingestion.queue.controls import QueueConfig
 from futsal.ingestion.queue.fetch import Fetcher, FetchResult
+from futsal.ingestion.queue.ingest_scope import (
+    ENABLED,
+    OUT_OF_SCOPE,
+    competition_meta_fields,
+    load_scope,
+)
 from futsal.ingestion.queue.planner import (
     CALENDAR,
     MATCH_REPORT,
@@ -184,12 +190,26 @@ def discover_catalog(ctx: Context) -> dict[str, Any]:
     for c in report["competitions"]:
         c["groups_status"] = "pending"
     pri = ctx.schedule.priorities
+    # Alcance declarativo (config/ingest_scope.json): DESCUBIERTAS = todas las del catálogo (quedan en el informe);
+    # solo las HABILITADAS encolan el descubrimiento de grupos. Nada fuera de alcance llega a la BD ni a la red.
+    scope = load_scope()
+    sport = scope.sport_of_game_type(game_type)
+    enqueued = 0
     for c in report["competitions"]:
+        name, code = competition_meta_fields(c["competition_meta"])
+        c["scope_status"] = scope.status(sport, name, code)
+        if c["scope_status"] != ENABLED:
+            continue
         target = {"season": season, "game_type": game_type, "competition": c["competition_id"]}
         ctx.enqueue(DISCOVER_GROUPS, {**target, "meta": c["competition_meta"]},
                     priority=pri.rest if c["active"] else pri.inactive, target_key=jobs.canonical_key(target))
+        enqueued += 1
     report.pop("groups", None)
-    return {"report": report, "competitions": len(report["competitions"]), "groups_jobs_enqueued": len(report["competitions"])}
+    by_status = Counter(c["scope_status"] for c in report["competitions"])
+    return {"report": report, "competitions": len(report["competitions"]), "groups_jobs_enqueued": enqueued,
+            "scope": {"sport": sport, "discovered": len(report["competitions"]),
+                      "in_scope": sum(n for st, n in by_status.items() if st != OUT_OF_SCOPE), "enabled": by_status.get(ENABLED, 0),
+                      "by_status": dict(by_status)}}
 
 
 def _names(s: Session, season: str, competition: str) -> tuple[str | None, str | None]:
@@ -229,7 +249,8 @@ def discover_groups(ctx: Context) -> dict[str, Any]:
         path = skeleton_dir / f"s{season}_c{cid}_g{g['group_id']}.json"
         league = LeagueFile(source="rffm", season=NamedExt(external_id=season, name=season_name),
                             competition=NamedExt(external_id=cid, name=g["competition_name"] or comp_name),
-                            group=NamedExt(external_id=g["group_id"], name=g["group_name"]), rounds=[], matches=[])
+                            group=NamedExt(external_id=g["group_id"], name=g["group_name"]),
+                            game_type=NamedExt(external_id=game_type), rounds=[], matches=[])
         path.write_text(league.model_dump_json(), encoding="utf-8")
         g["status"], g["league_path"] = "downloaded", str(path)
         if g["group_id"] not in known:
@@ -356,7 +377,8 @@ def build_round_league(payload: dict[str, Any], result: Any, target: dict[str, A
             source_url=url))
     return LeagueFile(source="rffm", season=NamedExt(external_id=str(target["season"]), name=season_name),
                       competition=NamedExt(external_id=str(target["competition"]), name=comp_name),
-                      group=NamedExt(external_id=str(target["group"]), name=group_name), rounds=[rnd], matches=matches)
+                      group=NamedExt(external_id=str(target["group"]), name=group_name),
+                      game_type=NamedExt(external_id=str(target["game_type"])), rounds=[rnd], matches=matches)
 
 
 def _statuses(s: Session, codactas: list[str]) -> dict[str, str]:

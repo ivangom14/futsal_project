@@ -5,7 +5,10 @@
   "category_group_name": {
     "FUTBOL SALA": "federated",
     "DEPORTE ESCOLAR FÚTBOL SALA": "school",
-    "OTRAS CATEGORÍAS COMPETICIONALES": "other"
+    "OTRAS CATEGORÍAS COMPETICIONALES": "other",
+    "CATEGORIA NACIONAL": "federated",
+    "AFICIONADOS": "federated",
+    "JUVENILES": "federated"
   },
   "format_code": {"1": "knockout", "2": "league"},
   "modality_name_tokens": ["fs"],

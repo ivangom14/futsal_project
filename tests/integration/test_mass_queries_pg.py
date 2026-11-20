@@ -90,7 +90,7 @@ def chat(w: dict[str, Any], steps: list[tuple[str, Rec]]) -> list[Any]:
         for question, llm in steps:
             agent = Agent(llm, mcp, 8, trace_results=True)  # como el servicio web
             agent._clock = lambda: NOW
-            res = await agent.run(question, list(history), state=state)
+            res = await agent.run(question, list(history), state=state, sport="futsal")
             out.append(res)
             history.append(Turn(question, res.answer))
             state = res.state

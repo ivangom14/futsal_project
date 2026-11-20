@@ -1,5 +1,8 @@
 # Fase 6 — MCP Server
 
+> **Fase 1 multideporte (2026-11-19):** las 22 herramientas exigen `sport` (`futsal|football11|all`) y lo reenvían a la API. El agente lo
+> inyecta con el deporte de la conversación y lo oculta al LLM (`agent/mcp_client.SportScopedMcp`). Detalle: `docs/multisport-phase1.md`.
+
 ## Objetivo
 Exponer las consultas de la API como *tools* MCP de solo lectura para un agente o cliente MCP.
 Capa fina: valida parámetros, llama a la API por HTTP y devuelve JSON. Sin SQL ni lógica de negocio.

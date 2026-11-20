@@ -16,7 +16,7 @@ afterEach(() => vi.unstubAllGlobals());
 describe("escudos oficiales", () => {
   it("con CRESTS_MODE=link pinta la imagen de la RFFM sin enviar el referer y la busca sin tildes ni espacios dobles", async () => {
     const fetchMock = serve({ mode: "link", crests: { "C.D. DOSA": URL_DOSA } });
-    render(<CrestProvider><TeamCrest name="c.d.  dosa" /><TeamCrest name="FS ALCALA" /></CrestProvider>);
+    render(<CrestProvider sport="futsal"><TeamCrest name="c.d.  dosa" /><TeamCrest name="FS ALCALA" /></CrestProvider>);
     await waitFor(() => expect(document.querySelector("img.team-crest")).not.toBeNull());
     const img = document.querySelector("img.team-crest")!;
     expect(img).toHaveAttribute("src", URL_DOSA);
@@ -24,12 +24,12 @@ describe("escudos oficiales", () => {
     expect(img).toHaveAttribute("alt", "");
     expect(document.querySelectorAll("svg.team-crest")).toHaveLength(1); // ALCALA sin escudo: monograma
     expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(String(fetchMock.mock.calls[0][0])).toMatch(/\/chat\/crests$/);
+    expect(String(fetchMock.mock.calls[0][0])).toMatch(/\/chat\/crests\?sport=futsal$/);
   });
 
   it("si la imagen no carga, vuelve al monograma", async () => {
     serve({ mode: "link", crests: { "C.D. DOSA": URL_DOSA } });
-    render(<CrestProvider><TeamCrest name="C.D. DOSA" /></CrestProvider>);
+    render(<CrestProvider sport="futsal"><TeamCrest name="C.D. DOSA" /></CrestProvider>);
     await waitFor(() => expect(document.querySelector("img.team-crest")).not.toBeNull());
     fireEvent.error(document.querySelector("img.team-crest")!);
     expect(document.querySelector("img.team-crest")).toBeNull();
@@ -39,20 +39,20 @@ describe("escudos oficiales", () => {
   it("apagado, respuesta rara o error de red: siempre monogramas", async () => {
     for (const body of [{ mode: "off", crests: {} }, { answer: "no es un mapa" }, { mode: "link", crests: { X: "javascript:alert(1)" } }]) {
       serve(body);
-      const { unmount } = render(<CrestProvider><TeamCrest name="X" /></CrestProvider>);
+      const { unmount } = render(<CrestProvider sport="futsal"><TeamCrest name="X" /></CrestProvider>);
       await new Promise((r) => setTimeout(r, 0));
       expect(document.querySelector("img")).toBeNull();
       unmount();
     }
     vi.stubGlobal("fetch", vi.fn(() => Promise.reject(new TypeError("red"))));
-    render(<CrestProvider><TeamCrest name="X" /></CrestProvider>);
+    render(<CrestProvider sport="futsal"><TeamCrest name="X" /></CrestProvider>);
     await new Promise((r) => setTimeout(r, 0));
     expect(document.querySelector("img")).toBeNull();
   });
 
   it("con CRESTS_MODE=local usa la copia propia servida por el servicio de chat", async () => {
     serve({ mode: "local", crests: { "C.D. DOSA": "/chat/crests/img/0123456789abcdef0123.webp" } });
-    render(<CrestProvider><TeamCrest name="C.D. DOSA" /></CrestProvider>);
+    render(<CrestProvider sport="futsal"><TeamCrest name="C.D. DOSA" /></CrestProvider>);
     await waitFor(() => expect(document.querySelector("img.team-crest")).toHaveAttribute("src", `${API_URL}/chat/crests/img/0123456789abcdef0123.webp`));
   });
 

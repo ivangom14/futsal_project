@@ -1,5 +1,9 @@
 # Fase 5 — API de consulta (solo lectura)
 
+> **Fase 1 multideporte (2026-11-19):** todos los endpoints de datos exigen `sport=futsal|football11|all` (sin él: 400 en v1 y 422 en
+> v2, nombrando `sport`); un ID de otro deporte responde 404 «no encontrado en <deporte>»; con `all` cada fila lleva `sport`.
+> Detalle: `docs/multisport-phase1.md`.
+
 ## Objetivo
 API REST pequeña sobre el modelo persistido en PostgreSQL; capa estable para la futura capa MCP.
 No conoce el scraper RFFM ni escribe datos.

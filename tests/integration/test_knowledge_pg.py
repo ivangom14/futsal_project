@@ -1,6 +1,5 @@
 """Ingesta y búsqueda documental contra PostgreSQL temporal (se omite sin servidor)."""
-from collections.abc import Callable
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from datetime import date
 from pathlib import Path
 
@@ -13,7 +12,7 @@ from futsal.knowledge.models import ExtractedDocument, PageText
 from futsal.knowledge.profiles import PROFILES
 from futsal.knowledge.search import KnowledgeSearch, SearchError
 
-SPEC = DocumentSpec(doc_key="doc-a", title="Reglamento de prueba", doc_type="reglamento",
+SPEC = DocumentSpec(sports=("futsal",), doc_key="doc-a", title="Reglamento de prueba", doc_type="reglamento",
                     language="es", effective_date=date(2025, 9, 5), version_label="v1")
 
 PdfMaker = Callable[[list[str]], bytes]
@@ -129,7 +128,7 @@ def test_reindex_after_failed_indexing_replaces_chunks(kb: Engine, tmp_path: Pat
 
 def test_search_ranking_filters_validation_and_typos(kb: Engine, tmp_path: Path,
                                                      make_pdf: PdfMaker) -> None:
-    other = DocumentSpec(doc_key="doc-b", title="Otro documento", doc_type="circular",
+    other = DocumentSpec(sports=("futsal",), doc_key="doc-b", title="Otro documento", doc_type="circular",
                          language="es", version_label="v9")
     ingest_document(kb, SPEC, _pdf(tmp_path, make_pdf, "a.pdf", [
         "El GUARDAMETA no puede tocar el balón con la mano fuera de su área",
@@ -171,8 +170,9 @@ def test_hit_and_total_size_limits(kb: Engine, tmp_path: Path, make_pdf: PdfMake
 
 def test_rule_filter_and_citation_fields(kb: Engine, tmp_path: Path, make_pdf: PdfMaker,
                                          monkeypatch: pytest.MonkeyPatch) -> None:
-    from futsal.knowledge.structure import StructureProfile
     import re
+
+    from futsal.knowledge.structure import StructureProfile
     monkeypatch.setitem(PROFILES, "t", StructureProfile(
         rule_header=re.compile(r"Regla (\d+)\s+•\s+(.+)"), rule_divider=re.compile(r"Regla (\d+)")))
     pages = [PageText(1, "Regla 3\nLos jugadores"),
@@ -187,7 +187,7 @@ def test_rule_filter_and_citation_fields(kb: Engine, tmp_path: Path, make_pdf: P
             return ExtractedDocument(pages)
 
     monkeypatch.setattr(ingest_mod, "get_extractor", lambda p: Fake())
-    spec = DocumentSpec(doc_key="r", title="R", doc_type="reglamento", language="es",
+    spec = DocumentSpec(sports=("futsal",), doc_key="r", title="R", doc_type="reglamento", language="es",
                         structure_profile="t")
     ingest_document(kb, spec, _pdf(tmp_path, make_pdf, "x.pdf", ["x"]), storage=tmp_path / "s")
     s = KnowledgeSearch(kb)

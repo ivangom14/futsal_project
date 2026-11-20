@@ -11,6 +11,9 @@
   "external_id": "26738245",
   "name": "Grupo 2"
  },
+ "game_type": {
+  "external_id": "3"
+ },
  "rounds": [
   {
    "external_round_id": "1",

@@ -34,7 +34,7 @@ from futsal.agent.llm import (
     Usage,
     estimate_cost,
 )
-from futsal.agent.mcp_client import McpClient
+from futsal.agent.mcp_client import McpClient, SportScopedMcp
 from futsal.agent.memory import (
     DEFAULT_MAX_CHARS,
     DEFAULT_MAX_TURNS,
@@ -161,6 +161,16 @@ CATALOG_HEADER = (
     "list_teams / list_rounds con su group_id:\n"
 )
 PROMPTS = PromptSet("standard", SYSTEM_PROMPT + MODULE_V2, HISTORY_RULE, CONTEXT_HEADER, CATALOG_HEADER)  # conjunto único de textos del agente
+# Fase 1 multideporte: fútbol sala conserva su prompt byte a byte; fútbol 11 solo cambia la presentación del asistente (el resto de
+# textos específicos —aviso de fuera de ámbito, módulo de reglas— se adapta en la Fase 2 con datos reales de fútbol 11).
+PROMPTS_BY_SPORT = {
+    "futsal": PROMPTS,
+    "football11": replace(PROMPTS, system=PROMPTS.system.replace(
+        "Eres un asistente de consulta de fútbol sala RFFM.", "Eres un asistente de consulta de fútbol (fútbol 11) RFFM.", 1)),
+}
+# Estado precargado que depende del deporte (catálogo, contexto, equipos): una copia por deporte, nunca compartida.
+SPORT_CACHED = ("_system", "_competitions", "_catalog", "_ctx_teams", "_ctx_rounds", "_team_catalog", "_ctx_engine", "_ctx_engine_key",
+                "_prompts")
 
 
 # Preguntas por el acta o por cómo fue un partido: se pide el acta entera (alineaciones de los dos equipos, goles, tarjetas, árbitros y cuerpo técnico)
@@ -428,7 +438,8 @@ class Agent:
         self._und: Understanding | None = None
         self._state: ConversationState | None = None
         self._state_in: dict[str, Any] | None = None
-        self._mcp = mcp
+        self._mcp = SportScopedMcp(mcp)  # el deporte de la petición se inyecta en cada herramienta; el LLM no lo ve ni lo elige
+        self._sport_cache: dict[str, dict[str, Any]] = {}
         self._max = max_tool_calls
         self._on_trace = on_trace
         self._max_rows = max_rows
@@ -818,8 +829,32 @@ class Agent:
             rec.context_ms, rec.context_tool_calls = _ms(start), self._ctx_calls
         return self._system
 
+    @property
+    def sport(self) -> str | None:
+        return self._mcp.sport
+
+    def _activate_sport(self, sport: str | None) -> None:
+        """Cambia el deporte activo guardando y recuperando el estado precargado de cada deporte (sin mezclar catálogos)."""
+        if sport == self._mcp.sport:
+            return
+        if sport is not None and sport not in PROMPTS_BY_SPORT:
+            raise ValueError(f"deporte no admitido por el agente: {sport!r}")
+        self._sport_cache[str(self._mcp.sport)] = {k: getattr(self, k) for k in SPORT_CACHED}
+        saved = self._sport_cache.get(str(sport))
+        if saved is not None:
+            for k, v in saved.items():
+                setattr(self, k, v)
+        else:
+            self._system, self._competitions, self._catalog = None, [], []
+            self._ctx_teams, self._ctx_rounds, self._team_catalog = set(), set(), None
+            self._ctx_engine, self._ctx_engine_key = None, ()
+            self._prompts = PROMPTS_BY_SPORT.get(str(sport), PROMPTS)
+        self._mcp.sport = sport
+
     async def run(self, question: str, history: Sequence[Turn] = (), focus: dict[str, Any] | None = None,
-                  conversation_id: str | None = None, state: dict[str, Any] | None = None) -> AgentResult:
+                  conversation_id: str | None = None, state: dict[str, Any] | None = None, *, sport: str | None = None) -> AgentResult:
+        """`sport`: deporte de la conversación (futsal | football11). Las herramientas que lo exigen fallan sin él."""
+        self._activate_sport(sport)
         result = AgentResult("", 0)
         rec = RunRecord(question=question, provider=getattr(self._llm, "provider", None),
                         model=getattr(self._llm, "model", None), max_tool_calls=self._max, conversation_id=conversation_id,

@@ -114,7 +114,7 @@ def call(tool: str, **args: Any) -> LLMResponse:
 
 def run(question: str, steps: list[LLMResponse], history: list[Turn] | None = None, focus: dict[str, Any] | None = None) -> tuple[Any, Script]:
     llm = Script(steps)
-    return asyncio.run(Agent(llm, Mcp(), 5, trace_results=True).run(question, history or [], focus)), llm
+    return asyncio.run(Agent(llm, Mcp(), 5, trace_results=True).run(question, history or [], focus, sport="futsal")), llm
 
 
 def present(question: str, steps: list[LLMResponse], freshness: dict[int, Any] | None = None, asked: list[str] | None = None,
@@ -169,7 +169,7 @@ def web(steps: list[LLMResponse], freshness: Any = None) -> tuple[TestClient, Sc
         yield Agent(llm, Mcp(), 5, trace_results=True)
 
     app = create_chat_app(AgentRunner(factory), lambda: {"reachable": True, "detail": None},
-                          freshness=freshness or (lambda ids: {}))
+                          freshness=freshness or (lambda ids, sport: {}))
     return TestClient(app), llm
 
 
@@ -177,13 +177,13 @@ def test_focus_is_kept_per_conversation_isolated_and_seeded_only_for_unknown_ids
     steps = [call("find_teams", name="DOSA"), call("list_matches", group_id=12, team_id=5), *[LLMResponse(f"r{i}", []) for i in range(14)]]
     c, llm = web(steps)
     with c:
-        first = c.post("/chat", json={"question": "¿Cómo va el DOSA?", "conversation_id": "a"}).json()
+        first = c.post("/chat", json={"sport": "futsal", "question": "¿Cómo va el DOSA?", "conversation_id": "a"}).json()
         assert first["focus"]["team"] == "C.D. DOSA"
-        c.post("/chat", json={"question": "¿Y el siguiente?", "conversation_id": "a"})
-        c.post("/chat", json={"question": "¿Y el siguiente?", "conversation_id": "b"})  # otra conversación: sin foco
-        seeded = c.post("/chat", json={"question": "¿Y el siguiente?", "conversation_id": "c",
+        c.post("/chat", json={"sport": "futsal", "question": "¿Y el siguiente?", "conversation_id": "a"})
+        c.post("/chat", json={"sport": "futsal", "question": "¿Y el siguiente?", "conversation_id": "b"})  # otra conversación: sin foco
+        seeded = c.post("/chat", json={"sport": "futsal", "question": "¿Y el siguiente?", "conversation_id": "c",
                                        "focus": {"team": "FS ALCALA", "x": "y"}})
-        forged = c.post("/chat", json={"question": "¿Y el siguiente?", "conversation_id": "a", "focus": {"team": "FALSO"}})
+        forged = c.post("/chat", json={"sport": "futsal", "question": "¿Y el siguiente?", "conversation_id": "a", "focus": {"team": "FALSO"}})
     notes = [m[-1].text for m in llm.seen if "Foco" in m[-1].text or m[-1].text.startswith("¿Y el")]
     assert any("equipo «C.D. DOSA»" in n or "Equipo identificado: «C.D. DOSA»" in n for n in notes)
     assert "FS ALCALA" in [m[-1].text for m in llm.seen][-2] and seeded.status_code == 200 and forged.status_code == 200
@@ -297,7 +297,7 @@ def test_rules_answers_suggest_only_what_the_rag_can_answer() -> None:
 def test_clicked_suggestions_are_plain_user_messages_with_the_same_contract() -> None:
     c, _ = web([call("get_standings", group_id=12), LLMResponse("Líder DOSA.", [])])
     with c:
-        body = c.post("/chat", json={"question": "¿Cómo va la clasificación?", "conversation_id": "s"}).json()
+        body = c.post("/chat", json={"sport": "futsal", "question": "¿Cómo va la clasificación?", "conversation_id": "s"}).json()
     assert body["suggestions"] and all(isinstance(s, str) and s.endswith(("?", "reglamento")) for s in body["suggestions"])
     assert datetime.fromisoformat(body["sources"][0]["queried_at"]).tzinfo is UTC or body["sources"][0]["queried_at"]
 
@@ -309,9 +309,9 @@ def test_visual_contract_fixture_matches_backend() -> None:
     """El frontend renderiza este JSON REAL (tabla, comparativa, ranking y forma): si cambia el contrato, hay que regenerarlo."""
     steps = [call("find_teams", name="DOSA"), call("list_matches", group_id=12, team_id=5, status="finished"),
              call("get_standings", group_id=12), call("get_scorer_table", group_id=12), LLMResponse("El DOSA lidera con 13 puntos.", [])]
-    c, _ = web(steps, freshness=lambda ids: {12: {"datasets": {"matches": {"status": "fresh", "last_valid_at": "2026-10-29T08:00:00+00:00"}}}})
+    c, _ = web(steps, freshness=lambda ids, sport: {12: {"datasets": {"matches": {"status": "fresh", "last_valid_at": "2026-10-29T08:00:00+00:00"}}}})
     with c:
-        body = c.post("/chat", json={"question": "Compara el DOSA y el Alcalá en la clasificación", "conversation_id": "fx"}).json()
+        body = c.post("/chat", json={"sport": "futsal", "question": "Compara el DOSA y el Alcalá en la clasificación", "conversation_id": "fx"}).json()
     body["diagnostics"].update(run_id="run", duration_ms=0, llm_ms=0, retry_wait_ms=0, tools_ms=0, context_ms=0, postprocess_ms=0)
     for t in body["diagnostics"]["tools"]:
         t["duration_ms"] = 0
@@ -473,7 +473,7 @@ MATCHES_FIXTURE = __import__("pathlib").Path(__file__).parent / "fixtures" / "ch
 def _fixture(steps: list[LLMResponse], question: str, path: Any, expected: list[str]) -> None:
     c, _ = web(steps)
     with c:
-        body = c.post("/chat", json={"question": question, "conversation_id": "fx"}).json()
+        body = c.post("/chat", json={"sport": "futsal", "question": question, "conversation_id": "fx"}).json()
     body["diagnostics"].update(run_id="run", duration_ms=0, llm_ms=0, retry_wait_ms=0, tools_ms=0, context_ms=0, postprocess_ms=0)
     for t in body["diagnostics"]["tools"]:
         t["duration_ms"] = 0
@@ -538,7 +538,7 @@ def test_asking_for_the_report_fetches_the_whole_report() -> None:
     def sent(question: str, **args: Any) -> dict[str, Any]:
         c, _ = web([call("get_match_report", match_id=9, **args), LLMResponse("ok", [])])
         with c:
-            body = c.post("/chat", json={"question": question, "conversation_id": "acta"}).json()
+            body = c.post("/chat", json={"sport": "futsal", "question": question, "conversation_id": "acta"}).json()
         return dict(body["diagnostics"]["tools"][0]["arguments"])
 
     full = sent("¿Cuál fue el acta del último partido del Dosa senior en liga?")

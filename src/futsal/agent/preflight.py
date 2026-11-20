@@ -29,6 +29,9 @@ EXPECTED_TOOLS = frozenset({
 MARKER = Path("data/agent/preflight.json")
 Status = Literal["ok", "warn", "fail", "info"]
 
+# Fase 1 multideporte: la base de evaluación (y este preflight) es de fútbol sala; la API exige el deporte explícito.
+SPORT = {"sport": "futsal"}
+
 
 def quiet_logs() -> None:
     import logging
@@ -100,15 +103,15 @@ def db_snapshot(engine: Engine) -> dict[str, Any]:
 
 def api_snapshot(client: httpx.Client) -> dict[str, Any]:
     """Lo mismo, pero visto a través de la API (solo GET)."""
-    comps = client.get("/competitions").json()["items"]
+    comps = client.get("/competitions", params=SPORT).json()["items"]
     if not comps:
         return {"empty": True}
-    groups = client.get(f"/competitions/{comps[0]['id']}/groups").json()["items"]
+    groups = client.get(f"/competitions/{comps[0]['id']}/groups", params=SPORT).json()["items"]
     if not groups:
         return {"empty": True}
     gid = groups[0]["id"]
-    matches = client.get(f"/groups/{gid}/matches").json()["items"]
-    cov = client.get(f"/groups/{gid}/scorers", params={"limit": 1}).json().get("coverage", {})
+    matches = client.get(f"/groups/{gid}/matches", params=SPORT).json()["items"]
+    cov = client.get(f"/groups/{gid}/scorers", params={**SPORT, "limit": 1}).json().get("coverage", {})
     rows = [(m["id"], m["status"], m["home_score"], m["away_score"]) for m in matches]
     return {"group_id": gid, "group_name": groups[0]["name"], "fingerprint": fingerprint(rows),
             "matches": len(rows), "finished": sum(1 for r in rows if r[1] == "finished"),
@@ -118,9 +121,9 @@ def api_snapshot(client: httpx.Client) -> dict[str, Any]:
 def api_limit_check(client: httpx.Client) -> Check:
     """¿La API en marcha admite `limit` en list_matches? Si es una versión anterior (no reiniciada tras git pull) lo ignora."""
     try:
-        comps = client.get("/competitions").json()["items"]
-        gid = client.get(f"/competitions/{comps[0]['id']}/groups").json()["items"][0]["id"]
-        data = client.get(f"/groups/{gid}/matches", params={"limit": 1}).json()
+        comps = client.get("/competitions", params=SPORT).json()["items"]
+        gid = client.get(f"/competitions/{comps[0]['id']}/groups", params=SPORT).json()["items"][0]["id"]
+        data = client.get(f"/groups/{gid}/matches", params={**SPORT, "limit": 1}).json()
     except Exception as exc:  # noqa: BLE001
         return Check("API limit", "warn", f"no se pudo comprobar ({type(exc).__name__})")
     if data.get("count", 0) <= 1 or (len(data["items"]) == 1 and data.get("shown") == 1):

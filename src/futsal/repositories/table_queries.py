@@ -224,10 +224,13 @@ def competition_scorers(db: Session, competition_id: int, limit: int) -> dict[st
             "groups": groups}
 
 
-def table_coverage(db: Session, competition_id: int | None = None) -> dict[str, Any] | None:
+def table_coverage(db: Session, competition_id: int | None = None, sports: tuple[str, ...] | None = None) -> dict[str, Any] | None:
+    """`sports`: solo grupos de esas modalidades (la API siempre lo pasa: deporte obligatorio)."""
     if competition_id is not None and db.get(Competition, competition_id) is None:
         return None
     stmt = select(CompetitionGroup).order_by(CompetitionGroup.id)
+    if sports is not None:
+        stmt = stmt.join(Competition, Competition.id == CompetitionGroup.competition_id).where(Competition.modality.in_(sports))
     if competition_id is not None:
         stmt = stmt.where(CompetitionGroup.competition_id == competition_id)
     items: list[dict[str, Any]] = []

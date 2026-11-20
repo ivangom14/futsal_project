@@ -58,11 +58,14 @@ def _load_inventories(paths: list[Path]) -> tuple[dict[str, dict[str, Any]], dic
 def _entities(s: Session) -> dict[str, int]:
     """Paso 1: crea las entidades que faltan, refresca el último nombre visto y enlaza los equipos sin entidad."""
     counts = {"entities_created": 0, "entities_renamed": 0, "teams_linked": 0}
-    existing = {(e.source, e.external_code): e for e in s.scalars(select(TeamEntity))}
-    latest: dict[tuple[str, str], tuple[Any, int, str | None]] = {}
-    first: dict[tuple[str, str], Any] = {}
-    for t in s.scalars(select(Team)):
-        key = (t.source, t.external_id)
+    # 0009: la identidad es (fuente, deporte, CodEquipo); el deporte del equipo es el de la competición de su grupo.
+    existing = {(e.source, e.sport, e.external_code): e for e in s.scalars(select(TeamEntity))}
+    latest: dict[tuple[str, str, str], tuple[Any, int, str | None]] = {}
+    first: dict[tuple[str, str, str], Any] = {}
+    team_rows = s.execute(select(Team, Competition.modality).join(CompetitionGroup, CompetitionGroup.id == Team.group_id)
+                          .join(Competition, Competition.id == CompetitionGroup.competition_id)).all()
+    for t, sport in team_rows:
+        key = (t.source, sport, t.external_id)
         stamp = (t.last_seen_at, t.id, t.name)
         if key not in latest or stamp[:2] > latest[key][:2]:
             latest[key] = stamp
@@ -71,7 +74,7 @@ def _entities(s: Session) -> dict[str, int]:
     for key in sorted(latest):
         entity = existing.get(key)
         if entity is None:
-            entity = existing[key] = TeamEntity(source=key[0], external_code=key[1], name=latest[key][2],
+            entity = existing[key] = TeamEntity(source=key[0], sport=key[1], external_code=key[2], name=latest[key][2],
                                                 first_seen_at=first[key], last_seen_at=latest[key][0])
             s.add(entity)
             counts["entities_created"] += 1
@@ -80,9 +83,10 @@ def _entities(s: Session) -> dict[str, int]:
             counts["entities_renamed"] += 1
     s.flush()
     ids = {k: e.id for k, e in existing.items()}
-    for t in s.scalars(select(Team).where(Team.team_entity_id.is_(None))):
-        t.team_entity_id = ids[(t.source, t.external_id)]
-        counts["teams_linked"] += 1
+    for t, sport in team_rows:
+        if t.team_entity_id is None:
+            t.team_entity_id = ids[(t.source, sport, t.external_id)]
+            counts["teams_linked"] += 1
     s.flush()
     return counts
 

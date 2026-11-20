@@ -9,9 +9,9 @@ from typing import Any
 from zoneinfo import ZoneInfo
 
 import pytest
-from fastapi.testclient import TestClient
 from sqlalchemy import Engine, select, text
 from sqlalchemy.orm import Session
+from tests.sport_client import FutsalClient
 
 from futsal.api.app import create_app
 from futsal.db.models import (
@@ -68,7 +68,7 @@ class Seed:
 
     def comp(self, name: str, category: str = "unknown", gender: str = "unknown", kind: str = "unknown",
              review: str = "needs_review") -> Competition:
-        c = Competition(source="rffm", season_id=self.season_id, external_id=_ext(), name=name, category=category, gender=gender,
+        c = Competition(modality="futsal", source="rffm", season_id=self.season_id, external_id=_ext(), name=name, category=category, gender=gender,
                         kind=kind, review_status=review)
         self.s.add(c)
         self.s.flush()
@@ -219,7 +219,7 @@ def world(engine: Engine, tmp_path: Path) -> Iterator[dict[str, Any]]:
         club = Club(source="rffm", external_code="C-1", name="GETAFE JUVENIL CLUB", normalized_name="getafe juvenil club")
         s.add(club)
         s.flush()
-        ent = TeamEntity(source="rffm", external_code="E-1", club_id=club.id, club_link_status="official", name=ge.name)
+        ent = TeamEntity(sport="futsal", source="rffm", external_code="E-1", club_id=club.id, club_link_status="official", name=ge.name)
         s.add(ent)
         s.flush()
         ge.team_entity_id = ent.id
@@ -228,7 +228,7 @@ def world(engine: Engine, tmp_path: Path) -> Iterator[dict[str, Any]]:
                  cad=[g.id for g in cad], teams={"pa": pa.id, "pb": pb.id, "mo": mo.id, "pl": pl.id, "pj": pj.id, "ap": ap.id, "ge": ge.id},
                  players={"quintanar": quintanar.id, "munoz": munoz.id, "juan_a": juan_a.id, "juan_b": juan_b.id, "sergio": sergio.id},
                  m1=m1.id, club=club.id)
-    w["client"] = TestClient(create_app(engine, today=lambda: TODAY))
+    w["client"] = FutsalClient(create_app(engine, today=lambda: TODAY))
     w["engine"] = engine
     yield w
 

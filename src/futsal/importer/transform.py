@@ -63,6 +63,7 @@ class ImportPlan:
     competition_name: str | None
     group_external_id: str
     group_name: str | None
+    game_type_code: str | None = None
     rounds: list[RoundRec] = field(default_factory=list)
     teams: list[TeamRec] = field(default_factory=list)
     matches: list[MatchRec] = field(default_factory=list)
@@ -93,6 +94,7 @@ def build_plan(league: LeagueFile) -> ImportPlan:
         league.season.external_id, league.season.name,
         league.competition.external_id, league.competition.name,
         league.group.external_id, league.group.name,
+        league.game_type.external_id if league.game_type else None,
     )
     round_ids: set[str] = set()
     for r in league.rounds:

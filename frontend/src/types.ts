@@ -165,8 +165,17 @@ export interface Message {
   failureTechnical?: string;
 }
 
+/** Deporte: dimensión obligatoria y explícita en todas las llamadas deportivas al backend. */
+export type Sport = "futsal" | "football11";
+export const SPORTS: readonly Sport[] = ["futsal", "football11"];
+export const DEFAULT_SPORT: Sport = "futsal";
+export const SPORT_LABEL: Record<Sport, string> = { futsal: "Fútbol sala", football11: "Fútbol" };
+export const isSport = (v: unknown): v is Sport => v === "futsal" || v === "football11";
+
 export interface Conversation {
   id: string;
+  /** Deporte de la conversación: sus referencias (competiciones, equipos, foco) nunca se mezclan con las de otro. */
+  sport: Sport;
   title: string;
   createdAt: number;
   updatedAt: number;

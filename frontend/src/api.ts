@@ -1,4 +1,4 @@
-import type { ChatResponse, Feedback, Focus, Health, HistoryItem } from "./types";
+import type { ChatResponse, Feedback, Focus, Health, HistoryItem, Sport } from "./types";
 
 export const API_URL: string = (import.meta.env.VITE_CHAT_API_URL as string | undefined) ?? "http://127.0.0.1:8001";
 
@@ -54,19 +54,19 @@ async function request<T>(path: string, init?: RequestInit, timeoutMs = 120_000,
 export const getHealth = (): Promise<Health> => request<Health>("/chat/health", undefined, 5_000);
 
 /** `history` solo siembra la conversación si el servidor no la conoce (p. ej. tras reiniciarlo); el servidor manda. */
-export const askAgent = (question: string, conversationId: string, history: HistoryItem[] = [], focus: Focus = {}, signal?: AbortSignal): Promise<ChatResponse> =>
+export const askAgent = (question: string, conversationId: string, sport: Sport, history: HistoryItem[] = [], focus: Focus = {}, signal?: AbortSignal): Promise<ChatResponse> =>
   request<ChatResponse>("/chat", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ question, conversation_id: conversationId, history, focus }),
+    body: JSON.stringify({ question, conversation_id: conversationId, sport, history, focus }),
   }, 120_000, signal);
 
 /** Valoración de una respuesta (solo para análisis posterior: no cambia el comportamiento del agente). */
-export const sendFeedback = (conversationId: string, messageId: string, runId: string | null, fb: Feedback): Promise<{ saved: boolean }> =>
+export const sendFeedback = (conversationId: string, messageId: string, runId: string | null, fb: Feedback, sport: Sport): Promise<{ saved: boolean }> =>
   request("/chat/feedback", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ conversation_id: conversationId, message_id: messageId, run_id: runId, rating: fb.rating, reason: fb.reason ?? null, comment: fb.comment ?? null }),
+    body: JSON.stringify({ conversation_id: conversationId, sport, message_id: messageId, run_id: runId, rating: fb.rating, reason: fb.reason ?? null, comment: fb.comment ?? null }),
   }, 10_000);
 
 /** Pide al servidor que olvide el historial de una conversación borrada (si falla, caduca solo: memoria acotada). */
@@ -74,4 +74,5 @@ export const forgetConversation = (conversationId: string): Promise<{ deleted: b
   request(`/chat/conversations/${encodeURIComponent(conversationId)}`, { method: "DELETE" }, 5_000);
 
 /** Escudos oficiales por nombre de equipo (vacío si CRESTS_MODE=off en el servicio de chat). */
-export const getCrests = (): Promise<{ mode: string; crests: Record<string, string> }> => request("/chat/crests", undefined, 5_000);
+export const getCrests = (sport: Sport): Promise<{ mode: string; crests: Record<string, string> }> =>
+  request(`/chat/crests?sport=${encodeURIComponent(sport)}`, undefined, 5_000);

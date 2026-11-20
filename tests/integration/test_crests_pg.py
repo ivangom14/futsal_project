@@ -4,8 +4,8 @@ import shutil
 from pathlib import Path
 
 import pytest
-from fastapi.testclient import TestClient
 from sqlalchemy import Engine, text
+from tests.sport_client import FutsalClient
 
 from futsal.api.app import create_app
 from futsal.importer.crest_backfill import run_crest_backfill
@@ -29,7 +29,7 @@ def test_backfill_idempotente_y_api(engine: Engine, tmp_path: Path) -> None:
     again = run_crest_backfill(engine, tmp_path)
     assert again["teams_updated"] == 0 and again["teams_unchanged"] == first["teams_updated"]
 
-    with TestClient(create_app(engine)) as client:
+    with FutsalClient(create_app(engine)) as client:
         body = client.get("/crests").json()
     assert body["count"] == first["teams_updated"]
     for row in body["items"]:

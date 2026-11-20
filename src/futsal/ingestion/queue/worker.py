@@ -44,6 +44,7 @@ from futsal.ingestion.queue.handlers import (
     JobError,
     JobView,
 )
+from futsal.ingestion.queue.ingest_scope import gate_target, load_scope
 from futsal.ingestion.queue.ratelimit import RateLimiter
 from futsal.ingestion.queue.schedule import ScheduleConfig, load_schedule
 
@@ -226,6 +227,11 @@ def _run_job(session_factory: Callable[[], Session], fetcher: Fetcher, engine: E
     handler = table.get(view.kind)
     if handler is None:
         _fail(session_factory, cfg, report, view, f"tipo de trabajo desconocido: {view.kind}", None, False, now())
+        return False
+    with session_factory() as s:  # alcance declarativo: un trabajo fuera de alcance falla sin red y sin reintentos
+        blocked = gate_target(s, load_scope(), view.target, source)
+    if blocked is not None:
+        _fail(session_factory, cfg, report, view, f"fuera del alcance de ingesta: {blocked}", None, False, now())
         return False
     ctx = Context(session_factory, fetcher, engine, now, cfg, sched, work_dir, view, source, reports_dir)
     try:

@@ -33,7 +33,7 @@ class Seq:
 
 
 def run(llm: Any, question: str, history: list[Turn] | None = None, state: dict[str, Any] | None = None) -> Any:
-    return asyncio.run(Agent(llm, FakeMcp(), 8).run(question, history or [], state=state))
+    return asyncio.run(Agent(llm, FakeMcp(), 8).run(question, history or [], state=state, sport="futsal"))
 
 
 def call(tool: str, **args: Any) -> LLMResponse:
@@ -138,15 +138,15 @@ def test_web_service_persists_state_and_rebuilds_it_after_a_restart() -> None:
     llm = Seq([call("get_standings", group_id=101), call("get_standings", group_id=102), LLMResponse("Tabla.", []),
                call("get_scorer_table", group_id=101), call("get_scorer_table", group_id=102), LLMResponse("Goleadores.", [])])
     client = build(llm)
-    r1 = client.post("/chat", json={"question": "Clasificación de la tercera", "conversation_id": "c1", "history": []})
+    r1 = client.post("/chat", json={"sport": "futsal", "question": "Clasificación de la tercera", "conversation_id": "c1", "history": []})
     assert r1.status_code == 200 and "state" not in r1.json()  # el estado no sale al cliente
     ctx = r1.json()["diagnostics"]["context"]  # …pero el panel de detalles técnicos sí ve cómo se interpretó
     assert ctx["mode"] == "deterministic" and ctx["status"] == "act" and ctx["competitions"] == [TER] and ctx["intent"] == "standings"
-    r2 = client.post("/chat", json={"question": "¿Y los goleadores?", "conversation_id": "c1", "history": []})
+    r2 = client.post("/chat", json={"sport": "futsal", "question": "¿Y los goleadores?", "conversation_id": "c1", "history": []})
     assert r2.status_code == 200 and "Intención identificada: scorers" in next(m.text for m in reversed(llm.seen[3]) if m.role == "user")
     # el servidor se reinicia (memoria vacía): el navegador reenvía el historial y el contexto se reconstruye
     llm2 = Seq([call("get_standings", group_id=101), call("get_standings", group_id=102), LLMResponse("Tabla.", [])])
-    r3 = build(llm2).post("/chat", json={"question": "¿Y la clasificación?", "conversation_id": "c1", "history": [
+    r3 = build(llm2).post("/chat", json={"sport": "futsal", "question": "¿Y la clasificación?", "conversation_id": "c1", "history": [
         {"role": "user", "content": "Clasificación de la tercera"},
         {"role": "assistant", "content": r1.json()["answer_original"] or r1.json()["answer"]}]})  # como el navegador (conversations.historyFor)
     assert r3.status_code == 200 and TER in next(m.text for m in reversed(llm2.seen[0]) if m.role == "user")
