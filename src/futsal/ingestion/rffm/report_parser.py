@@ -33,11 +33,27 @@ from futsal.ingestion.rffm.report_models import (
 TECHNICAL_SOURCE = "next_data:props.pageProps.game"
 SIDES: tuple[tuple[Side, str], ...] = (("home", "local"), ("away", "visitante"))
 # Listas cuya estructura no se ha observado con datos: se avisa, no se interpretan.
-_UNPARSED = ("goles_penalti", "otras_tarjetas", "otros_tecnicos_local", "otros_tecnicos_visitante",
-             "sustituciones_equipo_local", "sustituciones_equipo_visitante")
+_UNPARSED = ("goles_penalti", "otras_tarjetas")
+# Fase 3C: observadas en las actas de fútbol 11 (piloto) e interpretadas. Vacías (siempre en fútbol sala) no se listan en
+# `empty_sections`, como antes: el contenido normalizado —y su hash— de las actas que no las traen no cambia.
+_PARSED_F3 = ("otros_tecnicos_local", "otros_tecnicos_visitante", "sustituciones_equipo_local", "sustituciones_equipo_visitante")
 _LISTS = ("goles_equipo_local", "goles_equipo_visitante", "tarjetas_equipo_local",
           "tarjetas_equipo_visitante", "jugadores_equipo_local", "jugadores_equipo_visitante",
-          "arbitros_partido", *_UNPARSED)
+          "arbitros_partido", *_UNPARSED, *_PARSED_F3)
+# Claves añadidas en la Fase 3C que, vacías, no forman parte del hash (las actas anteriores conservan su hash).
+_NEW_OPTIONAL = {"events": ("related_player_external_id", "related_player_name"), "staff": ("role_label",)}
+# Campos mínimos para interpretar una fila de las secciones nuevas; las que no los traen se omiten y se avisan (nunca eventos vacíos).
+_REQUIRED_F3 = {"otros_tecnicos": ("nombre",), "sustituciones_equipo": ("codjugador_entra", "nombre_jugador_entra",
+                                                                         "codjugador_sale", "nombre_jugador_sale")}
+
+
+def _usable(row: Any, key: str) -> bool:
+    need = _REQUIRED_F3["otros_tecnicos" if key.startswith("otros_tecnicos") else "sustituciones_equipo"]
+    if not isinstance(row, dict):
+        return False
+    if key.startswith("otros_tecnicos"):
+        return _text(row.get("nombre")) is not None
+    return any(_text(row.get(k)) for k in need[:2]) and any(_text(row.get(k)) for k in need[2:])  # quién entra Y quién sale
 
 
 def absolute_url(value: Any, base: str) -> str | None:
@@ -48,6 +64,11 @@ def absolute_url(value: Any, base: str) -> str | None:
 def content_hash(report: MatchReport) -> str:
     """SHA-256 del contenido normalizado (sin observed_at ni el propio hash)."""
     payload = report.model_dump(mode="json", exclude={"source": {"observed_at"}, "report": {"content_hash"}})
+    for section, keys in _NEW_OPTIONAL.items():
+        for row in payload.get(section) or []:
+            for key in keys:
+                if row.get(key) is None:
+                    row.pop(key, None)
     canonical = json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
     return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
@@ -115,6 +136,14 @@ def _staff(game: dict[str, Any]) -> list[ReportStaff]:
         out.append(ReportStaff(team_side=side, team_external_id=team_id, sequence=len(out) + 1,
                                display_name=name, role=role,
                                external_id=_text(game.get(id_key)) if id_key else None))
+    for side, suffix in SIDES:  # «otros técnicos» (fútbol 11): cargo oficial tal cual; nunca se deduce un rol
+        team_id = _text(game.get(f"codigo_equipo_{suffix}"))
+        for row in game.get(f"otros_tecnicos_{suffix}") or []:
+            name = _text(row.get("nombre")) if _usable(row, f"otros_tecnicos_{suffix}") else None
+            if name is None:
+                continue
+            out.append(ReportStaff(team_side=side, team_external_id=team_id, sequence=len(out) + 1, display_name=name,
+                                   role="other_staff", external_id=_text(row.get("cod_tecnico")), role_label=_text(row.get("tipo"))))
     return out
 
 
@@ -155,6 +184,18 @@ def _events(game: dict[str, Any]) -> list[ReportEvent]:
                     team_external_id=team_id, player_external_id=_text(row.get("codjugador")),
                     player_name=_text(row.get("nombre_jugador")), minute=minute,
                     source_code=code, source_detail=detail)))
+    for side, suffix in SIDES:  # sustituciones (fútbol 11): entra (`player_*`) y sale (`related_player_*`), con el minuto del acta
+        team_id = _text(game.get(f"codigo_equipo_{suffix}"))
+        for row in game.get(f"sustituciones_equipo_{suffix}") or []:
+            if not _usable(row, f"sustituciones_equipo_{suffix}"):
+                continue
+            minute = _int(row.get("minuto"))
+            detail = {k: v for k, v in (("entra_dorsal", _text(row.get("entradorsal"))), ("sale_dorsal", _text(row.get("saledorsal")))) if v}
+            raw.append((minute, len(raw), ReportEvent(
+                sequence=0, event_type="substitution", team_side=side, team_external_id=team_id,
+                player_external_id=_text(row.get("codjugador_entra")), player_name=_text(row.get("nombre_jugador_entra")),
+                minute=minute, source_code=None, source_detail=detail or None,
+                related_player_external_id=_text(row.get("codjugador_sale")), related_player_name=_text(row.get("nombre_jugador_sale")))))
     # Cronológico por minuto; sin minuto al final; el resto conserva el orden de la fuente.
     raw.sort(key=lambda t: (t[0] is None, t[0] or 0, t[1]))
     return [e.model_copy(update={"sequence": i}) for i, (_, _, e) in enumerate(raw, start=1)]
@@ -204,8 +245,9 @@ def parse_match_report(html: str, source_url: str, observed_at: datetime | None 
         teams=teams, players=_players(game), staff=_staff(game), officials=_officials(game),
         events=_events(game),
         validation=Validation(
-            empty_sections=[k for k in _LISTS if k not in _UNPARSED and not game[k]],
-            unparsed_sections=[f"{k} ({len(game[k])} filas)" for k in _UNPARSED if game[k]]),
+            empty_sections=[k for k in _LISTS if k not in _UNPARSED and k not in _PARSED_F3 and not game[k]],
+            unparsed_sections=[f"{k} ({len(game[k])} filas)" for k in _UNPARSED if game[k]]
+            + [f"{k} ({n} filas no interpretables)" for k in _PARSED_F3 if (n := sum(1 for r in game[k] if not _usable(r, k)))]),
         source=ReportSource(url=source_url, system="rffm", technical_source=TECHNICAL_SOURCE,
                             observed_at=observed_at or datetime.now(UTC)))
     report.report.content_hash = content_hash(report)

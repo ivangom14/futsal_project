@@ -419,6 +419,7 @@ class MatchStaff(Base):
     team_id: Mapped[int | None] = mapped_column(ForeignKey("teams.id"), index=True)
     display_name: Mapped[str] = mapped_column(String(256))
     role: Mapped[str] = mapped_column(String(32))
+    role_label: Mapped[str | None] = mapped_column(Text)  # 0010: cargo tal como figura en el acta («otros técnicos»)
     external_id: Mapped[str | None] = mapped_column(String(64))
     sequence: Mapped[int] = mapped_column(Integer)
 
@@ -438,7 +439,7 @@ class MatchEvent(Base):
     __tablename__ = "match_events"
     __table_args__ = (
         UniqueConstraint("observation_id", "sequence"),
-        CheckConstraint("event_type IN ('goal','own_goal','card')", name="type_valid"),
+        CheckConstraint("event_type IN ('goal','own_goal','card','substitution')", name="type_valid"),
         CheckConstraint("minute IS NULL OR minute >= 0", name="minute_non_negative"),
     )
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
@@ -452,6 +453,10 @@ class MatchEvent(Base):
     minute: Mapped[int | None] = mapped_column(Integer)
     source_code: Mapped[str | None] = mapped_column(String(32))
     source_detail: Mapped[dict[str, str] | None] = mapped_column(JSONB)
+    # 0010 (sustituciones): el jugador del evento es el que ENTRA; el relacionado, el que SALE
+    related_player_id: Mapped[int | None] = mapped_column(ForeignKey("players.id"))
+    related_player_external_id: Mapped[str | None] = mapped_column(String(64))
+    related_player_name: Mapped[str | None] = mapped_column(String(256))
 
 
 class IngestJob(Base):

@@ -90,9 +90,13 @@ def test_player_without_external_id(html: str) -> None:
 def test_absent_sections_are_reported(html: str) -> None:
     v = parse_match_report(html, URL, OBSERVED).validation
     assert "tarjetas_equipo_local" in v.empty_sections and v.unparsed_sections == []
+    h = _mut(html, lambda g: g["otras_tarjetas"].append({"x": "1"}))  # sección que sigue sin interpretarse
+    assert parse_match_report(h, URL, OBSERVED).validation.unparsed_sections == ["otras_tarjetas (1 filas)"]
+    # Fase 3C: las sustituciones se interpretan; una fila malformada no se convierte en un evento vacío: se avisa
     h = _mut(html, lambda g: g["sustituciones_equipo_local"].append({"x": "1"}))
-    assert parse_match_report(h, URL, OBSERVED).validation.unparsed_sections == [
-        "sustituciones_equipo_local (1 filas)"]
+    parsed = parse_match_report(h, URL, OBSERVED)
+    assert parsed.validation.unparsed_sections == ["sustituciones_equipo_local (1 filas no interpretables)"]
+    assert not [e for e in parsed.events if e.event_type == "substitution"]
 
 
 def test_event_without_minute_goes_last_and_is_null(html: str) -> None:

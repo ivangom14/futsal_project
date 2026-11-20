@@ -45,6 +45,7 @@ from futsal.ingestion.queue.ingest_scope import (
     ENABLED,
     OUT_OF_SCOPE,
     competition_meta_fields,
+    gate_target,
     load_scope,
 )
 from futsal.ingestion.queue.planner import (
@@ -452,6 +453,9 @@ def _enqueue_reports(ctx: Context, t: dict[str, Any], hints: dict[str, list[bool
     wanted = [c for c, (has, _closed) in hints.items() if has]
     if not wanted:
         return 0
+    with ctx.session_factory() as s:  # control ANTES de encolar (Fase 3A): política de actas del alcance
+        if gate_target(s, load_scope(), {**ctx.job.target, "match": "?"}, ctx.source) is not None:
+            return 0
     targets = {c: report_target(t, c) for c in wanted}
     recent = ctx.now() - timedelta(hours=ctx.schedule.reports.available_every_hours)
     with ctx.session_factory() as s:

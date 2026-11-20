@@ -62,6 +62,7 @@ class ReportStaff(BaseModel):
     display_name: str
     role: str
     external_id: str | None
+    role_label: str | None = None  # «otros técnicos»: cargo tal cual figura en el acta (Fase 3C)
 
 
 class ReportOfficial(BaseModel):
@@ -73,7 +74,7 @@ class ReportOfficial(BaseModel):
 
 class ReportEvent(BaseModel):
     sequence: int
-    event_type: Literal["goal", "own_goal", "card"]
+    event_type: Literal["goal", "own_goal", "card", "substitution"]
     team_side: Side
     team_external_id: str | None
     player_external_id: str | None
@@ -81,6 +82,9 @@ class ReportEvent(BaseModel):
     minute: int | None
     source_code: str | None
     source_detail: dict[str, str] | None
+    # sustituciones (Fase 3C): `player_*` = jugador que ENTRA; `related_player_*` = el que SALE
+    related_player_external_id: str | None = None
+    related_player_name: str | None = None
 
 
 class ComparisonRow(BaseModel):

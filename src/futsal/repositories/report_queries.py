@@ -11,7 +11,6 @@ from typing import Any, Literal
 from sqlalchemy import Select, distinct, func, select
 from sqlalchemy.orm import Session, aliased
 
-from futsal.domain.cards import CARDS_NOTE, card_kind, summarize
 from futsal.db.models import (
     Competition,
     CompetitionGroup,
@@ -28,8 +27,10 @@ from futsal.db.models import (
     Round,
     Team,
 )
+from futsal.domain.cards import CARDS_NOTE, card_kind, summarize
 
-SECTIONS = ("officials", "goals", "cards", "players", "staff")
+SECTIONS = ("officials", "goals", "cards", "players", "staff", "substitutions")
+GOAL_TYPES = ("goal", "own_goal")  # las sustituciones (0010) no son goles: nunca cuentan en marcadores ni goleadores
 DEFAULT_SECTIONS = ("officials", "goals")
 EventType = Literal["goal", "own_goal", "card"]
 MISSING_LISTED = 10
@@ -38,7 +39,7 @@ NOT_IN_SOURCE = ["periodos / resultado por periodos", "sustituciones", "penaltis
 # Fase 2 multideporte: el acta de FÚTBOL 11 sí trae sustituciones (`sustituciones_equipo_*`, verificado en el piloto) pero aún no se
 # interpretan: no son «no consta en la fuente» sino «no incorporado». Fútbol sala: lo de siempre.
 NOT_IN_SOURCE_BY_SPORT = {"futsal": NOT_IN_SOURCE, "football11": [x for x in NOT_IN_SOURCE if x != "sustituciones"]}
-NOT_INGESTED_BY_SPORT: dict[str, list[str]] = {"football11": ["sustituciones"]}
+NOT_INGESTED_BY_SPORT: dict[str, list[str]] = {}  # Fase 3C: las sustituciones de fútbol 11 ya se interpretan (sección `substitutions`)
 CARD_NOTE = CARDS_NOTE
 
 
@@ -155,13 +156,17 @@ def match_report(db: Session, match_id: int, sections: tuple[str, ...] = DEFAULT
         if e.event_type == "card":
             flag = (e.source_detail or {}).get("segunda_amarilla")
             d.update(source_code=e.source_code, second_yellow=flag, card_kind=card_kind(e.source_code, flag))
+        if e.event_type == "substitution":  # entra `player`, sale `player_out` (dorsales tal cual del acta)
+            detail = e.source_detail or {}
+            d.update(player_out_id=e.related_player_id, player_out=e.related_player_name,
+                     shirt_in=detail.get("entra_dorsal"), shirt_out=detail.get("sale_dorsal"))
         return d
 
     if "officials" in sections:
         out["officials"] = [{"name": o.display_name, "role": o.role} for o in db.scalars(
             select(MatchOfficial).where(MatchOfficial.observation_id == obs.id).order_by(MatchOfficial.sequence))]
     if "goals" in sections:
-        out["goals"] = [ev(e) for e in events if e.event_type != "card"]
+        out["goals"] = [ev(e) for e in events if e.event_type in GOAL_TYPES]
     if "cards" in sections:
         out["cards"] = [ev(e) for e in events if e.event_type == "card"]
         out["cards_note"] = CARD_NOTE
@@ -175,8 +180,11 @@ def match_report(db: Session, match_id: int, sections: tuple[str, ...] = DEFAULT
                                               .order_by(MatchPlayer.team_id, MatchPlayer.sequence))]
     if "staff" in sections:
         out["staff"] = [{"team": names.get(s.team_id) if s.team_id else None, "name": s.display_name,
-                         "role": s.role} for s in db.scalars(select(MatchStaff).where(
+                         "role": s.role, **({"role_label": s.role_label} if s.role_label else {})}
+                        for s in db.scalars(select(MatchStaff).where(
                              MatchStaff.observation_id == obs.id).order_by(MatchStaff.sequence))]
+    if "substitutions" in sections or (sport == "football11" and "players" in sections):  # F11: van con la alineación
+        out["substitutions"] = [ev(e) for e in events if e.event_type == "substitution"]
     out["consistency"] = _consistency(db, m, obs, events)
     return out
 
@@ -185,7 +193,7 @@ def _consistency(db: Session, m: Match, obs: MatchReportObservation, events: lis
                  ) -> dict[str, Any]:
     ev = [0, 0]
     for e in events:
-        if e.event_type != "card":
+        if e.event_type in GOAL_TYPES:
             ev[0 if event_credit(e.event_type, e.team_id, m.home_team_id) == "home" else 1] += 1
     current = (m.home_score, m.away_score)
     report = (obs.home_score, obs.away_score)

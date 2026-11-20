@@ -142,8 +142,10 @@ def test_pilot_group_is_imported_as_football11_with_official_data(pilot: Pilot) 
     assert acta == [("1-4-3-3", "1-4-4-2")]  # esquema DECLARADO en el acta oficial
     starters = pilot.rows("SELECT count(*) FROM match_players WHERE lineup_status = 'starter'")[0][0]
     assert starters == 22
-    issues = {r[0] for r in pilot.rows("SELECT message FROM data_quality_issues WHERE code = 'report_section_not_parsed'")}
-    assert any("sustituciones_equipo_local" in m for m in issues)  # el acta de F11 trae sustituciones: se registra que no se interpretan
+    # Fase 3C: sustituciones y «otros técnicos» interpretados (antes, incidencia `report_section_not_parsed`)
+    assert pilot.rows("SELECT count(*) FROM data_quality_issues WHERE code = 'report_section_not_parsed'")[0][0] == 0
+    assert pilot.rows("SELECT count(*), count(related_player_id), count(player_id) FROM match_events WHERE event_type = 'substitution'")[0] == (10, 10, 10)
+    assert pilot.rows("SELECT role, role_label FROM match_staff WHERE role = 'other_staff'") == [("other_staff", "ENCARGADO DE MATERIAL")]
 
 
 def test_api_isolates_the_pilot_by_sport_and_tells_the_truth_about_substitutions(pilot: Pilot) -> None:
@@ -154,9 +156,14 @@ def test_api_isolates_the_pilot_by_sport_and_tells_the_truth_about_substitutions
     st = c.get(f"/groups/{gid}/standings", params={"sport": "football11"}).json()
     assert st["status"] == "ok" and len(st["standings"]) == 18
     mid = c.get(f"/groups/{gid}/matches", params={"sport": "football11", "has_report": True}).json()["items"][0]["id"]
-    rep = c.get(f"/matches/{mid}/report", params={"sport": "football11", "sections": "players"}).json()
-    assert "sustituciones" not in rep["not_in_source"] and rep["not_ingested"] == ["sustituciones"]
+    rep = c.get(f"/matches/{mid}/report", params={"sport": "football11", "sections": "players,goals,staff"}).json()
+    assert "sustituciones" not in rep["not_in_source"] and "not_ingested" not in rep
     assert sum(p["lineup"] == "starter" for p in rep["players"]) == 22
+    subs = rep["substitutions"]  # van con la alineación en fútbol 11
+    assert len(subs) == 10 and all(x["type"] == "substitution" and x["player"] and x["player_out"] for x in subs)
+    assert len(rep["goals"]) == 6 and not rep["consistency"].get("issues")  # las sustituciones nunca cuentan como goles
+    assert {"role": "other_staff", "role_label": "ENCARGADO DE MATERIAL"}.items() <= next(
+        x for x in rep["staff"] if x["role"] == "other_staff").items()
 
 
 def test_pilot_replay_is_idempotent(pilot: Pilot) -> None:

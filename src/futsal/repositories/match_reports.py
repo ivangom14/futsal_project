@@ -230,6 +230,9 @@ def import_report(session: Session, report: ReportModel, run_id: int, now: datet
         if ev.player_external_id and ev.player_name and ev.player_external_id not in people:
             people[ev.player_external_id] = _ensure_player(
                 session, ev.player_external_id, ev.player_name, now, stats)
+        if ev.related_player_external_id and ev.related_player_name and ev.related_player_external_id not in people:
+            people[ev.related_player_external_id] = _ensure_player(  # sustitución: jugador que sale
+                session, ev.related_player_external_id, ev.related_player_name, now, stats)
 
     existing = session.scalars(select(MatchReportObservation).filter_by(
         report_id=rep.id, content_hash=report.report.content_hash)).one_or_none()
@@ -269,7 +272,7 @@ def import_report(session: Session, report: ReportModel, run_id: int, now: datet
     for st in report.staff:
         session.add(MatchStaff(
             observation_id=obs.id, team_id=team_by_side[st.team_side] if st.team_side else None,
-            display_name=st.display_name, role=st.role, external_id=st.external_id,
+            display_name=st.display_name, role=st.role, role_label=st.role_label, external_id=st.external_id,
             sequence=st.sequence))
         stats["match_staff"]["inserted"] += 1
     for of in report.officials:
@@ -282,7 +285,10 @@ def import_report(session: Session, report: ReportModel, run_id: int, now: datet
             team_id=team_by_side[ev.team_side],
             player_id=people[ev.player_external_id].id if ev.player_external_id else None,
             player_external_id=ev.player_external_id, player_name=ev.player_name,
-            minute=ev.minute, source_code=ev.source_code, source_detail=ev.source_detail))
+            minute=ev.minute, source_code=ev.source_code, source_detail=ev.source_detail,
+            related_player_id=(people[ev.related_player_external_id].id
+                               if ev.related_player_external_id in people else None),
+            related_player_external_id=ev.related_player_external_id, related_player_name=ev.related_player_name))
         stats["match_events"]["inserted"] += 1
     session.flush()
 

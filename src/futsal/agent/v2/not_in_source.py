@@ -46,8 +46,10 @@ class NotInReport:
     in_source: bool = False  # el acta SÍ lo trae pero aún no se incorpora (fútbol 11: sustituciones): nunca decir que no consta
 
 
-# Fase 2 multideporte: lo que el acta del deporte SÍ recoge aunque Futsito aún no lo incorpore (verificado en el piloto de fútbol 11).
-IN_SOURCE_NOT_INGESTED = {"football11": frozenset({"substitutions"})}
+# Lo que el acta del deporte SÍ recoge aunque Futsito aún no lo incorpore (vacío desde la Fase 3C) y lo que ya está disponible:
+# entonces la pregunta sigue el flujo normal (herramientas), sin respuesta determinista de «no consta».
+IN_SOURCE_NOT_INGESTED: dict[str, frozenset[str]] = {}
+AVAILABLE = {"football11": frozenset({"substitutions"})}  # Fase 3C: sustituciones de fútbol 11 interpretadas
 
 
 def detect(question: str, sport: str | None = None) -> NotInReport | None:
@@ -55,6 +57,8 @@ def detect(question: str, sport: str | None = None) -> NotInReport | None:
     if _RULES.search(low):
         return None  # pregunta de reglamento («¿cuántos cambios se pueden hacer?»): flujo normal
     for kind, patterns, what in _KINDS:
+        if kind in AVAILABLE.get(sport or "", ()) and any(p.search(low) for p in patterns):
+            return None  # dato disponible en este deporte: lo responden las herramientas
         if any(p.search(low) for p in patterns):
             return NotInReport(kind, what, _OTHER.search(low) is None, kind in IN_SOURCE_NOT_INGESTED.get(sport or "", ()))
     return None

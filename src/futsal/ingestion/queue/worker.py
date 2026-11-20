@@ -16,14 +16,14 @@ import signal
 import sys
 import time
 from collections import Counter
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
 from types import FrameType
 from typing import Any
 
-from sqlalchemy import Connection, Engine, inspect
+from sqlalchemy import Connection, Engine, inspect, text
 from sqlalchemy.orm import Session, sessionmaker
 
 from futsal.db.models import IngestionRun
@@ -45,6 +45,7 @@ from futsal.ingestion.queue.handlers import (
     JobView,
 )
 from futsal.ingestion.queue.ingest_scope import gate_target, load_scope
+from futsal.ingestion.queue.planner import MATCH_REPORT
 from futsal.ingestion.queue.ratelimit import RateLimiter
 from futsal.ingestion.queue.schedule import ScheduleConfig, load_schedule
 
@@ -96,6 +97,9 @@ def install_signal_handlers(flag: StopFlag) -> Callable[[], None]:
     return restore
 
 
+LOCK_NAMESPACE = 4242  # espacio de los candados de PostgreSQL de la cola (un trabajador por fuente)
+
+
 @dataclass
 class WorkerReport:
     worker_id: str
@@ -110,12 +114,21 @@ class WorkerReport:
     breaker_reason: str | None = None
     auto_resumed: str | None = None  # motivo de una pausa pasajera antigua del breaker que esta ejecución levantó
     by_kind: Counter[str] = field(default_factory=Counter)
+    # Fase 3A: presupuestos estrictos y registro de lo consumido y lo pendiente
+    requests_by_kind: Counter[str] = field(default_factory=Counter)  # peticiones HTTP REALES por tipo (incluye reintentos)
+    max_requests: int | None = None
+    max_reports: int | None = None  # tope de actas por ejecución (None = sin tope específico, como hasta ahora)
+    deferred_kinds: list[str] = field(default_factory=list)  # tipos aplazados al agotar su presupuesto (siguen `pending`)
+    pending_by_kind: dict[str, int] = field(default_factory=dict)  # trabajos vivos al terminar
 
     def as_dict(self) -> dict[str, Any]:
         return {"worker_id": self.worker_id, "stop_reason": self.stop_reason, "run_id": self.run_id, "requests": self.requests,
                 "recovered": self.recovered, "done": self.done, "failed": self.failed, "dead": self.dead,
                 "released": self.released, "breaker_reason": self.breaker_reason, "auto_resumed": self.auto_resumed,
-                "by_kind": dict(self.by_kind)}
+                "by_kind": dict(self.by_kind), "requests_by_kind": dict(self.requests_by_kind),
+                "budget": {"max_requests": self.max_requests, "max_reports": self.max_reports,
+                           "reports_used": self.requests_by_kind.get(MATCH_REPORT, 0)},
+                "deferred_kinds": self.deferred_kinds, "pending_by_kind": self.pending_by_kind}
 
 
 def _engine(session_factory: Callable[[], Session]) -> Engine:
@@ -136,12 +149,34 @@ def run_worker(session_factory: Callable[[], Session], fetcher: Fetcher, *, max_
                config: QueueConfig | None = None, schedule: ScheduleConfig | None = None, work_dir: Path = DEFAULT_WORK_DIR,
                stop: StopFlag | None = None, handlers: dict[str, Handler] | None = None,
                sleep: Callable[[float], None] = time.sleep, poll_s: float = 30.0, min_priority: int | None = None,
-               run_kind: str = "ingest_worker", reports_dir: Path | None = None) -> WorkerReport:
+               run_kind: str = "ingest_worker", reports_dir: Path | None = None, max_reports: int | None = None,
+               kinds: Sequence[str] | None = None, exclude_kinds: Sequence[str] = ()) -> WorkerReport:
+    """Ejecuta la cola. Presupuestos ESTRICTOS (Fase 3A): `max_requests` peticiones HTTP reales en total (el Fetcher se niega a
+    la siguiente) y `max_reports` actas: agotado el de actas, no se reclaman más (siguen `pending` con su prioridad, sin perderse
+    ni duplicarse) aunque tengan más prioridad que el resto. Un solo trabajador por fuente a la vez (candado de PostgreSQL)."""
     cfg, sched, flag, table = config or load_config(), schedule or load_schedule(), stop or StopFlag(), handlers or HANDLERS
     source, engine = fetcher.source, _engine(session_factory)
     if max_requests is not None:
         fetcher.max_requests = max_requests
-    report = WorkerReport(worker_id)
+    report = WorkerReport(worker_id, max_requests=fetcher.max_requests, max_reports=max_reports)
+    lock = engine.connect()  # candado de sesión: dura lo que dura este trabajador (también si muere: se libera con la conexión)
+    if not lock.execute(text("SELECT pg_try_advisory_lock(:ns, hashtext(:src))"), {"ns": LOCK_NAMESPACE, "src": source}).scalar():
+        lock.close()
+        report.stop_reason = "locked"  # otro trabajador de la misma fuente está en marcha: no se toca nada
+        return report
+    try:
+        return _run_locked(session_factory, fetcher, report, cfg, sched, flag, table, source, engine, worker_id, now, work_dir,
+                           until_empty, sleep, poll_s, min_priority, reports_dir, run_kind, max_reports, kinds, tuple(exclude_kinds))
+    finally:
+        lock.execute(text("SELECT pg_advisory_unlock(:ns, hashtext(:src))"), {"ns": LOCK_NAMESPACE, "src": source})
+        lock.close()
+
+
+def _run_locked(session_factory: Callable[[], Session], fetcher: Fetcher, report: WorkerReport, cfg: QueueConfig,
+                sched: ScheduleConfig, flag: StopFlag, table: dict[str, Handler], source: str, engine: Engine, worker_id: str,
+                now: Callable[[], datetime], work_dir: Path, until_empty: bool, sleep: Callable[[float], None], poll_s: float,
+                min_priority: int | None, reports_dir: Path | None, run_kind: str, max_reports: int | None,
+                kinds: Sequence[str] | None, exclude_kinds: tuple[str, ...]) -> WorkerReport:
     with session_factory() as s, s.begin():
         control = controls.get_control(s, source)
         if control is not None and control.paused and control.opened_by == "breaker" and is_transient_reason(control.reason):
@@ -156,13 +191,16 @@ def run_worker(session_factory: Callable[[], Session], fetcher: Fetcher, *, max_
     run_id = int(report.run_id or 0)
     try:
         _loop(session_factory, fetcher, engine, report, cfg, sched, flag, table, source, run_id, worker_id, now, work_dir,
-              until_empty, sleep, poll_s, min_priority, reports_dir)
+              until_empty, sleep, poll_s, min_priority, reports_dir, max_reports, kinds, exclude_kinds)
     except BaseException:
         report.stop_reason = "aborted"  # muerte abrupta (señal dura, excepción inesperada): la ejecución queda `abandoned`
         with contextlib.suppress(Exception):  # los arrendamientos vencerán solos y otro trabajador recuperará el trabajo
             _finish_run(session_factory, run_id, report, "abandoned", now())
         raise
     report.requests = fetcher.requests
+    with session_factory() as s:
+        report.pending_by_kind = {k: v for k, st in jobs.progress(s, source)["by_kind"].items()
+                                  if (v := st.get("pending", 0) + st.get("failed", 0))}
     status = {"breaker": "failed", "paused": "cancelled", "source_unavailable": "partial"}.get(
         report.stop_reason, "partial" if report.dead else "success")
     _finish_run(session_factory, run_id, report, status, now())
@@ -172,7 +210,8 @@ def run_worker(session_factory: Callable[[], Session], fetcher: Fetcher, *, max_
 def _loop(session_factory: Callable[[], Session], fetcher: Fetcher, engine: Engine, report: WorkerReport, cfg: QueueConfig,
           sched: ScheduleConfig, flag: StopFlag, table: dict[str, Handler], source: str, run_id: int, worker_id: str,
           now: Callable[[], datetime], work_dir: Path, until_empty: bool, sleep: Callable[[float], None], poll_s: float,
-          min_priority: int | None = None, reports_dir: Path | None = None) -> None:
+          min_priority: int | None = None, reports_dir: Path | None = None, max_reports: int | None = None,
+          kinds: Sequence[str] | None = None, exclude_kinds: tuple[str, ...] = ()) -> None:
     while True:
         report.requests = fetcher.requests
         if flag.is_set():
@@ -187,7 +226,13 @@ def _loop(session_factory: Callable[[], Session], fetcher: Fetcher, engine: Engi
                 control = controls.get_control(s, source)
                 report.stop_reason, report.breaker_reason = "paused", control.reason if control else None
                 return
-            job = jobs.claim(s, worker_id, now(), cfg.lease_s, source=source, min_priority=min_priority)
+            blocked = list(exclude_kinds)
+            if max_reports is not None and report.requests_by_kind[MATCH_REPORT] >= max_reports:
+                blocked.append(MATCH_REPORT)  # presupuesto de actas agotado: aplazadas (siguen pending), nunca por prioridad
+                if MATCH_REPORT not in report.deferred_kinds:
+                    report.deferred_kinds.append(MATCH_REPORT)
+            job = jobs.claim(s, worker_id, now(), cfg.lease_s, source=source, min_priority=min_priority, kinds=kinds,
+                             exclude_kinds=blocked)
             if job is not None:
                 job.run_id = run_id
                 view = JobView(job.id, job.kind, dict(job.target), job.attempts, run_id)
@@ -198,7 +243,9 @@ def _loop(session_factory: Callable[[], Session], fetcher: Fetcher, engine: Engi
             sleep(poll_s)
             continue
         report.by_kind[view.kind] += 1
+        before = fetcher.requests
         stop = _run_job(session_factory, fetcher, engine, report, cfg, sched, table, source, view, now, work_dir, reports_dir)
+        report.requests_by_kind[view.kind] += fetcher.requests - before
         if stop:
             return
 
@@ -275,6 +322,14 @@ def add_work_arguments(p: argparse.ArgumentParser) -> None:
     p.add_argument("--allow-network", action="store_true", help=f"autoriza la red real (exige además {NETWORK_ENV}=1)")
     p.add_argument("--worker-id", default=f"worker-{os.getpid()}")
     p.add_argument("--work-dir", type=Path, default=DEFAULT_WORK_DIR, help="esqueletos, jornadas y tablas intermedias")
+    p.add_argument("--max-reports", type=int, default=None,
+                   help="tope ESTRICTO de actas en esta ejecución (las demás quedan pendientes, sin perderse ni duplicarse)")
+    p.add_argument("--kinds", default=None, help="solo estos tipos de trabajo, separados por comas (p. ej. calendar,round_results)")
+    p.add_argument("--exclude-kinds", default="", help="nunca estos tipos de trabajo (p. ej. match_report para una carga sin actas)")
+
+
+def _split(value: str | None) -> list[str]:
+    return [k.strip() for k in (value or "").split(",") if k.strip()]
 
 
 def run_cli(args: argparse.Namespace, engine: Engine | None = None) -> int:
@@ -299,13 +354,17 @@ def run_cli(args: argparse.Namespace, engine: Engine | None = None) -> int:
     restore = install_signal_handlers(flag)
     try:
         report = run_worker(session_factory, fetcher, max_requests=args.max_requests or cfg.max_requests_per_run,
-                            until_empty=args.until_empty, worker_id=args.worker_id, config=cfg, work_dir=args.work_dir, stop=flag)
+                            until_empty=args.until_empty, worker_id=args.worker_id, config=cfg, work_dir=args.work_dir, stop=flag,
+                            max_reports=getattr(args, "max_reports", None), kinds=_split(getattr(args, "kinds", None)) or None,
+                            exclude_kinds=_split(getattr(args, "exclude_kinds", "")))
     finally:
         restore()
         fetcher.close()
         session.close()
     print(report.as_dict())
-    return 0 if report.stop_reason in ("empty", "max_requests", "signal", "source_unavailable") else 1
+    if report.stop_reason == "locked":
+        print("Otro trabajador de la misma fuente está en marcha: esta ejecución no ha hecho nada.")
+    return 0 if report.stop_reason in ("empty", "max_requests", "signal", "source_unavailable", "locked") else 1
 
 
 def main(argv: list[str] | None = None) -> int:

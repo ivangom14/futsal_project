@@ -42,6 +42,7 @@ class Entry:
     category_code: str | None
     enabled: bool
     groups: tuple[str, ...] | None = None  # opcional: solo estos grupos (nombre oficial normalizado o código); None = todos
+    reports: bool = True  # Fase 3A: ¿se descargan actas? (False = ni se planifican ni se encolan ni se ejecutan)
 
     def allows_group(self, external_id: str | None, name: str | None) -> bool:
         if self.groups is None:
@@ -61,6 +62,7 @@ class SportScope:
     enabled: bool
     all_competitions: bool
     entries: tuple[Entry, ...]
+    reports: bool = True  # política de actas del deporte; cada entrada puede restringirla
 
 
 @dataclass(frozen=True)
@@ -98,6 +100,16 @@ class IngestScope:
         entry = next(e for e in cfg.entries if e.matches(name, category_code))
         return entry.allows_group(group_external_id, group_name)
 
+    def allows_reports(self, sport: str | None, name: str | None, category_code: str | None) -> bool:
+        """¿Se pueden descargar actas de esta competición? (deporte y competición habilitados y política `reports`)."""
+        if not self.allows(sport, name, category_code):
+            return False
+        cfg = self.sports[str(sport)]
+        if not cfg.reports:
+            return False
+        entry = None if cfg.all_competitions else next((e for e in cfg.entries if e.matches(name, category_code)), None)
+        return entry.reports if entry is not None else True
+
     def sport_enabled(self, sport: str | None) -> bool:
         cfg = self.sports.get(sport or "")
         return bool(cfg and cfg.enabled)
@@ -113,11 +125,12 @@ def parse_scope(raw: Mapping[str, Any]) -> IngestScope:
         if comps != "all" and not isinstance(comps, list):
             raise ValueError(f"ingest_scope: '{sport}.competitions' debe ser 'all' o una lista")
         entries = tuple(Entry(str(e["name"]), str(e["category_code"]) if e.get("category_code") else None, bool(e.get("enabled")),
-                              tuple(str(g) for g in e["groups"]) if e.get("groups") else None)
+                              tuple(str(g) for g in e["groups"]) if e.get("groups") else None, bool(e.get("reports", True)))
                         for e in (comps if isinstance(comps, list) else []))
         if not cfg.get("game_type"):
             raise ValueError(f"ingest_scope: '{sport}' sin game_type")
-        sports[sport] = SportScope(sport, str(cfg["game_type"]), bool(cfg.get("enabled")), comps == "all", entries)
+        sports[sport] = SportScope(sport, str(cfg["game_type"]), bool(cfg.get("enabled")), comps == "all", entries,
+                                   bool(cfg.get("reports", True)))
     if len({s.game_type for s in sports.values()}) != len(sports):
         raise ValueError("ingest_scope: dos deportes con el mismo game_type")
     return IngestScope(str(raw.get("source") or "rffm"), sports)
@@ -152,6 +165,8 @@ def gate_target(session: Session, scope: IngestScope, target: Mapping[str, Any],
     if not scope.sport_enabled(sport):
         return f"deporte {sport} deshabilitado en el alcance de ingesta"
     cid = target.get("competition")
+    if target.get("match") is not None and not scope.sports[sport].reports:
+        return f"actas de {sport} no autorizadas por la política de actas (reports=false)"
     if cid is None or scope.sports[sport].all_competitions:
         return None
     name, code = competition_meta_fields(target.get("meta") if isinstance(target.get("meta"), Mapping) else None)
@@ -164,6 +179,8 @@ def gate_target(session: Session, scope: IngestScope, target: Mapping[str, Any],
     status = scope.status(sport, name, code)
     if status != ENABLED:
         return f"competición {cid} ({name}) {status}"
+    if target.get("match") is not None and not scope.allows_reports(sport, name, code):
+        return f"actas de la competición {cid} ({name}) no autorizadas por la política de actas (reports=false)"
     gid = target.get("group")
     if gid is not None:
         from futsal.db.models import CompetitionGroup

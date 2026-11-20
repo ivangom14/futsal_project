@@ -53,7 +53,11 @@ def test_football11_report_has_eleven_starters_a_declared_scheme_and_substitutio
     starters = [p for p in rep.players if p.lineup_status == "starter"]
     assert len(starters) == 22 and {sum(p.team_side == s for p in starters) for s in ("home", "away")} == {11}
     assert {t.side: t.formation for t in rep.teams} == {"home": "1-4-3-3", "away": "1-4-4-2"}
-    assert {s.split(" (")[0] for s in rep.validation.unparsed_sections} >= {"sustituciones_equipo_local", "sustituciones_equipo_visitante"}
+    assert rep.validation.unparsed_sections == []  # Fase 3C: sustituciones y otros técnicos interpretados
+    subs = [e for e in rep.events if e.event_type == "substitution"]
+    assert len(subs) == 10 and all(e.player_external_id and e.related_player_external_id and e.minute is not None for e in subs)
+    assert [(x.role, x.role_label) for x in rep.staff if x.role == "other_staff"] == [("other_staff", "ENCARGADO DE MATERIAL")]
+    assert sum(e.event_type in ("goal", "own_goal") for e in rep.events) == 6  # 5-1: las sustituciones no suman
     assert [o.role for o in rep.officials] == ["ARBITRO", "ARBITRO ASISTENTE", "ARBITRO ASISTENTE"]
 
 
@@ -100,11 +104,18 @@ def test_club_names_with_futbol_are_not_sport_mentions() -> None:
     assert mentioned_sports("¿Cómo va la Escuela de Fútbol Aluche?", ignore=("ESCUELA DE FUTBOL ALUCHE",)) == frozenset()
 
 
-def test_substitutions_are_not_in_futsal_reports_but_are_not_ingested_yet_in_football11() -> None:
+def test_substitutions_are_not_in_futsal_reports_but_are_available_in_football11() -> None:
     q = "¿Qué sustituciones hubo en el partido?"
     assert "no recoge las sustituciones" in nir.answer(nir.detect(q, "futsal"))  # type: ignore[arg-type]
-    f11 = nir.answer(nir.detect(q, "football11"))  # type: ignore[arg-type]
-    assert "incluye las sustituciones" in f11 and "no recoge" not in f11
+    assert nir.detect(q, "football11") is None  # Fase 3C: dato disponible → lo responden las herramientas
+
+
+def test_futsal_report_hash_is_unchanged_by_the_new_sections() -> None:
+    """Las actas de fútbol sala no traen sustituciones ni otros técnicos: su contenido normalizado (y su hash) no cambia, así que
+    reimportarlas no crea observaciones nuevas."""
+    fs = (Path(__file__).parent / "fixtures" / "rffm_match_report.html").read_text(encoding="utf-8")
+    rep = parse_match_report(fs, "https://www.rffm.es/acta-partido/5575697?temporada=22&competicion=26738243&grupo=26738245")
+    assert rep.report.content_hash == "27c92f3e6341875f4567a2c48f1d9d39070437bd5e5ba0f4aefa512a45d412b2"
 
 
 def _report_payload() -> dict[str, object]:

@@ -102,6 +102,7 @@ class GroupState:
     last_known_round: int | None = None  # última jornada con algún partido finalizado
     # Última lectura de /api/results por partido: codacta -> (hay_actas, acta_cerrada). Sin entrada = no se sabe.
     report_hints: Mapping[str, tuple[bool, bool]] = field(default_factory=dict)
+    reports_allowed: bool = True  # política de actas del alcance (Fase 3A): False = no se planifica ninguna acta del grupo
 
     @property
     def target(self) -> dict[str, Any]:
@@ -264,6 +265,8 @@ def _report_specs(g: GroupState, last_done: Mapping[tuple[str, str], datetime], 
     """
     rc, pri = cfg.reports, cfg.priorities
     out: list[JobSpec] = []
+    if not g.reports_allowed:
+        return out
     for m in g.db_matches:
         if m.status != "finished" or m.report not in (REPORT_NONE, REPORT_OPEN):
             continue
@@ -460,7 +463,8 @@ def gather_state(session: Session, source: str, season: str, game_type: str, cfg
             season=season, competition=comp.external_id, group=grp.external_id, game_type=base["game_type"],
             active=comp.active is not False, has_standings=grp.has_standings, has_scorers=grp.has_scorers,
             db_matches=tuple(by_group.get(grp.id, ())), calendar=calendar_summary_rounds(cp, tz) if cp else (),
-            last_known_round=last_round.get(grp.id), report_hints=hints.get(grp.external_id, {})))
+            last_known_round=last_round.get(grp.id), report_hints=hints.get(grp.external_id, {}),
+            reports_allowed=scope.allows_reports(comp.modality, comp.name, comp.category_code)))
     return PlannerState(season, game_type, tuple(groups), done)
 
 

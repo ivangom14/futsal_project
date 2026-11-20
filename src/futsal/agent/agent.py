@@ -176,7 +176,8 @@ PROMPTS_BY_SPORT = {
     "futsal": PROMPTS,
     "football11": replace(PROMPTS, system=PROMPTS.system.replace(
         "Eres un asistente de consulta de fútbol sala RFFM.", "Eres un asistente de consulta de fútbol (fútbol 11) RFFM.", 1)
-        .replace(OFF_TOPIC_MESSAGE, OFF_TOPIC_MESSAGES["football11"])),
+        .replace(OFF_TOPIC_MESSAGE, OFF_TOPIC_MESSAGES["football11"])
+        .replace("(p. ej. periodos, sustituciones)", "(p. ej. periodos)")),  # Fase 3C: el acta de F11 trae sustituciones
 }
 
 
@@ -192,6 +193,7 @@ SPORT_CACHED = ("_system", "_competitions", "_catalog", "_ctx_teams", "_ctx_roun
 FULL_REPORT_RE = re.compile(r"\b(acta|actas|como fue el partido|como fue el encuentro|resumen del partido|cronica|alineacion\w*|"
                             r"titulares|suplentes|quinteto|convocados|cuerpo tecnico|entrenador\w*)\b")
 REPORT_SECTIONS = ("officials", "goals", "cards", "players", "staff")
+SUBS_RE = re.compile(r"\b(sustituci\w*|cambios?|entro|entraron|salio|salieron)\b")  # F11: el acta trae sustituciones (Fase 3C)
 TEAM_CATALOG_TTL = 6 * 3600  # el catálogo de equipos (comprensión de contexto) se rehace como mucho cada 6 h
 
 
@@ -1205,7 +1207,8 @@ class Agent:
         return True, resp
 
     def _v2_repair(self, call: ToolCall) -> tuple[ToolCall, dict[str, Any] | None]:
-        if call.name == "get_match_report" and FULL_REPORT_RE.search(normalize(self._question or "")):
+        q = normalize(self._question or "")
+        if call.name == "get_match_report" and (FULL_REPORT_RE.search(q) or (self._mcp.sport == "football11" and SUBS_RE.search(q))):
             # «el acta», «cómo fue el partido», «las alineaciones»: el acta COMPLETA (la herramienta da por defecto solo árbitros y goles)
             wanted = list(dict.fromkeys([*(call.arguments.get("sections") or []), *REPORT_SECTIONS]))
             if wanted != list(call.arguments.get("sections") or []):

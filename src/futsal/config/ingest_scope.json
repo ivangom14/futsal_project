@@ -12,7 +12,7 @@
     "football11": {
       "game_type": "1",
       "enabled": false,
-      "_doc": "Fase 1: declarado y DESHABILITADO (no se descubre ni descarga nada). Fase 2 habilita el deporte y una sola entrada (circuito vertical); Fase 3, las 12. Las otras 31 competiciones de fútbol 11 del catálogo quedan fuera de alcance.",
+      "_doc": "Fase 3A: `reports` = política de actas (por defecto true; false = no se planifican, encolan ni descargan actas). Juveniles: reports=false (sin autorización de descarga de actas de menores). Fase 1: declarado y DESHABILITADO (no se descubre ni descarga nada). Fase 2 habilita el deporte y una sola entrada (circuito vertical); Fase 3, las 12. Las otras 31 competiciones de fútbol 11 del catálogo quedan fuera de alcance.",
       "competitions": [
         {"name": "COPA RFEF FASE AUTONÓMICA", "category_code": "40050", "group": "Categoría nacional", "enabled": false},
         {"name": "TERCERA FEDERACIÓN RFEF", "category_code": "40050", "group": "Categoría nacional", "enabled": false},
@@ -21,11 +21,11 @@
         {"name": "PREFERENTE AFICIONADO", "category_code": "40054", "group": "Aficionados", "enabled": false},
         {"name": "PRIMERA AFICIONADO", "category_code": "40055", "group": "Aficionados", "enabled": false},
         {"name": "SEGUNDA AFICIONADO", "category_code": "40056", "group": "Aficionados", "enabled": false},
-        {"name": "NACIONAL JUVENIL", "category_code": "40059", "group": "Juveniles", "enabled": false},
-        {"name": "PRIMERA DIVISIÓN AUTONÓMICA JUVENIL", "category_code": "40060", "group": "Juveniles", "enabled": false},
-        {"name": "PREFERENTE JUVENIL", "category_code": "40061", "group": "Juveniles", "enabled": false},
-        {"name": "PRIMERA JUVENIL", "category_code": "40062", "group": "Juveniles", "enabled": false},
-        {"name": "SEGUNDA JUVENIL", "category_code": "40063", "group": "Juveniles", "enabled": false}
+        {"name": "NACIONAL JUVENIL", "category_code": "40059", "group": "Juveniles", "enabled": false, "reports": false},
+        {"name": "PRIMERA DIVISIÓN AUTONÓMICA JUVENIL", "category_code": "40060", "group": "Juveniles", "enabled": false, "reports": false},
+        {"name": "PREFERENTE JUVENIL", "category_code": "40061", "group": "Juveniles", "enabled": false, "reports": false},
+        {"name": "PRIMERA JUVENIL", "category_code": "40062", "group": "Juveniles", "enabled": false, "reports": false},
+        {"name": "SEGUNDA JUVENIL", "category_code": "40063", "group": "Juveniles", "enabled": false, "reports": false}
       ]
     }
   }

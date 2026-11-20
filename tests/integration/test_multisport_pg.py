@@ -342,3 +342,19 @@ def test_migration_0009_refuses_unmapped_game_type(lifecycle: Any) -> None:
                        "VALUES ('rffm','X',1,'RARA','9',now(),now())"))
     with pytest.raises(Exception, match="sin correspondencia"):
         command.upgrade(cfg, "head")
+
+
+def test_migration_0010_adds_substitutions_and_staff_labels_and_rolls_back(lifecycle: Any) -> None:
+    eng, cfg = lifecycle
+    command.upgrade(cfg, "0009")
+    cols = lambda t: {r[0] for r in eng.connect().execute(text(
+        "SELECT column_name FROM information_schema.columns WHERE table_name = :t"), {"t": t})}
+    assert "related_player_id" not in cols("match_events") and "role_label" not in cols("match_staff")
+    command.upgrade(cfg, "head")
+    assert {"related_player_id", "related_player_external_id", "related_player_name"} <= cols("match_events")
+    assert "role_label" in cols("match_staff")
+    check = eng.connect().execute(text("SELECT pg_get_constraintdef(oid) FROM pg_constraint WHERE conname = 'ck_match_events_type_valid'")).scalar()
+    assert "substitution" in check and "own_goal" in check
+    command.downgrade(cfg, "0009")  # sin sustituciones guardadas: se puede bajar
+    assert "related_player_id" not in cols("match_events")
+    command.upgrade(cfg, "head")

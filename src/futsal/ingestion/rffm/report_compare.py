@@ -66,7 +66,7 @@ def events_score(report: MatchReport) -> tuple[int, int]:
     """Marcador que resulta de los goles: el gol en propia suma al equipo rival."""
     home = away = 0
     for e in report.events:
-        if e.event_type == "card":
+        if e.event_type not in ("goal", "own_goal"):  # tarjetas y sustituciones no suman
             continue
         credited = e.team_side if e.event_type == "goal" else ("away" if e.team_side == "home" else "home")
         if credited == "home":
