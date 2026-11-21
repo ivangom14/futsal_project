@@ -66,7 +66,7 @@ Descubrimiento, descarga por grupo, importación y verificación (CMD): `docs/ph
 
 Un solo comando (partidos, resultados, actas, clasificación y goleadores de los grupos ya importados):
 `FUTSAL_RFFM_NETWORK_AUTHORIZED=1 scripts/update_rffm.sh` (tope opcional de peticiones: `scripts/update_rffm.sh 200`).
-Programación en Ubuntu con systemd: `deploy/systemd/` (L-V 03:00 y S-D cada hora, Europe/Madrid).
+Programación en Ubuntu con systemd: `deploy/systemd/` (L-V 03:00 y 05:00 y S-D cada hora, Europe/Madrid).
 Si la web de la RFFM falla (respuestas vacías, errores 5xx o de red, HTTP 403/429), se corta esa pasada sin pausar nada y la
 siguiente ejecución lo reintenta sola (el log dice `source_unavailable`). Solo se pausa ante datos dudosos (la RFFM devuelve otra
 temporada/grupo, o cambió el formato): entonces el log dice `paused` y hay que revisarlo y ejecutar `python -m futsal.cli ingest resume`.

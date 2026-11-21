@@ -11,21 +11,21 @@
     },
     "football11": {
       "game_type": "1",
-      "enabled": false,
-      "_doc": "Fase 3A: `reports` = política de actas (por defecto true; false = no se planifican, encolan ni descargan actas). Juveniles: reports=false (sin autorización de descarga de actas de menores). Fase 1: declarado y DESHABILITADO (no se descubre ni descarga nada). Fase 2 habilita el deporte y una sola entrada (circuito vertical); Fase 3, las 12. Las otras 31 competiciones de fútbol 11 del catálogo quedan fuera de alcance.",
+      "enabled": true,
+      "_doc": "Fase 3E (2026-11-21): las 12 HABILITADAS en la programación compartida (mismo planificador, cola y trabajador que fútbol sala). reports=false en las 12: carga básica sin actas (las de aficionados son una ampliación posterior que requiere autorización). scorers=false en juveniles: la tabla oficial de goleadores (nombres de menores) ni se planifica, ni se encola, ni se descarga, ni la sirve la API; solo constan en agregado los goles por equipo de la clasificación oficial. Reversión: enabled=false (deporte o entrada). Fase 3A: `reports` = política de actas (por defecto true; false = no se planifican, encolan ni descargan actas). Juveniles: reports=false (sin autorización de descarga de actas de menores). Fase 1: declarado y DESHABILITADO (no se descubre ni descarga nada). Fase 2 habilita el deporte y una sola entrada (circuito vertical); Fase 3, las 12. Las otras 31 competiciones de fútbol 11 del catálogo quedan fuera de alcance.",
       "competitions": [
-        {"name": "COPA RFEF FASE AUTONÓMICA", "category_code": "40050", "group": "Categoría nacional", "enabled": false},
-        {"name": "TERCERA FEDERACIÓN RFEF", "category_code": "40050", "group": "Categoría nacional", "enabled": false},
-        {"name": "COPA DE AFICIONADOS RFFM 2026/2027", "category_code": "40053", "group": "Aficionados", "enabled": false},
-        {"name": "PRIMERA DIVISIÓN AUTONÓMICA AFICIONADO", "category_code": "40053", "group": "Aficionados", "enabled": false},
-        {"name": "PREFERENTE AFICIONADO", "category_code": "40054", "group": "Aficionados", "enabled": false},
-        {"name": "PRIMERA AFICIONADO", "category_code": "40055", "group": "Aficionados", "enabled": false},
-        {"name": "SEGUNDA AFICIONADO", "category_code": "40056", "group": "Aficionados", "enabled": false},
-        {"name": "NACIONAL JUVENIL", "category_code": "40059", "group": "Juveniles", "enabled": false, "reports": false},
-        {"name": "PRIMERA DIVISIÓN AUTONÓMICA JUVENIL", "category_code": "40060", "group": "Juveniles", "enabled": false, "reports": false},
-        {"name": "PREFERENTE JUVENIL", "category_code": "40061", "group": "Juveniles", "enabled": false, "reports": false},
-        {"name": "PRIMERA JUVENIL", "category_code": "40062", "group": "Juveniles", "enabled": false, "reports": false},
-        {"name": "SEGUNDA JUVENIL", "category_code": "40063", "group": "Juveniles", "enabled": false, "reports": false}
+        {"name": "COPA RFEF FASE AUTONÓMICA", "category_code": "40050", "group": "Categoría nacional", "enabled": true, "reports": false},
+        {"name": "TERCERA FEDERACIÓN RFEF", "category_code": "40050", "group": "Categoría nacional", "enabled": true, "reports": false},
+        {"name": "COPA DE AFICIONADOS RFFM 2026/2027", "category_code": "40053", "group": "Aficionados", "enabled": true, "reports": false},
+        {"name": "PRIMERA DIVISIÓN AUTONÓMICA AFICIONADO", "category_code": "40053", "group": "Aficionados", "enabled": true, "reports": false},
+        {"name": "PREFERENTE AFICIONADO", "category_code": "40054", "group": "Aficionados", "enabled": true, "reports": false},
+        {"name": "PRIMERA AFICIONADO", "category_code": "40055", "group": "Aficionados", "enabled": true, "reports": false},
+        {"name": "SEGUNDA AFICIONADO", "category_code": "40056", "group": "Aficionados", "enabled": true, "reports": false},
+        {"name": "NACIONAL JUVENIL", "category_code": "40059", "group": "Juveniles", "enabled": true, "reports": false, "scorers": false},
+        {"name": "PRIMERA DIVISIÓN AUTONÓMICA JUVENIL", "category_code": "40060", "group": "Juveniles", "enabled": true, "reports": false, "scorers": false},
+        {"name": "PREFERENTE JUVENIL", "category_code": "40061", "group": "Juveniles", "enabled": true, "reports": false, "scorers": false},
+        {"name": "PRIMERA JUVENIL", "category_code": "40062", "group": "Juveniles", "enabled": true, "reports": false, "scorers": false},
+        {"name": "SEGUNDA JUVENIL", "category_code": "40063", "group": "Juveniles", "enabled": true, "reports": false, "scorers": false}
       ]
     }
   }

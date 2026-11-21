@@ -1,5 +1,5 @@
 # Futsito: una pasada de actualización incremental de los datos de la RFFM (`scripts/update_rffm.sh`).
-# La lanzan futsito-update-weekday.timer (L-V 03:00) y futsito-update-weekend.timer (S-D cada hora), ambos en Europe/Madrid.
+# La lanzan futsito-update-weekday.timer (L-V 03:00 y 05:00) y futsito-update-weekend.timer (S-D cada hora), ambos en Europe/Madrid.
 # Parámetros de TU servidor (ajústalos antes de instalar; ver README, «Actualización automática»):
 #   /opt/futsito        -> directorio del repositorio (WorkingDirectory, ExecStart, ReadWritePaths)
 #   futsito             -> usuario y grupo sin privilegios que ejecuta la actualización

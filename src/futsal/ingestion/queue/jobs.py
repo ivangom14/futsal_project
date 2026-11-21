@@ -62,12 +62,13 @@ def enqueue(session: Session, source: str, kind: str, target: dict[str, Any], *,
 
 def claim(session: Session, worker: str, now: datetime, lease_s: int, *, source: str | None = None,
           min_priority: int | None = None, kinds: Sequence[str] | None = None,
-          exclude_kinds: Sequence[str] = ()) -> IngestJob | None:
+          exclude_kinds: Sequence[str] = (), competitions: Sequence[str] | None = None) -> IngestJob | None:
     """Toma el trabajo más prioritario ya vencido (`pending`, o `failed` con la espera cumplida) de un source no pausado.
 
     `min_priority`: ignora los trabajos de prioridad menor (se quedan pendientes para otra pasada).
     `kinds` / `exclude_kinds`: solo esos tipos / nunca esos tipos (p. ej. actas con su presupuesto agotado). Lo excluido no se
-    pierde ni se duplica: sigue `pending` con su prioridad para la siguiente ejecución (Fase 3A)."""
+    pierde ni se duplica: sigue `pending` con su prioridad para la siguiente ejecución (Fase 3A).
+    `competitions`: lote por competición (código oficial en `target.competition`, Fase 3E); el resto sigue `pending`."""
     paused = exists().where(IngestControl.source == IngestJob.source, IngestControl.paused.is_(True))
     stmt = (select(IngestJob)
             .where(IngestJob.status.in_(("pending", "failed")), IngestJob.not_before <= now, ~paused)
@@ -81,6 +82,8 @@ def claim(session: Session, worker: str, now: datetime, lease_s: int, *, source:
         stmt = stmt.where(IngestJob.kind.in_(list(kinds)))
     if exclude_kinds:
         stmt = stmt.where(IngestJob.kind.not_in(list(exclude_kinds)))
+    if competitions is not None:
+        stmt = stmt.where(IngestJob.target["competition"].astext.in_([str(c) for c in competitions]))
     job = session.execute(stmt.execution_options(populate_existing=True)).scalar_one_or_none()
     if job is None:
         return None

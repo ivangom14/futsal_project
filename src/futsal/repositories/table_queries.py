@@ -62,6 +62,16 @@ def _attempt_dict(a: TableIngestAttempt) -> dict[str, Any]:
     return _clean({"outcome": a.outcome, "at": _iso(a.attempted_at), "error_code": a.error_code, "error": a.error_message})
 
 
+SCORERS_RESTRICTED = ("Competición de menores: por la política de datos, los goleadores no se ofrecen por nombre. Solo constan en "
+                      "agregado los goles a favor de cada equipo en la clasificación oficial; no los atribuyas a jugadores.")
+
+
+def scorers_restricted(competition: Competition) -> bool:
+    """Política de datos de menores (Fase 3E, `scorers=false` en el alcance): nunca se sirven nombres de goleadores."""
+    from futsal.ingestion.queue.ingest_scope import load_scope  # parte pura del alcance declarativo
+    return load_scope().restricts_scorers(competition.modality, competition.name, competition.category_code)
+
+
 def _missing(db: Session, group: CompetitionGroup, competition: Competition, kind: str, requested: int | None) -> dict[str, Any]:
     """Sin captura: distingue no ingerido, ingesta fallida y grupo sin tabla (eliminatorias)."""
     head = {"group_id": group.id, "group": group.name, "competition": competition.name}
@@ -177,6 +187,9 @@ def scorer_table(db: Session, group_id: int, *, name: str | None = None, team_id
     if found is None:
         return None
     group, competition = found
+    if scorers_restricted(competition):
+        return {"group_id": group.id, "group": group.name, "competition": competition.name, "status": "restricted",
+                "message": SCORERS_RESTRICTED, "scorers": []}
     snap, latest = choose_snapshot(db, ScorerSnapshot, [ScorerSnapshot.group_id == group_id],
                                     [ScorerSnapshot.last_seen_at.desc(), ScorerSnapshot.id.desc()])
     if snap is None:

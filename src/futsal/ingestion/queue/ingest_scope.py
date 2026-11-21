@@ -43,6 +43,9 @@ class Entry:
     enabled: bool
     groups: tuple[str, ...] | None = None  # opcional: solo estos grupos (nombre oficial normalizado o código); None = todos
     reports: bool = True  # Fase 3A: ¿se descargan actas? (False = ni se planifican ni se encolan ni se ejecutan)
+    # Fase 3E: ¿se descarga la tabla oficial de goleadores (nombres de jugadores)? False = datos de menores solo agregados
+    # (goles por equipo de la clasificación oficial): ni se planifica, ni se encola, ni se ejecuta.
+    scorers: bool = True
 
     def allows_group(self, external_id: str | None, name: str | None) -> bool:
         if self.groups is None:
@@ -110,6 +113,23 @@ class IngestScope:
         entry = None if cfg.all_competitions else next((e for e in cfg.entries if e.matches(name, category_code)), None)
         return entry.reports if entry is not None else True
 
+    def allows_scorers(self, sport: str | None, name: str | None, category_code: str | None) -> bool:
+        """¿Se puede descargar la tabla oficial de goleadores (con nombres)? Política `scorers` de la entrada (Fase 3E)."""
+        if not self.allows(sport, name, category_code):
+            return False
+        cfg = self.sports[str(sport)]
+        entry = None if cfg.all_competitions else next((e for e in cfg.entries if e.matches(name, category_code)), None)
+        return entry.scorers if entry is not None else True
+
+    def restricts_scorers(self, sport: str | None, name: str | None, category_code: str | None) -> bool:
+        """¿La política de datos (`scorers=false`) prohíbe servir nombres de goleadores de esta competición? Independiente de que
+        esté habilitada: deshabilitar una competición juvenil no vuelve a exponer lo que se hubiera guardado (Fase 3E)."""
+        cfg = self.sports.get(sport or "")
+        if cfg is None or cfg.all_competitions:
+            return False
+        entry = next((e for e in cfg.entries if e.matches(name, category_code)), None)
+        return entry is not None and not entry.scorers
+
     def sport_enabled(self, sport: str | None) -> bool:
         cfg = self.sports.get(sport or "")
         return bool(cfg and cfg.enabled)
@@ -125,7 +145,8 @@ def parse_scope(raw: Mapping[str, Any]) -> IngestScope:
         if comps != "all" and not isinstance(comps, list):
             raise ValueError(f"ingest_scope: '{sport}.competitions' debe ser 'all' o una lista")
         entries = tuple(Entry(str(e["name"]), str(e["category_code"]) if e.get("category_code") else None, bool(e.get("enabled")),
-                              tuple(str(g) for g in e["groups"]) if e.get("groups") else None, bool(e.get("reports", True)))
+                              tuple(str(g) for g in e["groups"]) if e.get("groups") else None, bool(e.get("reports", True)),
+                              bool(e.get("scorers", True)))
                         for e in (comps if isinstance(comps, list) else []))
         if not cfg.get("game_type"):
             raise ValueError(f"ingest_scope: '{sport}' sin game_type")
@@ -154,8 +175,10 @@ def competition_meta_fields(meta: Mapping[str, Any] | None) -> tuple[str | None,
     return (str(name) if name else None, str(code).strip() if code else None)
 
 
-def gate_target(session: Session, scope: IngestScope, target: Mapping[str, Any], source: str = "rffm") -> str | None:
-    """None si el trabajo está habilitado; si no, el motivo. Sin red: solo lee la competición de la BD si hace falta."""
+def gate_target(session: Session, scope: IngestScope, target: Mapping[str, Any], source: str = "rffm",
+                kind: str | None = None) -> str | None:
+    """None si el trabajo está habilitado; si no, el motivo. Sin red: solo lee la competición de la BD si hace falta.
+    `kind="scorers"` aplica además la política de goleadores (Fase 3E)."""
     from futsal.db.models import Competition  # import local: el resto del módulo es puro
 
     game_type = target.get("game_type")
@@ -181,6 +204,8 @@ def gate_target(session: Session, scope: IngestScope, target: Mapping[str, Any],
         return f"competición {cid} ({name}) {status}"
     if target.get("match") is not None and not scope.allows_reports(sport, name, code):
         return f"actas de la competición {cid} ({name}) no autorizadas por la política de actas (reports=false)"
+    if kind == "scorers" and not scope.allows_scorers(sport, name, code):
+        return f"goleadores de la competición {cid} ({name}) no autorizados por la política de datos (scorers=false)"
     gid = target.get("group")
     if gid is not None:
         from futsal.db.models import CompetitionGroup

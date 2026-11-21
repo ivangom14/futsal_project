@@ -1,6 +1,6 @@
 # Multideporte · Fase 3: ampliación completa del fútbol 11 (desarrollo; activación pendiente)
 
-Estado: **desarrollo terminado, sin activación real.** 0 peticiones a la RFFM, 0 llamadas a LLM de pago, sin commit. Fase 1 = `a8f3162`; la Fase 2 sigue sin commit (instantánea separable de la Fase 2: diff e inventario de ficheros nuevos guardados antes de empezar). El alcance operativo de fútbol 11 sigue **deshabilitado**; la programación (`deploy/systemd`, `scripts/update_rffm.sh`) y los límites no han cambiado.
+Estado: **desarrollo terminado; activación real en la Fase 3E (`docs/multisport-phase3e.md`).** 0 peticiones a la RFFM, 0 llamadas a LLM de pago, sin commit. Fase 1 = `a8f3162`; la Fase 2 sigue sin commit (instantánea separable de la Fase 2: diff e inventario de ficheros nuevos guardados antes de empezar). El alcance operativo de fútbol 11 sigue **deshabilitado**; la programación (`deploy/systemd`, `scripts/update_rffm.sh`) y los límites no han cambiado.
 
 ## 1. Estado por subfase
 

@@ -457,11 +457,16 @@ def gather_state(session: Session, source: str, season: str, game_type: str, cfg
         if at is not None}
     groups: list[GroupState] = []
     for grp, comp in rows:
-        base = group_target(season, comp.external_id, grp.external_id, comp.game_type_code or game_type)
+        # tipo de juego de la PROPIA competición; sin código (filas antiguas), el de su deporte en el alcance, nunca el del
+        # argumento: `tick --game-type 1` etiquetaba como fútbol 11 los grupos antiguos de fútbol sala (Fase 3E)
+        sport_cfg = scope.sports.get(comp.modality or "")
+        base = group_target(season, comp.external_id, grp.external_id,
+                            comp.game_type_code or (sport_cfg.game_type if sport_cfg else game_type))
         cp = calendars.get(canonical_key(base))
         groups.append(GroupState(
             season=season, competition=comp.external_id, group=grp.external_id, game_type=base["game_type"],
-            active=comp.active is not False, has_standings=grp.has_standings, has_scorers=grp.has_scorers,
+            active=comp.active is not False, has_standings=grp.has_standings,
+            has_scorers=grp.has_scorers if scope.allows_scorers(comp.modality, comp.name, comp.category_code) else False,
             db_matches=tuple(by_group.get(grp.id, ())), calendar=calendar_summary_rounds(cp, tz) if cp else (),
             last_known_round=last_round.get(grp.id), report_hints=hints.get(grp.external_id, {}),
             reports_allowed=scope.allows_reports(comp.modality, comp.name, comp.category_code)))

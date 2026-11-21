@@ -435,8 +435,10 @@ def round_results(ctx: Context) -> dict[str, Any]:
     if new_finished:
         when = ctx.now() + timedelta(minutes=ctx.schedule.tables_group_minutes)
         target = group_target(str(t["season"]), str(t["competition"]), group, str(t["game_type"]))
+        with ctx.session_factory() as s:  # política de goleadores (Fase 3E): misma barrera que el trabajador, antes de encolar
+            scorers_blocked = gate_target(s, load_scope(), t, ctx.source, kind=SCORERS) is not None
         for kind, flag in ((STANDINGS, row[5]), (SCORERS, row[6])):
-            if flag is not False:
+            if flag is not False and not (kind == SCORERS and scorers_blocked):
                 ctx.enqueue(kind, target, priority=ctx.schedule.priorities.tables, not_before=when)
                 queued.append(kind)
     return {"fetched_at": _iso(ctx.now()), "round": rnd, "matches": len(parsed.matches), "import_status": report.status,

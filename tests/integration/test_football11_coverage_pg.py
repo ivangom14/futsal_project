@@ -31,6 +31,8 @@ def all_twelve(tmp_path: Path) -> Path:
     raw["sports"]["football11"]["enabled"] = True
     for e in raw["sports"]["football11"]["competitions"]:
         e["enabled"] = True
+        if e.get("group") != "Juveniles":  # Fase 3E: el operativo bloquea TODAS las actas de F11; aquí se simula su autorización
+            e["reports"] = True              # futura para aficionados (las juveniles siguen bloqueadas por política)
     path = tmp_path / "all12.json"
     path.write_text(json.dumps(raw), encoding="utf-8")
     return path

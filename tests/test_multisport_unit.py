@@ -34,11 +34,12 @@ def test_sport_scope_is_mandatory_and_explicit() -> None:
     assert sport_of_game_type(None, {"3": "futsal"}) is None
 
 
-def test_scope_file_declares_the_12_competitions_disabled_and_keeps_all_futsal() -> None:
+def test_scope_file_declares_the_12_competitions_enabled_and_keeps_all_futsal() -> None:
+    # Fase 1: las 12 declaradas y deshabilitadas; Fase 3E: habilitadas en la programación compartida (sin actas)
     scope = sc.load_scope()
-    assert scope.sports["futsal"].all_competitions and scope.sport_enabled("futsal") and scope.enabled_game_types() == ["3"]
+    assert scope.sports["futsal"].all_competitions and scope.sport_enabled("futsal") and scope.enabled_game_types() == ["3", "1"]
     f11 = scope.sports["football11"]
-    assert f11.game_type == "1" and not f11.enabled and len(f11.entries) == 12 and not any(e.enabled for e in f11.entries)
+    assert f11.game_type == "1" and f11.enabled and len(f11.entries) == 12 and all(e.enabled and not e.reports for e in f11.entries)
     assert scope.allows("futsal", "CUALQUIER LIGA FS", "123")
 
 
@@ -47,8 +48,8 @@ def test_only_the_12_target_competitions_are_in_scope() -> None:
     status = {name: scope.status("football11", name, code) for name, code in F11_CATALOG}
     in_scope = [n for n, st in status.items() if st != sc.OUT_OF_SCOPE]
     assert len(in_scope) == 12 and in_scope == [n for n, _ in F11_CATALOG[:12]]
-    assert all(st == sc.SPORT_DISABLED for n, st in status.items() if n in in_scope)  # Fase 1: nada habilitado
-    assert not any(scope.allows("football11", n, c) for n, c in F11_CATALOG)
+    assert all(st == sc.ENABLED for n, st in status.items() if n in in_scope)  # Fase 3E: las 12, habilitadas
+    assert [n for n, c in F11_CATALOG if scope.allows("football11", n, c)] == in_scope  # las otras 31, nunca
 
 
 def test_scope_matching_needs_category_code_and_ignores_season_label() -> None:

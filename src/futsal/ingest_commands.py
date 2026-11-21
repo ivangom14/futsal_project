@@ -140,6 +140,8 @@ SELECT c.external_id, c.name, c.active, c.format_code,
        count(DISTINCT g.id) AS groups, coalesce(sum(DISTINCT g.expected_teams * 1000000 + g.id) / 1000000, 0) AS _unused,
        (SELECT coalesce(sum(expected_teams), 0) FROM competition_groups x WHERE x.competition_id = c.id) AS teams_expected,
        (SELECT count(*) FROM teams t JOIN competition_groups x ON x.id = t.group_id WHERE x.competition_id = c.id) AS teams,
+       (SELECT count(DISTINCT m.round_id) FROM matches m JOIN competition_groups x ON x.id = m.group_id
+         WHERE x.competition_id = c.id) AS rounds,
        (SELECT count(*) FROM matches m JOIN competition_groups x ON x.id = m.group_id WHERE x.competition_id = c.id) AS matches,
        (SELECT count(*) FROM matches m JOIN competition_groups x ON x.id = m.group_id
          WHERE x.competition_id = c.id AND m.status = 'finished') AS finished,
@@ -163,7 +165,7 @@ def _coverage(engine: Engine, args: argparse.Namespace) -> int:
     for r in rows:
         r.pop("_unused", None)
         r["complete_basic"] = bool(r["groups"]) and r["groups_with_matches"] == r["groups"] and r["teams"] >= r["teams_expected"]
-    totals = {k: sum(int(r[k] or 0) for r in rows) for k in ("groups", "teams_expected", "teams", "matches", "finished",
+    totals = {k: sum(int(r[k] or 0) for r in rows) for k in ("groups", "teams_expected", "teams", "rounds", "matches", "finished",
                                                                "standings_ok", "scorers_ok", "reports", "groups_with_matches")}
     if args.json:
         print(json.dumps({"sport": args.sport, "competitions": rows, "totals": totals}, ensure_ascii=False, indent=2, default=str))
@@ -171,7 +173,7 @@ def _coverage(engine: Engine, args: argparse.Namespace) -> int:
     print(f"cobertura {args.sport}: {len(rows)} competiciones")
     for r in rows:
         print(f"- {r['external_id']} {r['name']}: grupos {r['groups_with_matches']}/{r['groups']} con partidos · equipos "
-              f"{r['teams']}/{r['teams_expected']} · partidos {r['matches']} ({r['finished']} finalizados) · clasificación ok "
+              f"{r['teams']}/{r['teams_expected']} · jornadas (grupo×jornada) {r['rounds']} · partidos {r['matches']} ({r['finished']} finalizados) · clasificación ok "
               f"{r['standings_ok']} · goleadores ok {r['scorers_ok']} · actas {r['reports']}"
               + ("" if r["active"] is not False else " · INACTIVA") + (" · eliminatoria" if r["format_code"] == "1" else ""))
     print("totales:", json.dumps(totals, ensure_ascii=False))

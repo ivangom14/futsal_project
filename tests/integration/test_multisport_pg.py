@@ -257,7 +257,7 @@ def test_worker_gate_rejects_out_of_scope_jobs_without_network(both: Engine) -> 
     with Session(both) as s:
         assert ingest_scope.gate_target(s, scope, group_target("22", FS_COMP, FS_GROUP, "3")) is None
         blocked = ingest_scope.gate_target(s, scope, group_target("22", F11_COMP, F11_GROUP, "1"))
-        assert blocked is not None and "football11" in blocked
+        assert blocked is not None  # Fase 3E: F11 habilitado; este grupo sintético (sin CodigoCategoria) sigue fuera de alcance
         assert "fuera del alcance" in str(ingest_scope.gate_target(s, scope, {"season": "22", "game_type": "2"}))
 
 

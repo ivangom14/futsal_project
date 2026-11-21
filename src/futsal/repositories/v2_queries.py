@@ -360,7 +360,10 @@ def _latest_snapshots(db: Session, model: Any, comp_ids: Sequence[int], order: l
 
 
 def _scorer_snapshots(db: Session, comp_ids: Sequence[int]) -> dict[int, tuple[int, datetime]]:
-    return _latest_snapshots(db, ScorerSnapshot, comp_ids, [ScorerSnapshot.last_seen_at.desc(), ScorerSnapshot.id.desc()])
+    # menores (Fase 3E): sus tablas nunca entran en un ranking
+    from futsal.repositories.table_queries import scorers_restricted
+    allowed = [c.id for c in db.scalars(select(Competition).where(Competition.id.in_(list(comp_ids)))) if not scorers_restricted(c)]
+    return _latest_snapshots(db, ScorerSnapshot, allowed, [ScorerSnapshot.last_seen_at.desc(), ScorerSnapshot.id.desc()])
 
 
 def _standings_snapshots(db: Session, comp_ids: Sequence[int]) -> dict[int, tuple[int, datetime]]:

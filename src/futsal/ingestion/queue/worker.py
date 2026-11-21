@@ -150,7 +150,8 @@ def run_worker(session_factory: Callable[[], Session], fetcher: Fetcher, *, max_
                stop: StopFlag | None = None, handlers: dict[str, Handler] | None = None,
                sleep: Callable[[float], None] = time.sleep, poll_s: float = 30.0, min_priority: int | None = None,
                run_kind: str = "ingest_worker", reports_dir: Path | None = None, max_reports: int | None = None,
-               kinds: Sequence[str] | None = None, exclude_kinds: Sequence[str] = ()) -> WorkerReport:
+               kinds: Sequence[str] | None = None, exclude_kinds: Sequence[str] = (),
+               competitions: Sequence[str] | None = None) -> WorkerReport:
     """Ejecuta la cola. Presupuestos ESTRICTOS (Fase 3A): `max_requests` peticiones HTTP reales en total (el Fetcher se niega a
     la siguiente) y `max_reports` actas: agotado el de actas, no se reclaman más (siguen `pending` con su prioridad, sin perderse
     ni duplicarse) aunque tengan más prioridad que el resto. Un solo trabajador por fuente a la vez (candado de PostgreSQL)."""
@@ -166,7 +167,8 @@ def run_worker(session_factory: Callable[[], Session], fetcher: Fetcher, *, max_
         return report
     try:
         return _run_locked(session_factory, fetcher, report, cfg, sched, flag, table, source, engine, worker_id, now, work_dir,
-                           until_empty, sleep, poll_s, min_priority, reports_dir, run_kind, max_reports, kinds, tuple(exclude_kinds))
+                           until_empty, sleep, poll_s, min_priority, reports_dir, run_kind, max_reports, kinds, tuple(exclude_kinds),
+                           competitions)
     finally:
         lock.execute(text("SELECT pg_advisory_unlock(:ns, hashtext(:src))"), {"ns": LOCK_NAMESPACE, "src": source})
         lock.close()
@@ -176,7 +178,8 @@ def _run_locked(session_factory: Callable[[], Session], fetcher: Fetcher, report
                 sched: ScheduleConfig, flag: StopFlag, table: dict[str, Handler], source: str, engine: Engine, worker_id: str,
                 now: Callable[[], datetime], work_dir: Path, until_empty: bool, sleep: Callable[[float], None], poll_s: float,
                 min_priority: int | None, reports_dir: Path | None, run_kind: str, max_reports: int | None,
-                kinds: Sequence[str] | None, exclude_kinds: tuple[str, ...]) -> WorkerReport:
+                kinds: Sequence[str] | None, exclude_kinds: tuple[str, ...],
+                competitions: Sequence[str] | None = None) -> WorkerReport:
     with session_factory() as s, s.begin():
         control = controls.get_control(s, source)
         if control is not None and control.paused and control.opened_by == "breaker" and is_transient_reason(control.reason):
@@ -191,7 +194,7 @@ def _run_locked(session_factory: Callable[[], Session], fetcher: Fetcher, report
     run_id = int(report.run_id or 0)
     try:
         _loop(session_factory, fetcher, engine, report, cfg, sched, flag, table, source, run_id, worker_id, now, work_dir,
-              until_empty, sleep, poll_s, min_priority, reports_dir, max_reports, kinds, exclude_kinds)
+              until_empty, sleep, poll_s, min_priority, reports_dir, max_reports, kinds, exclude_kinds, competitions)
     except BaseException:
         report.stop_reason = "aborted"  # muerte abrupta (señal dura, excepción inesperada): la ejecución queda `abandoned`
         with contextlib.suppress(Exception):  # los arrendamientos vencerán solos y otro trabajador recuperará el trabajo
@@ -211,7 +214,8 @@ def _loop(session_factory: Callable[[], Session], fetcher: Fetcher, engine: Engi
           sched: ScheduleConfig, flag: StopFlag, table: dict[str, Handler], source: str, run_id: int, worker_id: str,
           now: Callable[[], datetime], work_dir: Path, until_empty: bool, sleep: Callable[[float], None], poll_s: float,
           min_priority: int | None = None, reports_dir: Path | None = None, max_reports: int | None = None,
-          kinds: Sequence[str] | None = None, exclude_kinds: tuple[str, ...] = ()) -> None:
+          kinds: Sequence[str] | None = None, exclude_kinds: tuple[str, ...] = (),
+          competitions: Sequence[str] | None = None) -> None:
     while True:
         report.requests = fetcher.requests
         if flag.is_set():
@@ -232,7 +236,7 @@ def _loop(session_factory: Callable[[], Session], fetcher: Fetcher, engine: Engi
                 if MATCH_REPORT not in report.deferred_kinds:
                     report.deferred_kinds.append(MATCH_REPORT)
             job = jobs.claim(s, worker_id, now(), cfg.lease_s, source=source, min_priority=min_priority, kinds=kinds,
-                             exclude_kinds=blocked)
+                             exclude_kinds=blocked, competitions=competitions)
             if job is not None:
                 job.run_id = run_id
                 view = JobView(job.id, job.kind, dict(job.target), job.attempts, run_id)
@@ -276,7 +280,7 @@ def _run_job(session_factory: Callable[[], Session], fetcher: Fetcher, engine: E
         _fail(session_factory, cfg, report, view, f"tipo de trabajo desconocido: {view.kind}", None, False, now())
         return False
     with session_factory() as s:  # alcance declarativo: un trabajo fuera de alcance falla sin red y sin reintentos
-        blocked = gate_target(s, load_scope(), view.target, source)
+        blocked = gate_target(s, load_scope(), view.target, source, kind=view.kind)
     if blocked is not None:
         _fail(session_factory, cfg, report, view, f"fuera del alcance de ingesta: {blocked}", None, False, now())
         return False
@@ -325,6 +329,8 @@ def add_work_arguments(p: argparse.ArgumentParser) -> None:
     p.add_argument("--max-reports", type=int, default=None,
                    help="tope ESTRICTO de actas en esta ejecución (las demás quedan pendientes, sin perderse ni duplicarse)")
     p.add_argument("--kinds", default=None, help="solo estos tipos de trabajo, separados por comas (p. ej. calendar,round_results)")
+    p.add_argument("--competition", action="append", default=[], metavar="CODIGO",
+                   help="lote: solo trabajos de esta competición (código oficial; repetible); el resto sigue pendiente")
     p.add_argument("--exclude-kinds", default="", help="nunca estos tipos de trabajo (p. ej. match_report para una carga sin actas)")
 
 
@@ -356,7 +362,8 @@ def run_cli(args: argparse.Namespace, engine: Engine | None = None) -> int:
         report = run_worker(session_factory, fetcher, max_requests=args.max_requests or cfg.max_requests_per_run,
                             until_empty=args.until_empty, worker_id=args.worker_id, config=cfg, work_dir=args.work_dir, stop=flag,
                             max_reports=getattr(args, "max_reports", None), kinds=_split(getattr(args, "kinds", None)) or None,
-                            exclude_kinds=_split(getattr(args, "exclude_kinds", "")))
+                            exclude_kinds=_split(getattr(args, "exclude_kinds", "")),
+                            competitions=list(getattr(args, "competition", []) or []) or None)
     finally:
         restore()
         fetcher.close()

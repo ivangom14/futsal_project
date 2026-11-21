@@ -1,9 +1,13 @@
-# Lunes a viernes a las 03:00 de Madrid (el horario de verano lo aplica systemd con la zona indicada).
+# Lunes a viernes a las 03:00 y a las 05:00 de Madrid (el horario de verano lo aplica systemd con la zona indicada).
+# Fase 3E: la 2.ª pasada (05:00) recoge lo que la de las 03:00 no termina con fútbol sala + fútbol 11 (mismo servicio, script,
+# tope de 900 peticiones y TimeoutStartSec=58min; nunca se solapan: la de las 03:00 acaba antes de las 04:00 y flock + candado
+# de PostgreSQL lo impiden igualmente). Reversión: borrar la línea OnCalendar de las 05:00 y `systemctl daemon-reload`.
 [Unit]
-Description=Futsito: actualización diaria entre semana (L-V 03:00 Europe/Madrid)
+Description=Futsito: actualización diaria entre semana (L-V 03:00 y 05:00 Europe/Madrid)
 
 [Timer]
 OnCalendar=Mon..Fri *-*-* 03:00:00 Europe/Madrid
+OnCalendar=Mon..Fri *-*-* 05:00:00 Europe/Madrid
 # Si el servidor estaba apagado a esa hora, se ejecuta una vez al arrancar.
 Persistent=true
 AccuracySec=1min

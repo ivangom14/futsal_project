@@ -78,8 +78,8 @@ def pilot_scope(tmp_path: Path) -> Path:
     raw["sports"]["football11"]["enabled"] = True
     for e in raw["sports"]["football11"]["competitions"]:
         e["enabled"] = e["name"] == "PREFERENTE AFICIONADO"
-        if e["enabled"]:
-            e["groups"] = [GROUP]
+        if e["enabled"]:  # el piloto de la Fase 2 tenía las actas autorizadas (el operativo de la 3E las bloquea en F11)
+            e["groups"], e["reports"] = [GROUP], True
     path = tmp_path / "pilot_scope.json"
     path.write_text(json.dumps(raw), encoding="utf-8")
     return path
@@ -179,11 +179,12 @@ def test_pilot_replay_is_idempotent(pilot: Pilot) -> None:
     assert pilot.rows(q)[0][0] == before and pilot.rows("SELECT count(*) FROM match_observations")[0][0] == obs
 
 
-def test_operational_scope_keeps_football11_disabled(pilot: Pilot, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_operational_scope_rejects_out_of_scope_football11_without_network(pilot: Pilot, monkeypatch: pytest.MonkeyPatch) -> None:
+    # Fase 3E: el operativo ya HABILITA las 12 (antes: F11 deshabilitado); lo que queda fuera (las otras 31) se sigue rechazando
     monkeypatch.delenv(ingest_scope.SCOPE_ENV)  # el operativo: el que usa la programación
     with pilot.sf() as s, s.begin():
-        jobs.enqueue(s, "rffm", "calendar", {"season": "22", "competition": COMP, "group": GROUP, "game_type": "1"}, priority=99,
-                     now=pilot.clock.now())
+        jobs.enqueue(s, "rffm", "calendar", {"season": "22", "competition": "99999999", "group": GROUP, "game_type": "1"},
+                     priority=99, now=pilot.clock.now())
     calls = len(pilot.site.calls)
     pilot.work()
     assert len(pilot.site.calls) == calls  # ni una petición
