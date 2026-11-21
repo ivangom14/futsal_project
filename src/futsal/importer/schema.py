@@ -43,6 +43,7 @@ class MatchIn(BaseModel):
     timezone: str
     venue: str | None
     source_url: str
+    result_basis: str | None = None  # Fase 3E: base del marcador (ficheros antiguos sin el campo = None)
 
 
 class LeagueFile(BaseModel):

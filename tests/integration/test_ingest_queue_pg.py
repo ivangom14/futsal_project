@@ -83,8 +83,13 @@ def snapshot(engine: Engine, columns: dict[str, list[str]]) -> dict[str, tuple[i
 
 def test_migration_roundtrip_keeps_previous_data_identical(lifecycle_db: tuple[Engine, Config]) -> None:
     engine, cfg = lifecycle_db
-    command.upgrade(cfg, "0007")
+    # Datos de 0007 creados con el importador ACTUAL: se importa en head y se baja a 0007 (el ORM actual ya no puede escribir en
+    # un esquema 0007, que no tiene matches.result_basis de la 0011). La comprobación es la misma: el viaje 0007 <-> 0008 no
+    # toca esos datos.
+    command.upgrade(cfg, "head")
     assert run_import(engine, FIXTURE).status == "success"
+    command.downgrade(cfg, "0007")
+    engine.dispose()
     insp = inspect(engine)
     assert not set(NEW_TABLES) & set(insp.get_table_names())
     columns = {t: [c["name"] for c in insp.get_columns(t)] for t in insp.get_table_names() if t != "alembic_version"}

@@ -318,7 +318,8 @@ def matches_rows(payload: Any, limit: int = MAX_MATCHES) -> tuple[list[dict[str,
     total = count if isinstance(count, int) else len(matches)
     rows = [{"round": m.get("round_number"), "date": m.get("date"), "home": m.get("home_team"), "away": m.get("away_team"),
              "score": f"{m['home_score']}-{m['away_score']}" if isinstance(m.get("home_score"), int) and isinstance(m.get("away_score"), int) else None,
-             "status": m.get("status"), "past_due": bool(m.get("past_due"))} for m in matches[:limit]]
+             "status": m.get("status"), "past_due": bool(m.get("past_due")),
+             **({"basis": m["result_basis"]} if m.get("result_basis") else {})} for m in matches[:limit]]
     return rows, max(total, len(rows))
 
 
@@ -419,7 +420,8 @@ def v2_list_visual(tool: str, args: dict[str, Any], body: Any) -> dict[str, Any]
             return None
         rows = [{"round": None, "date": f"{m['date']}T{m['time']}" if m.get("date") and m.get("time") else m.get("date"),
                  "home": str(m.get("home")), "away": str(m.get("away")), "score": m.get("score") if isinstance(m.get("score"), str) else None,
-                 "status": str(m.get("status") or "scheduled"), "past_due": False, "detail": m.get("comp")} for m in items]
+                 "status": str(m.get("status") or "scheduled"), "past_due": False, "detail": m.get("comp"),
+                 **({"basis": m["basis"]} if m.get("basis") else {})} for m in items]
         return {"type": "matches", "title": title, "subtitle": page, "rows": rows, "total": count, "partial": count > len(rows)}
     value_key = {"scorers_ranking": "goals", "officials_ranking": "matches"}.get(tool) or str(args.get("metric") or "goals_for")
     rows = [{"label": str(i.get("player") or i.get("team") or i.get("name")), "sublabel": " · ".join(x for x in (
@@ -488,7 +490,7 @@ def build_visuals(question: str, rec: RunRecord, official: list[dict[str, Any]],
         team = names["teams"].get(tid) if isinstance(tid, int) else None
         matches = [m for m in payload.get("matches", []) if isinstance(m, dict)] if isinstance(payload, dict) else []
         done = [m for m in matches if m.get("status") == "finished" and isinstance(m.get("home_score"), int)
-                and isinstance(m.get("away_score"), int)]
+                and isinstance(m.get("away_score"), int) and not m.get("result_basis")]  # forma = partidos disputados (Fase 3E)
         if team and len(done) >= 2:
             visuals.append(_form(team, done))
             form_done = True

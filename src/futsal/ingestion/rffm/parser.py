@@ -5,13 +5,22 @@ import re
 from datetime import UTC, date, datetime, time
 from typing import Any
 
+from futsal.domain.match_result import (
+    PROVISIONAL,
+    RESOLUTION,
+    UNCONFIRMED,
+    WITHDRAWAL_AWAY,
+    WITHDRAWAL_HOME,
+    fold,
+)
 from futsal.ingestion.rffm.models import Match, MatchStatus, RoundData
 
 TIMEZONE = "Europe/Madrid"
 _NEXT_DATA = re.compile(r'<script id="__NEXT_DATA__"[^>]*>(.*?)</script>', re.S)
+# Se comparan con `motivo_estado` en minúsculas y SIN tildes: «Suspensión Masiva» (RFFM) contiene «suspen», no «suspend» (Fase 3E)
 _STATUS_KEYWORDS: tuple[tuple[str, MatchStatus], ...] = (
     ("aplaz", "postponed"),
-    ("suspend", "suspended"),
+    ("suspen", "suspended"),
     ("anula", "cancelled"),
     ("cancela", "cancelled"),
 )
@@ -77,7 +86,7 @@ def _time(value: Any) -> time | None:
 
 
 def _status(raw: dict[str, Any], home: int | None, away: int | None) -> MatchStatus:
-    reason = (_text(raw.get("motivo_estado")) or "").lower()
+    reason = fold(_text(raw.get("motivo_estado")))
     for keyword, status in _STATUS_KEYWORDS:
         if keyword in reason:
             return status
@@ -88,8 +97,35 @@ def _status(raw: dict[str, Any], home: int | None, away: int | None) -> MatchSta
     return "unknown"
 
 
+def _flag(raw: dict[str, Any], key: str) -> bool:
+    return _text(raw.get(key)) == "1"
+
+
+def _result_basis(raw: dict[str, Any], status: MatchStatus, home: int | None, away: int | None) -> str | None:
+    """En qué se apoya el marcador (`domain.match_result`), solo con indicadores explícitos de la RFFM; None = partido normal.
+
+    Precedencia: retirada (también sin marcador: el partido no se disputará) > resolución > aplazado/suspendido/anulado (lo dice el
+    estado) > en juego o provisional > marcador con acta sin cerrar. Un partido `finished` sin indicadores no lleva base."""
+    if _flag(raw, "Retirado_local"):
+        return WITHDRAWAL_HOME
+    if _flag(raw, "Retirado_visitante"):
+        return WITHDRAWAL_AWAY
+    if home is None or away is None:
+        return None
+    if "resoluc" in fold(_text(raw.get("motivo_estado"))):
+        return RESOLUTION
+    if status in ("postponed", "suspended", "cancelled"):
+        return None
+    if _flag(raw, "partido_en_juego") or _flag(raw, "ResultadoProvisional"):
+        return PROVISIONAL
+    if status != "finished":
+        return UNCONFIRMED
+    return None
+
+
 def _match(raw: dict[str, Any], source_url: str) -> Match:
     home, away = _int(raw.get("Goles_casa")), _int(raw.get("Goles_visitante"))
+    status = _status(raw, home, away)
     status_raw = ";".join(
         f"{k}={_text(raw.get(k)) or ''}" for k in ("estado", "situacion_juego", "motivo_estado")
     )
@@ -101,8 +137,9 @@ def _match(raw: dict[str, Any], source_url: str) -> Match:
         away_team_external_id=_text(raw.get("CodEquipo_visitante")),
         home_score=home,
         away_score=away,
-        status=_status(raw, home, away),
+        status=status,
         status_raw=status_raw,
+        result_basis=_result_basis(raw, status, home, away),
         scheduled_date=_date(raw.get("fecha")),
         scheduled_time=_time(raw.get("hora")),
         timezone=TIMEZONE,

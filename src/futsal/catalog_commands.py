@@ -24,7 +24,7 @@ from futsal.ingestion.rffm.update_policy import UpdatePolicy
 CATALOG_DIR = Path("data/rffm/catalog")
 NETWORK_ENV = "FUTSAL_RFFM_NETWORK_AUTHORIZED"
 COMMANDS = ("discover-catalog", "scrape-catalog", "import-catalog", "verify-catalog", "catalog-backfill",
-            "discover-catalog-v2", "crest-backfill", "crest-download")
+            "discover-catalog-v2", "crest-backfill", "crest-download", "backfill-result-basis")
 
 
 def add_parsers(sub: "argparse._SubParsersAction[argparse.ArgumentParser]") -> None:
@@ -61,6 +61,11 @@ def add_parsers(sub: "argparse._SubParsersAction[argparse.ArgumentParser]") -> N
     p.add_argument("--dry-run", action="store_true")
     common(sub.add_parser("verify-catalog", help="compara lo descargado con PostgreSQL (solo lectura)"), network=False)
     p = sub.add_parser("crest-backfill", help="rutas de escudos en teams.crest_url desde las instantáneas ya descargadas (sin red)")
+    p.add_argument("--dir", default="data", help="carpeta con instantáneas .html/.json de la RFFM (se recorre entera)")
+    p.add_argument("--dry-run", action="store_true", help="calcula los cambios sin guardarlos")
+    p = sub.add_parser("backfill-result-basis",
+                       help="base del resultado (retirados, resolución, provisional…) y estado de partidos ya guardados, desde las "
+                            "instantáneas ya descargadas (sin red)")
     p.add_argument("--dir", default="data", help="carpeta con instantáneas .html/.json de la RFFM (se recorre entera)")
     p.add_argument("--dry-run", action="store_true", help="calcula los cambios sin guardarlos")
     p = sub.add_parser("crest-download", help="descarga y normaliza (WebP 96 px) los escudos de teams.crest_url a una carpeta local")
@@ -165,6 +170,16 @@ def run(args: argparse.Namespace) -> int:
             from futsal.importer.crest_backfill import run_crest_backfill
 
             print(json.dumps(run_crest_backfill(make_engine(), Path(args.dir), dry_run=args.dry_run), sort_keys=True))
+            return 0
+        except Exception as exc:  # noqa: BLE001 - la CLI informa en una línea sin traza
+            print(f"Error: {str(exc).splitlines()[0] if str(exc) else type(exc).__name__}")
+            return 2
+    if args.command == "backfill-result-basis":
+        try:
+            from futsal.db.session import make_engine
+            from futsal.importer.result_basis_backfill import run_result_basis_backfill
+
+            print(json.dumps(run_result_basis_backfill(make_engine(), Path(args.dir), dry_run=args.dry_run), sort_keys=True))
             return 0
         except Exception as exc:  # noqa: BLE001 - la CLI informa en una línea sin traza
             print(f"Error: {str(exc).splitlines()[0] if str(exc) else type(exc).__name__}")

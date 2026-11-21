@@ -47,7 +47,7 @@ export interface TimelineVisual {
 }
 export interface MatchesVisual {
   type: "matches"; title: string; subtitle?: string | null; total: number; partial: boolean;
-  rows: { round: number | null; date: string | null; home: string; away: string; score: string | null; status: string; past_due: boolean; detail?: string | null }[];
+  rows: { round: number | null; date: string | null; home: string; away: string; score: string | null; status: string; past_due: boolean; detail?: string | null; basis?: string | null }[];
 }
 
 export type CardKind = "yellow" | "second_yellow" | "red" | "unknown";

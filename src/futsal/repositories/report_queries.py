@@ -28,6 +28,7 @@ from futsal.db.models import (
     Team,
 )
 from futsal.domain.cards import CARDS_NOTE, card_kind, summarize
+from futsal.domain.match_result import annotation
 
 SECTIONS = ("officials", "goals", "cards", "players", "staff", "substitutions")
 GOAL_TYPES = ("goal", "own_goal")  # las sustituciones (0010) no son goles: nunca cuentan en marcadores ni goleadores
@@ -119,7 +120,8 @@ def _match_header(db: Session, match_id: int) -> tuple[Match, dict[str, Any]]:
         raise NotFound(f"partido {match_id} no encontrado")
     m, h, a, n = row
     return m, {"match_id": m.id, "round_number": n, "home_team": h, "away_team": a,
-               "status": m.status, "home_score": m.home_score, "away_score": m.away_score}
+               "status": m.status, "home_score": m.home_score, "away_score": m.away_score,
+               **annotation(m.status, m.result_basis, m.home_score is not None, h, a)}
 
 
 def match_report(db: Session, match_id: int, sections: tuple[str, ...] = DEFAULT_SECTIONS) -> dict[str, Any]:

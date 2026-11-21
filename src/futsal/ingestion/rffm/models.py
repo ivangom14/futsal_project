@@ -18,6 +18,7 @@ class Match(BaseModel):
     away_score: int | None
     status: MatchStatus
     status_raw: str | None
+    result_basis: str | None = None  # base del marcador (domain.match_result); None = partido normal
     scheduled_date: date | None
     scheduled_time: time | None
     timezone: str

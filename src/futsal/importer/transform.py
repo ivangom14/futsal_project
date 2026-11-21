@@ -7,6 +7,7 @@ from datetime import UTC, date, datetime, time
 from typing import Any
 from zoneinfo import ZoneInfo
 
+from futsal.domain.match_result import RESULT_BASES
 from futsal.importer.schema import LeagueFile
 
 SOURCE = "rffm"
@@ -53,6 +54,8 @@ class MatchRec:
     away_score: int | None
     source_url: str
     content_hash: str
+    result_basis: str | None = None  # Fase 3E: base del marcador (domain.match_result)
+    basis_known: bool = True  # False = el fichero no trae el campo (anterior a la 3E): se conserva la base guardada
 
 
 @dataclass
@@ -71,15 +74,18 @@ class ImportPlan:
 
 
 def content_hash(status: str, scheduled_date: date | None, scheduled_time: time | None,
-                 home_score: int | None, away_score: int | None) -> str:
-    """Hash estable del estado observable; sin timestamps de ejecución."""
-    payload = {
+                 home_score: int | None, away_score: int | None, result_basis: str | None = None) -> str:
+    """Hash estable del estado observable; sin timestamps de ejecución. `result_basis` solo entra si existe: un partido normal
+    conserva exactamente su hash anterior a la Fase 3E y reimportarlo no crea observaciones."""
+    payload: dict[str, Any] = {
         "status": status,
         "date": scheduled_date.isoformat() if scheduled_date else None,
         "time": scheduled_time.isoformat() if scheduled_time else None,
         "home_score": home_score,
         "away_score": away_score,
     }
+    if result_basis is not None:
+        payload["result_basis"] = result_basis
     return hashlib.sha256(json.dumps(payload, sort_keys=True).encode()).hexdigest()
 
 
@@ -130,6 +136,8 @@ def build_plan(league: LeagueFile) -> ImportPlan:
             problem, code = "marcador parcial", "partial_score"
         elif m.status not in VALID_STATUS:
             problem, code = f"estado desconocido '{m.status}'", "invalid_status"
+        elif m.result_basis is not None and m.result_basis not in RESULT_BASES:
+            problem, code = f"base del resultado desconocida '{m.result_basis}'", "invalid_result_basis"
         if problem or not mid or not m.home_team_external_id or not m.away_team_external_id:
             plan.issues.append(Issue(code, "match", mid, problem or "partido inválido"))
             continue
@@ -144,7 +152,8 @@ def build_plan(league: LeagueFile) -> ImportPlan:
             m.scheduled_date, m.scheduled_time,
             _scheduled_at(m.scheduled_date, m.scheduled_time, m.timezone),
             m.timezone, m.venue, m.status, m.home_score, m.away_score, m.source_url,
-            content_hash(m.status, m.scheduled_date, m.scheduled_time, m.home_score, m.away_score),
+            content_hash(m.status, m.scheduled_date, m.scheduled_time, m.home_score, m.away_score, m.result_basis),
+            m.result_basis, "result_basis" in m.model_fields_set,
         ))
     for r in league.rounds:
         got = per_round.get(r.external_round_id, 0)

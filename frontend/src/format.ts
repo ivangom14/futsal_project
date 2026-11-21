@@ -67,6 +67,24 @@ export function matchStatus(status: string | null | undefined): { label: string;
   return MATCH_STATUS[(status ?? "").trim().toLowerCase()] ?? { label: "Sin confirmar", tone: "neutral" };
 }
 
+/** Base del marcador (`result_basis` de la API): un marcador que NO es el de un partido disputado con acta cerrada. */
+const RESULT_BASIS: Record<string, string> = {
+  withdrawal_home: "Resultado administrativo: el local se ha retirado · no se disputa",
+  withdrawal_away: "Resultado administrativo: el visitante se ha retirado · no se disputa",
+  resolution: "Resultado por resolución de la RFFM · no consta que se disputara",
+  provisional: "Marcador provisional · no es el resultado final",
+  unconfirmed: "Acta sin cerrar · resultado no confirmado por la RFFM",
+  suspended: "Partido suspendido · el marcador no es un resultado final",
+  postponed: "Partido aplazado",
+  cancelled: "Partido anulado",
+};
+
+/** Texto de la base del marcador; `null` para un partido normal (sin base). */
+export function resultBasisLabel(basis: string | null | undefined): string | null {
+  if (!basis) return null;
+  return RESULT_BASIS[basis.trim().toLowerCase()] ?? "Resultado no confirmado por la RFFM";
+}
+
 /** Día (instante y zona en la que leerlo) de un dato de fecha; misma interpretación que `formatKickoff`. */
 function kickoffDay(iso: string | null | undefined): { when: Date; tz: string } | null {
   if (!iso) return null;

@@ -7,7 +7,7 @@ from typing import Annotated, Any
 from fastapi import Depends, FastAPI, HTTPException, Query, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
-from sqlalchemy import Engine, func, select, text
+from sqlalchemy import Engine, func, or_, select, text
 from sqlalchemy.orm import Session, aliased
 
 from futsal.api.freshness import freshness_router
@@ -35,6 +35,7 @@ from futsal.db.models import (
     Team,
 )
 from futsal.db.session import make_engine
+from futsal.domain.match_result import WITHDRAWALS, annotation
 from futsal.domain.sports import ALL
 from futsal.importer.crest_index import crests_dir, load_index
 
@@ -76,10 +77,11 @@ def mark_past_due(rows: list[dict[str, Any]], today: date) -> None:
 
 def _match_dict(m: Match, home: str | None, away: str | None, number: int | None,
                 has_report: bool | None = None) -> dict[str, Any]:
-    data = {"id": m.id, "group_id": m.group_id, "round_id": m.round_id, "round_number": number,
+    data: dict[str, Any] = {"id": m.id, "group_id": m.group_id, "round_id": m.round_id, "round_number": number,
             "home_team_id": m.home_team_id, "away_team_id": m.away_team_id,
             "home_team": home, "away_team": away, "date": _iso(m.scheduled_at) or _iso(m.scheduled_date),
             "status": m.status, "home_score": m.home_score, "away_score": m.away_score}
+    data.update(annotation(m.status, m.result_basis, m.home_score is not None, home, away))  # Fase 3E: solo partidos especiales
     if has_report is not None:
         data["has_report"] = has_report
     return data
@@ -207,6 +209,8 @@ def create_app(engine: Engine | None = None, today: Callable[[], date] = date.to
             stmt = stmt.where(Match.round_id == round_id)
         if status is not None:
             stmt = stmt.where(Match.status == status)
+        if status == "scheduled":  # un partido con un equipo retirado no se disputará: nunca es el «próximo partido» (Fase 3E)
+            stmt = stmt.where(or_(Match.result_basis.is_(None), Match.result_basis.not_in(WITHDRAWALS)))
         if team_id is not None:
             stmt = stmt.where((Match.home_team_id == team_id) | (Match.away_team_id == team_id))
         if has_report is not None:
@@ -237,7 +241,8 @@ def create_app(engine: Engine | None = None, today: Callable[[], date] = date.to
                     observations=[
                         {"observed_at": _iso(o.observed_at), "status": o.status,
                          "home_score": o.home_score, "away_score": o.away_score,
-                         "date": _iso(o.scheduled_at) or _iso(o.scheduled_date)} for o in obs])
+                         "date": _iso(o.scheduled_at) or _iso(o.scheduled_date),
+                         **({"result_basis": o.result_basis} if o.result_basis else {})} for o in obs])
         return data
 
     app.include_router(reports_router(get_session))

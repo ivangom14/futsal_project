@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { ChevronDown, TriangleAlert } from "lucide-react";
-import { dayHeading, formatKickoff, kickoffLabel, matchStatus, parseScore, type MatchTone } from "../format";
+import { dayHeading, formatKickoff, kickoffLabel, matchStatus, parseScore, resultBasisLabel, type MatchTone } from "../format";
 import TeamCrest from "../ui/TeamCrest";
 import Panel, { PanelAction, PanelNote } from "../ui/Panel";
 import type { MatchesVisual } from "../types";
@@ -44,7 +44,8 @@ function srLine(m: Row, showDate: boolean): string {
   const when = showDate ? kickoffLabel(m.date) : (k?.time ?? "hora sin confirmar");
   const s = parseScore(m.score);
   const teams = s ? `${m.home} ${s[0]}, ${m.away} ${s[1]}` : m.score ? `${m.home} contra ${m.away}, ${m.score}` : `${m.home} contra ${m.away}`;
-  return `${when}. ${teams}. ${matchStatus(m.status).label}${m.detail ? `. ${m.detail}` : ""}.`;
+  const basis = resultBasisLabel(m.basis);
+  return `${when}. ${teams}. ${matchStatus(m.status).label}${basis ? `. ${basis}` : ""}${m.detail ? `. ${m.detail}` : ""}.`;
 }
 
 function Team({ name, goals, win, lose }: { name: string; goals?: number; win: boolean; lose: boolean }) {
@@ -66,8 +67,10 @@ function MatchRow({ m, showDate, showRound, showComp }: { m: Row; showDate: bool
   const s = parseScore(m.score);
   const st = matchStatus(m.status);
   const [hg, ag] = s ?? [undefined, undefined];
-  const homeWin = s ? s[0] > s[1] : false;
-  const awayWin = s ? s[1] > s[0] : false;
+  const basis = resultBasisLabel(m.basis);
+  // un marcador administrativo, provisional o sin confirmar no tiene «ganador» que resaltar: no consta que se disputara
+  const homeWin = s && !basis ? s[0] > s[1] : false;
+  const awayWin = s && !basis ? s[1] > s[0] : false;
   return (
     <li className="match" data-testid="match-row">
       <span className="sr-only">{srLine(m, showDate)}</span>
@@ -89,6 +92,11 @@ function MatchRow({ m, showDate, showRound, showComp }: { m: Row; showDate: bool
         </div>
         {m.score && !s && <span className="match-raw font-display font-bold tabular-nums" data-testid="match-score">{m.score}</span>}
       </div>
+      {basis && (
+        <p className="match-note flex items-center gap-1 text-xs text-warning" data-testid="match-basis">
+          <TriangleAlert size={13} aria-hidden="true" className="shrink-0" /> {basis}
+        </p>
+      )}
       {m.past_due && (
         <p className="match-note flex items-center gap-1 text-xs text-warning">
           <TriangleAlert size={13} aria-hidden="true" className="shrink-0" /> La fecha ya pasó y sigue como programado: el dato puede estar desactualizado.

@@ -40,6 +40,7 @@ from futsal.db.models import (
 )
 from futsal.db.table_models import ScorerRow, ScorerSnapshot, StandingsRow, StandingsSnapshot
 from futsal.domain.competitions import classify
+from futsal.domain.match_result import LISTING_NOTE, annotation
 from futsal.domain.names import club_base_tokens, norm_name, squad_of, tokens_of
 from futsal.domain.sports import SportError, parse_scope
 from futsal.repositories.report_queries import latest
@@ -635,6 +636,7 @@ def matches(db: Session, scope: Scope, *, date_from: date | None, date_to: date 
     home, away = aliased(Team), aliased(Team)
     has_report = select(MatchReport.id).where(MatchReport.match_id == Match.id).exists()
     stmt = (select(Match.id, Match.scheduled_at, Match.scheduled_date, Match.venue, Match.status, Match.home_score, Match.away_score,
+                   Match.result_basis,
                    Match.home_team_id, Match.away_team_id, home.name.label("home"), away.name.label("away"), Round.visible_number,
                    Competition.id.label("comp_id"), Competition.name.label("comp_name"), CompetitionGroup.id.label("group_id"),
                    CompetitionGroup.name.label("group_name"), has_report.label("has_report"), func.count().over().label("total"))
@@ -675,6 +677,7 @@ def matches(db: Session, scope: Scope, *, date_from: date | None, date_to: date 
                 row["score"] = compact_score(r.home_score, r.away_score)
             if r.status != "scheduled" or r.home_score is not None:
                 row["status"] = r.status
+            row.update(annotation(r.status, r.result_basis, r.home_score is not None, compact=True))  # Fase 3E
             if venue:
                 row["venue"] = r.venue
             items.append(row)
@@ -684,8 +687,11 @@ def matches(db: Session, scope: Scope, *, date_from: date | None, date_to: date 
             "competition": ref_obj("comp", r.comp_id, r.comp_name), "group": ref_obj("group", r.group_id, r.group_name),
             "home": ref_obj("team", r.home_team_id, r.home), "away": ref_obj("team", r.away_team_id, r.away),
             "score": {"home": r.home_score, "away": r.away_score} if r.home_score is not None else None,
-            "status": r.status, "has_report": bool(r.has_report), "venue": r.venue})
+            "status": r.status, "has_report": bool(r.has_report), "venue": r.venue,
+            **annotation(r.status, r.result_basis, r.home_score is not None, r.home, r.away)})
     fresh = matches_freshness(db, match_ids=[r.id for r in rows], group_ids=list({r.group_id for r in rows}))
+    if any(annotation(r.status, r.result_basis, r.home_score is not None) for r in rows):
+        notes.append(LISTING_NOTE)  # una vez por respuesta, solo si hay partidos especiales en la página
     if compact:
         notes.append("filas compactas: sin hora = fecha sin hora confirmada; sin status = programado")
     return envelope(items, total, notes, fresh, scope, offset=offset)
@@ -813,7 +819,7 @@ def clubs_results(db: Session, scope: Scope, name: str, limit: int) -> dict[str,
     home, away = aliased(Team), aliased(Team)
     rows = db.execute(
         select(Match.id, Match.scheduled_at, Match.scheduled_date, Match.home_team_id, Match.away_team_id, Match.home_score,
-               Match.away_score, home.name.label("home"), away.name.label("away"), Round.visible_number)
+               Match.away_score, Match.result_basis, home.name.label("home"), away.name.label("away"), Round.visible_number)
         .select_from(Match).join(Round, Round.id == Match.round_id).join(home, home.id == Match.home_team_id)
         .join(away, away.id == Match.away_team_id)
         .where(Match.status == "finished", Match.home_score.is_not(None), or_(Match.home_team_id.in_(ids), Match.away_team_id.in_(ids)))
@@ -836,7 +842,8 @@ def clubs_results(db: Session, scope: Scope, name: str, limit: int) -> dict[str,
             day, hour, _ = _local_parts(r.scheduled_at, r.scheduled_date)
             results.append({"match": ref("match", r.id), "date": day, "time": hour, "round": r.visible_number, "home": r.home, "away": r.away,
                             "score": {"home": r.home_score, "away": r.away_score}, "venue_side": "home" if is_home else "away",
-                            "result": {"won": "G", "drawn": "E", "lost": "P"}[outcome]})
+                            "result": {"won": "G", "drawn": "E", "lost": "P"}[outcome],
+                            **annotation("finished", r.result_basis, True, r.home, r.away)})  # resultado oficial administrativo
         truncated = truncated or len(results) > MAX_TEAM_RESULTS
         items.append({"club": _club_header(g, len(groups) > 1), "team": ref_obj("team", t.id, t.name),
                       "competition": ref_obj("comp", t.comp.id, t.comp.name), "group": ref_obj("group", t.group_id, t.group_name),

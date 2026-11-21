@@ -380,7 +380,7 @@ def build_round_league(payload: dict[str, Any], result: Any, target: dict[str, A
             away_team_external_id=m.away_team_external_id, away_team_name=m.away_team_name,
             home_score=m.home_score, away_score=m.away_score, status=m.status, scheduled_date=m.scheduled_date,
             scheduled_time=None if m.scheduled_time == time(0, 0) else m.scheduled_time, timezone=m.timezone, venue=m.venue,
-            source_url=url))
+            source_url=url, result_basis=m.result_basis))
     return LeagueFile(source="rffm", season=NamedExt(external_id=str(target["season"]), name=season_name),
                       competition=NamedExt(external_id=str(target["competition"]), name=comp_name),
                       group=NamedExt(external_id=str(target["group"]), name=group_name),

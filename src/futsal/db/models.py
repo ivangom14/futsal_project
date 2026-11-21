@@ -36,6 +36,10 @@ NAMING = {
 }
 
 
+
+RESULT_BASIS_CHECK = ("result_basis IS NULL OR result_basis IN "
+                      "('withdrawal_home','withdrawal_away','resolution','provisional','unconfirmed')")
+
 class Base(DeclarativeBase):
     metadata = MetaData(naming_convention=NAMING)
 
@@ -233,6 +237,7 @@ class Match(Tracked, Base):
         CheckConstraint(
             "status IN ('scheduled','finished','postponed','suspended','cancelled','unknown')",
             name="status_valid"),
+        CheckConstraint(RESULT_BASIS_CHECK, name="result_basis_valid"),
         Index("ix_matches_round_id", "round_id"),
         Index("ix_matches_home_team_id", "home_team_id"),
         Index("ix_matches_away_team_id", "away_team_id"),
@@ -250,6 +255,8 @@ class Match(Tracked, Base):
     status: Mapped[str] = mapped_column(String(16))
     home_score: Mapped[int | None] = mapped_column(Integer)
     away_score: Mapped[int | None] = mapped_column(Integer)
+    # Fase 3E (migración 0011): base del marcador si no es la de un partido disputado con acta cerrada (domain.match_result)
+    result_basis: Mapped[str | None] = mapped_column(String(16))
 
 
 class IngestionRun(Base):
@@ -279,6 +286,7 @@ class MatchObservation(Base):
     __tablename__ = "match_observations"
     __table_args__ = (
         CheckConstraint("(home_score IS NULL) = (away_score IS NULL)", name="score_pair"),
+        CheckConstraint(RESULT_BASIS_CHECK, name="result_basis_valid"),
         Index("ix_match_observations_match_id_observed_at", "match_id", "observed_at"),
     )
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
@@ -292,6 +300,7 @@ class MatchObservation(Base):
     scheduled_time: Mapped[time | None] = mapped_column(Time)
     scheduled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     content_hash: Mapped[str] = mapped_column(String(64))
+    result_basis: Mapped[str | None] = mapped_column(String(16))
 
 
 class DataQualityIssue(Base):

@@ -233,6 +233,8 @@ def import_plan(session: Session, plan: ImportPlan, run_id: int, now: datetime,
             continue
         acta = _closed_acta_score(session, m.external_id) if m.status == "finished" else None
         home_score, away_score = acta if acta else (m.home_score, m.away_score)
+        basis = m.result_basis if m.basis_known else session.scalar(  # fichero sin el campo: nunca borra una base guardada
+            select(Match.result_basis).where(Match.source == SOURCE, Match.external_id == m.external_id))
         row = _upsert(
             session, Match, {"external_id": m.external_id},
             {"group_id": group.id, "round_id": rounds[m.round_external_id],
@@ -240,11 +242,11 @@ def import_plan(session: Session, plan: ImportPlan, run_id: int, now: datetime,
              "scheduled_date": m.scheduled_date, "scheduled_time": m.scheduled_time,
              "scheduled_at": m.scheduled_at, "timezone": m.timezone, "venue": m.venue,
              "status": m.status, "home_score": home_score, "away_score": away_score,
-             "source_url": m.source_url},
+             "source_url": m.source_url, "result_basis": basis},
             now, stats, "matches")
-        digest = (content_hash(m.status, m.scheduled_date, m.scheduled_time, home_score, away_score)
-                  if acta else m.content_hash)
-        _observe(session, row.id, m, run_id, now, stats, home_score, away_score, digest)
+        digest = (content_hash(m.status, m.scheduled_date, m.scheduled_time, home_score, away_score, basis)
+                  if acta or basis != m.result_basis else m.content_hash)
+        _observe(session, row.id, m, run_id, now, stats, home_score, away_score, digest, basis)
     return stats
 
 
@@ -263,7 +265,7 @@ def _closed_acta_score(session: Session, match_external_id: str) -> tuple[int, i
 
 
 def _observe(session: Session, match_id: int, m: MatchRec, run_id: int, now: datetime,
-             stats: Stats, home_score: int | None, away_score: int | None, digest: str) -> None:
+             stats: Stats, home_score: int | None, away_score: int | None, digest: str, basis: str | None = None) -> None:
     last = session.scalars(
         select(MatchObservation.content_hash).where(MatchObservation.match_id == match_id)
         .order_by(MatchObservation.observed_at.desc(), MatchObservation.id.desc()).limit(1)
@@ -274,5 +276,5 @@ def _observe(session: Session, match_id: int, m: MatchRec, run_id: int, now: dat
         match_id=match_id, ingestion_run_id=run_id, observed_at=now, status=m.status,
         home_score=home_score, away_score=away_score, scheduled_date=m.scheduled_date,
         scheduled_time=m.scheduled_time, scheduled_at=m.scheduled_at,
-        content_hash=digest))
+        content_hash=digest, result_basis=basis))
     stats["observations"]["inserted"] += 1
