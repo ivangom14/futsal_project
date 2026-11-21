@@ -204,6 +204,27 @@ AMBIGUOUS_TEAM_MESSAGE = (
     "error_validacion: el nombre coincide con equipos de varios grupos y la pregunta no indica cuál; no se ha ejecutado. "
     "Pregunta al usuario a qué competición y grupo se refiere en lugar de elegir uno."
 )
+GROUPS_PAGE = 12  # grupos por página en «¿qué grupos tiene X?» (Segunda Aficionado tiene 22); el total se dice siempre
+
+
+def group_sort_key(name: str) -> tuple[int, str]:
+    """«Grupo 2» antes que «Grupo 10»; los nombres sin número, detrás y por orden alfabético."""
+    m = re.search(r"(\d+)\s*$", name)
+    return (int(m.group(1)) if m else 10**6, name)
+
+
+def groups_text(competition: str, names: Sequence[str], shown: Sequence[str], assumption: str | None = None) -> str:
+    """Respuesta de «¿qué grupos tiene X?» / «¿cuántos grupos hay?»: el número, los grupos (o la primera página) y cómo seguir."""
+    n = len(names)
+    head = (f"{assumption} " if assumption else "") + f"{competition} tiene {n} grupo{'s' if n != 1 else ''}"
+    if n == 1:
+        return f"{head}: {names[0]}."
+    if len(shown) < n:
+        return (f"{head}. Estos son los {len(shown)} primeros: {', '.join(shown)}. Si quieres verlos todos, pídeme «todos los grupos»; "
+                "también puedo darte la clasificación de cualquiera de ellos.")
+    return f"{head}: {', '.join(shown)}. Puedo darte la clasificación o los partidos de cualquiera de ellos."
+
+
 VISUAL_TOOLS = frozenset({"get_match_report", "get_standings", "get_scorer_table", "list_matches", "list_match_events", *v2paging.LIST_TOOLS})
 TEAM_ARGS = ("team_id", "against_team_id")
 TEAM_HINT = "Obtén el equipo con find_teams (por nombre) y usa su id."
@@ -800,6 +821,41 @@ class Agent:
             + " · sin LLM")
         return True
 
+    async def _groups_list(self, question: str, result: AgentResult, rec: RunRecord, log: Callable[[str], None]) -> bool:
+        """Intención `groups_list` con UNA competición resuelta (en el deporte activo): `list_groups` por el MCP y respuesta compuesta,
+        sin LLM ni clasificaciones. Páginas de GROUPS_PAGE con el total siempre a la vista; «todos» los muestra todos. Cualquier otro
+        caso (competición ambigua o desconocida, sin catálogo, fallo de la herramienta): False y sigue el flujo de siempre."""
+        und = self._und
+        if und is None or und.intent != "groups_list" or und.status not in ("act", "assume") or len(und.competitions) != 1:
+            return False
+        comp = next((c for c in self._competitions if c.name == und.competitions[0]), None)
+        if comp is None:
+            return False
+        args = {"competition_id": comp.id}
+        t0 = time.perf_counter()
+        is_error, text = await self._call("list_groups", args)
+        try:
+            body = json.loads(text) if not is_error else {}
+            items = [g for g in (body.get("groups") or body.get("items") or []) if isinstance(g, dict)]  # MCP: `groups`; API: `items`
+        except (ValueError, AttributeError):
+            items = []
+        rec.tool_calls.append(ToolCallRecord(len(rec.tool_calls) + 1, 0, "list_groups", dict(args), _ms(t0), is_error, len(text), len(text),
+                                             redact(summarize(is_error, text)), False, text if self._trace_results else None,
+                                             via="groups_list"))
+        result.tool_calls += 1
+        if not items:
+            return False  # sin datos fiables: el flujo normal decide (nunca se inventa la lista)
+        names = sorted((str(g.get("name") or "") for g in items), key=group_sort_key)
+        show_all = bool(re.search(r"\btod[oa]s\b", normalize(question)))
+        shown = names if show_all or len(names) <= GROUPS_PAGE else names[:GROUPS_PAGE]
+        result.answer = groups_text(comp.name, names, shown, und.assumption)
+        ctx = rec.context if rec.context is not None else {}
+        ctx["groups_list"] = {"competition": comp.name, "competition_id": comp.id, "total": len(names), "groups": shown,
+                              "partial": len(shown) < len(names)}
+        rec.context = ctx
+        log(f"GRUPOS\n→ {comp.name}: {len(names)} grupos (list_groups), {len(shown)} mostrados · sin LLM")
+        return True
+
     def _visual_note(self, call: ToolCall, text: str) -> str:
         """Si la aplicación va a dibujar estos datos, el resultado lo dice (para que el modelo no los repita en texto)."""
         try:
@@ -990,6 +1046,8 @@ class Agent:
         empty_retry = False
         limit_final = False
         log(f"USER\n{question}" + (f"\n→ interpretada como: {effective}" if merged else ""))
+        if await self._groups_list(effective, result, rec, log):  # «¿qué grupos tiene X?»: list_groups y respuesta compuesta, sin LLM
+            return
         if self._nir is not None and self._nir.alone:  # v2: dato que el acta de la RFFM no recoge → fórmula fija, sin herramientas ni LLM
             result.answer = v2nir.answer(self._nir)
             self._v2_trace(rec)["not_in_report"] = self._nir.kind

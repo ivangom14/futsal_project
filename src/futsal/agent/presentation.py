@@ -436,6 +436,12 @@ def build_visuals(question: str, rec: RunRecord, official: list[dict[str, Any]],
                   focus: dict[str, str] | None = None, groups_used: dict[int, dict[str, str]] | None = None,
                   sport: str | None = None) -> list[dict[str, Any]]:
     visuals: list[dict[str, Any]] = lineup_visuals(question, rec, focus or {}, sport)
+    groups = (rec.context or {}).get("groups_list") if isinstance(rec.context, dict) else None
+    if isinstance(groups, dict) and groups.get("groups"):  # «¿qué grupos tiene X?» (Fase 3E): tabla existente, una fila por grupo
+        total, shown = int(groups.get("total") or 0), list(groups["groups"])
+        visuals.append({"type": "table", "title": f"Grupos · {groups.get('competition')}", "partial": bool(groups.get("partial")),
+                        "subtitle": f"Mostrando 1–{len(shown)} de {total}" if len(shown) < total else f"{total} grupo{'s' if total != 1 else ''}",
+                        "columns": [{"key": "group", "label": "Grupo", "align": "left"}], "rows": [{"group": g} for g in shown]})
     for data in official:
         where = " · ".join(x for x in (data.get("competition"), data.get("group")) if x)
         src = data.get("source") or {}
@@ -533,6 +539,11 @@ def build_suggestions(question: str, answer: str, rec: RunRecord, focus: dict[st
         return [more]
     team, player, group = focus.get("team"), focus.get("player"), focus.get("group")
     names_used = {t.name for t in calls}
+    groups = (rec.context or {}).get("groups_list") if isinstance(rec.context, dict) else None
+    if isinstance(groups, dict) and groups.get("groups"):  # chips: seguir con un grupo concreto o ver la lista completa
+        comp, first = str(groups.get("competition")), str(groups["groups"][0])
+        chips = [f"¿Quién lidera el {first} de {comp}?", f"¿Qué partidos hay este fin de semana en el {first} de {comp}?"]
+        return ([f"Muéstrame todos los grupos de {comp}"] if groups.get("partial") else []) + chips[:2]
     scheduled = any(t.arguments.get("status") == "scheduled" for t in calls if t.name == "list_matches")
     finished = any(t.arguments.get("status") == "finished" for t in calls if t.name == "list_matches")
     cands: list[str] = []

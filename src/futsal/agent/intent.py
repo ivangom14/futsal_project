@@ -10,10 +10,11 @@ from dataclasses import dataclass
 
 from futsal.agent.criteria import mentions_rules, norm
 
-INTENTS = ("standings", "last_result", "next_match", "matches", "scorers", "teams_list", "stats", "rules")
+INTENTS = ("standings", "last_result", "next_match", "matches", "scorers", "teams_list", "groups_list", "stats", "rules")
 LABEL = {"standings": "clasificación (get_standings)", "last_result": "último resultado (list_matches status=finished, order=desc, limit=1)",
          "next_match": "próximo partido (list_matches status=scheduled, order=date_asc, limit=1)", "matches": "partidos (list_matches)",
          "scorers": "goleadores (get_scorer_table)", "teams_list": "equipos del grupo (list_teams)",
+         "groups_list": "grupos de la competición (list_groups)",
          "stats": "estadística de la clasificación (get_standings: ganados, perdidos, goles…)", "rules": "reglamento (search_rules)"}
 
 # (patrón sobre texto normalizado, peso). Raíces y combinaciones de verbo + objeto, no preguntas completas.
@@ -29,6 +30,11 @@ _FEATURES: dict[str, tuple[tuple[str, float], ...]] = {
     "scorers": ((r"\bgoleador\w*", 3), (r"\bpichichi\w*", 3), (r"\banotador\w*", 3), (r"\bgoles\b", 2), (r"\b(lleva|llevan|ha marcado|han marcado|marca|marcan)\b", 1), (r"\bmaximo\w* (anotador|goleador)\b", 1)),
     "teams_list": ((r"\bque equipos\b", 3), (r"\bequipos (hay|participan|forman|juegan|componen|tiene)\b", 3), (r"\blista de equipos\b", 3), (r"\bcuantos equipos\b", 3),
                     (r"\b(los )?equipos (de|del|en|que (hay|juegan|participan))\b", 3)),
+    # Fase 3E: «¿qué grupos tiene X?» pregunta por el CATÁLOGO (cuáles existen), nunca por un grupo: en plural y con verbo o
+    # cuantificador; «el grupo 3» / «en qué grupo juega» (singular) no la activan.
+    "groups_list": ((r"\b(que|cuales|cuantos) grupos\b", 4), (r"\bgrupos (hay|tiene|tienen|forman|componen|existen|son|juegan)\b", 4),
+                    (r"\b(lista|listado|relacion) de (los )?grupos\b", 4), (r"\b(dime|muestrame|ensename|ver|lista|listame) (todos )?(los|sus) grupos\b", 4),
+                    (r"\b(los|sus) grupos (de|del) (la |el |esta |este )?(competicion|liga|categoria|torneo)\b", 4)),
     "rules": ((r"\b(dura|duran|duracion|mitad|mitades|minutos|cronometro|sustitucion\w*|dimensiones|porteria|infraccion\w*|penalti|saque|reglamento|reglas?)\b", 3.0),
               (r"\b(tiempos? muertos?|fuera de juego|prorrogas?|barrera|(puede|pueden|se puede|se pueden) inscribir)\b", 3.0)),
     "stats": ((r"\bmas (partidos )?(ganados|ganado|perdidos|empatados|victorias|derrotas|empates)\b", 4), (r"\b(ha|han) (ganado|perdido|empatado) mas\b", 4),

@@ -286,4 +286,20 @@ for turns in [
     [T("Goleadores de la preferente senior grupo 1", act([PREF_A], "scorers", ["Grupo 1"])), T("¿Y la juvenil?", act([PREF_J], "scorers", assume=True))]]:
     M("validez_de_grupo", turns)
 
+# ---------------------------------------------------------------------------------------------------- Fase 3E: lista de grupos
+# «¿qué grupos tiene X?» responde los grupos que existen (list_groups) sin pedir que se elija uno ni consultar clasificaciones.
+for q, e in [
+    ("¿Qué grupos tiene PRIMERA AFICIONADO FS?", act([PRI_A], "groups_list")),
+    ("¿Cuántos grupos hay en PRIMERA JUVENIL FS?", act([PRI_J], "groups_list")),
+    ("Dime los grupos de TERCERA DIVISIÓN FS", act([TER], "groups_list")),
+    ("Muéstrame todos los grupos de PRIMERA AFICIONADO FS", act([PRI_A], "groups_list"))]:
+    S("lista_de_grupos", q, e)
+for turns in [
+    [T("Clasificación de PRIMERA AFICIONADO FS grupo 3", act([PRI_A], "standings", ["Grupo 3"])),
+     T("Muéstrame los grupos de esta competición", act([PRI_A], "groups_list")),
+     T("¿Y quién lidera el grupo 2?", act([PRI_A], "standings", ["Grupo 2"]))],
+    [T("¿Qué grupos tiene PRIMERA JUVENIL FS?", act([PRI_J], "groups_list")),
+     T("Clasificación del grupo 4", act([PRI_J], "standings", ["Grupo 4"]))]]:
+    M("lista_de_grupos", turns)
+
 ALL_COMPS = set(REAL)

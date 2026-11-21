@@ -76,6 +76,7 @@ class FakeMcp:
         self.calls: list[tuple[str, dict[str, Any]]] = []
 
     async def list_tools(self) -> list[dict[str, Any]]:
+        # las que se ofrecen al LLM (como antes); `list_groups` la ejecuta la aplicación sin ofrecerla («¿qué grupos tiene X?», Fase 3E)
         names = ("list_competitions", "find_teams", "list_teams", "list_rounds", "list_matches", "get_standings", "get_scorer_table", "search_rules")
         return [{"name": n, "description": n, "input_schema": {"type": "object", "properties": {}}} for n in names]
 
@@ -85,6 +86,12 @@ class FakeMcp:
             return False, _j({"competitions": [{"id": CID[n], "name": n, "groups": [{"id": GID[(n, g)], "name": g} for g in gs]} for n, gs in REAL.items()],
                               "count": len(REAL)})
         self.calls.append((name, dict(a)))
+        if name == "list_groups":
+            comp = next((n for n, i in CID.items() if i == a.get("competition_id")), None)
+            if comp is None:
+                return True, "error_not_found: competición desconocida"
+            return False, _j({"groups": [{"id": GID[(comp, g)], "name": g, "competition_id": CID[comp]} for g in REAL[comp]],
+                              "count": len(REAL[comp])})
         if name == "find_teams":
             key = norm(str(a.get("name", "")))
             rows = [{"id": tid, "name": n, "group_id": GID[w], "group": w[1], "competition_id": CID[w[0]], "competition": w[0]}
@@ -328,7 +335,8 @@ class SimLLM:
 # --------------------------------------------------------------------------------------------------------------------
 DATA_TOOLS = ("get_standings", "get_scorer_table", "list_matches", "list_teams", "list_rounds")
 TOOL_FOR = {"standings": "get_standings", "stats": "get_standings", "top": "get_standings", "bottom": "get_standings", "scorers": "get_scorer_table",
-            "last_result": "list_matches", "next_match": "list_matches", "matches": "list_matches", "teams_list": "list_teams", "rules": "search_rules"}
+            "last_result": "list_matches", "next_match": "list_matches", "matches": "list_matches", "teams_list": "list_teams", "rules": "search_rules",
+            "groups_list": "list_groups"}
 
 
 @dataclass
@@ -371,6 +379,14 @@ def judge(exp: dict[str, Any], run: TurnRun) -> dict[str, Any]:
     if action in ("act", "assume") and exp.get("intent") == "rules":
         flags["refusal_wrong"] = refusal
         ok = any(n == "search_rules" for n, _ in run.tools) and not data
+    elif action in ("act", "assume") and exp.get("intent") == "groups_list":
+        # «¿qué grupos tiene X?» (Fase 3E): list_groups de ESA competición, sin consultar datos de ningún grupo ni pedir que se elija uno
+        listed = {a.get("competition_id") for n, a in run.tools if n == "list_groups"}
+        flags["refusal_wrong"] = refusal
+        flags["unneeded_clarification"] = clar and not listed
+        flags["wrong_comp"] = bool(listed - {CID[c] for c in exp.get("comps") or []})
+        flags["critical"] = flags["wrong_comp"]
+        ok = listed == {CID[c] for c in exp.get("comps") or []} and not data and not refusal
     elif action in ("act", "assume"):
         want = _expected_groups(exp)
         tool = TOOL_FOR.get(exp.get("intent", ""), None)

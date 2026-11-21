@@ -401,6 +401,11 @@ class ContextEngine:
             u.trigger = "ambiguous_scope" if (has_history or state.competitions) else None
             u.competitions = []
             return u
+        if u.intent == "groups_list":
+            # «¿qué grupos tiene X?» pregunta cuáles existen: nunca se pide elegir un grupo (Fase 3E). La ambigüedad de COMPETICIÓN ya
+            # se ha resuelto arriba (varias familias = se pregunta la competición).
+            u.competitions, u.targets, u.group_names = [c.name for c in comps], [], []
+            return self._finish(u, how, state, has_history)
         targets, group_names, ask_group = self._targets(comps, p, state, how)
         u.competitions = [c.name for c in comps]
         if ask_group:
