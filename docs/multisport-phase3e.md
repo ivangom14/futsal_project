@@ -119,8 +119,13 @@ Partidos pasados del calendario oficial que faltan en la BD:
 - 0 incidencias de calidad nuevas.
 - 0 finalizados sin marcador.
 
-10 partidos de Segunda Aficionado con resultado administrativo 3-0/0-3 (algunos con fecha futura): se guardan tal cual, con estado
-`unknown`.
+73 partidos de F11 en estado `unknown` con marcador, tal cual la fuente (corrige la cifra provisional de «10», tomada a mitad
+de carga):
+- 48 de equipos retirados, incluidos los 12 con fecha futura.
+- 23 con acta sin cerrar.
+- 1 resolución RFFM y 1 «Suspensión Masiva».
+
+Revisión y propuesta en `docs/deploy-phase3e.md` §11.
 
 **Fútbol sala:** huella (recuentos y md5 de competiciones, grupos, equipos, partidos, actas, eventos, tablas) **idéntica**
 antes y después.
@@ -185,7 +190,7 @@ Circuito real:
 
 - La comprensión es determinista.
 - El modelo es simulado y obediente (`understanding_eval.SimLLM`).
-- Script: `circuit_check.py` del scratchpad.
+- Script de la sesión, no versionado: arranca la API y el MCP reales y recorre la batería de la tabla.
 
 | Consulta | Resultado |
 |---|---|
